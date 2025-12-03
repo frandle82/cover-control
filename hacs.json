@@ -1,0 +1,8 @@
+{
+  "name": "Cover Control",
+  "render_readme": true,
+  "homeassistant": "2024.10.0",
+  "content_in_root": false,
+  "country": ["DE", "US"],
+  "type": "integration"
+}
