@@ -1,0 +1,274 @@
+recalculate_targets:
+  name: Recalculate targets
+  description: Re-register sunrise and sunset callbacks for all configured covers.
+move_covers:
+  name: Move covers
+  description: Move all configured covers to either the open or close position immediately.
+  fields:
+    target:
+      name: Target position
+      description: Choose whether to open or close the configured covers.
+      required: true
+      selector:
+        select:
+          options:
+            - open
+            - close
+recalibrate_cover:
+  name: Recalibrate cover
+  description: Temporarily override a cover, use the standard open command to fully open it, then return it to its previous position and clear the override. Useful for recalibrating.
+  target:
+    entity:
+      domain: cover
+  fields:
+    covers:
+      name: Cover
+      description: The cover entity to recalibrate.
+      required: false
+      selector:
+        entity:
+          domain: cover
+    full_open_position:
+      name: Fully open position
+      description: Override for the fully open position; defaults to 100% if unspecified.
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: '%'
+change_switch_settings:
+  name: Update switch settings
+  description: Apply configuration values for an automation toggle switch.
+  fields:
+    entity_id:
+      name: Automation switch
+      description: Switch entity that represents the automation to update.
+      required: true
+      selector:
+        entity:
+          domain: switch
+    settings:
+      name: Settings
+      description: Optional key/value pairs to store with the switch's configuration category.
+      required: false
+      selector:
+        object:
+    time_up_early_workday:
+      name: Early workday open time
+      required: false
+      selector:
+        time: null
+    time_up_late_workday:
+      name: Late workday open time
+      required: false
+      selector:
+        time: null
+    time_down_early_workday:
+      name: Early workday close time
+      required: false
+      selector:
+        time: null
+    time_down_late_workday:
+      name: Late workday close time
+      required: false
+      selector:
+        time: null
+    time_up_early_non_workday:
+      name: Early non-workday open time
+      required: false
+      selector:
+        time: null
+    time_up_late_non_workday:
+      name: Late non-workday open time
+      required: false
+      selector:
+        time: null
+    time_down_early_non_workday:
+      name: Early non-workday close time
+      required: false
+      selector:
+        time: null
+    time_down_late_non_workday:
+      name: Late non-workday close time
+      required: false
+      selector:
+        time: null
+    ventilate_position:
+      name: Ventilation position
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: '%'
+    position_tolerance:
+      name: Position tolerance
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 100
+    shading_position:
+      name: Shading position
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 100
+          unit_of_measurement: '%'
+    shading_brightness_start:
+      name: Shading brightness start
+      required: false
+      selector:
+        number:
+          min: 0
+    shading_brightness_end:
+      name: Shading brightness end
+      required: false
+      selector:
+        number:
+          min: 0
+    shading_azimuth_start:
+      name: Shading azimuth start
+      required: false
+      selector:
+        number:
+          min: -360
+          max: 360
+    shading_azimuth_end:
+      name: Shading azimuth end
+      required: false
+      selector:
+        number:
+          min: -360
+          max: 360
+    shading_elevation_min:
+      name: Shading elevation min
+      required: false
+      selector:
+        number:
+          min: -90
+          max: 90
+    shading_elevation_max:
+      name: Shading elevation max
+      required: false
+      selector:
+        number:
+          min: -90
+          max: 90
+    brightness_sensor:
+      name: Brightness sensor
+      required: false
+      selector:
+        entity:
+          domain: sensor
+    brightness_open_above:
+      name: Brightness open above
+      required: false
+      selector:
+        number:
+          min: 0
+    brightness_close_below:
+      name: Brightness close below
+      required: false
+      selector:
+        number:
+          min: 0
+    sun_elevation_open:
+      name: Sun elevation open
+      required: false
+      selector:
+        number:
+          min: -90
+          max: 90
+    sun_elevation_close:
+      name: Sun elevation close
+      required: false
+      selector:
+        number:
+          min: -90
+          max: 90
+    open_position:
+      name: Open position
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 100
+    close_position:
+      name: Close position
+      required: false
+      selector:
+        number:
+          min: 0
+          max: 100
+force_move:
+  name: Force immediate opening/closing
+  description: Move the selected cover immediately to the open or close position without further checks.
+  target:
+    entity:
+      domain: cover
+  fields:
+    covers:
+      name: Cover
+      description: The cover to control.
+      required: true
+      selector:
+        entity:
+          domain: cover
+    setting:
+      name: Action
+      description: Choose whether to open or close immediately.
+      required: true
+      selector:
+        select:
+          options:
+            - open
+            - close
+force_ventilation:
+  name: Force immediate ventilation
+  description: Start or stop ventilation mode without applying automation checks.
+  target:
+    entity:
+      domain: cover
+  fields:
+    covers:
+      name: Cover
+      description: The cover to control.
+      required: true
+      selector:
+        entity:
+          domain: cover
+    setting:
+      name: Action
+      description: Start or stop ventilation immediately.
+      required: true
+      selector:
+        select:
+          options:
+            - start
+            - stop
+force_shading:
+  name: Force activation/deactivation sun shading
+  description: Activate or deactivate sun shading immediately without running further checks.
+  target:
+    entity:
+      domain: cover
+  fields:
+    covers:
+      name: Cover
+      description: The cover to control.
+      required: true
+      selector:
+        entity:
+          domain: cover
+    setting:
+      name: Action
+      description: Activate or deactivate shading immediately.
+      required: true
+      selector:
+        select:
+          options:
+            - activate
+            - deactivate
