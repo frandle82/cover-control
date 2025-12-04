@@ -51,6 +51,7 @@ CONF_WINDOW_SENSORS = "window_sensors"
 CONF_WINDOW_SENSOR_FULL = "window_sensor_full_open"
 CONF_WINDOW_SENSOR_TILT = "window_sensor_tilt"
 
+CONF_ADDITIONAL_CONDITION_GLOBAL = "additional_condition_global"
 CONF_ADDITIONAL_CONDITION_OPEN = "additional_condition_open"
 CONF_ADDITIONAL_CONDITION_CLOSE = "additional_condition_close"
 CONF_ADDITIONAL_CONDITION_VENTILATE = "additional_condition_ventilate"
