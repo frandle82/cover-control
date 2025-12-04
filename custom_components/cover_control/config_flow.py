@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from datetime import date, datetime, time, timedelta
 from collections import OrderedDict
 from typing import Any
 
@@ -18,6 +19,7 @@ from .const import (
     CONF_AUTO_SUN,
     CONF_AUTO_VENTILATE,
     CONF_ADDITIONAL_CONDITION_CLOSE,
+    CONF_ADDITIONAL_CONDITION_GLOBAL,
     CONF_ADDITIONAL_CONDITION_OPEN,
     CONF_ADDITIONAL_CONDITION_SHADING,
     CONF_ADDITIONAL_CONDITION_SHADING_END,
@@ -543,26 +545,69 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class ShutterOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow."""
 
+    _CLEARABLE_OPTION_KEYS = {
+        CONF_ADDITIONAL_CONDITION_GLOBAL,
+        CONF_ADDITIONAL_CONDITION_OPEN,
+        CONF_ADDITIONAL_CONDITION_CLOSE,
+        CONF_ADDITIONAL_CONDITION_VENTILATE,
+        CONF_ADDITIONAL_CONDITION_VENTILATE_END,
+        CONF_ADDITIONAL_CONDITION_SHADING,
+        CONF_ADDITIONAL_CONDITION_SHADING_TILT,
+        CONF_ADDITIONAL_CONDITION_SHADING_END,
+    }
+
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
         self._config_entry = config_entry
         self._options = self._normalize_options(config_entry)
 
     def _clean_user_input(self, user_input: dict) -> dict:
         """Drop empty selector values while keeping valid falsy values."""
-        return {
-            key: value
-            for key, value in user_input.items()
-            if value is not None and value != "" and value is not vol.UNDEFINED
-        }
+        
+        def _json_safe(value: Any) -> Any:
+            """Convert selector results to JSON-serialisable primitives."""
+
+            if isinstance(value, (datetime, date)):
+                return value.isoformat()
+            if isinstance(value, time):
+                return value.isoformat()
+            if isinstance(value, timedelta):
+                return value.total_seconds()
+            if isinstance(value, list | tuple):
+                return [_json_safe(item) for item in value]
+            if isinstance(value, dict):
+                return {key: _json_safe(val) for key, val in value.items()}
+            return value
+        
+        cleaned: dict = {}
+        for key, value in user_input.items():
+            if value in ("", vol.UNDEFINED, []):
+                if key in self._CLEARABLE_OPTION_KEYS:
+                    cleaned[key] = None
+                continue
+            if value is None:
+                if key in self._CLEARABLE_OPTION_KEYS:
+                    cleaned[key] = None
+                continue
+            cleaned[key] = value
+        
+        for key in self._CLEARABLE_OPTION_KEYS:
+            # If the UI omits a clearable selector entirely (e.g. after manual removal),
+            # treat it as an explicit request to clear the stored value.
+            if key not in cleaned:
+                cleaned[key] = None
+        return cleaned
 
     def _optional_default(self, key: str):
         """Return a safe default for optional selectors."""
 
-        if key in self._options:
-            value = self._options.get(key)
-            if value not in (None, ""):
-                return value
-        return vol.UNDEFINED
+        if key not in self._options:
+            return None
+        
+        value = self._options.get(key)
+        if value in (None, "", vol.UNDEFINED):
+            return None
+        return value
+
 
     def _sanitize_options(self, options: dict) -> dict:
         """Remove empty selector placeholders from stored options."""
@@ -671,9 +716,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
         auto_ventilate = bool(self._options.get(CONF_AUTO_VENTILATE, True))
         auto_shading = bool(self._options.get(CONF_AUTO_SHADING, True))
 
-        condition_selector = selector.EntitySelector(
-            selector.EntitySelectorConfig(domain=["binary_sensor"])
-        )
+        condition_selector = selector.ConditionSelector()
 
         schema: dict = {
             vol.Optional(CONF_NAME, default=self._options.get(CONF_NAME, self._config_entry.title or DEFAULT_NAME)): str,
@@ -847,6 +890,10 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                     )
                 ),
             ): bool,
+            vol.Optional(
+                CONF_ADDITIONAL_CONDITION_GLOBAL,
+                default=self._optional_default(CONF_ADDITIONAL_CONDITION_GLOBAL),
+            ): condition_selector,
             vol.Optional(
                 CONF_ADDITIONAL_CONDITION_OPEN,
                 default=self._optional_default(CONF_ADDITIONAL_CONDITION_OPEN),
