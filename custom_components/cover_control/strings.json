@@ -135,6 +135,7 @@
           "close_position": "Close position",
           "ventilate_position": "Ventilation position",
           "shading_position": "Shading position",
+          "additional_condition_global": "Additional condition for the entire automation",
           "additional_condition_open": "Additional condition for opening",
           "additional_condition_close": "Additional condition for closing",
           "additional_condition_ventilate": "Additional condition for starting ventilation",
