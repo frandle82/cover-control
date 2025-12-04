@@ -622,17 +622,37 @@ class ShutterController:
             self._publish_state()
             return
         
-        close_condition = await self._condition_allows(CONF_ADDITIONAL_CONDITION_CLOSE)
-        open_condition = await self._condition_allows(CONF_ADDITIONAL_CONDITION_OPEN)
-        ventilation_condition = await self._condition_allows(CONF_ADDITIONAL_CONDITION_VENTILATE)
-        ventilation_end_condition = await self._condition_allows(
-            CONF_ADDITIONAL_CONDITION_VENTILATE_END
-        )
-        shading_condition = await self._condition_allows(CONF_ADDITIONAL_CONDITION_SHADING)
-        shading_tilt_condition = await self._condition_allows(
-            CONF_ADDITIONAL_CONDITION_SHADING_TILT
-        )
-        shading_end_condition = await self._condition_allows(CONF_ADDITIONAL_CONDITION_SHADING_END)
+        conditions = {
+            CONF_ADDITIONAL_CONDITION_CLOSE: await self._condition_allows(
+                CONF_ADDITIONAL_CONDITION_CLOSE
+            ),
+            CONF_ADDITIONAL_CONDITION_OPEN: await self._condition_allows(
+                CONF_ADDITIONAL_CONDITION_OPEN
+            ),
+            CONF_ADDITIONAL_CONDITION_VENTILATE: await self._condition_allows(
+                CONF_ADDITIONAL_CONDITION_VENTILATE
+            ),
+            CONF_ADDITIONAL_CONDITION_VENTILATE_END: await self._condition_allows(
+                CONF_ADDITIONAL_CONDITION_VENTILATE_END
+            ),
+            CONF_ADDITIONAL_CONDITION_SHADING: await self._condition_allows(
+                CONF_ADDITIONAL_CONDITION_SHADING
+            ),
+            CONF_ADDITIONAL_CONDITION_SHADING_TILT: await self._condition_allows(
+                CONF_ADDITIONAL_CONDITION_SHADING_TILT
+            ),
+            CONF_ADDITIONAL_CONDITION_SHADING_END: await self._condition_allows(
+                CONF_ADDITIONAL_CONDITION_SHADING_END
+            ),
+        }
+
+        close_condition = conditions[CONF_ADDITIONAL_CONDITION_CLOSE]
+        open_condition = conditions[CONF_ADDITIONAL_CONDITION_OPEN]
+        ventilation_condition = conditions[CONF_ADDITIONAL_CONDITION_VENTILATE]
+        ventilation_end_condition = conditions[CONF_ADDITIONAL_CONDITION_VENTILATE_END]
+        shading_condition = conditions[CONF_ADDITIONAL_CONDITION_SHADING]
+        shading_tilt_condition = conditions[CONF_ADDITIONAL_CONDITION_SHADING_TILT]
+        shading_end_condition = conditions[CONF_ADDITIONAL_CONDITION_SHADING_END]
 
         if self._is_resident_sleeping():
             if close_condition:
@@ -716,6 +736,16 @@ class ShutterController:
                 )
             return
 
+        if (
+            auto_ventilate
+            and not ventilation_end_condition
+            and not ventilation_contact_active
+            and self._reason in {"ventilation", "ventilation_full"}
+        ):
+            self._refresh_next_events(now)
+            self._publish_state()
+            return
+
         if self._auto_enabled(CONF_AUTO_SHADING) and not self._manual_blocks_action("shading"):
             shading_active = self._reason in {"shading", "manual_shading"}
             shading_allowed = self._shading_conditions(
@@ -782,17 +812,19 @@ class ShutterController:
         close_events: list[tuple[datetime, str, float | None]] = []
         open_events: list[tuple[datetime, str, float | None]] = []
 
-        if self._auto_enabled(CONF_AUTO_SUN) and self._sun_allows_close(sun_elevation):
-            close_events.append(
-                (
-                    now,
-                    "sun_close",
-                    self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
+        if close_condition and not self._manual_blocks_action("close"):
+            if self._auto_enabled(CONF_AUTO_SUN) and self._sun_allows_close(sun_elevation):
+                close_events.append(
+                    (
+                        now,
+                        "sun_close",
+                        self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
+                    )
                 )
-            )
-        if(self._auto_enabled(CONF_AUTO_BRIGHTNESS) 
-            and brightness is not None 
-            and self._brightness_allows_close(brightness)
+            if (
+                self._auto_enabled(CONF_AUTO_BRIGHTNESS)
+                and brightness is not None
+                and self._brightness_allows_close(brightness)
             ):
                 close_events.append(
                     (
@@ -802,50 +834,52 @@ class ShutterController:
                     )
                 )
 
-        if self._auto_enabled(CONF_AUTO_DOWN) and down_due:
-            close_events.append(
-                (
-                    self._next_close or now,
-                    "scheduled_close",
-                    self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
+            if self._auto_enabled(CONF_AUTO_DOWN) and down_due:
+                close_events.append(
+                    (
+                        self._next_close or now,
+                        "scheduled_close",
+                        self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
+                    )
                 )
-            )
 
         if tilt_lock_close:
             close_events = []
 
-        if self._auto_enabled(CONF_AUTO_SUN) and self._sun_allows_open(sun_elevation):
-            open_events.append(
-                (
-                    now,
-                    "sun_open",
-                    self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+        if open_condition and not self._manual_blocks_action("open"):
+            if self._auto_enabled(CONF_AUTO_SUN) and self._sun_allows_open(sun_elevation):
+                open_events.append(
+                    (
+                        now,
+                        "sun_open",
+                        self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+                    )
                 )
-            )
+            
 
-        if (
-            self._auto_enabled(CONF_AUTO_BRIGHTNESS)
-            and brightness is not None
-            and self._brightness_allows_open(brightness)
-        ):
-            open_events.append(
-                (
-                    now,
-                    "brightness_open",
-                    self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+            if (
+                self._auto_enabled(CONF_AUTO_BRIGHTNESS)
+                and brightness is not None
+                and self._brightness_allows_open(brightness)
+            ):
+                open_events.append(
+                    (
+                        now,
+                        "brightness_open",
+                        self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+                    )
                 )
-            )
 
-        time_window_open = self._within_open_close_window(now)
+            time_window_open = self._within_open_close_window(now)
 
-        if self._auto_enabled(CONF_AUTO_UP) and (up_due or time_window_open):
-            open_events.append(
-                (
-                    self._next_open or now,
-                    "scheduled_open",
-                    self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+            if self._auto_enabled(CONF_AUTO_UP) and (up_due or time_window_open):
+                open_events.append(
+                    (
+                        self._next_open or now,
+                        "scheduled_open",
+                        self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+                    )
                 )
-            )
 
         def _pick_event(
             candidates: list[tuple[datetime, str, float | None]]
@@ -1112,6 +1146,7 @@ class ShutterController:
             return condition_config
 
         if isinstance(condition_config, str):
+            state = self.hass.states.get(condition_config)
             if state is None:
                 return False
             return self.hass.states.is_state(condition_config, STATE_ON)
@@ -1129,7 +1164,7 @@ class ShutterController:
             return bool(result)
         except Exception:  # pragma: no cover - defensive for runtime errors
             _LOGGER.exception("Failed to evaluate additional condition: %s", config_key)
-            return True
+            return False
     
     def _master_enabled(self) -> bool:
         return bool(self.config.get(CONF_MASTER_ENABLED, DEFAULT_MASTER_FLAGS[CONF_MASTER_ENABLED]))
