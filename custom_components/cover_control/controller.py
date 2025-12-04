@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+from inspect import isawaitable
 from datetime import datetime, timedelta, time
 
 from astral import LocationInfo
@@ -11,6 +13,7 @@ from homeassistant.components.cover import CoverEntityFeature
 from homeassistant import config_entries
 from homeassistant.const import STATE_ON
 from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
+from homeassistant.helpers import condition
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
 from homeassistant.helpers.typing import ConfigType
@@ -30,6 +33,7 @@ from .const import (
     CONF_AUTO_VENTILATE,
     CONF_AUTO_VENTILATE_ENTITY,
     CONF_ADDITIONAL_CONDITION_CLOSE,
+    CONF_ADDITIONAL_CONDITION_GLOBAL,
     CONF_ADDITIONAL_CONDITION_OPEN,
     CONF_ADDITIONAL_CONDITION_SHADING,
     CONF_ADDITIONAL_CONDITION_SHADING_END,
@@ -117,6 +121,7 @@ from .const import (
 )
 
 IDLE_REASON = "idle"
+_LOGGER = logging.getLogger(__name__)
 
 def _parse_time(value: str | datetime | None) -> time | None:
     if not value:
@@ -611,17 +616,23 @@ class ShutterController:
         sun_elevation = sun_state and sun_state.attributes.get("elevation")
         sun_azimuth = sun_state and sun_state.attributes.get("azimuth")
 
-        close_condition = self._condition_allows(CONF_ADDITIONAL_CONDITION_CLOSE)
-        open_condition = self._condition_allows(CONF_ADDITIONAL_CONDITION_OPEN)
-        ventilation_condition = self._condition_allows(CONF_ADDITIONAL_CONDITION_VENTILATE)
-        ventilation_end_condition = self._condition_allows(
+        global_condition = await self._condition_allows(CONF_ADDITIONAL_CONDITION_GLOBAL)
+        if not global_condition:
+            self._refresh_next_events(now)
+            self._publish_state()
+            return
+        
+        close_condition = await self._condition_allows(CONF_ADDITIONAL_CONDITION_CLOSE)
+        open_condition = await self._condition_allows(CONF_ADDITIONAL_CONDITION_OPEN)
+        ventilation_condition = await self._condition_allows(CONF_ADDITIONAL_CONDITION_VENTILATE)
+        ventilation_end_condition = await self._condition_allows(
             CONF_ADDITIONAL_CONDITION_VENTILATE_END
         )
-        shading_condition = self._condition_allows(CONF_ADDITIONAL_CONDITION_SHADING)
-        shading_tilt_condition = self._condition_allows(
+        shading_condition = await self._condition_allows(CONF_ADDITIONAL_CONDITION_SHADING)
+        shading_tilt_condition = await self._condition_allows(
             CONF_ADDITIONAL_CONDITION_SHADING_TILT
         )
-        shading_end_condition = self._condition_allows(CONF_ADDITIONAL_CONDITION_SHADING_END)
+        shading_end_condition = await self._condition_allows(CONF_ADDITIONAL_CONDITION_SHADING_END)
 
         if self._is_resident_sleeping():
             if close_condition:
@@ -1092,12 +1103,34 @@ class ShutterController:
                 return self.hass.states.is_state(entity_id, STATE_ON)
         return bool(self.config.get(config_key))
     
-    def _condition_allows(self, config_key: str) -> bool:
-        entity_id = self.config.get(config_key)
-        if not entity_id:
+    async def _condition_allows(self, config_key: str) -> bool:
+        condition_config = self.config.get(config_key)
+        if condition_config in (None, "", []):
             return True
-        return self.hass.states.is_state(entity_id, STATE_ON)
+        
+        if isinstance(condition_config, bool):
+            return condition_config
 
+        if isinstance(condition_config, str):
+            if state is None:
+                return False
+            return self.hass.states.is_state(condition_config, STATE_ON)
+
+        try:
+            config: dict = (
+                {"condition": "and", "conditions": condition_config}
+                if isinstance(condition_config, list)
+                else condition_config
+            )
+            check = await condition.async_from_config(self.hass, config)
+            result = check(self.hass)
+            if isawaitable(result):
+                result = await result
+            return bool(result)
+        except Exception:  # pragma: no cover - defensive for runtime errors
+            _LOGGER.exception("Failed to evaluate additional condition: %s", config_key)
+            return True
+    
     def _master_enabled(self) -> bool:
         return bool(self.config.get(CONF_MASTER_ENABLED, DEFAULT_MASTER_FLAGS[CONF_MASTER_ENABLED]))
     
