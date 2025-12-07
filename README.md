@@ -38,8 +38,11 @@ guided configuration flow and adding per-cover controllers that react to sensor 
    time.
 
 ### Services
-- `shuttercontrol.set_manual_override`: Pause automation for a cover for a specified number of minutes.
-- `shuttercontrol.activate_shading`: Immediately move a cover to its shading position and hold it using the override timer.
+- `cover_control.set_manual_override`: Pause automation for a cover for a specified number of minutes.
+- `cover_control.clear_manual_override`: Resume automation immediately for a cover.
+- `cover_control.activate_shading`: Immediately move a cover to its shading position and hold it using the override timer.
+- `cover_control.force_action`: Run an immediate action (open, close, ventilation start/stop, shading activate/deactivate) on a
+  cover without further automation checks.
 
 ## Entities
 - **Master switch**: Enables/disables automation globally and exposes attributes for any settings that differ from the defaults.
