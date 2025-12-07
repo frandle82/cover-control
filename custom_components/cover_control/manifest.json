@@ -1,7 +1,7 @@
 {
   "domain": "Cover_Control",
   "name": "Cover Control",
-  "version": "0.1.1",
+  "version": "0.2.0",
   "requirements": [],
   "codeowners": ["@frandle82"],
   "config_flow": true,
