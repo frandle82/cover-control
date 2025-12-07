@@ -221,26 +221,26 @@ class ControllerManager:
         await controller.recalibrate(full_open)
         return True
     
-    async def force_move(self, cover: str, action: str) -> bool:
+    async def force_action(self, cover: str, action: str) -> bool:
         controller = self.controllers.get(cover)
         if not controller:
             return False
-        await controller.force_move(action)
-        return True
-
-    async def force_ventilation(self, cover: str, action: str) -> bool:
-        controller = self.controllers.get(cover)
-        if not controller:
-            return False
-        await controller.force_ventilation(action)
-        return True
-
-    async def force_shading(self, cover: str, action: str) -> bool:
-        controller = self.controllers.get(cover)
-        if not controller:
-            return False
-        await controller.force_shading(action)
-        return True
+        
+        if action in {"open", "close"}:
+            await controller.force_move(action)
+            return True
+        if action in {"ventilate_start", "ventilate_stop"}:
+            await controller.force_ventilation(
+                "start" if action == "ventilate_start" else "stop"
+            )
+            return True
+        if action in {"shading_activate", "shading_deactivate"}:
+            await controller.force_shading(
+                "activate" if action == "shading_activate" else "deactivate"
+            )
+            return True
+        
+        return False
 
     def state_snapshot(
         self, cover: str
