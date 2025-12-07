@@ -27,7 +27,7 @@ guided configuration flow and adding per-cover controllers that react to sensor 
 
 ### Manual copy
 1. Download the latest release archive.
-2. Copy the `custom_components/shuttercontrol` folder into your Home Assistant `config/custom_components/` directory.
+2. Copy the `custom_components/cover_control` folder into your Home Assistant `config/custom_components/` directory.
 3. Restart Home Assistant.
 
 ## Configuration
