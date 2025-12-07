@@ -230,6 +230,16 @@
         }
       }
     },
+        "clear_manual_override": {
+      "name": "Clear manual override",
+      "description": "Resume automation immediately for the selected cover.",
+      "fields": {
+        "covers": {
+          "name": "Cover",
+          "description": "The cover entity to resume."
+        }
+      }
+    },
     "activate_shading": {
       "name": "Activate shading now",
       "description": "Send a cover to the shading position immediately and hold it there for the override duration.",
@@ -269,6 +279,20 @@
         "settings": {
           "name": "Settings",
           "description": "Key/value pairs to store with the switch's configuration category."
+        }
+      }
+     },
+    "force_action": {
+      "name": "Force action",
+      "description": "Run an immediate action on the selected cover without further automation checks.",
+      "fields": {
+        "covers": {
+          "name": "Cover",
+          "description": "The cover entity to control."
+        },
+        "action": {
+          "name": "Action",
+          "description": "Select which immediate action to run."
         }
       }
     }
