@@ -1,19 +1,61 @@
-recalculate_targets:
-  name: Recalculate targets
-  description: Re-register sunrise and sunset callbacks for all configured covers.
-move_covers:
-  name: Move covers
-  description: Move all configured covers to either the open or close position immediately.
+set_manual_override:
+  name: Set manual override
+  description: Pause automation for a cover for a specified number of minutes.
+  target:
+    entity:
+      domain: cover
   fields:
-    target:
-      name: Target position
-      description: Choose whether to open or close the configured covers.
+    covers:
+      name: Cover
+      description: The cover entity to pause.
       required: true
       selector:
-        select:
-          options:
-            - open
-            - close
+        entity:
+          domain: cover
+    manual_override_minutes:
+      name: Minutes
+      description: Duration of the pause. Defaults to the integration setting if omitted.
+      required: false
+      selector:
+        number:
+          min: 1
+          unit_of_measurement: minutes    
+activate_shading:
+  name: Activate shading now
+  description: Immediately move a cover to its shading position and hold it there for the override duration.
+  target:
+    entity:
+      domain: cover
+  fields:
+    covers:
+      name: Cover
+      description: The cover entity to shade.
+      required: true
+      selector:
+        entity:
+          domain: cover
+    manual_override_minutes:
+      name: Minutes
+      description: Optional override duration; defaults to the integration setting.
+      required: false
+      selector:
+        number:
+          min: 1
+          unit_of_measurement: minutes
+clear_manual_override:
+  name: Clear manual override
+  description: Resume automation immediately for the selected cover.
+  target:
+    entity:
+      domain: cover
+  fields:
+    covers:
+      name: Cover
+      description: The cover entity to resume.
+      required: true
+      selector:
+        entity:
+          domain: cover
 recalibrate_cover:
   name: Recalibrate cover
   description: Temporarily override a cover, use the standard open command to fully open it, then return it to its previous position and clear the override. Useful for recalibrating.
@@ -203,9 +245,9 @@ change_switch_settings:
         number:
           min: 0
           max: 100
-force_move:
-  name: Force immediate opening/closing
-  description: Move the selected cover immediately to the open or close position without further checks.
+force_action:
+  name: Force action
+  description: Run an immediate action on the selected cover without further automation checks.
   target:
     entity:
       domain: cover
@@ -217,58 +259,22 @@ force_move:
       selector:
         entity:
           domain: cover
-    setting:
+    action:
       name: Action
-      description: Choose whether to open or close immediately.
+      description: Select which immediate action to run.
       required: true
       selector:
         select:
           options:
-            - open
-            - close
-force_ventilation:
-  name: Force immediate ventilation
-  description: Start or stop ventilation mode without applying automation checks.
-  target:
-    entity:
-      domain: cover
-  fields:
-    covers:
-      name: Cover
-      description: The cover to control.
-      required: true
-      selector:
-        entity:
-          domain: cover
-    setting:
-      name: Action
-      description: Start or stop ventilation immediately.
-      required: true
-      selector:
-        select:
-          options:
-            - start
-            - stop
-force_shading:
-  name: Force activation/deactivation sun shading
-  description: Activate or deactivate sun shading immediately without running further checks.
-  target:
-    entity:
-      domain: cover
-  fields:
-    covers:
-      name: Cover
-      description: The cover to control.
-      required: true
-      selector:
-        entity:
-          domain: cover
-    setting:
-      name: Action
-      description: Activate or deactivate shading immediately.
-      required: true
-      selector:
-        select:
-          options:
-            - activate
-            - deactivate
+            - label: Open now
+              value: open
+            - label: Close now
+              value: close
+            - label: Start ventilation
+              value: ventilate_start
+            - label: Stop ventilation
+              value: ventilate_stop
+            - label: Activate shading
+              value: shading_activate
+            - label: Deactivate shading
+              value: shading_deactivate
