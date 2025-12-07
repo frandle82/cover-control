@@ -239,6 +239,16 @@
         }
       }
     },
+    "clear_manual_override": {
+      "name": "Clear manual override",
+      "description": "Resume automation immediately for the selected cover.",
+      "fields": {
+        "covers": {
+          "name": "Cover",
+          "description": "The cover entity to resume."
+        }
+      }
+    },
     "activate_shading": {
       "name": "Activate shading now",
       "description": "Send a cover to the shading position immediately and hold it there for the override duration.",
@@ -278,6 +288,20 @@
         "settings": {
           "name": "Einstellungen",
           "description": "Schlüssel/Wert-Paare, die in der Schalter-Kategorie gespeichert werden."
+        }
+      }
+    },
+    "force_action": {
+      "name": "Aktion erzwingen",
+      "description": "Führt eine sofortige Aktion am ausgewählten Rollladen ohne weitere Prüfungen aus.",
+      "fields": {
+        "covers": {
+          "name": "Rollladen",
+          "description": "Der zu steuernde Rollladen."
+        },
+        "action": {
+          "name": "Aktion",
+          "description": "Wählen Sie die auszuführende Sofortaktion."
         }
       }
     }
