@@ -57,9 +57,7 @@ SERVICE_ACTIVATE_SHADING = "activate_shading"
 SERVICE_CLEAR_MANUAL_OVERRIDE = "clear_manual_override"
 SERVICE_RECALIBRATE = "recalibrate_cover"
 SERVICE_CHANGE_SWITCH_SETTINGS = "change_switch_settings"
-SERVICE_FORCE_MOVE = "force_move"
-SERVICE_FORCE_VENTILATION = "force_ventilation"
-SERVICE_FORCE_SHADING = "force_shading"
+SERVICE_FORCE_ACTION = "force_action"
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Initialize integration-level storage and services."""
@@ -307,13 +305,13 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             ),
         )
 
-    if SERVICE_FORCE_MOVE not in hass.services.async_services_for_domain(DOMAIN):
-        async def handle_force_move(call):
+    if SERVICE_FORCE_ACTION not in hass.services.async_services_for_domain(DOMAIN):
+        async def handle_force_action(call):
             cover = call.data[CONF_COVERS]
-            action = call.data["setting"]
+            action = call.data["action"]
             matched = False
             for manager in hass.data.get(DOMAIN, {}).values():
-                if isinstance(manager, ControllerManager) and await manager.force_move(cover, action):
+                if isinstance(manager, ControllerManager) and await manager.force_action(cover, action):
                     matched = True
                     break
             if not matched:
@@ -321,60 +319,21 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
         hass.services.async_register(
             DOMAIN,
-            SERVICE_FORCE_MOVE,
-            handle_force_move,
+            SERVICE_FORCE_ACTION,
+            handle_force_action,
             schema=vol.Schema(
                 {
                     vol.Required(CONF_COVERS): cv.entity_id,
-                    vol.Required("setting"): vol.In(["open", "close"]),
-                }
-            ),
-        )
-
-    if SERVICE_FORCE_VENTILATION not in hass.services.async_services_for_domain(DOMAIN):
-        async def handle_force_ventilation(call):
-            cover = call.data[CONF_COVERS]
-            action = call.data["setting"]
-            matched = False
-            for manager in hass.data.get(DOMAIN, {}).values():
-                if isinstance(manager, ControllerManager) and await manager.force_ventilation(cover, action):
-                    matched = True
-                    break
-            if not matched:
-                raise ValueError(f"No controller registered for {cover}")
-
-        hass.services.async_register(
-            DOMAIN,
-            SERVICE_FORCE_VENTILATION,
-            handle_force_ventilation,
-            schema=vol.Schema(
-                {
-                    vol.Required(CONF_COVERS): cv.entity_id,
-                    vol.Required("setting"): vol.In(["start", "stop"]),
-                }
-            ),
-        )
-
-    if SERVICE_FORCE_SHADING not in hass.services.async_services_for_domain(DOMAIN):
-        async def handle_force_shading(call):
-            cover = call.data[CONF_COVERS]
-            action = call.data["setting"]
-            matched = False
-            for manager in hass.data.get(DOMAIN, {}).values():
-                if isinstance(manager, ControllerManager) and await manager.force_shading(cover, action):
-                    matched = True
-                    break
-            if not matched:
-                raise ValueError(f"No controller registered for {cover}")
-
-        hass.services.async_register(
-            DOMAIN,
-            SERVICE_FORCE_SHADING,
-            handle_force_shading,
-            schema=vol.Schema(
-                {
-                    vol.Required(CONF_COVERS): cv.entity_id,
-                    vol.Required("setting"): vol.In(["activate", "deactivate"]),
+                    vol.Required("action"): vol.In(
+                        [
+                            "open",
+                            "close",
+                            "ventilate_start",
+                            "ventilate_stop",
+                            "shading_activate",
+                            "shading_deactivate",
+                        ]
+                    ),
                 }
             ),
         )
