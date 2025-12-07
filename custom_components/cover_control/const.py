@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from homeassistant.const import Platform
 
-DOMAIN = "cover-control"
+DOMAIN = "cover_control"
 CONF_NAME = "name"
 DEFAULT_NAME = "Cover Control"
 PLATFORMS: list[Platform] = [Platform.SWITCH]
