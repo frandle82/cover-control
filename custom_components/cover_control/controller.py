@@ -2,6 +2,8 @@
 from __future__ import annotations
 
 import asyncio
+import logging
+from inspect import isawaitable
 from datetime import datetime, timedelta, time
 
 from astral import LocationInfo
@@ -10,9 +12,14 @@ from astral.sun import SunDirection, time_at_elevation
 from homeassistant.components.cover import CoverEntityFeature
 from homeassistant import config_entries
 from homeassistant.const import STATE_ON
-from homeassistant.core import CALLBACK_TYPE, HomeAssistant, callback
+from homeassistant.core import Context, CALLBACK_TYPE, HomeAssistant, callback
+from homeassistant.helpers import condition
 from homeassistant.helpers.dispatcher import async_dispatcher_send
-from homeassistant.helpers.event import async_track_state_change_event, async_track_time_interval
+from homeassistant.helpers.event import (
+    async_track_point_in_time,
+    async_track_state_change_event,
+    async_track_time_interval,
+)
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
 
@@ -30,6 +37,7 @@ from .const import (
     CONF_AUTO_VENTILATE,
     CONF_AUTO_VENTILATE_ENTITY,
     CONF_ADDITIONAL_CONDITION_CLOSE,
+    CONF_ADDITIONAL_CONDITION_GLOBAL,
     CONF_ADDITIONAL_CONDITION_OPEN,
     CONF_ADDITIONAL_CONDITION_SHADING,
     CONF_ADDITIONAL_CONDITION_SHADING_END,
@@ -117,6 +125,7 @@ from .const import (
 )
 
 IDLE_REASON = "idle"
+_LOGGER = logging.getLogger(__name__)
 
 def _parse_time(value: str | datetime | None) -> time | None:
     if not value:
@@ -250,7 +259,7 @@ class ControllerManager:
             controller = self.controllers.get(cover)
             if not controller:
                 return (
-                    None,
+                    False,
                     IDLE_REASON,
                     None,
                     None,
@@ -276,6 +285,10 @@ class ShutterController:
         self._manual_active: bool = False
         self._manual_scope_all: bool = False
         self._target: float | None = None
+        self._last_position: float | None = None
+        self._last_command_at: datetime | None = None
+        self._manual_expire_unsub: CALLBACK_TYPE | None = None
+        self._last_command_context_id: str | None = None
         self._reason: str | None = None
         self._next_open: datetime | None = None
         self._next_close: datetime | None = None
@@ -296,6 +309,9 @@ class ShutterController:
         self._unsubs.append(
             async_track_time_interval(self.hass, self._handle_interval, timedelta(minutes=1))
         )
+        self._unsubs.append(self.hass.bus.async_listen("call_service", self._handle_service_call))
+        self._target = self._current_position()
+        self._last_position = self._target
         sensor_entities = [
             self.config.get(CONF_BRIGHTNESS_SENSOR),
             self.config.get(CONF_WORKDAY_SENSOR),
@@ -326,6 +342,9 @@ class ShutterController:
         self._manual_until = None
         self._manual_active = False
         self._manual_scope_all = False
+        self._clear_manual_expiry()
+        self._target = self._current_position()
+        self._last_position = self._target
         now = dt_util.utcnow()
         self._refresh_next_events(now)
         self.hass.async_create_task(self._evaluate("config"))
@@ -335,19 +354,87 @@ class ShutterController:
     def _handle_state_event(self, event) -> None:
         now = dt_util.utcnow()
         self._expire_manual_override(now)
+        self._ensure_manual_expiry_timer(now)
+        previous_position = self._last_position
         if event.data.get("entity_id") == self.cover:
             tolerance = float(
                 self._position_value(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE)
             )
             current = self._current_position()
+            if self._target is None and current is not None:
+                self._target = current
+            command_recent = False
+            moving_toward_target = False
+            if self._last_command_at:
+                command_recent = (now - self._last_command_at) < timedelta(seconds=90)
             if (
-                current is not None
+                command_recent
+                and previous_position is not None
+                and current is not None
                 and self._target is not None
-                and abs(current - self._target) > tolerance
-                and self._manual_detection_enabled()
             ):
-                self._activate_manual_override(reason="manual_override")
+                prev_delta = abs(previous_position - self._target)
+                curr_delta = abs(current - self._target)
+                moving_toward_target = curr_delta <= prev_delta + tolerance
+            if current is not None and self._manual_detection_enabled():
+                deviation_from_target = (
+                    self._target is not None
+                    and abs(current - self._target) > tolerance
+                    and not moving_toward_target
+                )
+                unexplained_move = (
+                    self._target is None
+                    and previous_position is not None
+                    and abs(current - previous_position) > tolerance
+                )
+                if (deviation_from_target or unexplained_move) and (
+                    not command_recent or not moving_toward_target
+                ):
+                    self._target = current
+                    self._activate_manual_override(
+                        scope_all=True, reason="manual_override"
+                    )
+            self._last_position = current if current is not None else previous_position  
         self.hass.async_create_task(self._evaluate("state"))
+
+    @callback
+    def _handle_service_call(self, event) -> None:
+        if event.data.get("domain") != "cover":
+            return
+
+        service = event.data.get("service")
+        if service not in {"set_cover_position", "open_cover", "close_cover"}:
+            return
+
+        service_data = event.data.get("service_data") or {}
+        entity_ids = service_data.get("entity_id")
+        if not entity_ids:
+            return
+        if isinstance(entity_ids, str):
+            entity_ids = [entity_ids]
+        if self.cover not in entity_ids:
+            return
+
+        if event.context and event.context.id == self._last_command_context_id:
+            return
+
+        position: float | None = None
+        if service == "set_cover_position":
+            try:
+                position_value = service_data.get("position")
+                position = float(position_value) if position_value is not None else None
+            except (TypeError, ValueError):
+                position = None
+        elif service == "open_cover":
+            position = 100.0
+        elif service == "close_cover":
+            position = 0.0
+
+        if position is not None:
+            self._target = position
+
+        self._activate_manual_override(scope_all=True, reason="manual_override")
+        self.hass.async_create_task(self._evaluate("manual_service"))
 
     @callback
     def _handle_interval(self, now: datetime) -> None:
@@ -377,6 +464,7 @@ class ShutterController:
             self._reason = reason
         elif self._manual_scope_all:
             self._reason = "manual_override"
+        self._schedule_manual_expiry()
         self._refresh_next_events(now)
         self._publish_state()
 
@@ -421,11 +509,12 @@ class ShutterController:
         self._activate_manual_override(
             minutes=duration, scope_all=True, reason="manual_override"
         )
-    
+
     def clear_manual_override(self) -> None:
         self._manual_until = None
         self._manual_active = False
         self._manual_scope_all = False
+        self._clear_manual_expiry()
         if self._reason in {"manual_override", "manual_shading"}:
             self._reason = None
         self._refresh_next_events(dt_util.utcnow())
@@ -473,6 +562,9 @@ class ShutterController:
     def activate_shading(self, minutes: int | None = None) -> None:
         duration = minutes or self.config.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES)
         self._manual_until = dt_util.utcnow() + timedelta(minutes=duration)
+        self._manual_active = True
+        self._manual_scope_all = True
+        self._schedule_manual_expiry()
         self.hass.async_create_task(
             self._set_position(self.config.get(CONF_SHADING_POSITION), "manual_shading")
         )
@@ -562,6 +654,7 @@ class ShutterController:
         self._manual_until = None
         self._manual_active = False
         self._manual_scope_all = False
+        self._clear_manual_expiry()
         if action == "activate":
             target = self._position_value(CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION)
             if target is None:
@@ -587,16 +680,63 @@ class ShutterController:
             self._manual_until = None
             self._manual_active = False
             self._manual_scope_all = False
+            self._clear_manual_expiry()
             if self._reason in {"manual_override", "manual_shading"}:
                 self._reason = None
 
+    def _ensure_manual_expiry_timer(self, now: datetime) -> None:
+        if not self._manual_active or not self._manual_until:
+            return
+        if self._manual_expire_unsub:
+            return
+        if self._manual_until <= now:
+            self._handle_manual_expiry(None)
+            return
+        self._manual_expire_unsub = async_track_point_in_time(
+            self.hass, self._handle_manual_expiry, self._manual_until
+        )
+
+    def _clear_manual_expiry(self) -> None:
+        if self._manual_expire_unsub:
+            self._manual_expire_unsub()
+            self._manual_expire_unsub = None
+
+    def _schedule_manual_expiry(self) -> None:
+        self._clear_manual_expiry()
+        if not self._manual_until:
+            return
+        now = dt_util.utcnow()
+        if self._manual_until <= now:
+            self._handle_manual_expiry(None)
+            return
+        self._manual_expire_unsub = async_track_point_in_time(
+            self.hass, self._handle_manual_expiry, self._manual_until
+        )
+
+    @callback
+    def _handle_manual_expiry(self, _) -> None:
+        self._manual_until = None
+        self._manual_active = False
+        self._manual_scope_all = False
+        self._manual_expire_unsub = None
+        if self._reason in {"manual_override", "manual_shading"}:
+            self._reason = None
+        now = dt_util.utcnow()
+        self._refresh_next_events(now)
+        self._publish_state()
+        self.hass.async_create_task(self._evaluate("manual_expired"))
     async def _evaluate(self, trigger: str) -> None:
         now = dt_util.utcnow()
         self._expire_manual_override(now)
-        if self._manual_active and self._manual_scope_all:
-            self._refresh_next_events(now)
-            self._publish_state()
-            return
+        self._ensure_manual_expiry_timer(now)
+        if self._manual_active:
+            if self._manual_scope_all or all(
+                self._manual_blocks_action(action)
+                for action in ("open", "close", "ventilation", "shading")
+            ):
+                self._refresh_next_events(now)
+                self._publish_state()
+                return
 
         if not self._master_enabled():
             self._refresh_next_events(now)
@@ -611,17 +751,43 @@ class ShutterController:
         sun_elevation = sun_state and sun_state.attributes.get("elevation")
         sun_azimuth = sun_state and sun_state.attributes.get("azimuth")
 
-        close_condition = self._condition_allows(CONF_ADDITIONAL_CONDITION_CLOSE)
-        open_condition = self._condition_allows(CONF_ADDITIONAL_CONDITION_OPEN)
-        ventilation_condition = self._condition_allows(CONF_ADDITIONAL_CONDITION_VENTILATE)
-        ventilation_end_condition = self._condition_allows(
-            CONF_ADDITIONAL_CONDITION_VENTILATE_END
-        )
-        shading_condition = self._condition_allows(CONF_ADDITIONAL_CONDITION_SHADING)
-        shading_tilt_condition = self._condition_allows(
-            CONF_ADDITIONAL_CONDITION_SHADING_TILT
-        )
-        shading_end_condition = self._condition_allows(CONF_ADDITIONAL_CONDITION_SHADING_END)
+        global_condition = await self._condition_allows(CONF_ADDITIONAL_CONDITION_GLOBAL)
+        if not global_condition:
+            self._refresh_next_events(now)
+            self._publish_state()
+            return
+        
+        conditions = {
+            CONF_ADDITIONAL_CONDITION_CLOSE: await self._condition_allows(
+                CONF_ADDITIONAL_CONDITION_CLOSE
+            ),
+            CONF_ADDITIONAL_CONDITION_OPEN: await self._condition_allows(
+                CONF_ADDITIONAL_CONDITION_OPEN
+            ),
+            CONF_ADDITIONAL_CONDITION_VENTILATE: await self._condition_allows(
+                CONF_ADDITIONAL_CONDITION_VENTILATE
+            ),
+            CONF_ADDITIONAL_CONDITION_VENTILATE_END: await self._condition_allows(
+                CONF_ADDITIONAL_CONDITION_VENTILATE_END
+            ),
+            CONF_ADDITIONAL_CONDITION_SHADING: await self._condition_allows(
+                CONF_ADDITIONAL_CONDITION_SHADING
+            ),
+            CONF_ADDITIONAL_CONDITION_SHADING_TILT: await self._condition_allows(
+                CONF_ADDITIONAL_CONDITION_SHADING_TILT
+            ),
+            CONF_ADDITIONAL_CONDITION_SHADING_END: await self._condition_allows(
+                CONF_ADDITIONAL_CONDITION_SHADING_END
+            ),
+        }
+
+        close_condition = conditions[CONF_ADDITIONAL_CONDITION_CLOSE]
+        open_condition = conditions[CONF_ADDITIONAL_CONDITION_OPEN]
+        ventilation_condition = conditions[CONF_ADDITIONAL_CONDITION_VENTILATE]
+        ventilation_end_condition = conditions[CONF_ADDITIONAL_CONDITION_VENTILATE_END]
+        shading_condition = conditions[CONF_ADDITIONAL_CONDITION_SHADING]
+        shading_tilt_condition = conditions[CONF_ADDITIONAL_CONDITION_SHADING_TILT]
+        shading_end_condition = conditions[CONF_ADDITIONAL_CONDITION_SHADING_END]
 
         if self._is_resident_sleeping():
             if close_condition:
@@ -705,6 +871,16 @@ class ShutterController:
                 )
             return
 
+        if (
+            auto_ventilate
+            and not ventilation_end_condition
+            and not ventilation_contact_active
+            and self._reason in {"ventilation", "ventilation_full"}
+        ):
+            self._refresh_next_events(now)
+            self._publish_state()
+            return
+
         if self._auto_enabled(CONF_AUTO_SHADING) and not self._manual_blocks_action("shading"):
             shading_active = self._reason in {"shading", "manual_shading"}
             shading_allowed = self._shading_conditions(
@@ -771,17 +947,19 @@ class ShutterController:
         close_events: list[tuple[datetime, str, float | None]] = []
         open_events: list[tuple[datetime, str, float | None]] = []
 
-        if self._auto_enabled(CONF_AUTO_SUN) and self._sun_allows_close(sun_elevation):
-            close_events.append(
-                (
-                    now,
-                    "sun_close",
-                    self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
+        if close_condition and not self._manual_blocks_action("close"):
+            if self._auto_enabled(CONF_AUTO_SUN) and self._sun_allows_close(sun_elevation):
+                close_events.append(
+                    (
+                        now,
+                        "sun_close",
+                        self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
+                    )
                 )
-            )
-        if(self._auto_enabled(CONF_AUTO_BRIGHTNESS) 
-            and brightness is not None 
-            and self._brightness_allows_close(brightness)
+            if (
+                self._auto_enabled(CONF_AUTO_BRIGHTNESS)
+                and brightness is not None
+                and self._brightness_allows_close(brightness)
             ):
                 close_events.append(
                     (
@@ -791,50 +969,52 @@ class ShutterController:
                     )
                 )
 
-        if self._auto_enabled(CONF_AUTO_DOWN) and down_due:
-            close_events.append(
-                (
-                    self._next_close or now,
-                    "scheduled_close",
-                    self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
+            if self._auto_enabled(CONF_AUTO_DOWN) and down_due:
+                close_events.append(
+                    (
+                        self._next_close or now,
+                        "scheduled_close",
+                        self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
+                    )
                 )
-            )
 
         if tilt_lock_close:
             close_events = []
 
-        if self._auto_enabled(CONF_AUTO_SUN) and self._sun_allows_open(sun_elevation):
-            open_events.append(
-                (
-                    now,
-                    "sun_open",
-                    self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+        if open_condition and not self._manual_blocks_action("open"):
+            if self._auto_enabled(CONF_AUTO_SUN) and self._sun_allows_open(sun_elevation):
+                open_events.append(
+                    (
+                        now,
+                        "sun_open",
+                        self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+                    )
                 )
-            )
+            
 
-        if (
-            self._auto_enabled(CONF_AUTO_BRIGHTNESS)
-            and brightness is not None
-            and self._brightness_allows_open(brightness)
-        ):
-            open_events.append(
-                (
-                    now,
-                    "brightness_open",
-                    self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+            if (
+                self._auto_enabled(CONF_AUTO_BRIGHTNESS)
+                and brightness is not None
+                and self._brightness_allows_open(brightness)
+            ):
+                open_events.append(
+                    (
+                        now,
+                        "brightness_open",
+                        self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+                    )
                 )
-            )
 
-        time_window_open = self._within_open_close_window(now)
+            time_window_open = self._within_open_close_window(now)
 
-        if self._auto_enabled(CONF_AUTO_UP) and (up_due or time_window_open):
-            open_events.append(
-                (
-                    self._next_open or now,
-                    "scheduled_open",
-                    self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+            if self._auto_enabled(CONF_AUTO_UP) and (up_due or time_window_open):
+                open_events.append(
+                    (
+                        self._next_open or now,
+                        "scheduled_open",
+                        self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+                    )
                 )
-            )
 
         def _pick_event(
             candidates: list[tuple[datetime, str, float | None]]
@@ -1092,12 +1272,35 @@ class ShutterController:
                 return self.hass.states.is_state(entity_id, STATE_ON)
         return bool(self.config.get(config_key))
     
-    def _condition_allows(self, config_key: str) -> bool:
-        entity_id = self.config.get(config_key)
-        if not entity_id:
+    async def _condition_allows(self, config_key: str) -> bool:
+        condition_config = self.config.get(config_key)
+        if condition_config in (None, "", []):
             return True
-        return self.hass.states.is_state(entity_id, STATE_ON)
+        
+        if isinstance(condition_config, bool):
+            return condition_config
 
+        if isinstance(condition_config, str):
+            state = self.hass.states.get(condition_config)
+            if state is None:
+                return False
+            return self.hass.states.is_state(condition_config, STATE_ON)
+
+        try:
+            config: dict = (
+                {"condition": "and", "conditions": condition_config}
+                if isinstance(condition_config, list)
+                else condition_config
+            )
+            check = await condition.async_from_config(self.hass, config)
+            result = check(self.hass)
+            if isawaitable(result):
+                result = await result
+            return bool(result)
+        except Exception:  # pragma: no cover - defensive for runtime errors
+            _LOGGER.exception("Failed to evaluate additional condition: %s", config_key)
+            return False
+    
     def _master_enabled(self) -> bool:
         return bool(self.config.get(CONF_MASTER_ENABLED, DEFAULT_MASTER_FLAGS[CONF_MASTER_ENABLED]))
     
@@ -1113,11 +1316,15 @@ class ShutterController:
                 self._reason = reason
                 self._publish_state()
             return
+        ctx = Context()
+        self._last_command_context_id = ctx.id
+        self._last_command_at = dt_util.utcnow()
         await self.hass.services.async_call(
             "cover",
             "set_cover_position",
             {"entity_id": self.cover, "position": float(position)},
             blocking=False,
+            context=ctx,
         )
         self._target = float(position)
         self._reason = reason
@@ -1129,7 +1336,15 @@ class ShutterController:
         if not state:
             return None
         try:
-            return float(state.attributes.get("current_position"))
+            if "current_position" in state.attributes:
+                return float(state.attributes["current_position"])
+            if "position" in state.attributes:
+                return float(state.attributes["position"])
+            if state.state == "open" or state.state == "opening":
+                return 100.0
+            if state.state == "closed" or state.state == "closing":
+                return 0.0
+            return float(state.state)
         except (TypeError, ValueError):
             return None
 
@@ -1359,11 +1574,15 @@ class ShutterController:
         earlier recalibration flows that passed a desired open position even though
         the service call itself does not use it.
         """
+        ctx = Context()
+        self._last_command_context_id = ctx.id
+        self._last_command_at = dt_util.utcnow()
         await self.hass.services.async_call(
             "cover",
             "open_cover",
             {"entity_id": self.cover},
             blocking=True,
+            context=ctx,
         )
 
     async def _command_position(self, position: float) -> None:
@@ -1371,12 +1590,16 @@ class ShutterController:
         supported = (state and state.attributes.get("supported_features")) or 0
         supports_position = bool(int(supported) & CoverEntityFeature.SET_POSITION)
 
+        ctx = Context()
+        self._last_command_context_id = ctx.id
+        self._last_command_at = dt_util.utcnow()
         if supports_position:
             await self.hass.services.async_call(
                 "cover",
                 "set_cover_position",
                 {"entity_id": self.cover, "position": float(position)},
                 blocking=True,
+                context=ctx,
             )
             return
 
@@ -1394,6 +1617,7 @@ class ShutterController:
                 service,
                 service_data,
                 blocking=True,
+                context=ctx,
             )
             return
         await self.hass.services.async_call(
@@ -1401,6 +1625,7 @@ class ShutterController:
             "set_cover_position",
             {"entity_id": self.cover, "position": float(position)},
             blocking=True,
+            context=ctx,
         )
 
     async def _wait_for_position(

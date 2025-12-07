@@ -129,6 +129,7 @@
           "close_position": "Schließposition",
           "ventilate_position": "Lüftungsposition",
           "shading_position": "Beschattungsposition",
+          "additional_condition_global": "Zusätzliche Bedingung für die gesamte Automatisierung",
           "additional_condition_open": "Zusätzliche Bedingung zum Öffnen",
           "additional_condition_close": "Zusätzliche Bedingung zum Schließen",
           "additional_condition_ventilate": "Zusätzliche Bedingung zum Aktivieren der Lüftung",
