@@ -81,12 +81,6 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             raise ValueError("Provide a single cover entity")
         return next(iter(entity_ids))
 
-    def _require_single_cover(data: Mapping) -> Mapping:
-        has_cover = data.get(CONF_COVERS) or data.get(ATTR_ENTITY_ID)
-        if not has_cover:
-            raise vol.Invalid("No cover entity provided")
-        return data
-
     if SERVICE_MANUAL_OVERRIDE not in hass.services.async_services_for_domain(DOMAIN):
         async def handle_manual_override(call):
             cover = await _async_get_single_cover(call)
@@ -103,15 +97,11 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             DOMAIN,
             SERVICE_MANUAL_OVERRIDE,
             handle_manual_override,
-            schema=vol.All(
-                cv.make_entity_service_schema(
-                    {
-                        vol.Optional(CONF_COVERS): vol.Any(cv.entity_id, cv.entity_ids),
-                        vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
-                        vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES): cv.positive_int,
-                    }
-                ),
-                _require_single_cover,
+            schema=vol.Schema(
+                {
+                    vol.Required(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
+                    vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES): cv.positive_int,
+                }
             ),
         )
 
@@ -131,15 +121,11 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             DOMAIN,
             SERVICE_ACTIVATE_SHADING,
             handle_activate_shading,
-            schema=vol.All(
-                cv.make_entity_service_schema(
-                    {
-                        vol.Optional(CONF_COVERS): vol.Any(cv.entity_id, cv.entity_ids),
-                        vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
-                        vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES): cv.positive_int,
-                    }
-                ),
-                _require_single_cover,
+            schema=vol.Schema(
+                {
+                    vol.Required(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
+                    vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES): cv.positive_int,
+                }
             ),
         )
     if SERVICE_CLEAR_MANUAL_OVERRIDE not in hass.services.async_services_for_domain(DOMAIN):
@@ -157,14 +143,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             DOMAIN,
             SERVICE_CLEAR_MANUAL_OVERRIDE,
             handle_clear_manual_override,
-            schema=vol.All(
-                cv.make_entity_service_schema(
-                    {
-                        vol.Optional(CONF_COVERS): vol.Any(cv.entity_id, cv.entity_ids),
-                        vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
-                    }
-                ),
-                _require_single_cover,
+            schema=vol.Schema(
+                {
+                    vol.Required(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
+                }
             ),
         )
     if SERVICE_RECALIBRATE not in hass.services.async_services_for_domain(DOMAIN):
@@ -184,17 +166,13 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             DOMAIN,
             SERVICE_RECALIBRATE,
             handle_recalibrate,
-            schema=vol.All(
-                vol.Schema(
-                    {
-                        vol.Optional(CONF_COVERS): vol.Any(cv.entity_id, cv.entity_ids),
-                        vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
-                        vol.Optional(CONF_FULL_OPEN_POSITION, default=DEFAULT_OPEN_POSITION): vol.All(
-                            vol.Coerce(float), vol.Range(min=0, max=100)
-                        ),
-                    }
-                ),
-                _require_single_cover
+            schema=vol.Schema(
+                {
+                    vol.Required(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
+                    vol.Optional(CONF_FULL_OPEN_POSITION, default=DEFAULT_OPEN_POSITION): vol.All(
+                        vol.Coerce(float), vol.Range(min=0, max=100)
+                    ),
+                }
             ),
         )
     if SERVICE_CHANGE_SWITCH_SETTINGS not in hass.services.async_services_for_domain(DOMAIN):
@@ -363,8 +341,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             handle_force_action,
             schema=vol.Schema(
                 {
-                    vol.Optional(CONF_COVERS): vol.Any(cv.entity_id, cv.entity_ids),
-                    vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
+                    vol.Required(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
                     vol.Required("action"): vol.In(
                         [
                             "open",
