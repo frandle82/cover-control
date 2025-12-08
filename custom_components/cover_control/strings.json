@@ -235,13 +235,13 @@
       "name": "Set manual override",
       "description": "Pause automatic control for a cover for the given minutes.",
       "target": {
-        "entity": {
+        "entity_id": {
           "name": "Cover",
           "description": "Cover to pause automation for."
         }
       },
       "fields": {
-        "entity": {
+        "entity_id": {‚‚‚
           "name": "Cover",
           "description": "Cover entity to pause automation for."
         },
