@@ -228,10 +228,16 @@
     "set_manual_override": {
       "name": "Set manual override",
       "description": "Pause automatic control for a cover for the given minutes.",
+      "target": {
+        "entity": {
+          "name": "Rollladen",
+          "description": "Rollladen, dessen Automatisierung pausiert werden soll."
+        }
+      },
       "fields": {
-        "covers": {
-          "name": "Cover",
-          "description": "The cover entity to pause."
+        "entity_id": {
+          "name": "Rollladen",
+          "description": "Rollladen, dessen Automatisierung pausiert werden soll."
         },
         "manual_override_minutes": {
           "name": "Minutes",
@@ -242,20 +248,32 @@
     "clear_manual_override": {
       "name": "Clear manual override",
       "description": "Resume automation immediately for the selected cover.",
+      "target": {
+        "entity": {
+          "name": "Rollladen",
+          "description": "Rollladen, für den die Automatisierung wieder aktiviert werden soll."
+        }
+      },
       "fields": {
-        "covers": {
-          "name": "Cover",
-          "description": "The cover entity to resume."
+        "entity_id": {
+          "name": "Rollladen",
+          "description": "Rollladen, für den die Automatisierung wieder aktiviert werden soll."
         }
       }
     },
     "activate_shading": {
       "name": "Activate shading now",
       "description": "Send a cover to the shading position immediately and hold it there for the override duration.",
+      "target": {
+        "entity": {
+          "name": "Rollladen",
+          "description": "Rollladen, der sofort in die Beschattungsposition fahren soll."
+        }
+      },
       "fields": {
-        "covers": {
-          "name": "Cover",
-          "description": "The cover entity to shade."
+        "entity_id": {
+          "name": "Rollladen",
+          "description": "Rollladen, der sofort in die Beschattungsposition fahren soll."
         },
         "manual_override_minutes": {
           "name": "Minutes",
@@ -266,10 +284,16 @@
     "recalibrate_cover": {
       "name": "Abdeckung neu kalibrieren",
       "description": "Setzt einen manuellen Override, nutzt den Standardbefehl zum Öffnen für eine vollständig geöffnete Abdeckung, stellt danach die vorherige Position wieder her und hebt den Override wieder auf. Hilfreich, wenn eine Abdeckung neu ausgerichtet werden muss.",
+      "target": {
+        "entity": {
+          "name": "Rollladen",
+          "description": "Rollladen, der neu kalibriert werden soll."
+        }
+      },
       "fields": {
-        "covers": {
-          "name": "Cover",
-          "description": "Die zu kalibrierende Abdeckung."
+        "entity_id": {
+          "name": "Rollladen",
+          "description": "Rollladen, der neu kalibriert werden soll."
         },
         "full_open_position": {
           "name": "Position für vollständig offen",
@@ -294,10 +318,16 @@
     "force_action": {
       "name": "Aktion erzwingen",
       "description": "Führt eine sofortige Aktion am ausgewählten Rollladen ohne weitere Prüfungen aus.",
-      "fields": {
-        "covers": {
+      "target": {
+        "entity": {
           "name": "Rollladen",
-          "description": "Der zu steuernde Rollladen."
+          "description": "Rollladen, auf den die Aktion angewendet werden soll."
+        }
+      },
+      "fields": {
+        "entity_id": {
+          "name": "Rollladen",
+          "description": "Rollladen, auf den die Aktion angewendet werden soll."
         },
         "action": {
           "name": "Aktion",
