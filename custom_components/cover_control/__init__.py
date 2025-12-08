@@ -2,12 +2,14 @@
 from __future__ import annotations
 
 import asyncio
+from typing import Mapping
 
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import service as service_helper
 from homeassistant.helpers.typing import ConfigType
 import voluptuous as vol
 
@@ -63,9 +65,31 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Initialize integration-level storage and services."""
     hass.data.setdefault(DOMAIN, {})
 
+    async def _async_get_single_cover(call) -> str:
+        cover = call.data.get(CONF_COVERS)
+        if isinstance(cover, list):
+            if len(cover) != 1:
+                raise ValueError("Provide a single cover entity")
+            return cover[0]
+        if cover:
+            return cover
+
+        entity_ids = await service_helper.async_extract_entity_ids(hass, call)
+        if not entity_ids:
+            raise ValueError("No cover entity provided")
+        if len(entity_ids) != 1:
+            raise ValueError("Provide a single cover entity")
+        return next(iter(entity_ids))
+
+    def _require_single_cover(data: Mapping) -> Mapping:
+        has_cover = data.get(CONF_COVERS) or data.get(ATTR_ENTITY_ID)
+        if not has_cover:
+            raise vol.Invalid("No cover entity provided")
+        return data
+
     if SERVICE_MANUAL_OVERRIDE not in hass.services.async_services_for_domain(DOMAIN):
         async def handle_manual_override(call):
-            cover = call.data[CONF_COVERS]
+            cover = await _async_get_single_cover(call)
             minutes = call.data.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES)
             matched = False
             for manager in hass.data.get(DOMAIN, {}).values():
@@ -79,14 +103,21 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             DOMAIN,
             SERVICE_MANUAL_OVERRIDE,
             handle_manual_override,
-            schema=cv.make_entity_service_schema(
-                {vol.Required(CONF_COVERS): cv.entity_id, vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES): cv.positive_int}
+            schema=vol.All(
+                cv.make_entity_service_schema(
+                    {
+                        vol.Optional(CONF_COVERS): vol.Any(cv.entity_id, cv.entity_ids),
+                        vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
+                        vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES): cv.positive_int,
+                    }
+                ),
+                _require_single_cover,
             ),
         )
 
     if SERVICE_ACTIVATE_SHADING not in hass.services.async_services_for_domain(DOMAIN):
         async def handle_activate_shading(call):
-            cover = call.data[CONF_COVERS]
+            cover = await _async_get_single_cover(call)
             minutes = call.data.get(CONF_MANUAL_OVERRIDE_MINUTES)
             matched = False
             for manager in hass.data.get(DOMAIN, {}).values():
@@ -100,13 +131,20 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             DOMAIN,
             SERVICE_ACTIVATE_SHADING,
             handle_activate_shading,
-            schema=cv.make_entity_service_schema(
-                {vol.Required(CONF_COVERS): cv.entity_id, vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES): cv.positive_int}
+            schema=vol.All(
+                cv.make_entity_service_schema(
+                    {
+                        vol.Optional(CONF_COVERS): vol.Any(cv.entity_id, cv.entity_ids),
+                        vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
+                        vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES): cv.positive_int,
+                    }
+                ),
+                _require_single_cover,
             ),
         )
     if SERVICE_CLEAR_MANUAL_OVERRIDE not in hass.services.async_services_for_domain(DOMAIN):
         async def handle_clear_manual_override(call):
-            cover = call.data[CONF_COVERS]
+            cover = await _async_get_single_cover(call)
             matched = False
             for manager in hass.data.get(DOMAIN, {}).values():
                 if isinstance(manager, ControllerManager) and manager.clear_manual_override(cover):
@@ -119,20 +157,19 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             DOMAIN,
             SERVICE_CLEAR_MANUAL_OVERRIDE,
             handle_clear_manual_override,
-            schema=cv.make_entity_service_schema({vol.Required(CONF_COVERS): cv.entity_id}),
+            schema=vol.All(
+                cv.make_entity_service_schema(
+                    {
+                        vol.Optional(CONF_COVERS): vol.Any(cv.entity_id, cv.entity_ids),
+                        vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
+                    }
+                ),
+                _require_single_cover,
+            ),
         )
     if SERVICE_RECALIBRATE not in hass.services.async_services_for_domain(DOMAIN):
-        def _resolve_cover(call) -> str:
-            cover = call.data.get(CONF_COVERS) or call.data.get(ATTR_ENTITY_ID)
-            if cover is None:
-                raise ValueError("No cover entity provided")
-            if isinstance(cover, list):
-                if len(cover) != 1:
-                    raise ValueError("Provide a single cover entity for recalibration")
-                return cover[0]
-            return cover
         async def handle_recalibrate(call):
-            cover = _resolve_cover(call)
+            cover = await _async_get_single_cover(call)
             full_open = call.data.get(CONF_FULL_OPEN_POSITION, DEFAULT_OPEN_POSITION)
             matched = False
             for manager in hass.data.get(DOMAIN, {}).values():
@@ -147,14 +184,17 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             DOMAIN,
             SERVICE_RECALIBRATE,
             handle_recalibrate,
-            schema=vol.Schema(
-                {
-                vol.Optional(CONF_COVERS): vol.Any(cv.entity_id, [cv.entity_id]),
-                vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, [cv.entity_id]),
-                vol.Optional(CONF_FULL_OPEN_POSITION, default=DEFAULT_OPEN_POSITION): vol.All(
-                    vol.Coerce(float), vol.Range(min=0, max=100)
+            schema=vol.All(
+                vol.Schema(
+                    {
+                        vol.Optional(CONF_COVERS): vol.Any(cv.entity_id, cv.entity_ids),
+                        vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
+                        vol.Optional(CONF_FULL_OPEN_POSITION, default=DEFAULT_OPEN_POSITION): vol.All(
+                            vol.Coerce(float), vol.Range(min=0, max=100)
+                        ),
+                    }
                 ),
-                }
+                _require_single_cover
             ),
         )
     if SERVICE_CHANGE_SWITCH_SETTINGS not in hass.services.async_services_for_domain(DOMAIN):
@@ -307,7 +347,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
     if SERVICE_FORCE_ACTION not in hass.services.async_services_for_domain(DOMAIN):
         async def handle_force_action(call):
-            cover = call.data[CONF_COVERS]
+            cover = await _async_get_single_cover(call)
             action = call.data["action"]
             matched = False
             for manager in hass.data.get(DOMAIN, {}).values():
@@ -323,7 +363,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             handle_force_action,
             schema=vol.Schema(
                 {
-                    vol.Required(CONF_COVERS): cv.entity_id,
+                    vol.Optional(CONF_COVERS): vol.Any(cv.entity_id, cv.entity_ids),
+                    vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
                     vol.Required("action"): vol.In(
                         [
                             "open",
