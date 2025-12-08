@@ -8,7 +8,7 @@ set_manual_override:
     entity_id:
       name: Cover
       description: Cover entity to run the action on.
-      required: false
+      required: true
       selector:
         entity:
           domain: cover
@@ -30,7 +30,7 @@ activate_shading:
     entity_id:
       name: Cover
       description: Cover that should move to the shading position.
-      required: false
+      required: true
       selector:
         entity:
           domain: cover
@@ -59,7 +59,7 @@ recalibrate_cover:
     entity_id:
       name: Cover
       description: Cover to recalibrate.
-      required: false
+      required: true
       selector:
         entity:
           domain: cover
