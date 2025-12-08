@@ -5,10 +5,10 @@ set_manual_override:
     entity:
       domain: cover
   fields:
-    covers:
+    entity_id:
       name: Cover
-      description: The cover entity to pause.
-      required: true
+      description: Cover entity to run the action on.
+      required: false
       selector:
         entity:
           domain: cover
@@ -27,10 +27,10 @@ activate_shading:
     entity:
       domain: cover
   fields:
-    covers:
+    entity_id:
       name: Cover
-      description: The cover entity to shade.
-      required: true
+      description: Cover that should move to the shading position.
+      required: false
       selector:
         entity:
           domain: cover
@@ -49,13 +49,6 @@ clear_manual_override:
     entity:
       domain: cover
   fields:
-    covers:
-      name: Cover
-      description: The cover entity to resume.
-      required: true
-      selector:
-        entity:
-          domain: cover
 recalibrate_cover:
   name: Recalibrate cover
   description: Temporarily override a cover, use the standard open command to fully open it, then return it to its previous position and clear the override. Useful for recalibrating.
@@ -63,9 +56,9 @@ recalibrate_cover:
     entity:
       domain: cover
   fields:
-    covers:
+    entity_id:
       name: Cover
-      description: The cover entity to recalibrate.
+      description: Cover to recalibrate.
       required: false
       selector:
         entity:
@@ -252,9 +245,9 @@ force_action:
     entity:
       domain: cover
   fields:
-    covers:
+    entity_id:
       name: Cover
-      description: The cover to control.
+      description: Cover to run the action on.
       required: true
       selector:
         entity:
