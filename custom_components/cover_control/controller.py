@@ -14,6 +14,7 @@ from homeassistant import config_entries
 from homeassistant.const import STATE_ON
 from homeassistant.core import Context, CALLBACK_TYPE, HomeAssistant, callback
 from homeassistant.helpers import condition
+from homeassistant.exceptions import ConditionError
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import (
     async_track_point_in_time,
@@ -617,19 +618,15 @@ class ShutterController:
             return
         if target is None:
             return
+        self._activate_manual_override(scope_all=True, reason=reason)
         await self._command_position(float(target))
         self._target = float(target)
         self._reason = reason
-        self._manual_until = None
-        self._manual_active = False
-        self._manual_scope_all = False
         self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
 
     async def force_ventilation(self, action: str) -> None:
-        self._manual_until = None
-        self._manual_active = False
-        self._manual_scope_all = False
+        self._activate_manual_override(scope_all=True, reason="ventilation")
         if action == "start":
             target = self._position_value(CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION)
             if target is None:
@@ -651,10 +648,7 @@ class ShutterController:
         self._publish_state()
 
     async def force_shading(self, action: str) -> None:
-        self._manual_until = None
-        self._manual_active = False
-        self._manual_scope_all = False
-        self._clear_manual_expiry()
+        self._activate_manual_override(scope_all=True, reason="manual_shading")
         if action == "activate":
             target = self._position_value(CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION)
             if target is None:
@@ -1286,6 +1280,14 @@ class ShutterController:
                 return False
             return self.hass.states.is_state(condition_config, STATE_ON)
 
+        if not isinstance(condition_config, (list, dict)):
+            _LOGGER.error(
+                "Invalid additional condition '%s': unsupported type %s",
+                config_key,
+                type(condition_config).__name__,
+            )
+            return False
+
         try:
             config: dict = (
                 {"condition": "and", "conditions": condition_config}
@@ -1297,6 +1299,14 @@ class ShutterController:
             if isawaitable(result):
                 result = await result
             return bool(result)
+        except ConditionError as err:  # pragma: no cover - defensive for invalid config
+            _LOGGER.error(
+                "Invalid additional condition '%s': %s (config=%s)",
+                config_key,
+                err,
+                condition_config,
+            )
+            return False
         except Exception:  # pragma: no cover - defensive for runtime errors
             _LOGGER.exception("Failed to evaluate additional condition: %s", config_key)
             return False
