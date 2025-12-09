@@ -5,13 +5,6 @@ set_manual_override:
     entity:
       domain: cover
   fields:
-    entity_id:
-      name: Cover
-      description: Cover entity to run the action on.
-      required: true
-      selector:
-        entity:
-          domain: cover
     manual_override_minutes:
       name: Minutes
       description: Duration of the pause. Defaults to the integration setting if omitted.
@@ -27,13 +20,6 @@ activate_shading:
     entity:
       domain: cover
   fields:
-    entity_id:
-      name: Cover
-      description: Cover that should move to the shading position.
-      required: true
-      selector:
-        entity:
-          domain: cover
     manual_override_minutes:
       name: Minutes
       description: Optional override duration; defaults to the integration setting.
@@ -49,6 +35,13 @@ clear_manual_override:
     entity:
       domain: cover
   fields:
+    entity_id:
+      name: Cover
+      description: Cover entity to resume automation for.
+      required: true
+      selector:
+        entity:
+          domain: cover
 recalibrate_cover:
   name: Recalibrate cover
   description: Temporarily override a cover, use the standard open command to fully open it, then return it to its previous position and clear the override. Useful for recalibrating.
@@ -56,13 +49,6 @@ recalibrate_cover:
     entity:
       domain: cover
   fields:
-    entity_id:
-      name: Cover
-      description: Cover to recalibrate.
-      required: true
-      selector:
-        entity:
-          domain: cover
     full_open_position:
       name: Fully open position
       description: Override for the fully open position; defaults to 100% if unspecified.
@@ -245,13 +231,6 @@ force_action:
     entity:
       domain: cover
   fields:
-    entity_id:
-      name: Cover
-      description: Cover to run the action on.
-      required: true
-      selector:
-        entity:
-          domain: cover
     action:
       name: Action
       description: Select which immediate action to run.
