@@ -241,10 +241,6 @@
         }
       },
       "fields": {
-        "entity_id": {‚‚‚
-          "name": "Cover",
-          "description": "Cover entity to pause automation for."
-        },
         "manual_override_minutes": {
           "name": "Minutes",
           "description": "Duration of the pause."
@@ -260,12 +256,7 @@
           "description": "Cover to resume automation for."
         }
       },
-      "fields": {
-        "entity_id": {
-          "name": "Cover",
-          "description": "Cover entity to resume automation for."
-        }
-      }
+      "fields": {}
     },
     "recalibrate_cover": {
       "name": "Recalibrate cover",
@@ -277,10 +268,6 @@
         }
       },
       "fields": {
-        "entity_id": {
-          "name": "Cover",
-          "description": "The cover entity to recalibrate."
-        },
         "full_open_position": {
           "name": "Fully open position",
           "description": "Position to use for fully opening the cover; defaults to 100%."
@@ -297,10 +284,6 @@
         }
       },
       "fields": {
-        "entity_id": {
-          "name": "Cover",
-          "description": "Cover entity to move to the shading position."
-        },
         "manual_override_minutes": {
           "name": "Minutes",
           "description": "Optional override duration; defaults to the integration setting."
@@ -331,10 +314,6 @@
         }
       },
       "fields": {
-        "entity_id": {
-          "name": "Cover",
-          "description": "Cover entity to run the action on."
-        },
         "action": {
           "name": "Action",
           "description": "Select which immediate action to run."
