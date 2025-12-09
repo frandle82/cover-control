@@ -1,7 +1,6 @@
 """Set up the Cover Control integration."""
 from __future__ import annotations
 
-import asyncio
 from typing import Mapping
 
 from homeassistant.const import ATTR_ENTITY_ID
@@ -99,7 +98,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             handle_manual_override,
             schema=vol.Schema(
                 {
-                    vol.Required(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
+                    vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
                     vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES): cv.positive_int,
                 }
             ),
@@ -123,7 +122,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             handle_activate_shading,
             schema=vol.Schema(
                 {
-                    vol.Required(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
+                    vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
                     vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES): cv.positive_int,
                 }
             ),
@@ -144,9 +143,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             SERVICE_CLEAR_MANUAL_OVERRIDE,
             handle_clear_manual_override,
             schema=vol.Schema(
-                {
-                    vol.Required(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
-                }
+                {vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids)}
             ),
         )
     if SERVICE_RECALIBRATE not in hass.services.async_services_for_domain(DOMAIN):
@@ -168,7 +165,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             handle_recalibrate,
             schema=vol.Schema(
                 {
-                    vol.Required(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
+                    vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
                     vol.Optional(CONF_FULL_OPEN_POSITION, default=DEFAULT_OPEN_POSITION): vol.All(
                         vol.Coerce(float), vol.Range(min=0, max=100)
                     ),
@@ -341,7 +338,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             handle_force_action,
             schema=vol.Schema(
                 {
-                    vol.Required(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
+                    vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
                     vol.Required("action"): vol.In(
                         [
                             "open",
