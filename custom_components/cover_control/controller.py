@@ -1294,7 +1294,11 @@ class ShutterController:
                 if isinstance(condition_config, list)
                 else condition_config
             )
-            check = await condition.async_from_config(self.hass, config)
+            normalized_config = self._normalize_condition_config(config)
+            validated_config = await condition.async_validate_condition_config(
+                self.hass, normalized_config
+            )
+            check = await condition.async_from_config(self.hass, validated_config)
             result = check(self.hass)
             if isawaitable(result):
                 result = await result
@@ -1311,6 +1315,36 @@ class ShutterController:
             _LOGGER.exception("Failed to evaluate additional condition: %s", config_key)
             return False
     
+    def _normalize_condition_config(self, config: dict | list) -> dict | list:
+        """Normalize condition configuration to match Home Assistant expectations.
+
+        Converts string-based time values into ``datetime.time`` objects so they are
+        not misinterpreted as entity IDs during validation. Nested condition blocks
+        are processed recursively.
+        """
+
+        if isinstance(config, list):
+            return [self._normalize_condition_config(item) for item in config]
+
+        normalized = dict(config)
+        condition_type = normalized.get("condition")
+
+        if condition_type == "time":
+            for key in ("after", "before"):
+                value = normalized.get(key)
+                if isinstance(value, str):
+                    parsed = dt_util.parse_time(value)
+                    if parsed is not None:
+                        normalized[key] = parsed
+
+        if condition_type in {"and", "or", "not"}:
+            normalized["conditions"] = [
+                self._normalize_condition_config(item)
+                for item in normalized.get("conditions", [])
+            ]
+
+        return normalized
+
     def _master_enabled(self) -> bool:
         return bool(self.config.get(CONF_MASTER_ENABLED, DEFAULT_MASTER_FLAGS[CONF_MASTER_ENABLED]))
     
