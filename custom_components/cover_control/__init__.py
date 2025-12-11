@@ -1,6 +1,7 @@
 """Set up the Cover Control integration."""
 from __future__ import annotations
 
+from datetime import datetime, time
 from typing import Mapping
 
 from homeassistant.const import ATTR_ENTITY_ID
@@ -11,6 +12,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import service as service_helper
 from homeassistant.helpers.typing import ConfigType
 import voluptuous as vol
+from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_AUTO_BRIGHTNESS,
@@ -59,6 +61,21 @@ SERVICE_CLEAR_MANUAL_OVERRIDE = "clear_manual_override"
 SERVICE_RECALIBRATE = "recalibrate_cover"
 SERVICE_CHANGE_SWITCH_SETTINGS = "change_switch_settings"
 SERVICE_FORCE_ACTION = "force_action"
+
+
+def _parse_service_time(value: object) -> time:
+    """Coerce service input into a time object or raise a validation error."""
+
+    if isinstance(value, time):
+        return value
+    if isinstance(value, datetime):
+        return value.timetz()
+
+    parsed = dt_util.parse_time(str(value)) if value not in (None, "") else None
+    if not parsed:
+        raise vol.Invalid("Expect HH:MM formatted time")
+    return parsed
+
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Initialize integration-level storage and services."""
@@ -238,14 +255,14 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             CONF_SUN_ELEVATION_MIN: vol.Coerce(float),
             CONF_SUN_ELEVATION_MAX: vol.Coerce(float),
             CONF_POSITION_TOLERANCE: vol.Coerce(float),
-            CONF_TIME_UP_EARLY_WORKDAY: cv.string,
-            CONF_TIME_UP_LATE_WORKDAY: cv.string,
-            CONF_TIME_DOWN_EARLY_WORKDAY: cv.string,
-            CONF_TIME_DOWN_LATE_WORKDAY: cv.string,
-            CONF_TIME_UP_EARLY_NON_WORKDAY: cv.string,
-            CONF_TIME_UP_LATE_NON_WORKDAY: cv.string,
-            CONF_TIME_DOWN_EARLY_NON_WORKDAY: cv.string,
-            CONF_TIME_DOWN_LATE_NON_WORKDAY: cv.string,
+            CONF_TIME_UP_EARLY_WORKDAY: _parse_service_time,
+            CONF_TIME_UP_LATE_WORKDAY: _parse_service_time,
+            CONF_TIME_DOWN_EARLY_WORKDAY: _parse_service_time,
+            CONF_TIME_DOWN_LATE_WORKDAY: _parse_service_time,
+            CONF_TIME_UP_EARLY_NON_WORKDAY: _parse_service_time,
+            CONF_TIME_UP_LATE_NON_WORKDAY: _parse_service_time,
+            CONF_TIME_DOWN_EARLY_NON_WORKDAY: _parse_service_time,
+            CONF_TIME_DOWN_LATE_NON_WORKDAY: _parse_service_time,
             CONF_SUN_ELEVATION_OPEN: vol.Coerce(float),
             CONF_SUN_ELEVATION_CLOSE: vol.Coerce(float),
             CONF_OPEN_POSITION: vol.All(vol.Coerce(float), vol.Range(min=0, max=100)),
@@ -268,6 +285,16 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
                 raise ValueError("settings must be a mapping when provided")
             provided_settings.update(raw_settings)
             provided_settings.update(extra_fields)
+
+            validated_settings: dict[str, object] = {}
+            for key, value in provided_settings.items():
+                validator = validators.get(key)
+                if not validator:
+                    continue
+                try:
+                    validated_settings[key] = validator(value)
+                except vol.Invalid as err:
+                    raise ValueError(f"Invalid value for {key}: {err}") from err
 
             registry = er.async_get(hass)
             entity = registry.async_get(entity_id)
@@ -301,7 +328,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             # all editable settings to be updated in one call.
             allowed: set[str] = set(validators) if not allowed_raw else set(allowed_raw)
 
-            filtered = {k: v for k, v in provided_settings.items() if k in allowed}
+            filtered = {k: v for k, v in validated_settings.items() if k in allowed}
             if not filtered:
                 raise ValueError("No valid settings provided for this switch")
 
