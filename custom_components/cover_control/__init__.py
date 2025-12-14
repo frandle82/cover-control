@@ -299,7 +299,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             registry = er.async_get(hass)
             entity = registry.async_get(entity_id)
             if not entity or entity.platform != DOMAIN:
-                raise ValueError(f"No shuttercontrol switch found for {entity_id}")
+                raise ValueError(f"No covercontrol switch found for {entity_id}")
 
             entry = hass.config_entries.async_get_entry(entity.config_entry_id)
             if not entry:
