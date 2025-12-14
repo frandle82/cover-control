@@ -153,7 +153,7 @@ def _time_default(value, fallback: str | None = None):
     return vol.UNDEFINED
 
 
-class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the config flow."""
 
     VERSION = 1
@@ -538,10 +538,10 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:
-        return ShutterOptionsFlow(config_entry)
+        return CoverOptionsFlow(config_entry)
 
 
-class ShutterOptionsFlow(config_entries.OptionsFlow):
+class CoverOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow."""
 
     _CLEARABLE_OPTION_KEYS = {
