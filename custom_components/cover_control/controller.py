@@ -160,7 +160,7 @@ class ControllerManager:
     def __init__(self, hass: HomeAssistant, entry: config_entries.ConfigEntry) -> None:
         self.hass = hass
         self.entry = entry
-        self.controllers: dict[str, ShutterController] = {}
+        self.controllers: dict[str, CoverController] = {}
 
     async def async_setup(self) -> None:
         data = {
@@ -172,7 +172,7 @@ class ControllerManager:
             **self.entry.options,
         }
         for cover in data.get(CONF_COVERS, []):
-            controller = ShutterController(self.hass, self.entry, cover, data)
+            controller = CoverController(self.hass, self.entry, cover, data)
             await controller.async_setup()
             self.controllers[cover] = controller
 
@@ -273,7 +273,7 @@ class ControllerManager:
                 )
             return controller.state_snapshot()
 
-class ShutterController:
+class CoverController:
     """Translate blueprint-style parameters into runtime cover control."""
 
     def __init__(self, hass: HomeAssistant, entry: config_entries.ConfigEntry, cover: str, config: ConfigType) -> None:
@@ -313,15 +313,21 @@ class ShutterController:
         self._unsubs.append(self.hass.bus.async_listen("call_service", self._handle_service_call))
         self._target = self._current_position()
         self._last_position = self._target
-        sensor_entities = [
+        sensor_entities = {
             self.config.get(CONF_BRIGHTNESS_SENSOR),
             self.config.get(CONF_WORKDAY_SENSOR),
             self.config.get(CONF_TEMPERATURE_SENSOR_INDOOR),
             self.config.get(CONF_TEMPERATURE_SENSOR_OUTDOOR),
             self.config.get(CONF_RESIDENT_SENSOR),
+            self.config.get(CONF_SHADING_FORECAST_SENSOR),
             self.cover,
-        ]
-        sensor_entities.extend(self._contact_sensors())
+        }
+        sensor_entities.update(self._contact_sensors())
+        sensor_entities.update(
+            entity
+            for entity in (self.config.get(entity_key) for entity_key in self._auto_entity_map.values())
+            if entity
+        )
         for entity_id in sensor_entities:
             if not entity_id:
                 continue
@@ -852,25 +858,14 @@ class ShutterController:
                         self._publish_state()
             return
 
-        if (
+        
+        post_ventilation = (
             auto_ventilate
-            and ventilation_end_condition
             and not ventilation_contact_active
             and self._reason in {"ventilation", "ventilation_full"}
-        ):
-            if close_condition and not self._manual_blocks_action("close"):
-                await self._set_position(
-                    self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
-                    "ventilation_end_close",
-                )
-            return
+        )
 
-        if (
-            auto_ventilate
-            and not ventilation_end_condition
-            and not ventilation_contact_active
-            and self._reason in {"ventilation", "ventilation_full"}
-        ):
+        if post_ventilation and not ventilation_end_condition:
             self._refresh_next_events(now)
             self._publish_state()
             return
@@ -940,6 +935,15 @@ class ShutterController:
         
         close_events: list[tuple[datetime, str, float | None]] = []
         open_events: list[tuple[datetime, str, float | None]] = []
+
+        if post_ventilation and ventilation_end_condition:
+            close_events.append(
+                (
+                    now + timedelta(seconds=1),
+                    "ventilation_end_close",
+                    self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
+                )
+            )
 
         if close_condition and not self._manual_blocks_action("close"):
             if self._auto_enabled(CONF_AUTO_SUN) and self._sun_allows_close(sun_elevation):
@@ -1360,16 +1364,7 @@ class ShutterController:
                 self._reason = reason
                 self._publish_state()
             return
-        ctx = Context()
-        self._last_command_context_id = ctx.id
-        self._last_command_at = dt_util.utcnow()
-        await self.hass.services.async_call(
-            "cover",
-            "set_cover_position",
-            {"entity_id": self.cover, "position": float(position)},
-            blocking=False,
-            context=ctx,
-        )
+        await self._command_position(float(position))
         self._target = float(position)
         self._reason = reason
         self._refresh_next_events(dt_util.utcnow())
@@ -1456,12 +1451,11 @@ class ShutterController:
         next_down_late = self._next_time_for_point(down_late_time, now)
 
         def _clamp_candidate(
-                candidate: datetime | None,
-                earliest: datetime | None,
-                latest: datetime | None,
-
-                fallback_candidates: tuple[datetime | None, datetime | None],
-            ) -> datetime | None:
+            candidate: datetime | None,
+            earliest: datetime | None,
+            latest: datetime | None,
+            fallback_candidates: tuple[datetime | None, datetime | None],
+        ) -> datetime | None:
             base = candidate
             if earliest and base and base < earliest:
                 base = earliest
@@ -1476,11 +1470,11 @@ class ShutterController:
         open_base = (sun_open_target or sun_next_rising) if sun_enabled else None
         close_base = (sun_close_target or sun_next_setting) if sun_enabled else None
 
-        self._next_open = open_base or _clamp_candidate(
-            None, next_up_early, next_up_late, (next_up_early, next_up_late)
+        self._next_open = _clamp_candidate(
+            open_base, next_up_early, next_up_late, (next_up_early, next_up_late)
         )
-        self._next_close = close_base or _clamp_candidate(
-            None,
+        self._next_close = _clamp_candidate(
+            close_base,
             next_down_early,
             next_down_late,
             (next_down_early, next_down_late),
