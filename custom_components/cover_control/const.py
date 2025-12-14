@@ -114,7 +114,7 @@ MANUAL_OVERRIDE_RESET_NONE = "none"
 MANUAL_OVERRIDE_RESET_TIME = "time"
 MANUAL_OVERRIDE_RESET_TIMEOUT = "timeout"
 
-SIGNAL_STATE_UPDATED = "shuttercontrol_state_updated"
+SIGNAL_STATE_UPDATED = "covercontrol_state_updated"
 
 REASON_LABELS = {
     "manual_override": "override",
