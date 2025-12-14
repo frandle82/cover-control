@@ -4,7 +4,7 @@
     "step": {
       "user": {
         "title": "Select covers",
-        "description": "Choose the shutters or blinds that will be automated.",
+        "description": "Choose the covers or blinds that will be automated.",
         "data": {
           "covers": "Covers"
         }
@@ -77,7 +77,7 @@
   "options": {
     "step": {
       "init": {
-        "title": "Update shutter settings",
+        "title": "Update cover settings",
         "description": "Adjust thresholds, helpers, and manual override behaviour.",
         "data": {
           "workday_sensor": "Workday helper (optional)",
@@ -226,10 +226,6 @@
         }
       },
       "fields": {
-        "entity_id": {
-          "name": "Cover",
-          "description": "Cover entity to pause automation for."
-        },
         "manual_override_minutes": {
           "name": "Minutes",
           "description": "Duration of the pause."
@@ -245,12 +241,7 @@
           "description": "Cover to resume automation for."
         }
       },
-      "fields": {
-        "entity_id": {
-          "name": "Cover",
-          "description": "Cover entity to resume automation for."
-        }
-      }
+      "fields": {}
     },
     "activate_shading": {
       "name": "Activate shading now",
@@ -262,10 +253,6 @@
         }
       },
       "fields": {
-        "entity_id": {
-          "name": "Cover",
-          "description": "Cover entity to move to the shading position."
-        },
         "manual_override_minutes": {
           "name": "Minutes",
           "description": "Optional override duration; defaults to the integration setting."
@@ -282,10 +269,6 @@
         }
       },
       "fields": {
-        "entity_id": {
-          "name": "Cover",
-          "description": "Cover entity to recalibrate."
-        },
         "full_open_position": {
           "name": "Fully open position",
           "description": "Position to use for fully opening the cover; defaults to 100%."
@@ -316,10 +299,6 @@
         }
       },
       "fields": {
-        "entity_id": {
-          "name": "Cover",
-          "description": "Cover entity to run the action on."
-        },
         "action": {
           "name": "Action",
           "description": "Select which immediate action to run."
