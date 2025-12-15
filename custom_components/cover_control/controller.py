@@ -11,9 +11,10 @@ from astral.sun import SunDirection, time_at_elevation
 
 from homeassistant.components.cover import CoverEntityFeature
 from homeassistant import config_entries
-from homeassistant.const import STATE_ON
-from homeassistant.core import Context, CALLBACK_TYPE, HomeAssistant, callback
-from homeassistant.helpers import condition
+from homeassistant.const import STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.core import Context, CALLBACK_TYPE, HomeAssistant, State, callback
+from homeassistant.helpers import condition, entity_registry as er
+from homeassistant.exceptions import ConditionError
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import (
     async_track_point_in_time,
@@ -122,6 +123,7 @@ from .const import (
     MANUAL_OVERRIDE_RESET_NONE,
     MANUAL_OVERRIDE_RESET_TIME,
     MANUAL_OVERRIDE_RESET_TIMEOUT,
+    EVENT_COVER_CONTROL,
 )
 
 IDLE_REASON = "idle"
@@ -159,7 +161,7 @@ class ControllerManager:
     def __init__(self, hass: HomeAssistant, entry: config_entries.ConfigEntry) -> None:
         self.hass = hass
         self.entry = entry
-        self.controllers: dict[str, ShutterController] = {}
+        self.controllers: dict[str, CoverController] = {}
 
     async def async_setup(self) -> None:
         data = {
@@ -171,7 +173,7 @@ class ControllerManager:
             **self.entry.options,
         }
         for cover in data.get(CONF_COVERS, []):
-            controller = ShutterController(self.hass, self.entry, cover, data)
+            controller = CoverController(self.hass, self.entry, cover, data)
             await controller.async_setup()
             self.controllers[cover] = controller
 
@@ -221,26 +223,26 @@ class ControllerManager:
         await controller.recalibrate(full_open)
         return True
     
-    async def force_move(self, cover: str, action: str) -> bool:
+    async def force_action(self, cover: str, action: str) -> bool:
         controller = self.controllers.get(cover)
         if not controller:
             return False
-        await controller.force_move(action)
-        return True
-
-    async def force_ventilation(self, cover: str, action: str) -> bool:
-        controller = self.controllers.get(cover)
-        if not controller:
-            return False
-        await controller.force_ventilation(action)
-        return True
-
-    async def force_shading(self, cover: str, action: str) -> bool:
-        controller = self.controllers.get(cover)
-        if not controller:
-            return False
-        await controller.force_shading(action)
-        return True
+        
+        if action in {"open", "close"}:
+            await controller.force_move(action)
+            return True
+        if action in {"ventilate_start", "ventilate_stop"}:
+            await controller.force_ventilation(
+                "start" if action == "ventilate_start" else "stop"
+            )
+            return True
+        if action in {"shading_activate", "shading_deactivate"}:
+            await controller.force_shading(
+                "activate" if action == "shading_activate" else "deactivate"
+            )
+            return True
+        
+        return False
 
     def state_snapshot(
         self, cover: str
@@ -272,7 +274,7 @@ class ControllerManager:
                 )
             return controller.state_snapshot()
 
-class ShutterController:
+class CoverController:
     """Translate blueprint-style parameters into runtime cover control."""
 
     def __init__(self, hass: HomeAssistant, entry: config_entries.ConfigEntry, cover: str, config: ConfigType) -> None:
@@ -292,6 +294,7 @@ class ShutterController:
         self._reason: str | None = None
         self._next_open: datetime | None = None
         self._next_close: datetime | None = None
+        self._master_entity_id: str | None = None
         # Position helpers were removed, but keep the mapping available so
         # legacy config entries that still reference helper entities do not
         # cause attribute errors during lookups.
@@ -306,21 +309,31 @@ class ShutterController:
         }
 
     async def async_setup(self) -> None:
+        registry = er.async_get(self.hass)
+        self._master_entity_id = registry.async_get_entity_id(
+            "switch", DOMAIN, f"{self.entry.entry_id}-master"
+        )
         self._unsubs.append(
             async_track_time_interval(self.hass, self._handle_interval, timedelta(minutes=1))
         )
         self._unsubs.append(self.hass.bus.async_listen("call_service", self._handle_service_call))
         self._target = self._current_position()
         self._last_position = self._target
-        sensor_entities = [
+        sensor_entities = {
             self.config.get(CONF_BRIGHTNESS_SENSOR),
             self.config.get(CONF_WORKDAY_SENSOR),
             self.config.get(CONF_TEMPERATURE_SENSOR_INDOOR),
             self.config.get(CONF_TEMPERATURE_SENSOR_OUTDOOR),
             self.config.get(CONF_RESIDENT_SENSOR),
+            self.config.get(CONF_SHADING_FORECAST_SENSOR),
             self.cover,
-        ]
-        sensor_entities.extend(self._contact_sensors())
+        }
+        sensor_entities.update(self._contact_sensors())
+        sensor_entities.update(
+            entity
+            for entity in (self.config.get(entity_key) for entity_key in self._auto_entity_map.values())
+            if entity
+        )
         for entity_id in sensor_entities:
             if not entity_id:
                 continue
@@ -590,11 +603,13 @@ class ShutterController:
         )
 
         try:
-            await self._open_cover(target_open)
+            await self._open_cover(target_open, reason="recalibrate_open")
             await self._wait_for_position(target_open, tolerance)
 
             if current_position is not None:
-                await self._command_position(current_position)
+                await self._command_position(
+                    current_position, reason="recalibrate_restore"
+                )
                 await self._wait_for_position(current_position, tolerance)
         finally:
             (
@@ -617,31 +632,27 @@ class ShutterController:
             return
         if target is None:
             return
-        await self._command_position(float(target))
+        self._activate_manual_override(scope_all=True, reason=reason)
+        await self._command_position(float(target), reason=reason)
         self._target = float(target)
         self._reason = reason
-        self._manual_until = None
-        self._manual_active = False
-        self._manual_scope_all = False
         self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
 
     async def force_ventilation(self, action: str) -> None:
-        self._manual_until = None
-        self._manual_active = False
-        self._manual_scope_all = False
+        self._activate_manual_override(scope_all=True, reason="ventilation")
         if action == "start":
             target = self._position_value(CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION)
             if target is None:
                 return
-            await self._command_position(float(target))
+            await self._command_position(float(target), reason="ventilation_start")
             self._target = float(target)
             self._reason = "ventilation"
         elif action == "stop":
             target = self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)
             if target is None:
                 return
-            await self._command_position(float(target))
+            await self._command_position(float(target), reason="ventilation_stop")
             self._target = float(target)
             if self._reason == "ventilation":
                 self._reason = None
@@ -651,22 +662,19 @@ class ShutterController:
         self._publish_state()
 
     async def force_shading(self, action: str) -> None:
-        self._manual_until = None
-        self._manual_active = False
-        self._manual_scope_all = False
-        self._clear_manual_expiry()
+        self._activate_manual_override(scope_all=True, reason="manual_shading")
         if action == "activate":
             target = self._position_value(CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION)
             if target is None:
                 return
-            await self._command_position(float(target))
+            await self._command_position(float(target), reason="manual_shading")
             self._target = float(target)
             self._reason = "manual_shading"
         elif action == "deactivate":
             target = self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)
             if target is None:
                 return
-            await self._command_position(float(target))
+            await self._command_position(float(target), reason="manual_shading_end")
             self._target = float(target)
             if self._reason in {"shading", "manual_shading"}:
                 self._reason = None
@@ -729,6 +737,17 @@ class ShutterController:
         now = dt_util.utcnow()
         self._expire_manual_override(now)
         self._ensure_manual_expiry_timer(now)
+        self._fire_event(
+            "evaluate",
+            {
+                "trigger": trigger,
+                "manual_active": self._manual_active,
+                "manual_scope_all": self._manual_scope_all,
+                "next_open": self._next_open,
+                "next_close": self._next_close,
+                "master_enabled": self._master_enabled(),
+            },
+        )
         if self._manual_active:
             if self._manual_scope_all or all(
                 self._manual_blocks_action(action)
@@ -858,25 +877,14 @@ class ShutterController:
                         self._publish_state()
             return
 
-        if (
+        
+        post_ventilation = (
             auto_ventilate
-            and ventilation_end_condition
             and not ventilation_contact_active
             and self._reason in {"ventilation", "ventilation_full"}
-        ):
-            if close_condition and not self._manual_blocks_action("close"):
-                await self._set_position(
-                    self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
-                    "ventilation_end_close",
-                )
-            return
+        )
 
-        if (
-            auto_ventilate
-            and not ventilation_end_condition
-            and not ventilation_contact_active
-            and self._reason in {"ventilation", "ventilation_full"}
-        ):
+        if post_ventilation and not ventilation_end_condition:
             self._refresh_next_events(now)
             self._publish_state()
             return
@@ -946,6 +954,15 @@ class ShutterController:
         
         close_events: list[tuple[datetime, str, float | None]] = []
         open_events: list[tuple[datetime, str, float | None]] = []
+
+        if post_ventilation and ventilation_end_condition:
+            close_events.append(
+                (
+                    now + timedelta(seconds=1),
+                    "ventilation_end_close",
+                    self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
+                )
+            )
 
         if close_condition and not self._manual_blocks_action("close"):
             if self._auto_enabled(CONF_AUTO_SUN) and self._sun_allows_close(sun_elevation):
@@ -1286,23 +1303,120 @@ class ShutterController:
                 return False
             return self.hass.states.is_state(condition_config, STATE_ON)
 
+        if not isinstance(condition_config, (list, dict)):
+            _LOGGER.error(
+                "Invalid additional condition '%s': unsupported type %s",
+                config_key,
+                type(condition_config).__name__,
+            )
+            return False
+
         try:
             config: dict = (
                 {"condition": "and", "conditions": condition_config}
                 if isinstance(condition_config, list)
                 else condition_config
             )
-            check = await condition.async_from_config(self.hass, config)
+            normalized_config = self._normalize_condition_config(config)
+            validated_config = await condition.async_validate_condition_config(
+                self.hass, normalized_config
+            )
+            check = await condition.async_from_config(self.hass, validated_config)
             result = check(self.hass)
             if isawaitable(result):
                 result = await result
             return bool(result)
+        except ConditionError as err:  # pragma: no cover - defensive for invalid config
+            _LOGGER.error(
+                "Invalid additional condition '%s': %s (config=%s)",
+                config_key,
+                err,
+                condition_config,
+            )
+            return False
         except Exception:  # pragma: no cover - defensive for runtime errors
             _LOGGER.exception("Failed to evaluate additional condition: %s", config_key)
             return False
     
+    def _normalize_condition_config(self, config: dict | list) -> dict | list:
+        """Normalize condition configuration to match Home Assistant expectations.
+
+        Converts string-based time values into ``datetime.time`` objects so they are
+        not misinterpreted as entity IDs during validation. Nested condition blocks
+        are processed recursively.
+        """
+
+        if isinstance(config, list):
+            return [self._normalize_condition_config(item) for item in config]
+
+        normalized = dict(config)
+        condition_type = normalized.get("condition")
+
+        if condition_type == "time":
+            for key in ("after", "before"):
+                value = normalized.get(key)
+                if isinstance(value, str):
+                    parsed = dt_util.parse_time(value)
+                    if parsed is not None:
+                        normalized[key] = parsed
+
+        if condition_type in {"and", "or", "not"}:
+            normalized["conditions"] = [
+                self._normalize_condition_config(item)
+                for item in normalized.get("conditions", [])
+            ]
+
+        return normalized
+
     def _master_enabled(self) -> bool:
         return bool(self.config.get(CONF_MASTER_ENABLED, DEFAULT_MASTER_FLAGS[CONF_MASTER_ENABLED]))
+    
+    def _fire_event(self, kind: str, data: dict | None = None) -> None:
+        payload: dict[str, object] = {
+            "kind": kind,
+            "entry_id": self.entry.entry_id,
+            "cover": self.cover,
+            "master_entity_id": self._master_entity_id,
+            "timestamp": dt_util.utcnow().isoformat(),
+        }
+
+        if self._reason:
+            payload["reason"] = self._reason
+
+        if data:
+            payload.update(
+                {k: v.isoformat() if isinstance(v, datetime) else v for k, v in data.items()}
+            )
+
+        self.hass.bus.async_fire(EVENT_COVER_CONTROL, payload)
+
+    def _cover_state_or_warn(
+        self,
+        service: str,
+        *,
+        reason: str | None = None,
+        trigger: str | None = None,
+        target_position: float | None = None,
+    ) -> State | None:
+        state = self.hass.states.get(self.cover)
+        if state is None or state.state in {STATE_UNAVAILABLE, STATE_UNKNOWN}:
+            _LOGGER.warning(
+                "Cover Control skipping %s for %s: entity is missing or unavailable",
+                service,
+                self.cover,
+            )
+            self._fire_event(
+                "command",
+                {
+                    "service": service,
+                    "reason": reason or self._reason,
+                    "trigger": trigger,
+                    "target_position": target_position,
+                    "skipped": "unavailable",
+                },
+            )
+            return None
+        return state
     
     async def _set_position(self, position: float | None, reason: str) -> None:
         if position is None:
@@ -1316,16 +1430,7 @@ class ShutterController:
                 self._reason = reason
                 self._publish_state()
             return
-        ctx = Context()
-        self._last_command_context_id = ctx.id
-        self._last_command_at = dt_util.utcnow()
-        await self.hass.services.async_call(
-            "cover",
-            "set_cover_position",
-            {"entity_id": self.cover, "position": float(position)},
-            blocking=False,
-            context=ctx,
-        )
+        await self._command_position(float(position), reason=reason)
         self._target = float(position)
         self._reason = reason
         self._refresh_next_events(dt_util.utcnow())
@@ -1412,12 +1517,11 @@ class ShutterController:
         next_down_late = self._next_time_for_point(down_late_time, now)
 
         def _clamp_candidate(
-                candidate: datetime | None,
-                earliest: datetime | None,
-                latest: datetime | None,
-
-                fallback_candidates: tuple[datetime | None, datetime | None],
-            ) -> datetime | None:
+            candidate: datetime | None,
+            earliest: datetime | None,
+            latest: datetime | None,
+            fallback_candidates: tuple[datetime | None, datetime | None],
+        ) -> datetime | None:
             base = candidate
             if earliest and base and base < earliest:
                 base = earliest
@@ -1432,11 +1536,11 @@ class ShutterController:
         open_base = (sun_open_target or sun_next_rising) if sun_enabled else None
         close_base = (sun_close_target or sun_next_setting) if sun_enabled else None
 
-        self._next_open = open_base or _clamp_candidate(
-            None, next_up_early, next_up_late, (next_up_early, next_up_late)
+        self._next_open = _clamp_candidate(
+            open_base, next_up_early, next_up_late, (next_up_early, next_up_late)
         )
-        self._next_close = close_base or _clamp_candidate(
-            None,
+        self._next_close = _clamp_candidate(
+            close_base,
             next_down_early,
             next_down_late,
             (next_down_early, next_down_late),
@@ -1567,7 +1671,7 @@ class ShutterController:
         vent_target = self._position_value(CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION)
         return self._position_matches(vent_target, current_position)
 
-    async def _open_cover(self, target: float | None = None) -> None:
+    async def _open_cover(self, target: float | None = None, reason: str | None = None) -> None:
         """Open the cover using the native service call.
 
         The optional ``target`` argument is accepted for backward compatibility with
@@ -1575,8 +1679,26 @@ class ShutterController:
         the service call itself does not use it.
         """
         ctx = Context()
+        message_reason = reason or self._reason
+        if not self._cover_state_or_warn(
+            "open_cover", reason=message_reason, target_position=target
+        ):
+            return
         self._last_command_context_id = ctx.id
         self._last_command_at = dt_util.utcnow()
+        _LOGGER.info(
+            "Cover Control issuing open command for %s (reason=%s)",
+            self.cover,
+            message_reason,
+        )
+        self._fire_event(
+            "command",
+            {
+                "service": "open_cover",
+                "reason": message_reason,
+                "target_position": target,
+            },
+        )
         await self.hass.services.async_call(
             "cover",
             "open_cover",
@@ -1585,47 +1707,52 @@ class ShutterController:
             context=ctx,
         )
 
-    async def _command_position(self, position: float) -> None:
-        state = self.hass.states.get(self.cover)
-        supported = (state and state.attributes.get("supported_features")) or 0
+    async def _command_position(
+        self, position: float, *, reason: str | None = None, trigger: str | None = None
+    ) -> None:
+        state = self._cover_state_or_warn(
+            "set_cover_position", reason=reason, trigger=trigger, target_position=position
+        )
+        if not state:
+            return
+        supported = (state.attributes.get("supported_features")) or 0
         supports_position = bool(int(supported) & CoverEntityFeature.SET_POSITION)
 
         ctx = Context()
         self._last_command_context_id = ctx.id
         self._last_command_at = dt_util.utcnow()
+        message_reason = reason or self._reason
+        service: str = "set_cover_position"
+        service_data = {"entity_id": self.cover, "position": float(position)}
         if supports_position:
-            await self.hass.services.async_call(
-                "cover",
-                "set_cover_position",
-                {"entity_id": self.cover, "position": float(position)},
-                blocking=True,
-                context=ctx,
-            )
-            return
+            pass
+        else:
+            if position >= 99.5:
+                service = "open_cover"
+                service_data = {"entity_id": self.cover}
+            elif position <= 0.5:
+                service = "close_cover"
+                service_data = {"entity_id": self.cover}
 
-        service: str | None = None
-        service_data = {"entity_id": self.cover}
-
-        if position >= 99.5:
-            service = "open_cover"
-        elif position <= 0.5:
-            service = "close_cover"
-
-        if service:
-            await self.hass.services.async_call(
-                "cover",
-                service,
-                service_data,
-                blocking=True,
-                context=ctx,
-            )
-            return
+        _LOGGER.info(
+            "Cover Control moving %s via %s to %.1f%% (reason=%s, trigger=%s)",
+            self.cover,
+            service,
+            float(position),
+            message_reason,
+            trigger,
+        )
+        self._fire_event(
+            "command",
+            {
+                "service": service,
+                "reason": message_reason,
+                "trigger": trigger,
+                "target_position": float(position),
+            },
+        )
         await self.hass.services.async_call(
-            "cover",
-            "set_cover_position",
-            {"entity_id": self.cover, "position": float(position)},
-            blocking=True,
-            context=ctx,
+            "cover", service, service_data, blocking=True, context=ctx
         )
 
     async def _wait_for_position(
