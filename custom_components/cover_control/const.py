@@ -4,6 +4,7 @@ from __future__ import annotations
 from homeassistant.const import Platform
 
 DOMAIN = "cover_control"
+EVENT_COVER_CONTROL = "cover_control_event"
 CONF_NAME = "name"
 DEFAULT_NAME = "Cover Control"
 PLATFORMS: list[Platform] = [Platform.SWITCH]
@@ -114,7 +115,7 @@ MANUAL_OVERRIDE_RESET_NONE = "none"
 MANUAL_OVERRIDE_RESET_TIME = "time"
 MANUAL_OVERRIDE_RESET_TIMEOUT = "timeout"
 
-SIGNAL_STATE_UPDATED = "shuttercontrol_state_updated"
+SIGNAL_STATE_UPDATED = "covercontrol_state_updated"
 
 REASON_LABELS = {
     "manual_override": "override",
