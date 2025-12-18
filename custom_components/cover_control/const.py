@@ -4,6 +4,7 @@ from __future__ import annotations
 from homeassistant.const import Platform
 
 DOMAIN = "cover_control"
+EVENT_COVER_CONTROL = "cover_control_event"
 CONF_NAME = "name"
 DEFAULT_NAME = "Cover Control"
 PLATFORMS: list[Platform] = [Platform.SWITCH]
