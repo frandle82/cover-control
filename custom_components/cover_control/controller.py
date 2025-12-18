@@ -11,9 +11,9 @@ from astral.sun import SunDirection, time_at_elevation
 
 from homeassistant.components.cover import CoverEntityFeature
 from homeassistant import config_entries
-from homeassistant.const import STATE_ON
-from homeassistant.core import Context, CALLBACK_TYPE, HomeAssistant, callback
-from homeassistant.helpers import condition
+from homeassistant.const import STATE_ON, STATE_UNAVAILABLE, STATE_UNKNOWN
+from homeassistant.core import Context, CALLBACK_TYPE, HomeAssistant, State, callback
+from homeassistant.helpers import condition, entity_registry as er
 from homeassistant.exceptions import ConditionError
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import (
@@ -123,6 +123,7 @@ from .const import (
     MANUAL_OVERRIDE_RESET_NONE,
     MANUAL_OVERRIDE_RESET_TIME,
     MANUAL_OVERRIDE_RESET_TIMEOUT,
+    EVENT_COVER_CONTROL,
 )
 
 IDLE_REASON = "idle"
@@ -293,6 +294,7 @@ class CoverController:
         self._reason: str | None = None
         self._next_open: datetime | None = None
         self._next_close: datetime | None = None
+        self._master_entity_id: str | None = None
         # Position helpers were removed, but keep the mapping available so
         # legacy config entries that still reference helper entities do not
         # cause attribute errors during lookups.
@@ -307,6 +309,10 @@ class CoverController:
         }
 
     async def async_setup(self) -> None:
+        registry = er.async_get(self.hass)
+        self._master_entity_id = registry.async_get_entity_id(
+            "switch", DOMAIN, f"{self.entry.entry_id}-master"
+        )
         self._unsubs.append(
             async_track_time_interval(self.hass, self._handle_interval, timedelta(minutes=1))
         )
@@ -597,11 +603,13 @@ class CoverController:
         )
 
         try:
-            await self._open_cover(target_open)
+            await self._open_cover(target_open, reason="recalibrate_open")
             await self._wait_for_position(target_open, tolerance)
 
             if current_position is not None:
-                await self._command_position(current_position)
+                await self._command_position(
+                    current_position, reason="recalibrate_restore"
+                )
                 await self._wait_for_position(current_position, tolerance)
         finally:
             (
@@ -625,7 +633,7 @@ class CoverController:
         if target is None:
             return
         self._activate_manual_override(scope_all=True, reason=reason)
-        await self._command_position(float(target))
+        await self._command_position(float(target), reason=reason)
         self._target = float(target)
         self._reason = reason
         self._refresh_next_events(dt_util.utcnow())
@@ -637,14 +645,14 @@ class CoverController:
             target = self._position_value(CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION)
             if target is None:
                 return
-            await self._command_position(float(target))
+            await self._command_position(float(target), reason="ventilation_start")
             self._target = float(target)
             self._reason = "ventilation"
         elif action == "stop":
             target = self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)
             if target is None:
                 return
-            await self._command_position(float(target))
+            await self._command_position(float(target), reason="ventilation_stop")
             self._target = float(target)
             if self._reason == "ventilation":
                 self._reason = None
@@ -659,14 +667,14 @@ class CoverController:
             target = self._position_value(CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION)
             if target is None:
                 return
-            await self._command_position(float(target))
+            await self._command_position(float(target), reason="manual_shading")
             self._target = float(target)
             self._reason = "manual_shading"
         elif action == "deactivate":
             target = self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)
             if target is None:
                 return
-            await self._command_position(float(target))
+            await self._command_position(float(target), reason="manual_shading_end")
             self._target = float(target)
             if self._reason in {"shading", "manual_shading"}:
                 self._reason = None
@@ -729,6 +737,17 @@ class CoverController:
         now = dt_util.utcnow()
         self._expire_manual_override(now)
         self._ensure_manual_expiry_timer(now)
+        self._fire_event(
+            "evaluate",
+            {
+                "trigger": trigger,
+                "manual_active": self._manual_active,
+                "manual_scope_all": self._manual_scope_all,
+                "next_open": self._next_open,
+                "next_close": self._next_close,
+                "master_enabled": self._master_enabled(),
+            },
+        )
         if self._manual_active:
             if self._manual_scope_all or all(
                 self._manual_blocks_action(action)
@@ -816,6 +835,8 @@ class CoverController:
             self.config.get(CONF_LOCKOUT_TILT_SHADING_END, False)
         )
 
+        time_window_open = self._within_open_close_window(now)
+
         if auto_ventilate and full_contact_active and ventilation_condition:
             if not self._manual_blocks_action("ventilation"):
                 await self._set_position(
@@ -865,7 +886,22 @@ class CoverController:
             and self._reason in {"ventilation", "ventilation_full"}
         )
 
-        if post_ventilation and not ventilation_end_condition:
+        pending_open_due = False
+        if open_condition and not self._manual_blocks_action("open"):
+            pending_open_due = (
+                (self._auto_enabled(CONF_AUTO_UP) and (up_due or time_window_open))
+                or (
+                    self._auto_enabled(CONF_AUTO_SUN)
+                    and self._sun_allows_open(sun_elevation)
+                )
+                or (
+                    self._auto_enabled(CONF_AUTO_BRIGHTNESS)
+                    and brightness is not None
+                    and self._brightness_allows_open(brightness)
+                )
+            )
+
+        if post_ventilation and not ventilation_end_condition and not pending_open_due:
             self._refresh_next_events(now)
             self._publish_state()
             return
@@ -1002,8 +1038,6 @@ class CoverController:
                         self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
                     )
                 )
-
-            time_window_open = self._within_open_close_window(now)
 
             if self._auto_enabled(CONF_AUTO_UP) and (up_due or time_window_open):
                 open_events.append(
@@ -1352,6 +1386,53 @@ class CoverController:
     def _master_enabled(self) -> bool:
         return bool(self.config.get(CONF_MASTER_ENABLED, DEFAULT_MASTER_FLAGS[CONF_MASTER_ENABLED]))
     
+    def _fire_event(self, kind: str, data: dict | None = None) -> None:
+        payload: dict[str, object] = {
+            "kind": kind,
+            "entry_id": self.entry.entry_id,
+            "cover": self.cover,
+            "master_entity_id": self._master_entity_id,
+            "timestamp": dt_util.utcnow().isoformat(),
+        }
+
+        if self._reason:
+            payload["reason"] = self._reason
+
+        if data:
+            payload.update(
+                {k: v.isoformat() if isinstance(v, datetime) else v for k, v in data.items()}
+            )
+
+        self.hass.bus.async_fire(EVENT_COVER_CONTROL, payload)
+
+    def _cover_state_or_warn(
+        self,
+        service: str,
+        *,
+        reason: str | None = None,
+        trigger: str | None = None,
+        target_position: float | None = None,
+    ) -> State | None:
+        state = self.hass.states.get(self.cover)
+        if state is None or state.state in {STATE_UNAVAILABLE, STATE_UNKNOWN}:
+            _LOGGER.warning(
+                "Cover Control skipping %s for %s: entity is missing or unavailable",
+                service,
+                self.cover,
+            )
+            self._fire_event(
+                "command",
+                {
+                    "service": service,
+                    "reason": reason or self._reason,
+                    "trigger": trigger,
+                    "target_position": target_position,
+                    "skipped": "unavailable",
+                },
+            )
+            return None
+        return state
+    
     async def _set_position(self, position: float | None, reason: str) -> None:
         if position is None:
             return
@@ -1364,7 +1445,7 @@ class CoverController:
                 self._reason = reason
                 self._publish_state()
             return
-        await self._command_position(float(position))
+        await self._command_position(float(position), reason=reason)
         self._target = float(position)
         self._reason = reason
         self._refresh_next_events(dt_util.utcnow())
@@ -1605,7 +1686,7 @@ class CoverController:
         vent_target = self._position_value(CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION)
         return self._position_matches(vent_target, current_position)
 
-    async def _open_cover(self, target: float | None = None) -> None:
+    async def _open_cover(self, target: float | None = None, reason: str | None = None) -> None:
         """Open the cover using the native service call.
 
         The optional ``target`` argument is accepted for backward compatibility with
@@ -1613,8 +1694,26 @@ class CoverController:
         the service call itself does not use it.
         """
         ctx = Context()
+        message_reason = reason or self._reason
+        if not self._cover_state_or_warn(
+            "open_cover", reason=message_reason, target_position=target
+        ):
+            return
         self._last_command_context_id = ctx.id
         self._last_command_at = dt_util.utcnow()
+        _LOGGER.info(
+            "Cover Control issuing open command for %s (reason=%s)",
+            self.cover,
+            message_reason,
+        )
+        self._fire_event(
+            "command",
+            {
+                "service": "open_cover",
+                "reason": message_reason,
+                "target_position": target,
+            },
+        )
         await self.hass.services.async_call(
             "cover",
             "open_cover",
@@ -1623,47 +1722,52 @@ class CoverController:
             context=ctx,
         )
 
-    async def _command_position(self, position: float) -> None:
-        state = self.hass.states.get(self.cover)
-        supported = (state and state.attributes.get("supported_features")) or 0
+    async def _command_position(
+        self, position: float, *, reason: str | None = None, trigger: str | None = None
+    ) -> None:
+        state = self._cover_state_or_warn(
+            "set_cover_position", reason=reason, trigger=trigger, target_position=position
+        )
+        if not state:
+            return
+        supported = (state.attributes.get("supported_features")) or 0
         supports_position = bool(int(supported) & CoverEntityFeature.SET_POSITION)
 
         ctx = Context()
         self._last_command_context_id = ctx.id
         self._last_command_at = dt_util.utcnow()
+        message_reason = reason or self._reason
+        service: str = "set_cover_position"
+        service_data = {"entity_id": self.cover, "position": float(position)}
         if supports_position:
-            await self.hass.services.async_call(
-                "cover",
-                "set_cover_position",
-                {"entity_id": self.cover, "position": float(position)},
-                blocking=True,
-                context=ctx,
-            )
-            return
+            pass
+        else:
+            if position >= 99.5:
+                service = "open_cover"
+                service_data = {"entity_id": self.cover}
+            elif position <= 0.5:
+                service = "close_cover"
+                service_data = {"entity_id": self.cover}
 
-        service: str | None = None
-        service_data = {"entity_id": self.cover}
-
-        if position >= 99.5:
-            service = "open_cover"
-        elif position <= 0.5:
-            service = "close_cover"
-
-        if service:
-            await self.hass.services.async_call(
-                "cover",
-                service,
-                service_data,
-                blocking=True,
-                context=ctx,
-            )
-            return
+        _LOGGER.info(
+            "Cover Control moving %s via %s to %.1f%% (reason=%s, trigger=%s)",
+            self.cover,
+            service,
+            float(position),
+            message_reason,
+            trigger,
+        )
+        self._fire_event(
+            "command",
+            {
+                "service": service,
+                "reason": message_reason,
+                "trigger": trigger,
+                "target_position": float(position),
+            },
+        )
         await self.hass.services.async_call(
-            "cover",
-            "set_cover_position",
-            {"entity_id": self.cover, "position": float(position)},
-            blocking=True,
-            context=ctx,
+            "cover", service, service_data, blocking=True, context=ctx
         )
 
     async def _wait_for_position(
