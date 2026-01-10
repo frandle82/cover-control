@@ -215,14 +215,14 @@ class AutomationToggleSwitch(SwitchEntity):
     @property
     def extra_state_attributes(self):
         return None
-    
+
     async def async_turn_on(self, **kwargs) -> None:  # type: ignore[override]
         options = {**self.entry.options, self._key: True}
-        await self.hass.config_entries.async_update_entry(self.entry, options=options)
+        self.hass.config_entries.async_update_entry(self.entry, options=options)
 
     async def async_turn_off(self, **kwargs) -> None:  # type: ignore[override]
         options = {**self.entry.options, self._key: False}
-        await self.hass.config_entries.async_update_entry(self.entry, options=options)
+        self.hass.config_entries.async_update_entry(self.entry, options=options)
 
     async def _handle_entry_update(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Refresh state when config entry is updated."""
@@ -421,11 +421,11 @@ class MasterControlSwitch(SwitchEntity):
 
     async def async_turn_on(self, **kwargs) -> None:  # type: ignore[override]
         options = {**self.entry.options, CONF_MASTER_ENABLED: True}
-        await self.hass.config_entries.async_update_entry(self.entry, options=options)
+        self.hass.config_entries.async_update_entry(self.entry, options=options)
 
     async def async_turn_off(self, **kwargs) -> None:  # type: ignore[override]
         options = {**self.entry.options, CONF_MASTER_ENABLED: False}
-        await self.hass.config_entries.async_update_entry(self.entry, options=options)
+        self.hass.config_entries.async_update_entry(self.entry, options=options)
 
     async def async_added_to_hass(self) -> None:
         self.async_on_remove(
