@@ -1,82 +1,75 @@
 {
   "title": "Cover Control",
-  "ui": {
-    "components": {
-      "entity": {
-        "entity-picker": {
-          "no_match": "Keine Entitäten gefunden"
-        }
-      }
-    }
-  },
   "config": {
     "step": {
       "user": {
-        "title": "Wähle Abdeckung",
-        "description": "Wähle die automatisierten Abdeckung aus.",
+        "title": "Select covers",
+        "description": "Choose the covers or blinds that will be automated.",
         "data": {
-          "covers": "Abdeckung"
+          "covers": "Covers"
         }
       },
       "windows": {
-        "title": "Fenstersensoren zuweisen",
-        "description": "Ordnen Sie den Abdeckungen Kontaktsensoren zu, um die Belüftung zu sperren.",
+        "title": "Assign window sensors",
+        "description": "Map contact sensors to each cover for ventilation lockout.",
         "data": {}
       },
       "schedule": {
-        "title": "Hilfssensoren und Schwellenwerte",
-        "description": "Optionale Helfer für Arbeitstage, Anwesenheit, Helligkeit und Temperaturschutz auswählen",
+        "title": "Helper sensors and thresholds",
+        "description": "Choose optional helpers for workdays, residents, brightness, and temperature protection.",
         "data": {
-          "workday_sensor": "Arbeitstags-Helfer (optional)",
-          "resident_sensor": "Anwesenheits-/Ruhe-Sensor (optional)",
-          "brightness_sensor": "Helligkeitssensor (optional)",
-          "temperature_sensor_indoor": "Temperatursensor innen (optional)",
-          "ventilate_position_entity": "Positions-Helfer für Lüftung",
-          "temperature_sensor_outdoor": "Temperatursensor außen (optional)",
-          "temperature_threshold": "Temperaturschwelle",
-          "temperature_forecast_threshold": "Vorhersage-Temperaturschwelle",
-          "time_up_early_workday": "Früheste Öffnungszeit (Arbeitstag)",
-          "time_up_late_workday": "Späteste Öffnungszeit (Arbeitstag)",
-          "time_down_early_workday": "Früheste Schließzeit (Arbeitstag)",
-          "time_down_late_workday": "Späteste Schließzeit (Arbeitstag)",
-          "time_up_early_non_workday": "Früheste Öffnungszeit (frei)",
-          "time_up_late_non_workday": "Späteste Öffnungszeit (frei)",
-          "time_down_early_non_workday": "Früheste Schließzeit (frei)",
-          "time_down_late_non_workday": "Späteste Schließzeit (frei)",
-          "open_position": "Öffnungsposition",
-          "close_position": "Schließposition",
-          "ventilate_position": "Lüftungsposition",
-          "shading_position": "Beschattungsposition"
+          "workday_sensor": "Workday helper (optional)",
+          "resident_sensor": "Resident/quiet sensor (optional)",
+          "brightness_sensor": "Brightness sensor (optional)",
+          "temperature_sensor_indoor": "Indoor temperature sensor (optional)",
+          "temperature_sensor_outdoor": "Outdoor temperature sensor (optional)",
+          "temperature_threshold": "Temperature threshold",
+          "temperature_forecast_threshold": "Forecast temperature threshold",
+          "cold_protection_temperature": "Close when temperature below",
+          "cold_protection_forecast_sensor": "Forecast temperature sensor (optional)",
+          "time_up_early_workday": "Earliest open time (workday)",
+          "time_up_late_workday": "Latest open time (workday)",
+          "time_down_early_workday": "Earliest close time (workday)",
+          "time_down_late_workday": "Latest close time (workday)",
+          "time_up_early_non_workday": "Earliest open time (non-workday)",
+          "time_up_late_non_workday": "Latest open time (non-workday)",
+          "time_down_early_non_workday": "Earliest close time (non-workday)",
+          "time_down_late_non_workday": "Latest close time (non-workday)",
+          "open_position": "Open position",
+          "close_position": "Close position",
+          "ventilate_position": "Ventilation position",
+          "shading_position": "Shading position"
         }
       },
       "shading": {
-        "title": "Sonne, Helligkeit und manueller Überschreiben",
-        "description": "Grenzwerte für Sonnensteuerung, Beschattung und den manuellen Override anpassen.",
+        "title": "Sun, brightness, and manual overrides",
+        "description": "Tune thresholds for sun control, shading, and manual override handling.",
         "data": {
-          "brightness_open_above": "Öffnen bei Helligkeit über",
-          "brightness_close_below": "Schließen bei Helligkeit unter",
-          "sun_elevation_open": "Minimale Sonnenhöhe zum Öffnen",
-          "sun_elevation_close": "Maximale Sonnenhöhe zum Schließen",
-          "shading_azimuth_start": "Azimut für Start der Beschattung",
-          "shading_azimuth_end": "Azimut für Ende der Beschattung",
-          "shading_elevation_min": "Minimale Sonnenhöhe für Beschattung",
-          "shading_elevation_max": "Maximale Sonnenhöhe für Beschattung",
-          "shading_brightness_start": "Helligkeit zum Start der Beschattung",
-          "shading_brightness_end": "Helligkeit zum Ende der Beschattung",
-          "shading_forecast_sensor": "Vorhersage-Wettersensor (optional)",
-          "shading_forecast_type": "Beschattung Vorhersagetyp",
-          "shading_weather_conditions": "Wetterbedingungen für Beschattung",
-          "temperature_sensor_indoor": "Temperatursensor innen",
-          "temperature_sensor_outdoor": "Temperatursensor außen",
-          "temperature_threshold": "Temperaturschwelle",
-          "temperature_forecast_threshold": "Vorhersage-Temperaturschwelle",
-          "manual_override_minutes": "Minuten bis zum Zurücksetzen des manuellen Overrides",
-          "manual_override_reset_mode": "Manuelles Override zurücksetzen",
-          "manual_override_reset_time": "Uhrzeit zum Zurücksetzen des manuellen Overrides",
-          "manual_override_block_open": "Nächste automatische Öffnung nach manueller Änderung ignorieren",
-          "manual_override_block_close": "Nächste automatische Schließung nach manueller Änderung ignorieren",
-          "manual_override_block_ventilate": "Nächste automatische Lüftung nach manueller Änderung ignorieren",
-          "manual_override_block_shading": "Nächste automatische Beschattung nach manueller Änderung ignorieren"
+          "brightness_sensor": "Brightness sensor",
+          "brightness_open_above": "Open when brightness above",
+          "brightness_close_below": "Close when brightness below",
+          "sun_elevation_open": "Minimum sun elevation for opening",
+          "sun_elevation_close": "Maximum sun elevation for closing",
+          "shading_azimuth_start": "Shading azimuth start",
+          "shading_azimuth_end": "Shading azimuth end",
+          "shading_elevation_min": "Shading elevation minimum",
+          "shading_elevation_max": "Shading elevation maximum",
+          "shading_brightness_start": "Brightness to start shading",
+          "shading_brightness_end": "Brightness to end shading",
+          "shading_forecast_sensor": "Forecast weather sensor (optional)",
+          "shading_forecast_type": "Sun shading forecast type",
+          "shading_weather_conditions": "Weather conditions to allow shading",
+          "temperature_sensor_indoor": "Indoor temperature sensor",
+          "temperature_sensor_outdoor": "Outdoor temperature sensor",
+          "temperature_threshold": "Temperature threshold",
+          "temperature_forecast_threshold": "Forecast temperature threshold",
+          "manual_override_minutes": "Minutes until manual override reset",
+          "manual_override_reset_mode": "Manual override reset",
+          "manual_override_reset_time": "Time to reset manual override",
+          "manual_override_block_open": "Ignore next automatic opening after manual changes",
+          "manual_override_block_close": "Ignore next automatic closing after manual changes",
+          "manual_override_block_ventilate": "Ignore next automatic ventilation after manual changes",
+          "manual_override_block_shading": "Ignore next automatic sun shading after manual changes"
         }
       }
     }
@@ -84,60 +77,58 @@
   "options": {
     "step": {
       "init": {
-        "title": "Rollo Einstellungen",
-        "description": "Schwellenwerte, Helfer und Verhalten bei manuellem Override anpassen.",
+        "title": "Update cover settings",
+        "description": "Adjust thresholds, helpers, and manual override behaviour.",
         "data": {
-          "name": "Instanzname",
-          "window_{cover}": "Fenster {cover}",
-          "workday_sensor": "Arbeitstags-Helfer (optional)",
-          "resident_sensor": "Anwesenheits-/Ruhe-Sensor (optional)",
-          "master_enabled": "Cover Control Instanz aktivieren",
-          "brightness_sensor": "Helligkeitssensor (optional)",
-          "brightness_open_above": "Öffnen bei Helligkeit über",
-          "brightness_close_below": "Schließen bei Helligkeit unter",
-          "sun_elevation_open": "Minimale Sonnenhöhe zum Öffnen",
-          "sun_elevation_close": "Maximale Sonnenhöhe zum Schließen",
-          "shading_azimuth_start": "Azimut für Start der Beschattung",
-          "shading_azimuth_end": "Azimut für Ende der Beschattung",
-          "shading_elevation_min": "Minimale Sonnenhöhe für Beschattung",
-          "shading_elevation_max": "Maximale Sonnenhöhe für Beschattung",
-          "shading_brightness_start": "Helligkeit zum Start der Beschattung",
-          "shading_brightness_end": "Helligkeit zum Ende der Beschattung",
-          "shading_forecast_sensor": "Vorhersage-Wettersensor (optional)",
-          "shading_forecast_type": "Beschattung Vorhersagetyp",
-          "shading_weather_conditions": "Wetterbedingungen für Beschattung",
-          "temperature_sensor_indoor": "Temperatursensor innen (optional)",
-          "temperature_sensor_outdoor": "Temperatursensor außen (optional)",
-          "temperature_threshold": "Temperaturschwelle",
-          "temperature_forecast_threshold": "Vorhersage-Temperaturschwelle",
-          "manual_override_minutes": "Minuten bis zum Zurücksetzen des manuellen Overrides",
-          "manual_override_reset_mode": "Manuelles Override zurücksetzen",
-          "manual_override_reset_time": "Uhrzeit zum Zurücksetzen des manuellen Overrides",
-          "manual_override_block_open": "Nächste automatische Öffnung nach manueller Änderung ignorieren",
-          "manual_override_block_close": "Nächste automatische Schließung nach manueller Änderung ignorieren",
-          "manual_override_block_ventilate": "Nächste automatische Lüftung nach manueller Änderung ignorieren",
-          "manual_override_block_shading": "Nächste automatische Beschattung nach manueller Änderung ignorieren",
-          "time_up_early_workday": "Früheste Öffnungszeit (Arbeitstag)",
-          "time_up_late_workday": "Späteste Öffnungszeit (Arbeitstag)",
-          "time_down_early_workday": "Früheste Schließzeit (Arbeitstag)",
-          "time_down_late_workday": "Späteste Schließzeit (Arbeitstag)",
-          "time_up_early_non_workday": "Früheste Öffnungszeit (frei)",
-          "time_up_late_non_workday": "Späteste Öffnungszeit (frei)",
-          "time_down_early_non_workday": "Früheste Schließzeit (frei)",
-          "time_down_late_non_workday": "Späteste Schließzeit (frei)",
-          "open_position": "Öffnungsposition",
-          "close_position": "Schließposition",
-          "ventilate_position": "Lüftungsposition",
-          "shading_position": "Beschattungsposition",
-          "additional_condition_global": "Zusätzliche Bedingung für die gesamte Automatisierung",
-          "additional_condition_open": "Zusätzliche Bedingung zum Öffnen",
-          "additional_condition_close": "Zusätzliche Bedingung zum Schließen",
-          "additional_condition_ventilate": "Zusätzliche Bedingung zum Aktivieren der Lüftung",
-          "additional_condition_ventilate_end": "Zusätzliche Bedingung zum Beenden der Lüftung",
-          "additional_condition_shading": "Zusätzliche Bedingung für Sonnenschutz",
-          "additional_condition_shading_tilt": "Zusätzliche Bedingung für Sonnenschutz-Kippautomatik",
-          "additional_condition_shading_end": "Zusätzliche Bedingung zum Beenden des Sonnenschutzes",
-          "expose_switch_settings": "Konfiguration als Switch-Attribute anzeigen"
+          "workday_sensor": "Workday helper (optional)",
+          "resident_sensor": "Resident/quiet sensor (optional)",
+          "master_enabled": "Enable Cover Control instance",
+          "brightness_sensor": "Brightness sensor (optional)",
+          "brightness_open_above": "Open when brightness above",
+          "brightness_close_below": "Close when brightness below",
+          "sun_elevation_open": "Minimum sun elevation for opening",
+          "sun_elevation_close": "Maximum sun elevation for closing",
+          "shading_azimuth_start": "Shading azimuth start",
+          "shading_azimuth_end": "Shading azimuth end",
+          "shading_elevation_min": "Shading elevation minimum",
+          "shading_elevation_max": "Shading elevation maximum",
+          "shading_brightness_start": "Brightness to start shading",
+          "shading_brightness_end": "Brightness to end shading",
+          "shading_forecast_sensor": "Forecast weather sensor (optional)",
+          "shading_forecast_type": "Sun shading forecast type",
+          "shading_weather_conditions": "Weather conditions to allow shading",
+          "temperature_sensor_indoor": "Indoor temperature sensor (optional)",
+          "temperature_sensor_outdoor": "Outdoor temperature sensor (optional)",
+          "temperature_threshold": "Temperature threshold",
+          "temperature_forecast_threshold": "Forecast temperature threshold",
+          "manual_override_minutes": "Minutes until manual override reset",
+          "manual_override_reset_mode": "Manual override reset",
+          "manual_override_reset_time": "Time to reset manual override",
+          "manual_override_block_open": "Ignore next automatic opening after manual changes",
+          "manual_override_block_close": "Ignore next automatic closing after manual changes",
+          "manual_override_block_ventilate": "Ignore next automatic ventilation after manual changes",
+          "manual_override_block_shading": "Ignore next automatic sun shading after manual changes",
+          "time_up_early_workday": "Earliest open time (workday)",
+          "time_up_late_workday": "Latest open time (workday)",
+          "time_down_early_workday": "Earliest close time (workday)",
+          "time_down_late_workday": "Latest close time (workday)",
+          "time_up_early_non_workday": "Earliest open time (non-workday)",
+          "time_up_late_non_workday": "Latest open time (non-workday)",
+          "time_down_early_non_workday": "Earliest close time (non-workday)",
+          "time_down_late_non_workday": "Latest close time (non-workday)",
+          "open_position": "Open position",
+          "close_position": "Close position",
+          "ventilate_position": "Ventilation position",
+          "shading_position": "Shading position",
+          "additional_condition_global": "Additional condition for the entire automation",
+          "additional_condition_open": "Additional condition for opening",
+          "additional_condition_close": "Additional condition for closing",
+          "additional_condition_ventilate": "Additional condition for starting ventilation",
+          "additional_condition_ventilate_end": "Additional condition for ending ventilation",
+          "additional_condition_shading": "Additional condition for sun shading",
+          "additional_condition_shading_tilt": "Additional condition for sun shading tilt",
+          "additional_condition_shading_end": "Additional condition for ending sun shading",
+          "expose_switch_settings": "Expose automation settings as switch attributes"
         }
       }
     }
@@ -145,59 +136,59 @@
   "entity": {
     "sensor": {
       "next_open": {
-        "name": "Nächste Öffnung:"
+        "name": "Next opening:"
       },
       "next_close": {
-        "name": "Nächste Schließung:"
+        "name": "Next closing:"
       },
       "reason": {
-        "name": "Grund:"
+        "name": "Reason:"
       },
       "shading_active": {
-        "name": "Beschattung aktiv:"
+        "name": "Shading active:"
       },
       "ventilation": {
-        "name": "Lüftung"
+        "name": "Ventilation"
       }
     },
     "number": {
       "open_position": {
-        "name": "Öffnungsposition"
+        "name": "Open position"
       },
       "close_position": {
-        "name": "Schließposition"
+        "name": "Close position"
       },
       "ventilate_position": {
-        "name": "Lüftungsposition"
+        "name": "Ventilation position"
       },
       "shading_position": {
-        "name": "Verschattungsposition"
+        "name": "Shading position"
       }
     },
     "time": {
       "time_up_early_workday": {
-        "name": "Früheste Öffnung (Arbeitstag)"
+        "name": "Earliest open (workday)"
       },
       "time_up_late_workday": {
-        "name": "Späteste Öffnung (Arbeitstag)"
+        "name": "Latest open (workday)"
       },
       "time_down_early_workday": {
-        "name": "Frühestes Schließen (Arbeitstag)"
+        "name": "Earliest close (workday)"
       },
       "time_down_late_workday": {
-        "name": "Spätestes Schließen (Arbeitstag)"
+        "name": "Latest close (workday)"
       },
       "time_up_early_non_workday": {
-        "name": "Früheste Öffnung (frei)"
+        "name": "Earliest open (non-workday)"
       },
       "time_up_late_non_workday": {
-        "name": "Späteste Öffnung (frei)"
+        "name": "Latest open (non-workday)"
       },
       "time_down_early_non_workday": {
-        "name": "Frühestes Schließen (frei)"
+        "name": "Earliest close (non-workday)"
       },
       "time_down_late_non_workday": {
-        "name": "Spätestes Schließen (frei)"
+        "name": "Latest close (non-workday)"
       }
     },
     "switch": {
@@ -205,22 +196,22 @@
         "name": "Cover Control"
       },
       "auto_up": {
-        "name": "Automatisches Öffnen"
+        "name": "Automatic opening"
       },
       "auto_down": {
-        "name": "Automatisches Schließen"
+        "name": "Automatic closing"
       },
       "auto_brightness": {
-        "name": "Helligkeitsautomatik"
+        "name": "Brightness automation"
       },
       "auto_sun": {
-        "name": "Sonnenstands-Automatik"
+        "name": "Sun elevation automation"
       },
       "auto_ventilate": {
-        "name": "Lüftung/Sperre"
+        "name": "Ventilation/lockout"
       },
       "auto_shading": {
-        "name": "Beschattung"
+        "name": "Sun shading"
       }
     }
   },
@@ -230,8 +221,8 @@
       "description": "Pause automatic control for a cover for the given minutes.",
       "target": {
         "entity": {
-          "name": "Rollladen",
-          "description": "Rollladen, dessen Automatisierung pausiert werden soll."
+          "name": "Cover",
+          "description": "Cover to pause automation for."
         }
       },
       "fields": {
@@ -246,8 +237,8 @@
       "description": "Resume automation immediately for the selected cover.",
       "target": {
         "entity": {
-          "name": "Rollladen",
-          "description": "Rollladen, für den die Automatisierung wieder aktiviert werden soll."
+          "name": "Cover",
+          "description": "Cover to resume automation for."
         }
       },
       "fields": {}
@@ -257,8 +248,8 @@
       "description": "Send a cover to the shading position immediately and hold it there for the override duration.",
       "target": {
         "entity": {
-          "name": "Rollladen",
-          "description": "Rollladen, der sofort in die Beschattungsposition fahren soll."
+          "name": "Cover",
+          "description": "Cover that should move to the shading position."
         }
       },
       "fields": {
@@ -269,48 +260,48 @@
       }
     },
     "recalibrate_cover": {
-      "name": "Abdeckung neu kalibrieren",
-      "description": "Setzt einen manuellen Override, nutzt den Standardbefehl zum Öffnen für eine vollständig geöffnete Abdeckung, stellt danach die vorherige Position wieder her und hebt den Override wieder auf. Hilfreich, wenn eine Abdeckung neu ausgerichtet werden muss.",
+      "name": "Recalibrate cover",
+      "description": "Temporarily override a cover, use the standard open command to fully open it, then return to the previous position and clear the override. Use this when a cover needs to be realigned.",
       "target": {
         "entity": {
-          "name": "Rollladen",
-          "description": "Rollladen, der neu kalibriert werden soll."
+          "name": "Cover",
+          "description": "Cover to recalibrate."
         }
       },
       "fields": {
         "full_open_position": {
-          "name": "Position für vollständig offen",
-          "description": "Position für das vollständige Öffnen; Standard ist 100 %."
+          "name": "Fully open position",
+          "description": "Position to use for fully opening the cover; defaults to 100%."
         }
       }
     },
     "change_switch_settings": {
-      "name": "Schalter-Einstellungen aktualisieren",
-      "description": "Schreibe neue Konfigurationswerte für einen Automations-Schalter.",
+      "name": "Update switch settings",
+      "description": "Apply configuration values for an automation toggle switch.",
       "fields": {
         "entity_id": {
-          "name": "Automationsschalter",
-          "description": "Der Schalter, dessen Einstellungen übernommen werden sollen."
+          "name": "Automation switch",
+          "description": "Switch entity that represents the automation to update."
         },
         "settings": {
-          "name": "Einstellungen",
-          "description": "Schlüssel/Wert-Paare, die in der Schalter-Kategorie gespeichert werden."
+          "name": "Settings",
+          "description": "Key/value pairs to store with the switch's configuration category."
         }
       }
-    },
+     },
     "force_action": {
-      "name": "Aktion erzwingen",
-      "description": "Führt eine sofortige Aktion am ausgewählten Rollladen ohne weitere Prüfungen aus.",
+      "name": "Force action",
+      "description": "Run an immediate action on the selected cover without further automation checks.",
       "target": {
         "entity": {
-          "name": "Rollladen",
-          "description": "Rollladen, auf den die Aktion angewendet werden soll."
+          "name": "Cover",
+          "description": "Cover to run the action on."
         }
       },
       "fields": {
         "action": {
-          "name": "Aktion",
-          "description": "Wählen Sie die auszuführende Sofortaktion."
+          "name": "Action",
+          "description": "Select which immediate action to run."
         }
       }
     }
