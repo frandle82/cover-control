@@ -235,10 +235,6 @@
         }
       },
       "fields": {
-        "entity_id": {
-          "name": "Rollladen",
-          "description": "Rollladen, dessen Automatisierung pausiert werden soll."
-        },
         "manual_override_minutes": {
           "name": "Minutes",
           "description": "Duration of the pause."
@@ -254,12 +250,7 @@
           "description": "Rollladen, für den die Automatisierung wieder aktiviert werden soll."
         }
       },
-      "fields": {
-        "entity_id": {
-          "name": "Rollladen",
-          "description": "Rollladen, für den die Automatisierung wieder aktiviert werden soll."
-        }
-      }
+      "fields": {}
     },
     "activate_shading": {
       "name": "Activate shading now",
@@ -271,10 +262,6 @@
         }
       },
       "fields": {
-        "entity_id": {
-          "name": "Rollladen",
-          "description": "Rollladen, der sofort in die Beschattungsposition fahren soll."
-        },
         "manual_override_minutes": {
           "name": "Minutes",
           "description": "Optional override duration; defaults to the integration setting."
@@ -291,10 +278,6 @@
         }
       },
       "fields": {
-        "entity_id": {
-          "name": "Rollladen",
-          "description": "Rollladen, der neu kalibriert werden soll."
-        },
         "full_open_position": {
           "name": "Position für vollständig offen",
           "description": "Position für das vollständige Öffnen; Standard ist 100 %."
@@ -325,10 +308,6 @@
         }
       },
       "fields": {
-        "entity_id": {
-          "name": "Rollladen",
-          "description": "Rollladen, auf den die Aktion angewendet werden soll."
-        },
         "action": {
           "name": "Aktion",
           "description": "Wählen Sie die auszuführende Sofortaktion."
