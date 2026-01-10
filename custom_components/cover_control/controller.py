@@ -737,6 +737,7 @@ class CoverController:
         now = dt_util.utcnow()
         self._expire_manual_override(now)
         self._ensure_manual_expiry_timer(now)
+        self._refresh_next_events(now)
         self._fire_event(
             "evaluate",
             {
@@ -1560,6 +1561,10 @@ class CoverController:
             next_down_late,
             (next_down_early, next_down_late),
         )
+
+        if self._within_open_close_window(now):
+            if self._next_open is None or self._next_open > now:
+                self._next_open = now
 
         # Avoid reporting identical timestamps when the clamped opening and closing
         # targets converge. Prefer the next distinct closing point that still
