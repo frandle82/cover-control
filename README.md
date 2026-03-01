@@ -14,7 +14,7 @@ guided configuration flow and adding per-cover controllers that react to sensor 
   status, and the next planned open/close timestamps.
 
 ## Requirements
-- Home Assistant 2023.9 or newer.
+- Home Assistant 2024.10.0 or newer.
 - At least one supported cover entity.
 - Optional: binary sensors, input booleans or switches for brightness, sun position, doors/windows, vacation mode, ventilation, and any conditional
   overrides you want to use.
