@@ -204,18 +204,26 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_schedule(self, user_input=None) -> FlowResult:
         if user_input is not None:
-            self._data.update(user_input)
+            schedule_updates = dict(user_input)
+            for key in (CONF_WORKDAY_SENSOR, CONF_RESIDENT_SENSOR):
+                if key not in schedule_updates or schedule_updates.get(key) in ("", vol.UNDEFINED):
+                    schedule_updates[key] = None
+            self._data.update(schedule_updates)
             return await self.async_step_shading()
 
         return self.async_show_form(
             step_id="schedule",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_WORKDAY_SENSOR): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
+                    vol.Optional(CONF_WORKDAY_SENSOR): vol.Maybe(
+                        selector.EntitySelector(
+                            selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
+                        )
                     ),
-                    vol.Optional(CONF_RESIDENT_SENSOR): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["binary_sensor", "switch"])
+                    vol.Optional(CONF_RESIDENT_SENSOR): vol.Maybe(
+                        selector.EntitySelector(
+                            selector.EntitySelectorConfig(domain=["binary_sensor", "switch"])
+                        )
                     ),
                     vol.Optional(
                         CONF_CONTACT_TRIGGER_DELAY,
@@ -478,6 +486,9 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_finalize(self, user_input=None) -> FlowResult:
         if user_input:
             self._data.update(user_input)
+        for key in (CONF_WORKDAY_SENSOR, CONF_RESIDENT_SENSOR):
+            if self._data.get(key) in (None, "", vol.UNDEFINED):
+                self._data.pop(key, None)
         name = self._data.get(CONF_NAME, DEFAULT_NAME).strip() or DEFAULT_NAME
         data = _with_config_defaults(self._data)
         return self.async_create_entry(title=name, data=data)
@@ -545,6 +556,8 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow."""
 
     _CLEARABLE_OPTION_KEYS = {
+        CONF_RESIDENT_SENSOR,
+        CONF_WORKDAY_SENSOR,
         CONF_ADDITIONAL_CONDITION_GLOBAL,
         CONF_ADDITIONAL_CONDITION_OPEN,
         CONF_ADDITIONAL_CONDITION_CLOSE,
@@ -614,7 +627,8 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
         return {
             key: value
             for key, value in options.items()
-            if value not in (None, "", vol.UNDEFINED)
+            if value not in ("", vol.UNDEFINED)
+            and (value is not None or key in self._CLEARABLE_OPTION_KEYS)
         }
 
     def _normalize_options(
@@ -671,6 +685,10 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
             clean_input = self._clean_user_input(user_input)
 
             name = clean_input.pop(CONF_NAME, self._config_entry.title).strip() or DEFAULT_NAME
+            data_updates = dict(self._config_entry.data or {})
+            for key in self._CLEARABLE_OPTION_KEYS:
+                if clean_input.get(key) is None:
+                    data_updates.pop(key, None)
             covers = clean_input.get(CONF_COVERS, self._options.get(CONF_COVERS, []))
             full_mapping: dict[str, list[str]] = {}
             tilt_mapping: dict[str, list[str]] = {}
@@ -956,13 +974,17 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                 {
                 vol.Optional(
                     CONF_RESIDENT_SENSOR, default=self._optional_default(CONF_RESIDENT_SENSOR)
-                ): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain=["binary_sensor", "switch"])
+                ): vol.Maybe(
+                    selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["binary_sensor", "switch"])
+                    )
                 ),
                 vol.Optional(
                     CONF_WORKDAY_SENSOR, default=self._optional_default(CONF_WORKDAY_SENSOR)
-                ): selector.EntitySelector(
-                    selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
+                ): vol.Maybe(
+                    selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
+                    )
                 ),
                 vol.Optional(
                     CONF_MANUAL_OVERRIDE_RESET_MODE,
