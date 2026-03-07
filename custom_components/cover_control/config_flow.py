@@ -141,6 +141,17 @@ def _selector_default(value: Any) -> Any:
 LOGGER = logging.getLogger(__name__)
 
 
+CLEARABLE_ENTITY_SELECTOR_KEYS = {
+    CONF_WORKDAY_SENSOR,
+    CONF_RESIDENT_SENSOR,
+    CONF_BRIGHTNESS_SENSOR,
+    CONF_TEMPERATURE_SENSOR_INDOOR,
+    CONF_TEMPERATURE_SENSOR_OUTDOOR,
+    CONF_COLD_PROTECTION_FORECAST_SENSOR,
+    CONF_SHADING_FORECAST_SENSOR,
+}
+
+
 def _time_default(value, fallback: str | None = None):
     """Return a time object for selectors, falling back safely."""
 
@@ -289,14 +300,16 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             )
                         ),
                     ): bool,
-                    vol.Optional(CONF_BRIGHTNESS_SENSOR): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor"],device_class=["illuminance"])
+                    vol.Optional(CONF_BRIGHTNESS_SENSOR): vol.Maybe(
+                        selector.EntitySelector(
+                            selector.EntitySelectorConfig(domain=["sensor"], device_class=["illuminance"])
+                        )
                     ),
-                    vol.Optional(CONF_TEMPERATURE_SENSOR_INDOOR): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor"])
+                    vol.Optional(CONF_TEMPERATURE_SENSOR_INDOOR): vol.Maybe(
+                        selector.EntitySelector(selector.EntitySelectorConfig(domain=["sensor"]))
                     ),
-                    vol.Optional(CONF_TEMPERATURE_SENSOR_OUTDOOR): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor"])
+                    vol.Optional(CONF_TEMPERATURE_SENSOR_OUTDOOR): vol.Maybe(
+                        selector.EntitySelector(selector.EntitySelectorConfig(domain=["sensor"]))
                     ),
                     vol.Optional(
                         CONF_TEMPERATURE_THRESHOLD, default=DEFAULT_TEMPERATURE_THRESHOLD
@@ -307,8 +320,10 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(
                         CONF_COLD_PROTECTION_THRESHOLD, default=DEFAULT_COLD_PROTECTION_THRESHOLD
                     ): vol.Coerce(float),
-                    vol.Optional(CONF_COLD_PROTECTION_FORECAST_SENSOR): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor", "weather"])
+                    vol.Optional(CONF_COLD_PROTECTION_FORECAST_SENSOR): vol.Maybe(
+                        selector.EntitySelector(
+                            selector.EntitySelectorConfig(domain=["sensor", "weather"])
+                        )
                     ),
                     vol.Optional(
                         CONF_TIME_UP_EARLY_WORKDAY,
@@ -415,8 +430,10 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(CONF_SUN_ELEVATION_MAX, default=DEFAULT_SHADING_ELEVATION_MAX): vol.Coerce(float),
                     vol.Optional(CONF_SHADING_BRIGHTNESS_START, default=DEFAULT_SHADING_BRIGHTNESS_START): vol.Coerce(float),
                     vol.Optional(CONF_SHADING_BRIGHTNESS_END, default=DEFAULT_SHADING_BRIGHTNESS_END): vol.Coerce(float),
-                    vol.Optional(CONF_SHADING_FORECAST_SENSOR): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor", "weather"])
+                    vol.Optional(CONF_SHADING_FORECAST_SENSOR): vol.Maybe(
+                        selector.EntitySelector(
+                            selector.EntitySelectorConfig(domain=["sensor", "weather"])
+                        )
                     ),
                     vol.Optional(
                         CONF_SHADING_FORECAST_TYPE,
@@ -486,7 +503,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_finalize(self, user_input=None) -> FlowResult:
         if user_input:
             self._data.update(user_input)
-        for key in (CONF_WORKDAY_SENSOR, CONF_RESIDENT_SENSOR):
+        for key in CLEARABLE_ENTITY_SELECTOR_KEYS:
             if self._data.get(key) in (None, "", vol.UNDEFINED):
                 self._data.pop(key, None)
         name = self._data.get(CONF_NAME, DEFAULT_NAME).strip() or DEFAULT_NAME
@@ -556,8 +573,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow."""
 
     _CLEARABLE_OPTION_KEYS = {
-        CONF_RESIDENT_SENSOR,
-        CONF_WORKDAY_SENSOR,
+        *CLEARABLE_ENTITY_SELECTOR_KEYS,
         CONF_ADDITIONAL_CONDITION_GLOBAL,
         CONF_ADDITIONAL_CONDITION_OPEN,
         CONF_ADDITIONAL_CONDITION_CLOSE,
@@ -592,14 +608,20 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
         
         cleaned: dict = {}
         for key, value in user_input.items():
-            if value in ("", vol.UNDEFINED, []):
-                if key in self._CLEARABLE_OPTION_KEYS:
-                    cleaned[key] = None
+            if key in self._CLEARABLE_OPTION_KEYS and value in (
+                "",
+                vol.UNDEFINED,
+                None,
+                [],
+                {},
+            ):
+                cleaned[key] = None
                 continue
-            if value is None:
-                if key in self._CLEARABLE_OPTION_KEYS:
-                    cleaned[key] = None
+            # Keep empty lists for non-clearable multi-select fields (for example
+            # per-cover contact sensors) so users can actively remove selections.
+            if value in ("", vol.UNDEFINED):
                 continue
+
             cleaned[key] = _json_safe(value)
         
         for key in self._CLEARABLE_OPTION_KEYS:
@@ -685,10 +707,6 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
             clean_input = self._clean_user_input(user_input)
 
             name = clean_input.pop(CONF_NAME, self._config_entry.title).strip() or DEFAULT_NAME
-            data_updates = dict(self._config_entry.data or {})
-            for key in self._CLEARABLE_OPTION_KEYS:
-                if clean_input.get(key) is None:
-                    data_updates.pop(key, None)
             covers = clean_input.get(CONF_COVERS, self._options.get(CONF_COVERS, []))
             full_mapping: dict[str, list[str]] = {}
             tilt_mapping: dict[str, list[str]] = {}
@@ -725,8 +743,29 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                 self._options = self._sanitize_options(
                     _with_config_defaults(merged)
                 )
-            self.hass.config_entries.async_update_entry(self._config_entry, title=name)
-            return self.async_create_entry(title="", data=self._options)
+            
+            # Remove cleared optional values from base config data to prevent
+            # fallback to values from the initial setup.
+            data_updates = dict(self._config_entry.data or {})
+            for key in self._CLEARABLE_OPTION_KEYS:
+                if self._options.get(key) is None:
+                    data_updates.pop(key, None)
+
+            # Store explicit clears by removing the key from options as well,
+            # once the base data fallback has been cleaned.
+            options_payload = dict(self._options)
+            for key in self._CLEARABLE_OPTION_KEYS:
+                if options_payload.get(key) is None:
+                    options_payload.pop(key, None)
+
+            self._options = options_payload
+            self.hass.config_entries.async_update_entry(
+                self._config_entry,
+                title=name,
+                data=data_updates,
+            )
+            return self.async_create_entry(title="", data=options_payload)
+
 
         auto_brightness = bool(self._options.get(CONF_AUTO_BRIGHTNESS, True))
         auto_sun = bool(self._options.get(CONF_AUTO_SUN, True))
@@ -1049,8 +1088,10 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         CONF_BRIGHTNESS_SENSOR,
                         default=self._optional_default(CONF_BRIGHTNESS_SENSOR),
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor"],device_class=["illuminance"])
+                    ): vol.Maybe(
+                        selector.EntitySelector(
+                            selector.EntitySelectorConfig(domain=["sensor"], device_class=["illuminance"])
+                        )
                     ),
                     vol.Optional(
                         CONF_BRIGHTNESS_OPEN_ABOVE,
@@ -1107,8 +1148,10 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         CONF_SHADING_FORECAST_SENSOR,
                         default=self._optional_default(CONF_SHADING_FORECAST_SENSOR),
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor", "weather"])
+                    ): vol.Maybe(
+                        selector.EntitySelector(
+                            selector.EntitySelectorConfig(domain=["sensor", "weather"])
+                        )
                     ),
                     vol.Optional(
                         CONF_SHADING_FORECAST_TYPE,
