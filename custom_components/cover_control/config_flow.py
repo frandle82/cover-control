@@ -59,6 +59,11 @@ from .const import (
     CONF_SUN_AZIMUTH_END,
     CONF_SUN_AZIMUTH_START,
     CONF_SUN_ELEVATION_CLOSE,
+    CONF_SUN_ELEVATION_MODE,
+    CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
+    CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+    CONF_SUN_ELEVATION_OPEN_OFFSET,
+    CONF_SUN_ELEVATION_CLOSE_OFFSET,
     CONF_SUN_ELEVATION_MAX,
     CONF_SUN_ELEVATION_MIN,
     CONF_SUN_ELEVATION_OPEN,
@@ -81,6 +86,15 @@ from .const import (
     CONF_WINDOW_SENSOR_FULL,
     CONF_WINDOW_SENSOR_TILT,
     CONF_WORKDAY_SENSOR,
+    CONF_USE_WORKDAY_SENSOR,
+    CONF_USE_RESIDENT_SENSOR,
+    CONF_USE_BRIGHTNESS_SENSOR,
+    CONF_USE_TEMPERATURE_SENSOR_INDOOR,
+    CONF_USE_TEMPERATURE_SENSOR_OUTDOOR,
+    CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
+    CONF_USE_SHADING_FORECAST_SENSOR,
+    CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
+    CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
     DEFAULT_CONTACT_SETTINGS,
     DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_BRIGHTNESS_CLOSE,
@@ -101,6 +115,9 @@ from .const import (
     DEFAULT_SHADING_ELEVATION_MIN,
     DEFAULT_SUN_ELEVATION_CLOSE,
     DEFAULT_SUN_ELEVATION_OPEN,
+    DEFAULT_SUN_ELEVATION_MODE,
+    DEFAULT_SUN_ELEVATION_OPEN_OFFSET,
+    DEFAULT_SUN_ELEVATION_CLOSE_OFFSET,
     DEFAULT_TIME_SETTINGS,
     DEFAULT_TEMPERATURE_FORECAST_THRESHOLD,
     DEFAULT_TEMPERATURE_THRESHOLD,
@@ -126,6 +143,9 @@ def _with_config_defaults(config: dict) -> dict:
         **DEFAULT_MASTER_FLAGS,
         **DEFAULT_MANUAL_OVERRIDE_FLAGS,
         **DEFAULT_CONTACT_SETTINGS,
+        CONF_SUN_ELEVATION_MODE: DEFAULT_SUN_ELEVATION_MODE,
+        CONF_SUN_ELEVATION_OPEN_OFFSET: DEFAULT_SUN_ELEVATION_OPEN_OFFSET,
+        CONF_SUN_ELEVATION_CLOSE_OFFSET: DEFAULT_SUN_ELEVATION_CLOSE_OFFSET,
         **config,
     }
 
@@ -149,8 +169,26 @@ CLEARABLE_ENTITY_SELECTOR_KEYS = {
     CONF_TEMPERATURE_SENSOR_OUTDOOR,
     CONF_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_SHADING_FORECAST_SENSOR,
+    CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
+    CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
 }
 
+ENTITY_TOGGLE_MAP: dict[str, str] = {
+    CONF_USE_WORKDAY_SENSOR: CONF_WORKDAY_SENSOR,
+    CONF_USE_RESIDENT_SENSOR: CONF_RESIDENT_SENSOR,
+    CONF_USE_BRIGHTNESS_SENSOR: CONF_BRIGHTNESS_SENSOR,
+    CONF_USE_TEMPERATURE_SENSOR_INDOOR: CONF_TEMPERATURE_SENSOR_INDOOR,
+    CONF_USE_TEMPERATURE_SENSOR_OUTDOOR: CONF_TEMPERATURE_SENSOR_OUTDOOR,
+    CONF_USE_COLD_PROTECTION_FORECAST_SENSOR: CONF_COLD_PROTECTION_FORECAST_SENSOR,
+    CONF_USE_SHADING_FORECAST_SENSOR: CONF_SHADING_FORECAST_SENSOR,
+    CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR: CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
+    CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR: CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+}
+
+def _is_enabled(options: dict, key: str) -> bool:
+    """Return whether an optional entity key currently stores an active value."""
+
+    return options.get(key) not in (None, "", vol.UNDEFINED)
 
 def _time_default(value, fallback: str | None = None):
     """Return a time object for selectors, falling back safely."""
@@ -216,9 +254,24 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_schedule(self, user_input=None) -> FlowResult:
         if user_input is not None:
             schedule_updates = dict(user_input)
-            for key in (CONF_WORKDAY_SENSOR, CONF_RESIDENT_SENSOR):
-                if key not in schedule_updates or schedule_updates.get(key) in ("", vol.UNDEFINED):
-                    schedule_updates[key] = None
+            toggle_map = {
+                CONF_USE_WORKDAY_SENSOR: CONF_WORKDAY_SENSOR,
+                CONF_USE_RESIDENT_SENSOR: CONF_RESIDENT_SENSOR,
+                CONF_USE_BRIGHTNESS_SENSOR: CONF_BRIGHTNESS_SENSOR,
+                CONF_USE_TEMPERATURE_SENSOR_INDOOR: CONF_TEMPERATURE_SENSOR_INDOOR,
+                CONF_USE_TEMPERATURE_SENSOR_OUTDOOR: CONF_TEMPERATURE_SENSOR_OUTDOOR,
+                CONF_USE_COLD_PROTECTION_FORECAST_SENSOR: CONF_COLD_PROTECTION_FORECAST_SENSOR,
+                CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR: CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
+                CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR: CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+            }
+            for toggle_key, entity_key in toggle_map.items():
+                enabled = bool(schedule_updates.get(toggle_key))
+                if not enabled:
+                    schedule_updates[entity_key] = None
+                elif schedule_updates.get(entity_key) in ("", vol.UNDEFINED):
+                    schedule_updates[entity_key] = None
+                schedule_updates.pop(toggle_key, None)
+
             self._data.update(schedule_updates)
             return await self.async_step_shading()
 
@@ -226,15 +279,25 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="schedule",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_WORKDAY_SENSOR): vol.Maybe(
-                        selector.EntitySelector(
-                            selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
-                        )
+                    vol.Optional(
+                        CONF_USE_WORKDAY_SENSOR,
+                        default=_is_enabled(self._data, CONF_WORKDAY_SENSOR),
+                    ): bool,
+                    vol.Optional(
+                        CONF_WORKDAY_SENSOR,
+                        default=_selector_default(self._data.get(CONF_WORKDAY_SENSOR)),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
                     ),
-                    vol.Optional(CONF_RESIDENT_SENSOR): vol.Maybe(
-                        selector.EntitySelector(
-                            selector.EntitySelectorConfig(domain=["binary_sensor", "switch"])
-                        )
+                    vol.Optional(
+                        CONF_USE_RESIDENT_SENSOR,
+                        default=_is_enabled(self._data, CONF_RESIDENT_SENSOR),
+                    ): bool,
+                    vol.Optional(
+                        CONF_RESIDENT_SENSOR,
+                        default=_selector_default(self._data.get(CONF_RESIDENT_SENSOR)),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["binary_sensor", "switch"])
                     ),
                     vol.Optional(
                         CONF_CONTACT_TRIGGER_DELAY,
@@ -300,17 +363,72 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             )
                         ),
                     ): bool,
-                    vol.Optional(CONF_BRIGHTNESS_SENSOR): vol.Maybe(
-                        selector.EntitySelector(
-                            selector.EntitySelectorConfig(domain=["sensor"], device_class=["illuminance"])
+                    vol.Optional(
+                        CONF_USE_BRIGHTNESS_SENSOR,
+                        default=_is_enabled(self._data, CONF_BRIGHTNESS_SENSOR),
+                    ): bool,
+                    vol.Optional(
+                        CONF_BRIGHTNESS_SENSOR,
+                        default=_selector_default(self._data.get(CONF_BRIGHTNESS_SENSOR)),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor"], device_class=["illuminance"])
+                    ),
+                    vol.Optional(
+                        CONF_USE_TEMPERATURE_SENSOR_INDOOR,
+                        default=_is_enabled(self._data, CONF_TEMPERATURE_SENSOR_INDOOR),
+                    ): bool,
+                    vol.Optional(
+                        CONF_TEMPERATURE_SENSOR_INDOOR,
+                        default=_selector_default(self._data.get(CONF_TEMPERATURE_SENSOR_INDOOR)),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor"])
+                    ),
+                    vol.Optional(
+                        CONF_USE_TEMPERATURE_SENSOR_OUTDOOR,
+                        default=_is_enabled(self._data, CONF_TEMPERATURE_SENSOR_OUTDOOR),
+                    ): bool,
+                    vol.Optional(
+                        CONF_TEMPERATURE_SENSOR_OUTDOOR,
+                        default=_selector_default(self._data.get(CONF_TEMPERATURE_SENSOR_OUTDOOR)),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor"])
+                    ),
+                    vol.Optional(
+                        CONF_SUN_ELEVATION_MODE,
+                        default=self._data.get(CONF_SUN_ELEVATION_MODE, DEFAULT_SUN_ELEVATION_MODE),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=["fixed", "dynamic", "hybrid"], mode=selector.SelectSelectorMode.DROPDOWN
                         )
                     ),
-                    vol.Optional(CONF_TEMPERATURE_SENSOR_INDOOR): vol.Maybe(
-                        selector.EntitySelector(selector.EntitySelectorConfig(domain=["sensor"]))
+                    vol.Optional(
+                        CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
+                        default=_is_enabled(self._data, CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR),
+                    ): bool,
+                    vol.Optional(
+                        CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
+                        default=_selector_default(self._data.get(CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR)),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor"])
                     ),
-                    vol.Optional(CONF_TEMPERATURE_SENSOR_OUTDOOR): vol.Maybe(
-                        selector.EntitySelector(selector.EntitySelectorConfig(domain=["sensor"]))
+                    vol.Optional(
+                        CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+                        default=_is_enabled(self._data, CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR),
+                    ): bool,
+                    vol.Optional(
+                        CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+                        default=_selector_default(self._data.get(CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR)),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor"])
                     ),
+                    vol.Optional(
+                        CONF_SUN_ELEVATION_OPEN_OFFSET,
+                        default=self._data.get(CONF_SUN_ELEVATION_OPEN_OFFSET, DEFAULT_SUN_ELEVATION_OPEN_OFFSET),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_SUN_ELEVATION_CLOSE_OFFSET,
+                        default=self._data.get(CONF_SUN_ELEVATION_CLOSE_OFFSET, DEFAULT_SUN_ELEVATION_CLOSE_OFFSET),
+                    ): vol.Coerce(float),
                     vol.Optional(
                         CONF_TEMPERATURE_THRESHOLD, default=DEFAULT_TEMPERATURE_THRESHOLD
                     ): vol.Coerce(float),
@@ -320,10 +438,15 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(
                         CONF_COLD_PROTECTION_THRESHOLD, default=DEFAULT_COLD_PROTECTION_THRESHOLD
                     ): vol.Coerce(float),
-                    vol.Optional(CONF_COLD_PROTECTION_FORECAST_SENSOR): vol.Maybe(
-                        selector.EntitySelector(
-                            selector.EntitySelectorConfig(domain=["sensor", "weather"])
-                        )
+                    vol.Optional(
+                        CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
+                        default=_is_enabled(self._data, CONF_COLD_PROTECTION_FORECAST_SENSOR),
+                    ): bool,
+                    vol.Optional(
+                        CONF_COLD_PROTECTION_FORECAST_SENSOR,
+                        default=_selector_default(self._data.get(CONF_COLD_PROTECTION_FORECAST_SENSOR)),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor", "weather"])
                     ),
                     vol.Optional(
                         CONF_TIME_UP_EARLY_WORKDAY,
@@ -412,7 +535,13 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_shading(self, user_input=None) -> FlowResult:
         if user_input is not None:
-            self._data.update(user_input)
+            updates = dict(user_input)
+            if not updates.get(CONF_USE_SHADING_FORECAST_SENSOR):
+                updates[CONF_SHADING_FORECAST_SENSOR] = None
+            elif updates.get(CONF_SHADING_FORECAST_SENSOR) in ("", vol.UNDEFINED):
+                updates[CONF_SHADING_FORECAST_SENSOR] = None
+            updates.pop(CONF_USE_SHADING_FORECAST_SENSOR, None)
+            self._data.update(updates)
             return await self.async_step_finalize()
 
         return self.async_show_form(
@@ -430,10 +559,15 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Optional(CONF_SUN_ELEVATION_MAX, default=DEFAULT_SHADING_ELEVATION_MAX): vol.Coerce(float),
                     vol.Optional(CONF_SHADING_BRIGHTNESS_START, default=DEFAULT_SHADING_BRIGHTNESS_START): vol.Coerce(float),
                     vol.Optional(CONF_SHADING_BRIGHTNESS_END, default=DEFAULT_SHADING_BRIGHTNESS_END): vol.Coerce(float),
-                    vol.Optional(CONF_SHADING_FORECAST_SENSOR): vol.Maybe(
-                        selector.EntitySelector(
-                            selector.EntitySelectorConfig(domain=["sensor", "weather"])
-                        )
+                    vol.Optional(
+                        CONF_USE_SHADING_FORECAST_SENSOR,
+                        default=_is_enabled(self._data, CONF_SHADING_FORECAST_SENSOR),
+                    ): bool,
+                    vol.Optional(
+                        CONF_SHADING_FORECAST_SENSOR,
+                        default=_selector_default(self._data.get(CONF_SHADING_FORECAST_SENSOR)),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor", "weather"])
                     ),
                     vol.Optional(
                         CONF_SHADING_FORECAST_TYPE,
@@ -590,7 +724,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
 
     def _clean_user_input(self, user_input: dict) -> dict:
         """Drop empty selector values while keeping valid falsy values."""
-        
+
         def _json_safe(value: Any) -> Any:
             """Convert selector results to JSON-serialisable primitives."""
 
@@ -606,29 +740,34 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                 return {key: _json_safe(val) for key, val in value.items()}
             return value
         
-        cleaned: dict = {}
+        cleaned: dict[str, Any] = {}
         for key, value in user_input.items():
-            if key in self._CLEARABLE_OPTION_KEYS and value in (
-                "",
-                vol.UNDEFINED,
-                None,
-                [],
-                {},
-            ):
+            if key in self._CLEARABLE_OPTION_KEYS and value in ("", vol.UNDEFINED, None, [], {}):
                 cleaned[key] = None
                 continue
-            # Keep empty lists for non-clearable multi-select fields (for example
-            # per-cover contact sensors) so users can actively remove selections.
             if value in ("", vol.UNDEFINED):
                 continue
-
             cleaned[key] = _json_safe(value)
+
+        for toggle_key, entity_key in ENTITY_TOGGLE_MAP.items():
+            if toggle_key in user_input:
+                enabled = bool(user_input.get(toggle_key))
+            else:
+                enabled = _is_enabled(self._options, entity_key)
+
+            if not enabled:
+                cleaned[entity_key] = None
+            elif cleaned.get(entity_key) in ("", vol.UNDEFINED):
+                cleaned[entity_key] = None
+
+            cleaned.pop(toggle_key, None)
         
         for key in self._CLEARABLE_OPTION_KEYS:
-            # If the UI omits a clearable selector entirely (e.g. after manual removal),
-            # treat it as an explicit request to clear the stored value.
+            if key in ENTITY_TOGGLE_MAP.values():
+                continue
             if key not in cleaned:
                 cleaned[key] = None
+
         return cleaned
 
     def _optional_default(self, key: str):
@@ -947,6 +1086,45 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                 ),
             ): bool,
             vol.Optional(
+                CONF_USE_TEMPERATURE_SENSOR_INDOOR,
+                default=_is_enabled(self._options, CONF_TEMPERATURE_SENSOR_INDOOR),
+            ): bool,
+            vol.Optional(
+                CONF_TEMPERATURE_SENSOR_INDOOR,
+                default=self._optional_default(CONF_TEMPERATURE_SENSOR_INDOOR),
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain=["sensor"])),
+            vol.Optional(
+                CONF_USE_TEMPERATURE_SENSOR_OUTDOOR,
+                default=_is_enabled(self._options, CONF_TEMPERATURE_SENSOR_OUTDOOR),
+            ): bool,
+            vol.Optional(
+                CONF_TEMPERATURE_SENSOR_OUTDOOR,
+                default=self._optional_default(CONF_TEMPERATURE_SENSOR_OUTDOOR),
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain=["sensor"])),
+            vol.Optional(
+                CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
+                default=_is_enabled(self._options, CONF_COLD_PROTECTION_FORECAST_SENSOR),
+            ): bool,
+            vol.Optional(
+                CONF_COLD_PROTECTION_FORECAST_SENSOR,
+                default=self._optional_default(CONF_COLD_PROTECTION_FORECAST_SENSOR),
+            ): selector.EntitySelector(selector.EntitySelectorConfig(domain=["sensor", "weather"])),
+            vol.Optional(
+                CONF_TEMPERATURE_THRESHOLD,
+                default=self._options.get(CONF_TEMPERATURE_THRESHOLD, DEFAULT_TEMPERATURE_THRESHOLD),
+            ): vol.Coerce(float),
+            vol.Optional(
+                CONF_TEMPERATURE_FORECAST_THRESHOLD,
+                default=self._options.get(
+                    CONF_TEMPERATURE_FORECAST_THRESHOLD,
+                    DEFAULT_TEMPERATURE_FORECAST_THRESHOLD,
+                ),
+            ): vol.Coerce(float),
+            vol.Optional(
+                CONF_COLD_PROTECTION_THRESHOLD,
+                default=self._options.get(CONF_COLD_PROTECTION_THRESHOLD, DEFAULT_COLD_PROTECTION_THRESHOLD),
+            ): vol.Coerce(float),
+            vol.Optional(
                 CONF_ADDITIONAL_CONDITION_GLOBAL,
                 default=self._optional_default(CONF_ADDITIONAL_CONDITION_GLOBAL),
             ): condition_selector,
@@ -1012,18 +1190,24 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
             schema.update(
                 {
                 vol.Optional(
-                    CONF_RESIDENT_SENSOR, default=self._optional_default(CONF_RESIDENT_SENSOR)
-                ): vol.Maybe(
-                    selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["binary_sensor", "switch"])
-                    )
+                    CONF_USE_RESIDENT_SENSOR,
+                    default=_is_enabled(self._options, CONF_RESIDENT_SENSOR),
+                ): bool,
+                vol.Optional(
+                    CONF_RESIDENT_SENSOR,
+                    default=self._optional_default(CONF_RESIDENT_SENSOR),
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain=["binary_sensor", "switch"])
                 ),
                 vol.Optional(
-                    CONF_WORKDAY_SENSOR, default=self._optional_default(CONF_WORKDAY_SENSOR)
-                ): vol.Maybe(
-                    selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
-                    )
+                    CONF_USE_WORKDAY_SENSOR,
+                    default=_is_enabled(self._options, CONF_WORKDAY_SENSOR),
+                ): bool,
+                vol.Optional(
+                    CONF_WORKDAY_SENSOR,
+                    default=self._optional_default(CONF_WORKDAY_SENSOR),
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
                 ),
                 vol.Optional(
                     CONF_MANUAL_OVERRIDE_RESET_MODE,
@@ -1086,12 +1270,14 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
             schema.update(
                 {
                     vol.Optional(
+                        CONF_USE_BRIGHTNESS_SENSOR,
+                        default=_is_enabled(self._options, CONF_BRIGHTNESS_SENSOR),
+                    ): bool,
+                    vol.Optional(
                         CONF_BRIGHTNESS_SENSOR,
                         default=self._optional_default(CONF_BRIGHTNESS_SENSOR),
-                    ): vol.Maybe(
-                        selector.EntitySelector(
-                            selector.EntitySelectorConfig(domain=["sensor"], device_class=["illuminance"])
-                        )
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor"], device_class=["illuminance"])
                     ),
                     vol.Optional(
                         CONF_BRIGHTNESS_OPEN_ABOVE,
@@ -1114,6 +1300,49 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         CONF_SUN_ELEVATION_CLOSE,
                         default=self._options.get(CONF_SUN_ELEVATION_CLOSE, DEFAULT_SUN_ELEVATION_CLOSE),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_SUN_ELEVATION_MODE,
+                        default=self._options.get(CONF_SUN_ELEVATION_MODE, DEFAULT_SUN_ELEVATION_MODE),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=["fixed", "dynamic", "hybrid"],
+                            mode=selector.SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
+                        default=_is_enabled(self._options, CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR),
+                    ): bool,
+                    vol.Optional(
+                        CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
+                        default=self._optional_default(CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor"])
+                    ),
+                    vol.Optional(
+                        CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+                        default=_is_enabled(self._options, CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR),
+                    ): bool,
+                    vol.Optional(
+                        CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+                        default=self._optional_default(CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor"])
+                    ),
+                    vol.Optional(
+                        CONF_SUN_ELEVATION_OPEN_OFFSET,
+                        default=self._options.get(
+                            CONF_SUN_ELEVATION_OPEN_OFFSET,
+                            DEFAULT_SUN_ELEVATION_OPEN_OFFSET,
+                        ),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_SUN_ELEVATION_CLOSE_OFFSET,
+                        default=self._options.get(
+                            CONF_SUN_ELEVATION_CLOSE_OFFSET,
+                            DEFAULT_SUN_ELEVATION_CLOSE_OFFSET,
+                        ),
                     ): vol.Coerce(float),
                 }
             )
@@ -1146,12 +1375,14 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                         default=self._options.get(CONF_SHADING_BRIGHTNESS_END, DEFAULT_SHADING_BRIGHTNESS_END),
                     ): vol.Coerce(float),
                     vol.Optional(
+                        CONF_USE_SHADING_FORECAST_SENSOR,
+                        default=_is_enabled(self._options, CONF_SHADING_FORECAST_SENSOR),
+                    ): bool,
+                    vol.Optional(
                         CONF_SHADING_FORECAST_SENSOR,
                         default=self._optional_default(CONF_SHADING_FORECAST_SENSOR),
-                    ): vol.Maybe(
-                        selector.EntitySelector(
-                            selector.EntitySelectorConfig(domain=["sensor", "weather"])
-                        )
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor", "weather"])
                     ),
                     vol.Optional(
                         CONF_SHADING_FORECAST_TYPE,
