@@ -78,6 +78,11 @@ from .const import (
     CONF_SUN_ELEVATION_MAX,
     CONF_SUN_ELEVATION_MIN,
     CONF_SUN_ELEVATION_OPEN,
+    CONF_SUN_ELEVATION_MODE,
+    CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
+    CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+    CONF_SUN_ELEVATION_OPEN_OFFSET,
+    CONF_SUN_ELEVATION_CLOSE_OFFSET,
     CONF_TEMPERATURE_FORECAST_THRESHOLD,
     CONF_TEMPERATURE_SENSOR_INDOOR,
     CONF_TEMPERATURE_SENSOR_OUTDOOR,
@@ -118,6 +123,9 @@ from .const import (
     DEFAULT_SHADING_POSITION,
     DEFAULT_CLOSE_POSITION,
     DEFAULT_SHADING_FORECAST_TYPE,
+    DEFAULT_SUN_ELEVATION_MODE,
+    DEFAULT_SUN_ELEVATION_OPEN,
+    DEFAULT_SUN_ELEVATION_CLOSE,
     DOMAIN,
     SIGNAL_STATE_UPDATED,
     MANUAL_OVERRIDE_RESET_NONE,
@@ -1078,19 +1086,63 @@ class CoverController:
         self._refresh_next_events(now)
         self._publish_state()
 
+    def _dynamic_sun_threshold(self, kind: str) -> float | None:
+        mode = str(self.config.get(CONF_SUN_ELEVATION_MODE, DEFAULT_SUN_ELEVATION_MODE) or DEFAULT_SUN_ELEVATION_MODE).lower()
+
+        if kind == "open":
+            fixed_key = CONF_SUN_ELEVATION_OPEN
+            sensor_key = CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR
+            offset_key = CONF_SUN_ELEVATION_OPEN_OFFSET
+            fixed_default = DEFAULT_SUN_ELEVATION_OPEN
+        else:
+            fixed_key = CONF_SUN_ELEVATION_CLOSE
+            sensor_key = CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR
+            offset_key = CONF_SUN_ELEVATION_CLOSE_OFFSET
+            fixed_default = DEFAULT_SUN_ELEVATION_CLOSE
+
+        try:
+            fixed_threshold = float(self.config.get(fixed_key, fixed_default))
+        except (TypeError, ValueError):
+            return None
+
+        if mode == "fixed":
+            return fixed_threshold
+
+        sensor_value = _float_state(self.hass, self.config.get(sensor_key))
+        if sensor_value is None:
+            return fixed_threshold
+
+        if mode == "dynamic":
+            return sensor_value
+
+        if mode == "hybrid":
+            try:
+                offset = float(self.config.get(offset_key, 0.0))
+            except (TypeError, ValueError):
+                offset = 0.0
+            return sensor_value + offset
+
+        return fixed_threshold
+
     def _sun_allows_open(self, sun_elevation: float | None) -> bool:
         if not self._auto_enabled(CONF_AUTO_SUN):
             return True
         if sun_elevation is None:
             return False
-        return sun_elevation >= float(self.config.get(CONF_SUN_ELEVATION_OPEN))
+        threshold = self._dynamic_sun_threshold("open")
+        if threshold is None:
+            return False
+        return sun_elevation >= threshold
 
     def _sun_allows_close(self, sun_elevation: float | None) -> bool:
         if not self._auto_enabled(CONF_AUTO_SUN):
             return True
         if sun_elevation is None:
             return False
-        return sun_elevation <= float(self.config.get(CONF_SUN_ELEVATION_CLOSE))
+        threshold = self._dynamic_sun_threshold("close")
+        if threshold is None:
+            return False
+        return sun_elevation <= threshold
 
     def _brightness_allows_open(self, brightness: float | None) -> bool:
         if not self._auto_enabled(CONF_AUTO_BRIGHTNESS) or brightness is None:
@@ -1129,14 +1181,45 @@ class CoverController:
     def _temperature_allows_shading(self) -> bool:
         indoor = _float_state(self.hass, self.config.get(CONF_TEMPERATURE_SENSOR_INDOOR))
         outdoor = _float_state(self.hass, self.config.get(CONF_TEMPERATURE_SENSOR_OUTDOOR))
+        threshold = float(self.config.get(CONF_TEMPERATURE_THRESHOLD))
         forecast_threshold = self.config.get(CONF_TEMPERATURE_FORECAST_THRESHOLD)
         forecast_hot = False
-        if forecast_threshold is not None:
-            try:
-                forecast_hot = float(forecast_threshold) > 0
-            except (TypeError, ValueError):
-                forecast_hot = False
-        threshold = float(self.config.get(CONF_TEMPERATURE_THRESHOLD))
+        try:
+            forecast_limit = float(forecast_threshold)
+        except (TypeError, ValueError):
+            forecast_limit = None
+
+        forecast_sensor = self.config.get(CONF_SHADING_FORECAST_SENSOR)
+        forecast_temp: float | None = None
+        if forecast_sensor:
+            state = self.hass.states.get(forecast_sensor)
+            if state is not None:
+                # Sensor case: state value contains temperature
+                if state.entity_id.startswith("sensor."):
+                    try:
+                        forecast_temp = float(state.state)
+                    except (TypeError, ValueError):
+                        forecast_temp = None
+                # Weather case: use first forecast item temperature/templow
+                if state.entity_id.startswith("weather."):
+                    forecast = state.attributes.get("forecast")
+                    if isinstance(forecast, list) and forecast:
+                        first = forecast[0] or {}
+                        for key in ("temperature", "templow"):
+                            value = first.get(key)
+                            if value is None:
+                                continue
+                            try:
+                                forecast_temp = float(value)
+                            except (TypeError, ValueError):
+                                forecast_temp = None
+                            else:
+                                break
+
+        if forecast_limit is not None and forecast_temp is not None:
+            forecast_hot = forecast_temp >= forecast_limit
+        elif forecast_limit is not None:
+            forecast_hot = forecast_limit > 0
         if indoor is not None and indoor >= threshold:
             return True
         if outdoor is not None and outdoor >= threshold:
@@ -1511,14 +1594,14 @@ class CoverController:
         )
         sun_open_target = (
             self._next_sun_time_for_elevation(
-                self.config.get(CONF_SUN_ELEVATION_OPEN), SunDirection.RISING, now
+                self._dynamic_sun_threshold("open"), SunDirection.RISING, now
             )
             if sun_enabled
             else None
         )
         sun_close_target = (
             self._next_sun_time_for_elevation(
-                self.config.get(CONF_SUN_ELEVATION_CLOSE), SunDirection.SETTING, now
+                self._dynamic_sun_threshold("close"), SunDirection.SETTING, now
             )
             if sun_enabled
             else None
