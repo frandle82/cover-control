@@ -7,6 +7,20 @@
         "description": "Choose the shutters or blinds that will be automated.",
         "data": {
           "covers": "Covers"
+        },
+        "sections": {
+          "automation_features": {
+            "name": "Functions",
+            "description": "Enable the functions that should be available and exposed as switches.",
+            "data": {
+              "auto_up_enabled": "Enable automatic opening",
+              "auto_down_enabled": "Enable automatic closing",
+              "auto_brightness_enabled": "Enable brightness automation",
+              "auto_sun_enabled": "Enable sun automation",
+              "auto_ventilate_enabled": "Enable ventilation automation",
+              "auto_shading_enabled": "Enable shading automation"
+            }
+          }
         }
       },
       "windows": {
@@ -39,6 +53,12 @@
           "close_position": "Close position",
           "ventilate_position": "Ventilation position",
           "shading_position": "Shading position"
+        },
+        "sections": {
+          "presence": { "name": "Sensors & thresholds" },
+          "timing": { "name": "Schedule" },
+          "positions": { "name": "Positions" },
+          "contacts": { "name": "Ventilation & lockout" }
         }
       },
       "shading": {
@@ -70,6 +90,12 @@
           "manual_override_block_close": "Ignore next automatic closing after manual changes",
           "manual_override_block_ventilate": "Ignore next automatic ventilation after manual changes",
           "manual_override_block_shading": "Ignore next automatic sun shading after manual changes"
+        },
+        "sections": {
+          "brightness_controls": { "name": "Brightness" },
+          "sun_controls": { "name": "Sun elevation" },
+          "shading_controls": { "name": "Shading" },
+          "manual_override": { "name": "Manual override" }
         }
       }
     }

@@ -157,16 +157,22 @@ async def async_setup_entry(
 ) -> None:
     """Register automation toggle switches."""
 
+    options_and_data = {**entry.data, **entry.options}
+
     def _has_sensor(key: str) -> bool:
-        options_and_data = {**entry.data, **entry.options}
         if key == CONF_AUTO_BRIGHTNESS:
             return bool(options_and_data.get(CONF_BRIGHTNESS_SENSOR))
         return True
 
+    def _is_enabled_in_flow(key: str) -> bool:
+        if key in options_and_data:
+            return bool(options_and_data.get(key))
+        return bool(DEFAULT_AUTOMATION_FLAGS.get(key, True))
+
     entities: list[SwitchEntity] = [MasterControlSwitch(entry)] + [
         AutomationToggleSwitch(entry, key, translation_key)
         for key, translation_key in AUTOMATION_TOGGLES
-        if _has_sensor(key)
+        if _is_enabled_in_flow(key) and _has_sensor(key)
     ]
 
     async_add_entities(entities)

@@ -8,6 +8,20 @@
         "data": {
           "name": "Instance name",
           "covers": "Covers"
+        },
+        "sections": {
+          "automation_features": {
+            "name": "Functions",
+            "description": "Enable the functions that should be available and exposed as switches.",
+            "data": {
+              "auto_up_enabled": "Enable automatic opening",
+              "auto_down_enabled": "Enable automatic closing",
+              "auto_brightness_enabled": "Use brightness control",
+              "auto_sun_enabled": "Use sun elevation control",
+              "auto_ventilate_enabled": "Enable ventilation/lockout",
+              "auto_shading_enabled": "Enable sun shading"
+            }
+          }
         }
       },
       "windows": {
@@ -40,6 +54,12 @@
           "close_position": "Close position",
           "ventilate_position": "Ventilation position",
           "shading_position": "Shading position"
+        },
+        "sections": {
+          "presence": { "name": "Sensors & thresholds" },
+          "timing": { "name": "Schedule" },
+          "positions": { "name": "Positions" },
+          "contacts": { "name": "Ventilation & lockout" }
         }
       },
       "shading": {
@@ -83,6 +103,12 @@
           "auto_ventilate_enabled": "Enable ventilation/lockout",
           "auto_shading_enabled_entity": "Entity to toggle sun shading",
           "auto_shading_enabled": "Enable sun shading"
+        },
+        "sections": {
+          "brightness_controls": { "name": "Brightness" },
+          "sun_controls": { "name": "Sun elevation" },
+          "shading_controls": { "name": "Shading" },
+          "manual_override": { "name": "Manual override" }
         }
       }
     }

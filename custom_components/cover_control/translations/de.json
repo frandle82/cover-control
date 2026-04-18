@@ -16,6 +16,20 @@
         "description": "Wähle die automatisierten Abdeckung aus.",
         "data": {
           "covers": "Abdeckung"
+        },
+        "sections": {
+          "automation_features": {
+            "name": "Funktionen",
+            "description": "Aktiviere die Funktionen, für die Switch-Entitäten erstellt werden sollen.",
+            "data": {
+              "auto_up_enabled": "Automatisches Öffnen aktivieren",
+              "auto_down_enabled": "Automatisches Schließen aktivieren",
+              "auto_brightness_enabled": "Helligkeitsautomatik aktivieren",
+              "auto_sun_enabled": "Sonnenautomatik aktivieren",
+              "auto_ventilate_enabled": "Lüftungsautomatik aktivieren",
+              "auto_shading_enabled": "Beschattungsautomatik aktivieren"
+            }
+          }
         }
       },
       "windows": {
@@ -47,6 +61,12 @@
           "close_position": "Schließposition",
           "ventilate_position": "Lüftungsposition",
           "shading_position": "Beschattungsposition"
+        },
+        "sections": {
+          "presence": { "name": "Sensoren & Schwellenwerte" },
+          "timing": { "name": "Zeitplan" },
+          "positions": { "name": "Positionen" },
+          "contacts": { "name": "Lüftung & Sperren" }
         }
       },
       "shading": {
@@ -77,6 +97,12 @@
           "manual_override_block_close": "Nächste automatische Schließung nach manueller Änderung ignorieren",
           "manual_override_block_ventilate": "Nächste automatische Lüftung nach manueller Änderung ignorieren",
           "manual_override_block_shading": "Nächste automatische Beschattung nach manueller Änderung ignorieren"
+        },
+        "sections": {
+          "brightness_controls": { "name": "Helligkeit" },
+          "sun_controls": { "name": "Sonnenstand" },
+          "shading_controls": { "name": "Beschattung" },
+          "manual_override": { "name": "Manueller Override" }
         }
       }
     }
