@@ -40,6 +40,12 @@
           "close_position": "Close position",
           "ventilate_position": "Ventilation position",
           "shading_position": "Shading position"
+        },
+        "sections": {
+          "presence": { "name": "Sensors & thresholds" },
+          "timing": { "name": "Schedule" },
+          "positions": { "name": "Positions" },
+          "contacts": { "name": "Ventilation & lockout" }
         }
       },
       "shading": {
@@ -71,6 +77,12 @@
           "manual_override_block_close": "Ignore next automatic closing after manual changes",
           "manual_override_block_ventilate": "Ignore next automatic ventilation after manual changes",
           "manual_override_block_shading": "Ignore next automatic sun shading after manual changes"
+        },
+        "sections": {
+          "brightness_controls": { "name": "Brightness" },
+          "sun_controls": { "name": "Sun elevation" },
+          "shading_controls": { "name": "Shading" },
+          "manual_override": { "name": "Manual override" }
         }
       }
     }
@@ -229,11 +241,8 @@
       "master": {
         "name": "Cover Control"
       },
-      "auto_up": {
-        "name": "Automatic opening"
-      },
-      "auto_down": {
-        "name": "Automatic closing"
+      "auto_time": {
+        "name": "Time control"
       },
       "auto_brightness": {
         "name": "Brightness automation"
@@ -256,25 +265,40 @@
     "set_manual_override": {
       "name": "Set manual override",
       "description": "Pause automatic control for a cover for the given minutes.",
-      "fields": {
-        "covers": {
+      "target": {
+        "entity": {
           "name": "Cover",
-          "description": "The cover entity to pause."
-        },
+          "description": "Cover to pause automation for."
+        }
+      },
+      "fields": {
         "manual_override_minutes": {
           "name": "Minutes",
           "description": "Duration of the pause."
         }
       }
     },
+    "clear_manual_override": {
+      "name": "Clear manual override",
+      "description": "Resume automation immediately for the selected cover.",
+      "target": {
+        "entity": {
+          "name": "Cover",
+          "description": "Cover to resume automation for."
+        }
+      },
+      "fields": {}
+    },
     "activate_shading": {
       "name": "Activate shading now",
       "description": "Send a cover to the shading position immediately and hold it there for the override duration.",
-      "fields": {
-        "covers": {
+      "target": {
+        "entity": {
           "name": "Cover",
-          "description": "The cover entity to shade."
-        },
+          "description": "Cover that should move to the shading position."
+        }
+      },
+      "fields": {
         "manual_override_minutes": {
           "name": "Minutes",
           "description": "Optional override duration; defaults to the integration setting."
@@ -284,11 +308,13 @@
     "recalibrate_cover": {
       "name": "Recalibrate cover",
       "description": "Temporarily override a cover, use the standard open command to fully open it, then return to the previous position and clear the override. Use this when a cover needs to be realigned.",
-      "fields": {
-        "covers": {
+      "target": {
+        "entity": {
           "name": "Cover",
-          "description": "The cover entity to recalibrate."
-        },
+          "description": "Cover to recalibrate."
+        }
+      },
+      "fields": {
         "full_open_position": {
           "name": "Fully open position",
           "description": "Position to use for fully opening the cover; defaults to 100%."
@@ -306,6 +332,22 @@
         "settings": {
           "name": "Settings",
           "description": "Key/value pairs to store with the switch's configuration category."
+        }
+      }
+     },
+    "force_action": {
+      "name": "Force action",
+      "description": "Run an immediate action on the selected cover without further automation checks.",
+      "target": {
+        "entity": {
+          "name": "Cover",
+          "description": "Cover to run the action on."
+        }
+      },
+      "fields": {
+        "action": {
+          "name": "Action",
+          "description": "Select which immediate action to run."
         }
       }
     }

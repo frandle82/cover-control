@@ -26,6 +26,9 @@ from .const import (
     CONF_SUN_AZIMUTH_END,
     CONF_SUN_AZIMUTH_START,
     CONF_SUN_ELEVATION_CLOSE,
+    CONF_SUN_ELEVATION_MODE,
+    CONF_SUN_ELEVATION_OPEN_OFFSET,
+    CONF_SUN_ELEVATION_CLOSE_OFFSET,
     CONF_SUN_ELEVATION_MAX,
     CONF_SUN_ELEVATION_MIN,
     CONF_SUN_ELEVATION_OPEN,
@@ -63,6 +66,9 @@ from .const import (
     DEFAULT_SHADING_POSITION,
     DEFAULT_SUN_ELEVATION_CLOSE,
     DEFAULT_SUN_ELEVATION_OPEN,
+    DEFAULT_SUN_ELEVATION_MODE,
+    DEFAULT_SUN_ELEVATION_OPEN_OFFSET,
+    DEFAULT_SUN_ELEVATION_CLOSE_OFFSET,
     DEFAULT_OPEN_POSITION,
     DEFAULT_CLOSE_POSITION,
     DEFAULT_MASTER_FLAGS,
@@ -98,7 +104,6 @@ AUTOMATION_TOGGLES: tuple[tuple[str, str], ...] = (
     (CONF_AUTO_UP, "auto_up"),
     (CONF_AUTO_DOWN, "auto_down"),
     (CONF_AUTO_BRIGHTNESS, "auto_brightness"),
-    (CONF_AUTO_SUN, "auto_sun"),
     (CONF_AUTO_VENTILATE, "auto_ventilate"),
     (CONF_AUTO_SHADING, "auto_shading"),
 )
@@ -108,7 +113,6 @@ TOGGLE_ICONS: dict[str, str] = {
     CONF_AUTO_UP: "mdi:arrow-up-bold-circle",
     CONF_AUTO_DOWN: "mdi:arrow-down-bold-circle",
     CONF_AUTO_BRIGHTNESS: "mdi:brightness-auto",
-    CONF_AUTO_SUN: "mdi:weather-sunny",
     CONF_AUTO_VENTILATE: "mdi:fan-auto",
     CONF_AUTO_SHADING: "mdi:theme-light-dark",
 }
@@ -127,6 +131,9 @@ DEFAULT_LOOKUP = {
     CONF_SUN_ELEVATION_MAX: DEFAULT_SHADING_ELEVATION_MAX,
     CONF_SUN_ELEVATION_OPEN: DEFAULT_SUN_ELEVATION_OPEN,
     CONF_SUN_ELEVATION_CLOSE: DEFAULT_SUN_ELEVATION_CLOSE,
+    CONF_SUN_ELEVATION_MODE: DEFAULT_SUN_ELEVATION_MODE,
+    CONF_SUN_ELEVATION_OPEN_OFFSET: DEFAULT_SUN_ELEVATION_OPEN_OFFSET,
+    CONF_SUN_ELEVATION_CLOSE_OFFSET: DEFAULT_SUN_ELEVATION_CLOSE_OFFSET,
     CONF_TIME_UP_EARLY_WORKDAY: DEFAULT_TIME_UP_EARLY_WORKDAY,
     CONF_TIME_UP_LATE_WORKDAY: DEFAULT_TIME_UP_LATE_WORKDAY,
     CONF_TIME_DOWN_EARLY_WORKDAY: DEFAULT_TIME_DOWN_EARLY_WORKDAY,
@@ -160,16 +167,24 @@ async def async_setup_entry(
 ) -> None:
     """Register automation toggle switches."""
 
+    options_and_data = {**entry.data, **entry.options}
+
     def _has_sensor(key: str) -> bool:
-        options_and_data = {**entry.data, **entry.options}
         if key == CONF_AUTO_BRIGHTNESS:
             return bool(options_and_data.get(CONF_BRIGHTNESS_SENSOR))
         return True
 
+    def _is_enabled_in_flow(key: str) -> bool:
+        if key == "auto_time_enabled":
+            return bool(options_and_data.get(CONF_AUTO_UP) or options_and_data.get(CONF_AUTO_DOWN))
+        if key in options_and_data:
+            return bool(options_and_data.get(key))
+        return bool(DEFAULT_AUTOMATION_FLAGS.get(key, True))
+
     entities: list[SwitchEntity] = [MasterControlSwitch(entry)] + [
         AutomationToggleSwitch(entry, key, translation_key)
         for key, translation_key in AUTOMATION_TOGGLES
-        if _has_sensor(key)
+        if _is_enabled_in_flow(key) and _has_sensor(key)
     ]
 
     async_add_entities(entities)
@@ -210,6 +225,11 @@ class AutomationToggleSwitch(SwitchEntity):
 
     @property
     def is_on(self) -> bool:
+        if self._key == "auto_time_enabled":
+            value = self.entry.options.get(CONF_AUTO_UP)
+            if value is None:
+                value = self.entry.data.get(CONF_AUTO_UP, DEFAULT_AUTOMATION_FLAGS.get(CONF_AUTO_UP))
+            return bool(value)
         value = self.entry.options.get(self._key)
         if value is None:
             value = self.entry.data.get(self._key, DEFAULT_AUTOMATION_FLAGS.get(self._key))
@@ -218,14 +238,22 @@ class AutomationToggleSwitch(SwitchEntity):
     @property
     def extra_state_attributes(self):
         return None
-    
+
     async def async_turn_on(self, **kwargs) -> None:  # type: ignore[override]
+        if self._key == "auto_time_enabled":
+            options = {**self.entry.options, CONF_AUTO_UP: True, CONF_AUTO_DOWN: True}
+            await self.hass.config_entries.async_update_entry(self.entry, options=options)
+            return
         options = {**self.entry.options, self._key: True}
-        await self.hass.config_entries.async_update_entry(self.entry, options=options)
+        self.hass.config_entries.async_update_entry(self.entry, options=options)
 
     async def async_turn_off(self, **kwargs) -> None:  # type: ignore[override]
+        if self._key == "auto_time_enabled":
+            options = {**self.entry.options, CONF_AUTO_UP: False, CONF_AUTO_DOWN: False}
+            await self.hass.config_entries.async_update_entry(self.entry, options=options)
+            return
         options = {**self.entry.options, self._key: False}
-        await self.hass.config_entries.async_update_entry(self.entry, options=options)
+        self.hass.config_entries.async_update_entry(self.entry, options=options)
 
     async def _handle_entry_update(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Refresh state when config entry is updated."""
@@ -424,11 +452,11 @@ class MasterControlSwitch(SwitchEntity):
 
     async def async_turn_on(self, **kwargs) -> None:  # type: ignore[override]
         options = {**self.entry.options, CONF_MASTER_ENABLED: True}
-        await self.hass.config_entries.async_update_entry(self.entry, options=options)
+        self.hass.config_entries.async_update_entry(self.entry, options=options)
 
     async def async_turn_off(self, **kwargs) -> None:  # type: ignore[override]
         options = {**self.entry.options, CONF_MASTER_ENABLED: False}
-        await self.hass.config_entries.async_update_entry(self.entry, options=options)
+        self.hass.config_entries.async_update_entry(self.entry, options=options)
 
     async def async_added_to_hass(self) -> None:
         self.async_on_remove(

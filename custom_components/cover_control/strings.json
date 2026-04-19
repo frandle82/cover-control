@@ -8,6 +8,20 @@
         "data": {
           "room": "Room",
           "covers": "Covers"
+        },
+        "sections": {
+          "automation_features": {
+            "name": "Functions",
+            "description": "Enable the functions that should be available and exposed as switches.",
+            "data": {
+              "auto_up_enabled": "Enable automatic opening",
+              "auto_down_enabled": "Enable automatic closing",
+              "auto_brightness_enabled": "Use brightness control",
+              "auto_sun_enabled": "Use sun elevation control",
+              "auto_ventilate_enabled": "Enable ventilation/lockout",
+              "auto_shading_enabled": "Enable sun shading"
+            }
+          }
         }
       },
       "windows": {
@@ -40,6 +54,12 @@
           "close_position": "Close position",
           "ventilate_position": "Ventilation position",
           "shading_position": "Shading position"
+        },
+        "sections": {
+          "presence": { "name": "Sensors & thresholds" },
+          "timing": { "name": "Schedule" },
+          "positions": { "name": "Positions" },
+          "contacts": { "name": "Ventilation & lockout" }
         }
       },
       "shading": {
@@ -83,6 +103,12 @@
           "auto_ventilate_enabled": "Enable ventilation/lockout",
           "auto_shading_enabled_entity": "Entity to toggle sun shading",
           "auto_shading_enabled": "Enable sun shading"
+        },
+        "sections": {
+          "brightness_controls": { "name": "Brightness" },
+          "sun_controls": { "name": "Sun elevation" },
+          "shading_controls": { "name": "Shading" },
+          "manual_override": { "name": "Manual override" }
         }
       }
     }
@@ -241,11 +267,8 @@
       "master": {
         "name": "Cover Control"
       },
-      "auto_up": {
-        "name": "Auto open"
-      },
-      "auto_down": {
-        "name": "Auto close"
+      "auto_time": {
+        "name": "Time control"
       },
       "auto_time": {
         "name": "Time control"
@@ -268,25 +291,40 @@
     "set_manual_override": {
       "name": "Set manual override",
       "description": "Pause automatic control for a cover for the given minutes.",
-      "fields": {
-        "covers": {
+      "target": {
+        "entity_id": {
           "name": "Cover",
-          "description": "The cover entity to pause."
-        },
+          "description": "Cover to pause automation for."
+        }
+      },
+      "fields": {
         "manual_override_minutes": {
           "name": "Minutes",
           "description": "Duration of the pause."
         }
       }
     },
+    "clear_manual_override": {
+      "name": "Clear manual override",
+      "description": "Resume automation immediately for the selected cover.",
+      "target": {
+        "entity": {
+          "name": "Cover",
+          "description": "Cover to resume automation for."
+        }
+      },
+      "fields": {}
+    },
     "recalibrate_cover": {
       "name": "Recalibrate cover",
       "description": "Temporarily override a cover, use the standard open command to fully open it, then return to the previous position and clear the override. Use this when a cover needs to be realigned.",
-      "fields": {
-        "covers": {
+      "target": {
+        "entity": {
           "name": "Cover",
-          "description": "The cover entity to recalibrate."
-        },
+          "description": "Cover to recalibrate."
+        }
+      },
+      "fields": {
         "full_open_position": {
           "name": "Fully open position",
           "description": "Position to use for fully opening the cover; defaults to 100%."
@@ -296,11 +334,13 @@
     "activate_shading": {
       "name": "Activate shading now",
       "description": "Send a cover to the shading position immediately and hold it there for the override duration.",
-      "fields": {
-        "covers": {
+      "target": {
+        "entity": {
           "name": "Cover",
-          "description": "The cover entity to shade."
-        },
+          "description": "Cover that should move to the shading position."
+        }
+      },
+      "fields": {
         "manual_override_minutes": {
           "name": "Minutes",
           "description": "Optional override duration; defaults to the integration setting."
@@ -318,6 +358,22 @@
         "settings": {
           "name": "Settings",
           "description": "Key/value pairs to store with the switch's configuration category."
+        }
+      }
+    },
+    "force_action": {
+      "name": "Force action",
+      "description": "Run an immediate action on the selected cover without further automation checks.",
+      "target": {
+        "entity": {
+          "name": "Cover",
+          "description": "Cover to run the action on."
+        }
+      },
+      "fields": {
+        "action": {
+          "name": "Action",
+          "description": "Select which immediate action to run."
         }
       }
     }

@@ -1,15 +1,18 @@
 """Set up the Cover Control integration."""
 from __future__ import annotations
 
-import asyncio
+from datetime import datetime, time
+from typing import Mapping
 
 from homeassistant.const import ATTR_ENTITY_ID
 from homeassistant.config_entries import ConfigEntry
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import config_validation as cv
 from homeassistant.helpers import entity_registry as er
+from homeassistant.helpers import service as service_helper
 from homeassistant.helpers.typing import ConfigType
 import voluptuous as vol
+from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_AUTO_BRIGHTNESS,
@@ -58,17 +61,46 @@ SERVICE_ACTIVATE_SHADING = "activate_shading"
 SERVICE_CLEAR_MANUAL_OVERRIDE = "clear_manual_override"
 SERVICE_RECALIBRATE = "recalibrate_cover"
 SERVICE_CHANGE_SWITCH_SETTINGS = "change_switch_settings"
-SERVICE_FORCE_MOVE = "force_move"
-SERVICE_FORCE_VENTILATION = "force_ventilation"
-SERVICE_FORCE_SHADING = "force_shading"
+SERVICE_FORCE_ACTION = "force_action"
+
+
+def _parse_service_time(value: object) -> time:
+    """Coerce service input into a time object or raise a validation error."""
+
+    if isinstance(value, time):
+        return value
+    if isinstance(value, datetime):
+        return value.timetz()
+
+    parsed = dt_util.parse_time(str(value)) if value not in (None, "") else None
+    if not parsed:
+        raise vol.Invalid("Expect HH:MM formatted time")
+    return parsed
+
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Initialize integration-level storage and services."""
     hass.data.setdefault(DOMAIN, {})
 
+    async def _async_get_single_cover(call) -> str:
+        cover = call.data.get(CONF_COVERS)
+        if isinstance(cover, list):
+            if len(cover) != 1:
+                raise ValueError("Provide a single cover entity")
+            return cover[0]
+        if cover:
+            return cover
+
+        entity_ids = await service_helper.async_extract_entity_ids(hass, call)
+        if not entity_ids:
+            raise ValueError("No cover entity provided")
+        if len(entity_ids) != 1:
+            raise ValueError("Provide a single cover entity")
+        return next(iter(entity_ids))
+
     if SERVICE_MANUAL_OVERRIDE not in hass.services.async_services_for_domain(DOMAIN):
         async def handle_manual_override(call):
-            cover = call.data[CONF_COVERS]
+            cover = await _async_get_single_cover(call)
             minutes = call.data.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES)
             matched = False
             for manager in hass.data.get(DOMAIN, {}).values():
@@ -82,14 +114,17 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             DOMAIN,
             SERVICE_MANUAL_OVERRIDE,
             handle_manual_override,
-            schema=cv.make_entity_service_schema(
-                {vol.Required(CONF_COVERS): cv.entity_id, vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES): cv.positive_int}
+            schema=vol.Schema(
+                {
+                    vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
+                    vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES): cv.positive_int,
+                }
             ),
         )
 
     if SERVICE_ACTIVATE_SHADING not in hass.services.async_services_for_domain(DOMAIN):
         async def handle_activate_shading(call):
-            cover = call.data[CONF_COVERS]
+            cover = await _async_get_single_cover(call)
             minutes = call.data.get(CONF_MANUAL_OVERRIDE_MINUTES)
             matched = False
             for manager in hass.data.get(DOMAIN, {}).values():
@@ -103,13 +138,16 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             DOMAIN,
             SERVICE_ACTIVATE_SHADING,
             handle_activate_shading,
-            schema=cv.make_entity_service_schema(
-                {vol.Required(CONF_COVERS): cv.entity_id, vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES): cv.positive_int}
+            schema=vol.Schema(
+                {
+                    vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
+                    vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES): cv.positive_int,
+                }
             ),
         )
     if SERVICE_CLEAR_MANUAL_OVERRIDE not in hass.services.async_services_for_domain(DOMAIN):
         async def handle_clear_manual_override(call):
-            cover = call.data[CONF_COVERS]
+            cover = await _async_get_single_cover(call)
             matched = False
             for manager in hass.data.get(DOMAIN, {}).values():
                 if isinstance(manager, ControllerManager) and manager.clear_manual_override(cover):
@@ -122,20 +160,13 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             DOMAIN,
             SERVICE_CLEAR_MANUAL_OVERRIDE,
             handle_clear_manual_override,
-            schema=cv.make_entity_service_schema({vol.Required(CONF_COVERS): cv.entity_id}),
+            schema=vol.Schema(
+                {vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids)}
+            ),
         )
     if SERVICE_RECALIBRATE not in hass.services.async_services_for_domain(DOMAIN):
-        def _resolve_cover(call) -> str:
-            cover = call.data.get(CONF_COVERS) or call.data.get(ATTR_ENTITY_ID)
-            if cover is None:
-                raise ValueError("No cover entity provided")
-            if isinstance(cover, list):
-                if len(cover) != 1:
-                    raise ValueError("Provide a single cover entity for recalibration")
-                return cover[0]
-            return cover
         async def handle_recalibrate(call):
-            cover = _resolve_cover(call)
+            cover = await _async_get_single_cover(call)
             full_open = call.data.get(CONF_FULL_OPEN_POSITION, DEFAULT_OPEN_POSITION)
             matched = False
             for manager in hass.data.get(DOMAIN, {}).values():
@@ -152,11 +183,10 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             handle_recalibrate,
             schema=vol.Schema(
                 {
-                vol.Optional(CONF_COVERS): vol.Any(cv.entity_id, [cv.entity_id]),
-                vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, [cv.entity_id]),
-                vol.Optional(CONF_FULL_OPEN_POSITION, default=DEFAULT_OPEN_POSITION): vol.All(
-                    vol.Coerce(float), vol.Range(min=0, max=100)
-                ),
+                    vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
+                    vol.Optional(CONF_FULL_OPEN_POSITION, default=DEFAULT_OPEN_POSITION): vol.All(
+                        vol.Coerce(float), vol.Range(min=0, max=100)
+                    ),
                 }
             ),
         )
@@ -228,14 +258,14 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             CONF_SUN_ELEVATION_MIN: vol.Coerce(float),
             CONF_SUN_ELEVATION_MAX: vol.Coerce(float),
             CONF_POSITION_TOLERANCE: vol.Coerce(float),
-            CONF_TIME_UP_EARLY_WORKDAY: cv.string,
-            CONF_TIME_UP_LATE_WORKDAY: cv.string,
-            CONF_TIME_DOWN_EARLY_WORKDAY: cv.string,
-            CONF_TIME_DOWN_LATE_WORKDAY: cv.string,
-            CONF_TIME_UP_EARLY_NON_WORKDAY: cv.string,
-            CONF_TIME_UP_LATE_NON_WORKDAY: cv.string,
-            CONF_TIME_DOWN_EARLY_NON_WORKDAY: cv.string,
-            CONF_TIME_DOWN_LATE_NON_WORKDAY: cv.string,
+            CONF_TIME_UP_EARLY_WORKDAY: _parse_service_time,
+            CONF_TIME_UP_LATE_WORKDAY: _parse_service_time,
+            CONF_TIME_DOWN_EARLY_WORKDAY: _parse_service_time,
+            CONF_TIME_DOWN_LATE_WORKDAY: _parse_service_time,
+            CONF_TIME_UP_EARLY_NON_WORKDAY: _parse_service_time,
+            CONF_TIME_UP_LATE_NON_WORKDAY: _parse_service_time,
+            CONF_TIME_DOWN_EARLY_NON_WORKDAY: _parse_service_time,
+            CONF_TIME_DOWN_LATE_NON_WORKDAY: _parse_service_time,
             CONF_SUN_ELEVATION_OPEN: vol.Coerce(float),
             CONF_SUN_ELEVATION_CLOSE: vol.Coerce(float),
             CONF_OPEN_POSITION: vol.All(vol.Coerce(float), vol.Range(min=0, max=100)),
@@ -259,10 +289,20 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             provided_settings.update(raw_settings)
             provided_settings.update(extra_fields)
 
+            validated_settings: dict[str, object] = {}
+            for key, value in provided_settings.items():
+                validator = validators.get(key)
+                if not validator:
+                    continue
+                try:
+                    validated_settings[key] = validator(value)
+                except vol.Invalid as err:
+                    raise ValueError(f"Invalid value for {key}: {err}") from err
+
             registry = er.async_get(hass)
             entity = registry.async_get(entity_id)
             if not entity or entity.platform != DOMAIN:
-                raise ValueError(f"No shuttercontrol switch found for {entity_id}")
+                raise ValueError(f"No covercontrol switch found for {entity_id}")
 
             entry = hass.config_entries.async_get_entry(entity.config_entry_id)
             if not entry:
@@ -291,7 +331,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             # all editable settings to be updated in one call.
             allowed: set[str] = set(validators) if not allowed_raw else set(allowed_raw)
 
-            filtered = {k: v for k, v in provided_settings.items() if k in allowed}
+            filtered = {k: v for k, v in validated_settings.items() if k in allowed}
             if not filtered:
                 raise ValueError("No valid settings provided for this switch")
 
@@ -310,13 +350,13 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
             ),
         )
 
-    if SERVICE_FORCE_MOVE not in hass.services.async_services_for_domain(DOMAIN):
-        async def handle_force_move(call):
-            cover = call.data[CONF_COVERS]
-            action = call.data["setting"]
+    if SERVICE_FORCE_ACTION not in hass.services.async_services_for_domain(DOMAIN):
+        async def handle_force_action(call):
+            cover = await _async_get_single_cover(call)
+            action = call.data["action"]
             matched = False
             for manager in hass.data.get(DOMAIN, {}).values():
-                if isinstance(manager, ControllerManager) and await manager.force_move(cover, action):
+                if isinstance(manager, ControllerManager) and await manager.force_action(cover, action):
                     matched = True
                     break
             if not matched:
@@ -324,60 +364,21 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 
         hass.services.async_register(
             DOMAIN,
-            SERVICE_FORCE_MOVE,
-            handle_force_move,
+            SERVICE_FORCE_ACTION,
+            handle_force_action,
             schema=vol.Schema(
                 {
-                    vol.Required(CONF_COVERS): cv.entity_id,
-                    vol.Required("setting"): vol.In(["open", "close"]),
-                }
-            ),
-        )
-
-    if SERVICE_FORCE_VENTILATION not in hass.services.async_services_for_domain(DOMAIN):
-        async def handle_force_ventilation(call):
-            cover = call.data[CONF_COVERS]
-            action = call.data["setting"]
-            matched = False
-            for manager in hass.data.get(DOMAIN, {}).values():
-                if isinstance(manager, ControllerManager) and await manager.force_ventilation(cover, action):
-                    matched = True
-                    break
-            if not matched:
-                raise ValueError(f"No controller registered for {cover}")
-
-        hass.services.async_register(
-            DOMAIN,
-            SERVICE_FORCE_VENTILATION,
-            handle_force_ventilation,
-            schema=vol.Schema(
-                {
-                    vol.Required(CONF_COVERS): cv.entity_id,
-                    vol.Required("setting"): vol.In(["start", "stop"]),
-                }
-            ),
-        )
-
-    if SERVICE_FORCE_SHADING not in hass.services.async_services_for_domain(DOMAIN):
-        async def handle_force_shading(call):
-            cover = call.data[CONF_COVERS]
-            action = call.data["setting"]
-            matched = False
-            for manager in hass.data.get(DOMAIN, {}).values():
-                if isinstance(manager, ControllerManager) and await manager.force_shading(cover, action):
-                    matched = True
-                    break
-            if not matched:
-                raise ValueError(f"No controller registered for {cover}")
-
-        hass.services.async_register(
-            DOMAIN,
-            SERVICE_FORCE_SHADING,
-            handle_force_shading,
-            schema=vol.Schema(
-                {
-                    vol.Required(CONF_COVERS): cv.entity_id,
-                    vol.Required("setting"): vol.In(["activate", "deactivate"]),
+                    vol.Optional(ATTR_ENTITY_ID): vol.Any(cv.entity_id, cv.entity_ids),
+                    vol.Required("action"): vol.In(
+                        [
+                            "open",
+                            "close",
+                            "ventilate_start",
+                            "ventilate_stop",
+                            "shading_activate",
+                            "shading_deactivate",
+                        ]
+                    ),
                 }
             ),
         )
