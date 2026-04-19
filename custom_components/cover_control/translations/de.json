@@ -47,13 +47,22 @@
           "open_position": "Öffnungsposition",
           "close_position": "Schließposition",
           "ventilate_position": "Lüftungsposition",
-          "shading_position": "Beschattungsposition"
+          "shading_position": "Beschattungsposition",
+          "workday_tomorrow_sensor": "Arbeitstag-morgen Entität (optional)"
         },
         "sections": {
-          "presence": { "name": "Sensoren & Schwellenwerte" },
-          "timing": { "name": "Zeitplan" },
-          "positions": { "name": "Positionen" },
-          "contacts": { "name": "Lüftung & Sperren" }
+          "presence": {
+            "name": "Sensoren & Schwellenwerte"
+          },
+          "timing": {
+            "name": "Zeitplan"
+          },
+          "positions": {
+            "name": "Positionen"
+          },
+          "contacts": {
+            "name": "Lüftung & Sperren"
+          }
         }
       },
       "shading": {
@@ -86,41 +95,55 @@
           "manual_override_block_shading": "Nächste automatische Beschattung nach manueller Änderung ignorieren"
         },
         "sections": {
-          "brightness_controls": { "name": "Helligkeit" },
-          "sun_controls": { "name": "Sonnenstand" },
-          "shading_controls": { "name": "Beschattung" },
-          "manual_override": { "name": "Manueller Override" }
+          "brightness_controls": {
+            "name": "Helligkeit"
+          },
+          "sun_controls": {
+            "name": "Sonnenstand"
+          },
+          "shading_controls": {
+            "name": "Beschattung"
+          },
+          "manual_override": {
+            "name": "Manueller Override"
+          }
         }
       }
     }
   },
   "options": {
     "step": {
-      "init": {
+      "general": {
         "title": "Allgemeine Konfiguration",
-        "description": "Raum, Cover, Basispositionen und aktive Funktionen festlegen.",
+        "description": "Raum, Cover, Basispositionen und allgemeine Einstellungen festlegen.",
         "data": {
           "name": "Instanzname",
           "room": "Raum",
           "covers": "Cover",
           "open_position": "Öffnungsposition",
           "close_position": "Schließposition",
-          "position_tolerance": "Positionstoleranz",
-          "auto_time_enabled": "Zeitsteuerung aktivieren",
-          "auto_ventilate_enabled": "Lüftungssteuerung aktivieren",
-          "auto_brightness_enabled": "Helligkeitssteuerung aktivieren",
-          "auto_shading_enabled": "Beschattungssteuerung aktivieren",
-          "expose_switch_settings": "Automationswerte als Schalterattribute anzeigen"
+          "position_tolerance": "Positionstoleranz"
         }
       },
       "menu": {
         "title": "Funktionsmenü",
-        "description": "Wähle eine aktive Funktion zur Konfiguration aus."
+        "description": "Wähle einen Bereich zur Konfiguration und speichere am Ende mit \"Speichern und schließen\".",
+        "menu_options": {
+          "general": "Allgemein",
+          "finish": "Speichern und schließen",
+          "time_control": "Zeitsteuerung",
+          "contact_sensors": "Kontaktsensoren",
+          "brightness": "Helligkeitsautomatik",
+          "shading": "Beschattung",
+          "functions": "Funktionen",
+          "resident": "Resident",
+          "additional_conditions": "Zusatzbedingungen"
+        }
       },
       "time_control": {
         "title": "Zeitsteuerung",
         "data": {
-          "workday_sensor": "Arbeitstag/Frei-Entität (on=frei, off=Arbeitstag)",
+          "workday_sensor": "Arbeitstag/Frei-Entität (on=Arbeitstag, off=frei)",
           "time_up_early_workday": "Früheste Öffnungszeit (Arbeitstag)",
           "time_up_late_workday": "Späteste Öffnungszeit (Arbeitstag)",
           "time_down_early_workday": "Früheste Schließzeit (Arbeitstag)",
@@ -128,7 +151,8 @@
           "time_up_early_non_workday": "Früheste Öffnungszeit (frei)",
           "time_up_late_non_workday": "Späteste Öffnungszeit (frei)",
           "time_down_early_non_workday": "Früheste Schließzeit (frei)",
-          "time_down_late_non_workday": "Späteste Schließzeit (frei)"
+          "time_down_late_non_workday": "Späteste Schließzeit (frei)",
+          "workday_tomorrow_sensor": "Arbeitstag-morgen Entität (on=Arbeitstag, off=frei)"
         }
       },
       "contact_sensors": {
@@ -176,14 +200,45 @@
       "finish": {
         "title": "Fertig",
         "description": "Konfiguration speichern."
+      },
+      "functions": {
+        "title": "Funktionen",
+        "description": "Funktionen einzeln ein- oder ausblenden.",
+        "data": {
+          "auto_time_enabled": "Zeitsteuerung",
+          "auto_ventilate_enabled": "Kontaktsensoren",
+          "auto_brightness_enabled": "Helligkeitsautomatik",
+          "auto_shading_enabled": "Beschattung",
+          "resident_status_enabled": "Resident",
+          "additional_conditions_enabled": "Zusatzbedingungen"
+        }
+      },
+      "resident": {
+        "title": "Resident",
+        "description": "Resident-Modus: Bei Sensor on/true kann sofort geschlossen werden; automatische Öffnung bleibt gesperrt, bis der Sensor wieder off/false ist. Alle Optionen sind optional.",
+        "data": {
+          "resident_sensor": "Resident Sensor (binary_sensor/input_boolean/switch)",
+          "resident_open_enabled": "Automatisches Öffnen beim Aufwachen (mit allen Öffnungsbedingungen)",
+          "resident_close_enabled": "Automatisches Schließen beim Schlafengehen (sofort)",
+          "resident_allow_shading": "Beschattung trotz Resident-Modus erlauben",
+          "resident_allow_open": "Öffnen trotz Resident-Modus erlauben",
+          "resident_allow_ventilation": "Lüften trotz Resident-Modus erlauben"
+        }
+      },
+      "additional_conditions": {
+        "title": "Zusatzbedingungen",
+        "description": "Optionale Bedingungen zur dynamischen Steuerung der gesamten Automatisierung sowie einzelner Aktionen.",
+        "data": {
+          "additional_condition_global": "Zusatzbedingung für gesamte Automatisierung",
+          "additional_condition_open": "Zusatzbedingung für Öffnen",
+          "additional_condition_close": "Zusatzbedingung für Schließen",
+          "additional_condition_ventilate": "Zusatzbedingung für Start Lüftung",
+          "additional_condition_ventilate_end": "Zusatzbedingung für Ende Lüftung",
+          "additional_condition_shading": "Zusatzbedingung für Start Beschattung",
+          "additional_condition_shading_tilt": "Zusatzbedingung für Beschattung Kipp",
+          "additional_condition_shading_end": "Zusatzbedingung für Ende Beschattung"
+        }
       }
-    },
-    "menu_options": {
-      "finish": "Speichern und schließen",
-      "time_control": "Zeitsteuerung",
-      "contact_sensors": "Kontaktsensoren",
-      "brightness": "Helligkeitsautomatik",
-      "shading": "Beschattung"
     }
   },
   "entity": {
@@ -202,6 +257,9 @@
       },
       "ventilation": {
         "name": "Lüftung"
+      },
+      "resident_status": {
+        "name": "Bewohnerstatus"
       }
     },
     "number": {
@@ -258,13 +316,10 @@
         "name": "Sonnenstands-Automatik"
       },
       "auto_ventilate": {
-        "name": "Lüftung/Sperre"
+        "name": "Kontaktsensoren"
       },
       "auto_shading": {
         "name": "Beschattung"
-      },
-      "auto_time": {
-        "name": "Zeitsteuerung"
       }
     }
   },
