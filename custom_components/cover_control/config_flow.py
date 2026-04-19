@@ -58,6 +58,11 @@ from .const import (
     CONF_SUN_AZIMUTH_END,
     CONF_SUN_AZIMUTH_START,
     CONF_SUN_ELEVATION_CLOSE,
+    CONF_SUN_ELEVATION_MODE,
+    CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
+    CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+    CONF_SUN_ELEVATION_OPEN_OFFSET,
+    CONF_SUN_ELEVATION_CLOSE_OFFSET,
     CONF_SUN_ELEVATION_MAX,
     CONF_SUN_ELEVATION_MIN,
     CONF_SUN_ELEVATION_OPEN,
@@ -80,6 +85,15 @@ from .const import (
     CONF_WINDOW_SENSOR_FULL,
     CONF_WINDOW_SENSOR_TILT,
     CONF_WORKDAY_SENSOR,
+    CONF_USE_WORKDAY_SENSOR,
+    CONF_USE_RESIDENT_SENSOR,
+    CONF_USE_BRIGHTNESS_SENSOR,
+    CONF_USE_TEMPERATURE_SENSOR_INDOOR,
+    CONF_USE_TEMPERATURE_SENSOR_OUTDOOR,
+    CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
+    CONF_USE_SHADING_FORECAST_SENSOR,
+    CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
+    CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
     DEFAULT_CONTACT_SETTINGS,
     DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_BRIGHTNESS_CLOSE,
@@ -100,11 +114,13 @@ from .const import (
     DEFAULT_SHADING_ELEVATION_MIN,
     DEFAULT_SUN_ELEVATION_CLOSE,
     DEFAULT_SUN_ELEVATION_OPEN,
+    DEFAULT_SUN_ELEVATION_MODE,
+    DEFAULT_SUN_ELEVATION_OPEN_OFFSET,
+    DEFAULT_SUN_ELEVATION_CLOSE_OFFSET,
     DEFAULT_TIME_SETTINGS,
     DEFAULT_TEMPERATURE_FORECAST_THRESHOLD,
     DEFAULT_TEMPERATURE_THRESHOLD,
     DEFAULT_TOLERANCE,
-    DEFAULT_COLD_PROTECTION_THRESHOLD,
     DEFAULT_CONTACT_TRIGGER_DELAY,
     DEFAULT_CONTACT_STATUS_DELAY,
     DEFAULT_VENTILATION_DELAY_AFTER_CLOSE,
@@ -126,6 +142,9 @@ def _with_config_defaults(config: dict) -> dict:
         **DEFAULT_MASTER_FLAGS,
         **DEFAULT_MANUAL_OVERRIDE_FLAGS,
         **DEFAULT_CONTACT_SETTINGS,
+        CONF_SUN_ELEVATION_MODE: DEFAULT_SUN_ELEVATION_MODE,
+        CONF_SUN_ELEVATION_OPEN_OFFSET: DEFAULT_SUN_ELEVATION_OPEN_OFFSET,
+        CONF_SUN_ELEVATION_CLOSE_OFFSET: DEFAULT_SUN_ELEVATION_CLOSE_OFFSET,
         **config,
     }
 
@@ -141,6 +160,35 @@ def _selector_default(value: Any) -> Any:
 LOGGER = logging.getLogger(__name__)
 
 
+CLEARABLE_ENTITY_SELECTOR_KEYS = {
+    CONF_WORKDAY_SENSOR,
+    CONF_RESIDENT_SENSOR,
+    CONF_BRIGHTNESS_SENSOR,
+    CONF_TEMPERATURE_SENSOR_INDOOR,
+    CONF_TEMPERATURE_SENSOR_OUTDOOR,
+    CONF_COLD_PROTECTION_FORECAST_SENSOR,
+    CONF_SHADING_FORECAST_SENSOR,
+    CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
+    CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+}
+
+ENTITY_TOGGLE_MAP: dict[str, str] = {
+    CONF_USE_WORKDAY_SENSOR: CONF_WORKDAY_SENSOR,
+    CONF_USE_RESIDENT_SENSOR: CONF_RESIDENT_SENSOR,
+    CONF_USE_BRIGHTNESS_SENSOR: CONF_BRIGHTNESS_SENSOR,
+    CONF_USE_TEMPERATURE_SENSOR_INDOOR: CONF_TEMPERATURE_SENSOR_INDOOR,
+    CONF_USE_TEMPERATURE_SENSOR_OUTDOOR: CONF_TEMPERATURE_SENSOR_OUTDOOR,
+    CONF_USE_COLD_PROTECTION_FORECAST_SENSOR: CONF_COLD_PROTECTION_FORECAST_SENSOR,
+    CONF_USE_SHADING_FORECAST_SENSOR: CONF_SHADING_FORECAST_SENSOR,
+    CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR: CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
+    CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR: CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+}
+
+def _is_enabled(options: dict, key: str) -> bool:
+    """Return whether an optional entity key currently stores an active value."""
+
+    return options.get(key) not in (None, "", vol.UNDEFINED)
+
 def _time_default(value, fallback: str | None = None):
     """Return a time object for selectors, falling back safely."""
 
@@ -153,7 +201,7 @@ def _time_default(value, fallback: str | None = None):
     return vol.UNDEFINED
 
 
-class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
+class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the config flow."""
 
     VERSION = 1
@@ -193,13 +241,14 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:
-        return ShutterOptionsFlow(config_entry)
+        return CoverOptionsFlow(config_entry)
 
 
-class ShutterOptionsFlow(config_entries.OptionsFlow):
+class CoverOptionsFlow(config_entries.OptionsFlow):
     """Handle options flow."""
 
     _CLEARABLE_OPTION_KEYS = {
+        *CLEARABLE_ENTITY_SELECTOR_KEYS,
         CONF_ADDITIONAL_CONDITION_GLOBAL,
         CONF_ADDITIONAL_CONDITION_OPEN,
         CONF_ADDITIONAL_CONDITION_CLOSE,
@@ -216,7 +265,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
 
     def _clean_user_input(self, user_input: dict) -> dict:
         """Drop empty selector values while keeping valid falsy values."""
-        
+
         def _json_safe(value: Any) -> Any:
             """Convert selector results to JSON-serialisable primitives."""
 
@@ -232,23 +281,34 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                 return {key: _json_safe(val) for key, val in value.items()}
             return value
         
-        cleaned: dict = {}
+        cleaned: dict[str, Any] = {}
         for key, value in user_input.items():
-            if value in ("", vol.UNDEFINED, []):
-                if key in self._CLEARABLE_OPTION_KEYS:
-                    cleaned[key] = None
+            if key in self._CLEARABLE_OPTION_KEYS and value in ("", vol.UNDEFINED, None, [], {}):
+                cleaned[key] = None
                 continue
-            if value is None:
-                if key in self._CLEARABLE_OPTION_KEYS:
-                    cleaned[key] = None
+            if value in ("", vol.UNDEFINED):
                 continue
             cleaned[key] = _json_safe(value)
+
+        for toggle_key, entity_key in ENTITY_TOGGLE_MAP.items():
+            if toggle_key in user_input:
+                enabled = bool(user_input.get(toggle_key))
+            else:
+                enabled = _is_enabled(self._options, entity_key)
+
+            if not enabled:
+                cleaned[entity_key] = None
+            elif cleaned.get(entity_key) in ("", vol.UNDEFINED):
+                cleaned[entity_key] = None
+
+            cleaned.pop(toggle_key, None)
         
         for key in self._CLEARABLE_OPTION_KEYS:
-            # If the UI omits a clearable selector entirely (e.g. after manual removal),
-            # treat it as an explicit request to clear the stored value.
+            if key in ENTITY_TOGGLE_MAP.values():
+                continue
             if key not in cleaned:
                 cleaned[key] = None
+
         return cleaned
 
     def _optional_default(self, key: str):
@@ -269,7 +329,8 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
         return {
             key: value
             for key, value in options.items()
-            if value not in (None, "", vol.UNDEFINED)
+            if value not in ("", vol.UNDEFINED)
+            and (value is not None or key in self._CLEARABLE_OPTION_KEYS)
         }
 
     def _normalize_options(
