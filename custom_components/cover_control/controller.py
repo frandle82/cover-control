@@ -46,6 +46,7 @@ from .const import (
     CONF_ADDITIONAL_CONDITION_SHADING_TILT,
     CONF_ADDITIONAL_CONDITION_VENTILATE,
     CONF_ADDITIONAL_CONDITION_VENTILATE_END,
+    CONF_ADDITIONAL_CONDITIONS_ENABLED,
     CONF_BRIGHTNESS_CLOSE_BELOW,
     CONF_BRIGHTNESS_OPEN_ABOVE,
     CONF_BRIGHTNESS_SENSOR,
@@ -66,7 +67,13 @@ from .const import (
     CONF_MASTER_ENABLED,
     CONF_OPEN_POSITION,
     CONF_POSITION_TOLERANCE,
+    CONF_RESIDENT_STATUS,
     CONF_RESIDENT_SENSOR,
+    CONF_RESIDENT_OPEN_ENABLED,
+    CONF_RESIDENT_CLOSE_ENABLED,
+    CONF_RESIDENT_ALLOW_SHADING,
+    CONF_RESIDENT_ALLOW_OPEN,
+    CONF_RESIDENT_ALLOW_VENTILATION,
     CONF_SHADING_FORECAST_SENSOR,
     CONF_SHADING_FORECAST_TYPE,
     CONF_SHADING_WEATHER_CONDITIONS,
@@ -103,6 +110,7 @@ from .const import (
     CONF_WINDOW_SENSOR_FULL,
     CONF_WINDOW_SENSOR_TILT,
     CONF_WORKDAY_SENSOR,
+    CONF_WORKDAY_TOMORROW_SENSOR,
     DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
     DEFAULT_MANUAL_OVERRIDE_FLAGS,
@@ -331,6 +339,7 @@ class CoverController:
         sensor_entities = {
             self.config.get(CONF_BRIGHTNESS_SENSOR),
             self.config.get(CONF_WORKDAY_SENSOR),
+            self.config.get(CONF_WORKDAY_TOMORROW_SENSOR),
             self.config.get(CONF_TEMPERATURE_SENSOR_INDOOR),
             self.config.get(CONF_TEMPERATURE_SENSOR_OUTDOOR),
             self.config.get(CONF_RESIDENT_SENSOR),
@@ -785,29 +794,45 @@ class CoverController:
             self._publish_state()
             return
         
-        conditions = {
-            CONF_ADDITIONAL_CONDITION_CLOSE: await self._condition_allows(
-                CONF_ADDITIONAL_CONDITION_CLOSE
-            ),
-            CONF_ADDITIONAL_CONDITION_OPEN: await self._condition_allows(
-                CONF_ADDITIONAL_CONDITION_OPEN
-            ),
-            CONF_ADDITIONAL_CONDITION_VENTILATE: await self._condition_allows(
-                CONF_ADDITIONAL_CONDITION_VENTILATE
-            ),
-            CONF_ADDITIONAL_CONDITION_VENTILATE_END: await self._condition_allows(
-                CONF_ADDITIONAL_CONDITION_VENTILATE_END
-            ),
-            CONF_ADDITIONAL_CONDITION_SHADING: await self._condition_allows(
-                CONF_ADDITIONAL_CONDITION_SHADING
-            ),
-            CONF_ADDITIONAL_CONDITION_SHADING_TILT: await self._condition_allows(
-                CONF_ADDITIONAL_CONDITION_SHADING_TILT
-            ),
-            CONF_ADDITIONAL_CONDITION_SHADING_END: await self._condition_allows(
-                CONF_ADDITIONAL_CONDITION_SHADING_END
-            ),
-        }
+        if bool(
+            self.config.get(
+                CONF_ADDITIONAL_CONDITIONS_ENABLED,
+                DEFAULT_AUTOMATION_FLAGS.get(CONF_ADDITIONAL_CONDITIONS_ENABLED, False),
+            )
+        ):
+            conditions = {
+                CONF_ADDITIONAL_CONDITION_CLOSE: await self._condition_allows(
+                    CONF_ADDITIONAL_CONDITION_CLOSE
+                ),
+                CONF_ADDITIONAL_CONDITION_OPEN: await self._condition_allows(
+                    CONF_ADDITIONAL_CONDITION_OPEN
+                ),
+                CONF_ADDITIONAL_CONDITION_VENTILATE: await self._condition_allows(
+                    CONF_ADDITIONAL_CONDITION_VENTILATE
+                ),
+                CONF_ADDITIONAL_CONDITION_VENTILATE_END: await self._condition_allows(
+                    CONF_ADDITIONAL_CONDITION_VENTILATE_END
+                ),
+                CONF_ADDITIONAL_CONDITION_SHADING: await self._condition_allows(
+                    CONF_ADDITIONAL_CONDITION_SHADING
+                ),
+                CONF_ADDITIONAL_CONDITION_SHADING_TILT: await self._condition_allows(
+                    CONF_ADDITIONAL_CONDITION_SHADING_TILT
+                ),
+                CONF_ADDITIONAL_CONDITION_SHADING_END: await self._condition_allows(
+                    CONF_ADDITIONAL_CONDITION_SHADING_END
+                ),
+            }
+        else:
+            conditions = {
+                CONF_ADDITIONAL_CONDITION_CLOSE: True,
+                CONF_ADDITIONAL_CONDITION_OPEN: True,
+                CONF_ADDITIONAL_CONDITION_VENTILATE: True,
+                CONF_ADDITIONAL_CONDITION_VENTILATE_END: True,
+                CONF_ADDITIONAL_CONDITION_SHADING: True,
+                CONF_ADDITIONAL_CONDITION_SHADING_TILT: True,
+                CONF_ADDITIONAL_CONDITION_SHADING_END: True,
+            }
 
         close_condition = conditions[CONF_ADDITIONAL_CONDITION_CLOSE]
         open_condition = conditions[CONF_ADDITIONAL_CONDITION_OPEN]
@@ -817,16 +842,54 @@ class CoverController:
         shading_tilt_condition = conditions[CONF_ADDITIONAL_CONDITION_SHADING_TILT]
         shading_end_condition = conditions[CONF_ADDITIONAL_CONDITION_SHADING_END]
 
-        if self._is_resident_sleeping():
-            if close_condition:
-                await self._set_position(
-                    self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
-                    "resident_asleep",
-                )
-            else:
+        resident_mode_enabled = bool(
+            self.config.get(CONF_RESIDENT_STATUS, DEFAULT_AUTOMATION_FLAGS.get(CONF_RESIDENT_STATUS, False))
+        )
+        resident_sleeping = resident_mode_enabled and self._is_resident_sleeping()
+
+        resident_allow_open = bool(
+            self.config.get(
+                CONF_RESIDENT_ALLOW_OPEN,
+                DEFAULT_AUTOMATION_FLAGS.get(CONF_RESIDENT_ALLOW_OPEN, False),
+            )
+        )
+        resident_allow_ventilation = bool(
+            self.config.get(
+                CONF_RESIDENT_ALLOW_VENTILATION,
+                DEFAULT_AUTOMATION_FLAGS.get(CONF_RESIDENT_ALLOW_VENTILATION, False),
+            )
+        )
+        resident_allow_shading = bool(
+            self.config.get(
+                CONF_RESIDENT_ALLOW_SHADING,
+                DEFAULT_AUTOMATION_FLAGS.get(CONF_RESIDENT_ALLOW_SHADING, False),
+            )
+        )
+        resident_close_enabled = bool(
+            self.config.get(
+                CONF_RESIDENT_CLOSE_ENABLED,
+                DEFAULT_AUTOMATION_FLAGS.get(CONF_RESIDENT_CLOSE_ENABLED, True),
+            )
+        )
+
+        if resident_sleeping and resident_close_enabled:
+            if self._manual_blocks_action("close"):
                 self._refresh_next_events(now)
                 self._publish_state()
-            return
+                return
+            close_target = self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION)
+            current_position = self._current_position()
+            if not self._position_matches(close_target, current_position):
+                await self._set_position(close_target, "resident_asleep")
+                return
+            if not (resident_allow_open or resident_allow_shading or resident_allow_ventilation):
+                self._refresh_next_events(now)
+                self._publish_state()
+                return
+
+        resident_blocks_open = resident_sleeping and not resident_allow_open
+        resident_blocks_ventilation = resident_sleeping and not resident_allow_ventilation
+        resident_blocks_shading = resident_sleeping and not resident_allow_shading
 
         auto_ventilate = self._auto_enabled(CONF_AUTO_VENTILATE)
         full_contact_active = auto_ventilate and self._contacts_active(
@@ -846,7 +909,7 @@ class CoverController:
 
         time_window_open = self._within_open_close_window(now)
 
-        if auto_ventilate and full_contact_active and ventilation_condition:
+        if auto_ventilate and full_contact_active and ventilation_condition and not resident_blocks_ventilation:
             if not self._manual_blocks_action("ventilation"):
                 await self._set_position(
                     self._position_value(
@@ -858,7 +921,7 @@ class CoverController:
 
         current_position = self._current_position()
 
-        if auto_ventilate and tilt_contact_active and ventilation_condition:
+        if auto_ventilate and tilt_contact_active and ventilation_condition and not resident_blocks_ventilation:
             if not self._manual_blocks_action("ventilation"):
                 target = self._position_value(
                     CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION
@@ -900,7 +963,11 @@ class CoverController:
             self._publish_state()
             return
 
-        if self._auto_enabled(CONF_AUTO_SHADING) and not self._manual_blocks_action("shading"):
+        if (
+            self._auto_enabled(CONF_AUTO_SHADING)
+            and not self._manual_blocks_action("shading")
+            and not resident_blocks_shading
+        ):
             shading_active = self._reason in {"shading", "manual_shading"}
             shading_allowed = self._shading_conditions(
                 sun_azimuth, sun_elevation, brightness
@@ -1013,7 +1080,21 @@ class CoverController:
         if tilt_lock_close:
             close_events = []
 
-        if open_condition and not self._manual_blocks_action("open"):
+        if (
+            open_condition
+            and not resident_blocks_open
+            and not self._manual_blocks_action("open")
+            and (
+                not resident_mode_enabled
+                or not bool(
+                    self.config.get(
+                        CONF_RESIDENT_OPEN_ENABLED,
+                        DEFAULT_AUTOMATION_FLAGS.get(CONF_RESIDENT_OPEN_ENABLED, True),
+                    )
+                )
+                or not resident_sleeping
+            )
+        ):
             if self._auto_enabled(CONF_AUTO_SUN) and self._sun_allows_open(sun_elevation):
                 open_events.append(
                     (
@@ -1256,6 +1337,12 @@ class CoverController:
         if not workday_entity:
             return True
         return self.hass.states.is_state(workday_entity, STATE_ON)
+
+    def _is_workday_tomorrow(self) -> bool:
+        tomorrow_entity = self.config.get(CONF_WORKDAY_TOMORROW_SENSOR)
+        if not tomorrow_entity:
+            return self._is_workday()
+        return self.hass.states.is_state(tomorrow_entity, STATE_ON)
 
     def _single_contact_active(self, entity_id: str, now: datetime) -> bool:
         state = self.hass.states.get(entity_id)
@@ -1602,8 +1689,9 @@ class CoverController:
             else None
         )
         workday = self._is_workday()
+        workday_tomorrow = self._is_workday_tomorrow()
         up_early_time, up_late_time = self._time_bounds(workday, True)
-        down_early_time, down_late_time = self._time_bounds(workday, False)
+        down_early_time, down_late_time = self._time_bounds(workday_tomorrow, False)
 
         next_up_early = self._next_time_for_point(up_early_time, now)
         next_up_late = self._next_time_for_point(up_late_time, now)
