@@ -12,7 +12,6 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.util import dt as dt_util
 from homeassistant.util import slugify
 
 from .const import (
@@ -31,9 +30,6 @@ from .controller import ControllerManager
 RUNTIME_SENSOR_KEYS: tuple[str, ...] = (
     "next_open",
     "next_close",
-    "reason",
-    "shading_active",
-    "ventilation",
 )
 
 
@@ -72,9 +68,6 @@ async def async_setup_entry(
     for cover in covers:
         entities.append(NextOpenSensor(hass, entry, cover))
         entities.append(NextCloseSensor(hass, entry, cover))
-        entities.append(ReasonSensor(hass, entry, cover))
-        entities.append(ShadingActiveSensor(hass, entry, cover))
-        entities.append(VentilationSensor(hass, entry, cover))
 
     if resident_enabled:
         entities.append(ResidentStatusSensor(hass, entry))
@@ -208,45 +201,6 @@ class NextCloseSensor(_BaseCoverRuntimeSensor):
         if not self._snapshot:
             return None
         return self._snapshot[5]
-
-
-class ReasonSensor(_BaseCoverRuntimeSensor):
-    """Current control reason."""
-
-    _key = "reason"
-    _attr_icon = "mdi:information-outline"
-
-    @property
-    def native_value(self) -> str | None:
-        if not self._snapshot:
-            return None
-        return self._snapshot[1]
-
-
-class ShadingActiveSensor(_BaseCoverRuntimeSensor):
-    """Whether shading is currently active."""
-
-    _key = "shading_active"
-    _attr_icon = "mdi:weather-sunny-alert"
-
-    @property
-    def native_value(self) -> str:
-        if not self._snapshot:
-            return "off"
-        return "on" if self._snapshot[8] else "off"
-
-
-class VentilationSensor(_BaseCoverRuntimeSensor):
-    """Whether ventilation mode is currently active."""
-
-    _key = "ventilation"
-    _attr_icon = "mdi:window-open"
-
-    @property
-    def native_value(self) -> str:
-        if not self._snapshot:
-            return "off"
-        return "on" if self._snapshot[9] else "off"
 
 
 class ResidentStatusSensor(_BaseCoverControlSensor):
