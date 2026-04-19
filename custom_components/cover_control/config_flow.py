@@ -9,7 +9,7 @@ from typing import Any
 import voluptuous as vol
 from homeassistant import config_entries
 from homeassistant.core import callback
-from homeassistant.data_entry_flow import FlowResult
+from homeassistant.data_entry_flow import FlowResult, section
 from homeassistant.helpers import selector
 from homeassistant.util import dt as dt_util
 
@@ -759,15 +759,18 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
         return sanitized
 
     async def async_step_init(self, user_input=None) -> FlowResult:
+        menu_options = ["general", "functions"]
+        if bool(self._options.get(CONF_AUTO_UP) or self._options.get(CONF_AUTO_DOWN)):
+            menu_options.append("time_control")
+        if bool(self._options.get(CONF_AUTO_VENTILATE)):
+            menu_options.append("contact_sensors")
+        if bool(self._options.get(CONF_AUTO_BRIGHTNESS)):
+            menu_options.append("brightness_control")
+        if bool(self._options.get(CONF_AUTO_SHADING)):
+            menu_options.append("shading")
         return self.async_show_menu(
             step_id="init",
-            menu_options=[
-                "general",
-                "time_control",
-                "contact_sensors",
-                "brightness_control",
-                "shading",
-            ],
+            menu_options=menu_options,
         )
 
     async def _save_options(self, updates: dict[str, Any]) -> FlowResult:
@@ -823,16 +826,50 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
         }
         return self.async_show_form(step_id="general", data_schema=vol.Schema(schema))
 
-    async def async_step_time_control(self, user_input=None) -> FlowResult:
+    async def async_step_functions(self, user_input=None) -> FlowResult:
         if user_input is not None:
             clean_input = self._clean_user_input(user_input)
-            active = bool(clean_input.pop("time_control_enabled", False))
-            clean_input[CONF_AUTO_UP] = active
-            clean_input[CONF_AUTO_DOWN] = active
+            updates = {
+                CONF_AUTO_UP: bool(clean_input.get("time_control_enabled", False)),
+                CONF_AUTO_DOWN: bool(clean_input.get("time_control_enabled", False)),
+                CONF_AUTO_VENTILATE: bool(clean_input.get("contact_control_enabled", False)),
+                CONF_AUTO_BRIGHTNESS: bool(clean_input.get("brightness_control_enabled", False)),
+                CONF_AUTO_SHADING: bool(clean_input.get("shading_control_enabled", False)),
+            }
+            return await self._save_options(updates)
+
+        return self.async_show_form(
+            step_id="functions",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        "time_control_enabled",
+                        default=bool(self._options.get(CONF_AUTO_UP) or self._options.get(CONF_AUTO_DOWN)),
+                    ): bool,
+                    vol.Required(
+                        "contact_control_enabled",
+                        default=bool(self._options.get(CONF_AUTO_VENTILATE, False)),
+                    ): bool,
+                    vol.Required(
+                        "brightness_control_enabled",
+                        default=bool(self._options.get(CONF_AUTO_BRIGHTNESS, False)),
+                    ): bool,
+                    vol.Required(
+                        "shading_control_enabled",
+                        default=bool(self._options.get(CONF_AUTO_SHADING, False)),
+                    ): bool,
+                }
+            ),
+        )
+
+    async def async_step_time_control(self, user_input=None) -> FlowResult:
+        if not bool(self._options.get(CONF_AUTO_UP) or self._options.get(CONF_AUTO_DOWN)):
+            return await self.async_step_init()
+        if user_input is not None:
+            clean_input = self._clean_user_input(user_input)
             return await self._save_options(clean_input)
 
         return self.async_show_form(step_id="time_control", data_schema=vol.Schema({
-            vol.Required("time_control_enabled", default=bool(self._options.get(CONF_AUTO_UP, False) or self._options.get(CONF_AUTO_DOWN, False))): bool,
             vol.Optional(CONF_WORKDAY_SENSOR, default=self._optional_default(CONF_WORKDAY_SENSOR)): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["binary_sensor"])
             ),
@@ -847,6 +884,8 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
         }))
 
     async def async_step_contact_sensors(self, user_input=None) -> FlowResult:
+        if not bool(self._options.get(CONF_AUTO_VENTILATE, False)):
+            return await self.async_step_init()
         covers = self._options.get(CONF_COVERS, [])
         if user_input is not None:
             clean_input = self._clean_user_input(user_input)
@@ -857,14 +896,12 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                 tilt_mapping[cover] = [sensor for sensor in clean_input.get(self._cover_tilt_key(cover), []) if isinstance(sensor, str) and sensor]
             clean_input[CONF_WINDOW_SENSOR_FULL] = full_mapping
             clean_input[CONF_WINDOW_SENSOR_TILT] = tilt_mapping
-            clean_input[CONF_AUTO_VENTILATE] = bool(clean_input.pop("contact_control_enabled", False))
             return await self._save_options(clean_input)
 
         multi_selector = selector.EntitySelector(
             selector.EntitySelectorConfig(domain=["binary_sensor"], device_class=["window", "door", "opening"], multiple=True)
         )
         schema: dict[Any, Any] = {
-            vol.Required("contact_control_enabled", default=bool(self._options.get(CONF_AUTO_VENTILATE, False))): bool,
             vol.Optional(CONF_VENTILATE_POSITION, default=self._options.get(CONF_VENTILATE_POSITION, DEFAULT_POSITION_SETTINGS[CONF_VENTILATE_POSITION])): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
             vol.Optional(CONF_CONTACT_TRIGGER_DELAY, default=self._options.get(CONF_CONTACT_TRIGGER_DELAY, DEFAULT_CONTACT_TRIGGER_DELAY)): vol.Coerce(int),
             vol.Optional(CONF_CONTACT_STATUS_DELAY, default=self._options.get(CONF_CONTACT_STATUS_DELAY, DEFAULT_CONTACT_STATUS_DELAY)): vol.Coerce(int),
@@ -875,13 +912,13 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_form(step_id="contact_sensors", data_schema=vol.Schema(schema))
 
     async def async_step_brightness_control(self, user_input=None) -> FlowResult:
+        if not bool(self._options.get(CONF_AUTO_BRIGHTNESS, False)):
+            return await self.async_step_init()
         if user_input is not None:
             clean_input = self._clean_user_input(user_input)
-            clean_input[CONF_AUTO_BRIGHTNESS] = bool(clean_input.pop("brightness_control_enabled", False))
             return await self._save_options(clean_input)
 
         return self.async_show_form(step_id="brightness_control", data_schema=vol.Schema({
-            vol.Required("brightness_control_enabled", default=bool(self._options.get(CONF_AUTO_BRIGHTNESS, False))): bool,
             vol.Optional(CONF_BRIGHTNESS_SENSOR, default=self._optional_default(CONF_BRIGHTNESS_SENSOR)): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["sensor"], device_class=["illuminance"])
             ),
@@ -893,13 +930,13 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
         }))
 
     async def async_step_shading(self, user_input=None) -> FlowResult:
+        if not bool(self._options.get(CONF_AUTO_SHADING, False)):
+            return await self.async_step_init()
         if user_input is not None:
             clean_input = self._clean_user_input(user_input)
-            clean_input[CONF_AUTO_SHADING] = bool(clean_input.pop("shading_control_enabled", False))
             return await self._save_options(clean_input)
 
         return self.async_show_form(step_id="shading", data_schema=vol.Schema({
-            vol.Required("shading_control_enabled", default=bool(self._options.get(CONF_AUTO_SHADING, False))): bool,
             vol.Optional(CONF_SHADING_FORECAST_SENSOR, default=self._optional_default(CONF_SHADING_FORECAST_SENSOR)): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["sensor", "weather"])
             ),
