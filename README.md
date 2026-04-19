@@ -1,5 +1,8 @@
 # Cover Control for Home Assistant
 
+
+![Cover Control Logo](https://raw.githubusercontent.com/frandle82/cover-control/main/img/icon.png)
+
 Cover Control is a Home Assistant custom integration that automates blinds and shutters with fine-grained safety, shading and ventilation logic. It is based on the original Cover Control Automation (CCA) blueprint, bringing those inputs into a
 guided configuration flow and adding per-cover controllers that react to sensor changes and time-based triggers.
 
