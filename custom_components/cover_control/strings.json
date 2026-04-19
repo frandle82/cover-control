@@ -53,13 +53,22 @@
           "open_position": "Open position",
           "close_position": "Close position",
           "ventilate_position": "Ventilation position",
-          "shading_position": "Shading position"
+          "shading_position": "Shading position",
+          "workday_tomorrow_sensor": "Workday tomorrow entity (optional)"
         },
         "sections": {
-          "presence": { "name": "Sensors & thresholds" },
-          "timing": { "name": "Schedule" },
-          "positions": { "name": "Positions" },
-          "contacts": { "name": "Ventilation & lockout" }
+          "presence": {
+            "name": "Sensors & thresholds"
+          },
+          "timing": {
+            "name": "Schedule"
+          },
+          "positions": {
+            "name": "Positions"
+          },
+          "contacts": {
+            "name": "Ventilation & lockout"
+          }
         }
       },
       "shading": {
@@ -105,41 +114,55 @@
           "auto_shading_enabled": "Enable sun shading"
         },
         "sections": {
-          "brightness_controls": { "name": "Brightness" },
-          "sun_controls": { "name": "Sun elevation" },
-          "shading_controls": { "name": "Shading" },
-          "manual_override": { "name": "Manual override" }
+          "brightness_controls": {
+            "name": "Brightness"
+          },
+          "sun_controls": {
+            "name": "Sun elevation"
+          },
+          "shading_controls": {
+            "name": "Shading"
+          },
+          "manual_override": {
+            "name": "Manual override"
+          }
         }
       }
     }
   },
   "options": {
     "step": {
-      "init": {
+      "general": {
         "title": "General configuration",
-        "description": "Set room, covers, base positions, and activate functions.",
+        "description": "Set room, covers, base positions, and general settings.",
         "data": {
           "name": "Instance name",
           "room": "Room",
           "covers": "Covers",
           "open_position": "Open position",
           "close_position": "Close position",
-          "position_tolerance": "Position tolerance",
-          "auto_time_enabled": "Activate time control",
-          "auto_ventilate_enabled": "Activate ventilation control",
-          "auto_brightness_enabled": "Activate brightness control",
-          "auto_shading_enabled": "Activate shading control",
-          "expose_switch_settings": "Expose automation settings as switch attributes"
+          "position_tolerance": "Position tolerance"
         }
       },
       "menu": {
         "title": "Function menu",
-        "description": "Select a function to configure, then finish."
+        "description": "Select a section to configure, then save with \"Save and close\".",
+        "menu_options": {
+          "general": "General configuration",
+          "finish": "Save and close",
+          "time_control": "Time control",
+          "contact_sensors": "Contact sensors",
+          "brightness": "Brightness control",
+          "shading": "Shading control",
+          "functions": "Feature toggles",
+          "resident": "Resident",
+          "additional_conditions": "Additional conditions"
+        }
       },
       "time_control": {
         "title": "Time control",
         "data": {
-          "workday_sensor": "Workday/free-day sensor (on=free, off=workday)",
+          "workday_sensor": "Workday/free-day sensor (on=workday, off=free day)",
           "time_up_early_workday": "Earliest open time (workday)",
           "time_up_late_workday": "Latest open time (workday)",
           "time_down_early_workday": "Earliest close time (workday)",
@@ -147,7 +170,8 @@
           "time_up_early_non_workday": "Earliest open time (free day)",
           "time_up_late_non_workday": "Latest open time (free day)",
           "time_down_early_non_workday": "Earliest close time (free day)",
-          "time_down_late_non_workday": "Latest close time (free day)"
+          "time_down_late_non_workday": "Latest close time (free day)",
+          "workday_tomorrow_sensor": "Workday tomorrow entity (on=workday, off=free day)"
         }
       },
       "contact_sensors": {
@@ -195,14 +219,45 @@
       "finish": {
         "title": "Finish",
         "description": "Save configuration changes."
+      },
+      "functions": {
+        "title": "Functions",
+        "description": "Enable or disable each function individually.",
+        "data": {
+          "auto_time_enabled": "Time control",
+          "auto_ventilate_enabled": "Contact sensors",
+          "auto_brightness_enabled": "Brightness automation",
+          "auto_shading_enabled": "Shading",
+          "resident_status_enabled": "Resident",
+          "additional_conditions_enabled": "Additional conditions"
+        }
+      },
+      "resident": {
+        "title": "Resident",
+        "description": "Resident mode: when sensor is on/true, closing can happen immediately and regular opening stays blocked until sensor switches off/false. All settings are optional.",
+        "data": {
+          "resident_sensor": "Resident sensor (binary_sensor/input_boolean/switch)",
+          "resident_open_enabled": "Enable automatic opening when resident wakes up (respects opening conditions)",
+          "resident_close_enabled": "Enable automatic closing when resident goes to sleep (immediate)",
+          "resident_allow_shading": "Allow sun protection while resident mode is active",
+          "resident_allow_open": "Allow opening while resident mode is active",
+          "resident_allow_ventilation": "Allow ventilation while resident mode is active"
+        }
+      },
+      "additional_conditions": {
+        "title": "Additional conditions",
+        "description": "Optional conditions to control the full automation flow and individual actions dynamically.",
+        "data": {
+          "additional_condition_global": "Additional condition for entire automation",
+          "additional_condition_open": "Additional condition for opening",
+          "additional_condition_close": "Additional condition for closing",
+          "additional_condition_ventilate": "Additional condition for enabling ventilation",
+          "additional_condition_ventilate_end": "Additional condition for disabling ventilation",
+          "additional_condition_shading": "Additional condition when activating sun shading",
+          "additional_condition_shading_tilt": "Additional condition for sun shading tilt",
+          "additional_condition_shading_end": "Additional condition when deactivating sun shading"
+        }
       }
-    },
-    "menu_options": {
-      "finish": "Save and close",
-      "time_control": "Time control",
-      "contact_sensors": "Contact sensors",
-      "brightness": "Brightness control",
-      "shading": "Shading control"
     }
   },
   "entity": {
@@ -221,6 +276,9 @@
       },
       "ventilation": {
         "name": "Ventilation"
+      },
+      "resident_status": {
+        "name": "Resident status"
       }
     },
     "number": {
@@ -270,17 +328,14 @@
       "auto_time": {
         "name": "Time control"
       },
-      "auto_time": {
-        "name": "Time control"
-      },
       "auto_brightness": {
-        "name": "Brightness auto"
+        "name": "Brightness automation"
       },
       "auto_sun": {
         "name": "Sun auto"
       },
       "auto_ventilate": {
-        "name": "Ventilation lock"
+        "name": "Contact sensors"
       },
       "auto_shading": {
         "name": "Shading"
