@@ -8,7 +8,7 @@ EVENT_COVER_CONTROL = "cover_control_event"
 CONF_NAME = "name"
 CONF_ROOM = "room"
 DEFAULT_NAME = "Cover Control"
-PLATFORMS: list[Platform] = [Platform.SWITCH]
+PLATFORMS: list[Platform] = [Platform.SWITCH, Platform.SENSOR]
 
 CONF_COVERS = "covers"
 CONF_OPEN_POSITION = "open_position"
@@ -26,6 +26,7 @@ CONF_TIME_DOWN_EARLY_NON_WORKDAY = "time_down_early_non_workday"
 CONF_TIME_DOWN_LATE_NON_WORKDAY = "time_down_late_non_workday"
 
 CONF_WORKDAY_SENSOR = "workday_sensor"
+CONF_WORKDAY_TOMORROW_SENSOR = "workday_tomorrow_sensor"
 CONF_USE_WORKDAY_SENSOR = "use_workday_sensor"
 CONF_BRIGHTNESS_SENSOR = "brightness_sensor"
 CONF_USE_BRIGHTNESS_SENSOR = "use_brightness_sensor"
@@ -102,6 +103,13 @@ CONF_AUTO_VENTILATE = "auto_ventilate_enabled"
 CONF_AUTO_VENTILATE_ENTITY = "auto_ventilate_entity"
 CONF_AUTO_SHADING = "auto_shading_enabled"
 CONF_AUTO_SHADING_ENTITY = "auto_shading_entity"
+CONF_RESIDENT_STATUS = "resident_status_enabled"
+CONF_RESIDENT_OPEN_ENABLED = "resident_open_enabled"
+CONF_RESIDENT_CLOSE_ENABLED = "resident_close_enabled"
+CONF_RESIDENT_ALLOW_SHADING = "resident_allow_shading"
+CONF_RESIDENT_ALLOW_OPEN = "resident_allow_open"
+CONF_RESIDENT_ALLOW_VENTILATION = "resident_allow_ventilation"
+CONF_ADDITIONAL_CONDITIONS_ENABLED = "additional_conditions_enabled"
 CONF_EXPOSE_SWITCH_SETTINGS = "expose_switch_settings"
 
 DEFAULT_AUTOMATION_FLAGS: dict[str, bool] = {
@@ -112,6 +120,13 @@ DEFAULT_AUTOMATION_FLAGS: dict[str, bool] = {
     CONF_AUTO_SUN: True,
     CONF_AUTO_VENTILATE: True,
     CONF_AUTO_SHADING: True,
+    CONF_RESIDENT_STATUS: False,
+    CONF_RESIDENT_OPEN_ENABLED: True,
+    CONF_RESIDENT_CLOSE_ENABLED: True,
+    CONF_RESIDENT_ALLOW_SHADING: False,
+    CONF_RESIDENT_ALLOW_OPEN: False,
+    CONF_RESIDENT_ALLOW_VENTILATION: False,
+    CONF_ADDITIONAL_CONDITIONS_ENABLED: False,
 }
 
 DEFAULT_MASTER_FLAGS: dict[str, bool] = {CONF_MASTER_ENABLED: True}
