@@ -745,7 +745,6 @@ class CoverController:
         now = dt_util.utcnow()
         self._expire_manual_override(now)
         self._ensure_manual_expiry_timer(now)
-        self._refresh_next_events(now)
         self._fire_event(
             "evaluate",
             {
@@ -895,22 +894,7 @@ class CoverController:
             and self._reason in {"ventilation", "ventilation_full"}
         )
 
-        pending_open_due = False
-        if open_condition and not self._manual_blocks_action("open"):
-            pending_open_due = (
-                (self._auto_enabled(CONF_AUTO_UP) and (up_due or time_window_open))
-                or (
-                    self._auto_enabled(CONF_AUTO_SUN)
-                    and self._sun_allows_open(sun_elevation)
-                )
-                or (
-                    self._auto_enabled(CONF_AUTO_BRIGHTNESS)
-                    and brightness is not None
-                    and self._brightness_allows_open(brightness)
-                )
-            )
-
-        if post_ventilation and not ventilation_end_condition and not pending_open_due:
+        if post_ventilation and not ventilation_end_condition:
             self._refresh_next_events(now)
             self._publish_state()
             return
