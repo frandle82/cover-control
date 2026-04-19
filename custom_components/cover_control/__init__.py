@@ -19,6 +19,7 @@ from .const import (
     CONF_AUTO_DOWN,
     CONF_AUTO_SHADING,
     CONF_AUTO_SUN,
+    CONF_AUTO_TIME,
     CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
     CONF_BRIGHTNESS_CLOSE_BELOW,
@@ -202,6 +203,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         }
 
         switch_settings = {
+            CONF_AUTO_TIME: time_keys,
             CONF_AUTO_UP: time_keys,
             CONF_AUTO_DOWN: time_keys,
             CONF_AUTO_VENTILATE: {
@@ -233,6 +235,7 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
         }
 
         translation_key_lookup = {
+            "auto_time": CONF_AUTO_TIME,
             "auto_up": CONF_AUTO_UP,
             "auto_down": CONF_AUTO_DOWN,
             "auto_ventilate": CONF_AUTO_VENTILATE,

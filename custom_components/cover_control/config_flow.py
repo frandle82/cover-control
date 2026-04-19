@@ -17,6 +17,7 @@ from .const import (
     CONF_AUTO_BRIGHTNESS,
     CONF_AUTO_SHADING,
     CONF_AUTO_SUN,
+    CONF_AUTO_TIME,
     CONF_AUTO_VENTILATE,
     CONF_ADDITIONAL_CONDITION_CLOSE,
     CONF_ADDITIONAL_CONDITION_GLOBAL,
@@ -48,6 +49,7 @@ from .const import (
     CONF_MANUAL_OVERRIDE_RESET_TIME,
     CONF_NAME,
     CONF_OPEN_POSITION,
+    CONF_ROOM,
     CONF_POSITION_TOLERANCE,
     CONF_RESIDENT_SENSOR,
     CONF_SHADING_FORECAST_SENSOR,
@@ -213,25 +215,19 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input=None) -> FlowResult:
         if user_input is not None:
             self._data.update(user_input)
-            name = self._data.get(CONF_NAME, DEFAULT_NAME).strip() or DEFAULT_NAME
-            data = _with_config_defaults(self._data)
-            data.update(
-                {
-                    CONF_AUTO_UP: False,
-                    CONF_AUTO_DOWN: False,
-                    CONF_AUTO_VENTILATE: False,
-                    CONF_AUTO_BRIGHTNESS: False,
-                    CONF_AUTO_SHADING: False,
-                    CONF_AUTO_SUN: False,
-                }
+            room = self._data.get(CONF_ROOM)
+            title = room or self._data.get(CONF_NAME, DEFAULT_NAME)
+            title = str(title).strip() or DEFAULT_NAME
+            return self.async_create_entry(
+                title=title,
+                data=_with_config_defaults(self._data),
             )
-            return self.async_create_entry(title=name, data=data)
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_NAME, default=self._data.get(CONF_NAME, DEFAULT_NAME)): str,
+                    vol.Required(CONF_ROOM): selector.AreaSelector(),
                     vol.Required(CONF_COVERS): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["cover"], multiple=True)
                     ),
@@ -844,20 +840,18 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_general(self, user_input=None) -> FlowResult:
         if user_input is not None:
-            clean_input = self._clean_user_input(user_input)
-            name = clean_input.pop(CONF_NAME, self._config_entry.title).strip() or DEFAULT_NAME
-            self.hass.config_entries.async_update_entry(self._config_entry, title=name)
-            return await self._save_options({CONF_NAME: name} | clean_input)
+            await self._save_options(user_input)
+            return await self.async_step_menu()
 
-        schema = {
-            vol.Optional(CONF_NAME, default=self._options.get(CONF_NAME, self._config_entry.title or DEFAULT_NAME)): str,
-            vol.Required(CONF_COVERS, default=self._options.get(CONF_COVERS, self._config_entry.data.get(CONF_COVERS, []))): selector.EntitySelector(
+        schema: dict = {
+            vol.Optional(
+                CONF_NAME,
+                default=self._options.get(CONF_NAME, self._config_entry.title or DEFAULT_NAME),
+            ): str,
+            vol.Optional(CONF_ROOM, default=self._optional_default(CONF_ROOM)): selector.AreaSelector(),
+            vol.Required(CONF_COVERS, default=self._options.get(CONF_COVERS, [])): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["cover"], multiple=True)
             ),
-            vol.Optional(
-                CONF_POSITION_TOLERANCE,
-                default=self._options.get(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE),
-            ): vol.Coerce(float),
             vol.Optional(
                 CONF_OPEN_POSITION,
                 default=self._options.get(
@@ -871,154 +865,304 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                 ),
             ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
             vol.Optional(
-                CONF_VENTILATE_POSITION,
-                default=self._options.get(
-                    CONF_VENTILATE_POSITION,
-                    DEFAULT_POSITION_SETTINGS[CONF_VENTILATE_POSITION],
-                ),
-            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+                CONF_POSITION_TOLERANCE,
+                default=self._options.get(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE),
+            ): vol.Coerce(float),
             vol.Optional(
-                CONF_SHADING_POSITION,
-                default=self._options.get(
-                    CONF_SHADING_POSITION, DEFAULT_POSITION_SETTINGS[CONF_SHADING_POSITION]
-                ),
-            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+                CONF_AUTO_TIME,
+                default=bool(self._options.get(CONF_AUTO_TIME, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_TIME])),
+            ): bool,
+            vol.Optional(
+                CONF_AUTO_VENTILATE,
+                default=bool(self._options.get(CONF_AUTO_VENTILATE, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_VENTILATE])),
+            ): bool,
+            vol.Optional(
+                CONF_AUTO_BRIGHTNESS,
+                default=bool(self._options.get(CONF_AUTO_BRIGHTNESS, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_BRIGHTNESS])),
+            ): bool,
+            vol.Optional(
+                CONF_AUTO_SHADING,
+                default=bool(self._options.get(CONF_AUTO_SHADING, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_SHADING])),
+            ): bool,
             vol.Optional(
                 CONF_EXPOSE_SWITCH_SETTINGS,
                 default=bool(self._options.get(CONF_EXPOSE_SWITCH_SETTINGS, False)),
             ): bool,
         }
-        return self.async_show_form(step_id="general", data_schema=vol.Schema(schema))
 
-    async def async_step_functions(self, user_input=None) -> FlowResult:
+        return self.async_show_form(step_id="init", data_schema=vol.Schema(schema))
+
+    async def async_step_menu(self, user_input=None) -> FlowResult:
+        menu_options: list[str] = ["finish"]
+        if self._options.get(CONF_AUTO_TIME, True):
+            menu_options.append("time_control")
+        if self._options.get(CONF_AUTO_VENTILATE, True):
+            menu_options.append("contact_sensors")
+        if self._options.get(CONF_AUTO_BRIGHTNESS, True):
+            menu_options.append("brightness")
+        if self._options.get(CONF_AUTO_SHADING, True):
+            menu_options.append("shading")
+        return self.async_show_menu(step_id="menu", menu_options=menu_options)
+
+    async def async_step_finish(self, user_input=None) -> FlowResult:
+        return self.async_create_entry(title="", data=self._options)
+
+    async def async_step_time_control(self, user_input=None) -> FlowResult:
         if user_input is not None:
-            clean_input = self._clean_user_input(user_input)
-            updates = {
-                CONF_AUTO_UP: bool(clean_input.get("time_control_enabled", False)),
-                CONF_AUTO_DOWN: bool(clean_input.get("time_control_enabled", False)),
-                CONF_AUTO_VENTILATE: bool(clean_input.get("contact_control_enabled", False)),
-                CONF_AUTO_BRIGHTNESS: bool(clean_input.get("brightness_control_enabled", False)),
-                CONF_AUTO_SHADING: bool(clean_input.get("shading_control_enabled", False)),
+            await self._save_options(user_input)
+            return await self.async_step_menu()
+
+        schema = vol.Schema(
+            {
+                vol.Optional(
+                    CONF_WORKDAY_SENSOR, default=self._optional_default(CONF_WORKDAY_SENSOR)
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
+                ),
+                vol.Optional(
+                    CONF_TIME_UP_EARLY_WORKDAY,
+                    default=_time_default(
+                        self._options.get(CONF_TIME_UP_EARLY_WORKDAY, DEFAULT_TIME_SETTINGS[CONF_TIME_UP_EARLY_WORKDAY])
+                    ),
+                ): selector.TimeSelector(),
+                vol.Optional(
+                    CONF_TIME_UP_EARLY_NON_WORKDAY,
+                    default=_time_default(
+                        self._options.get(CONF_TIME_UP_EARLY_NON_WORKDAY, DEFAULT_TIME_SETTINGS[CONF_TIME_UP_EARLY_NON_WORKDAY])
+                    ),
+                ): selector.TimeSelector(),
+                vol.Optional(
+                    CONF_TIME_UP_LATE_WORKDAY,
+                    default=_time_default(
+                        self._options.get(CONF_TIME_UP_LATE_WORKDAY, DEFAULT_TIME_SETTINGS[CONF_TIME_UP_LATE_WORKDAY])
+                    ),
+                ): selector.TimeSelector(),
+                vol.Optional(
+                    CONF_TIME_UP_LATE_NON_WORKDAY,
+                    default=_time_default(
+                        self._options.get(CONF_TIME_UP_LATE_NON_WORKDAY, DEFAULT_TIME_SETTINGS[CONF_TIME_UP_LATE_NON_WORKDAY])
+                    ),
+                ): selector.TimeSelector(),
+                vol.Optional(
+                    CONF_TIME_DOWN_EARLY_WORKDAY,
+                    default=_time_default(
+                        self._options.get(CONF_TIME_DOWN_EARLY_WORKDAY, DEFAULT_TIME_SETTINGS[CONF_TIME_DOWN_EARLY_WORKDAY])
+                    ),
+                ): selector.TimeSelector(),
+                vol.Optional(
+                    CONF_TIME_DOWN_EARLY_NON_WORKDAY,
+                    default=_time_default(
+                        self._options.get(CONF_TIME_DOWN_EARLY_NON_WORKDAY, DEFAULT_TIME_SETTINGS[CONF_TIME_DOWN_EARLY_NON_WORKDAY])
+                    ),
+                ): selector.TimeSelector(),
+                vol.Optional(
+                    CONF_TIME_DOWN_LATE_WORKDAY,
+                    default=_time_default(
+                        self._options.get(CONF_TIME_DOWN_LATE_WORKDAY, DEFAULT_TIME_SETTINGS[CONF_TIME_DOWN_LATE_WORKDAY])
+                    ),
+                ): selector.TimeSelector(),
+                vol.Optional(
+                    CONF_TIME_DOWN_LATE_NON_WORKDAY,
+                    default=_time_default(
+                        self._options.get(CONF_TIME_DOWN_LATE_NON_WORKDAY, DEFAULT_TIME_SETTINGS[CONF_TIME_DOWN_LATE_NON_WORKDAY])
+                    ),
+                ): selector.TimeSelector(),
             }
-            return await self._save_options(updates)
+        )
+        return self.async_show_form(step_id="time_control", data_schema=schema)
+
+    async def async_step_contact_sensors(self, user_input=None) -> FlowResult:
+        covers = self._options.get(CONF_COVERS, [])
+        if user_input is not None:
+            await self._save_options(user_input, include_contacts=True)
+            return await self.async_step_menu()
+
+        multi_selector = selector.EntitySelector(
+            selector.EntitySelectorConfig(
+                domain=["binary_sensor"],
+                device_class=["window", "door", "opening"],
+                multiple=True,
+            )
+        )
+        schema: OrderedDict = OrderedDict()
+        for cover in covers:
+            schema[vol.Optional(self._cover_full_key(cover), default=_selector_default(self._existing_full_contacts_for_cover(cover)))] = multi_selector
+            schema[vol.Optional(self._cover_tilt_key(cover), default=_selector_default(self._existing_tilt_contacts_for_cover(cover)))] = multi_selector
+        schema.update(
+            {
+                vol.Optional(
+                    CONF_CONTACT_TRIGGER_DELAY,
+                    default=self._options.get(CONF_CONTACT_TRIGGER_DELAY, DEFAULT_CONTACT_TRIGGER_DELAY),
+                ): vol.Coerce(int),
+                vol.Optional(
+                    CONF_CONTACT_STATUS_DELAY,
+                    default=self._options.get(CONF_CONTACT_STATUS_DELAY, DEFAULT_CONTACT_STATUS_DELAY),
+                ): vol.Coerce(int),
+                vol.Optional(
+                    CONF_VENTILATION_DELAY_AFTER_CLOSE,
+                    default=self._options.get(CONF_VENTILATION_DELAY_AFTER_CLOSE, DEFAULT_VENTILATION_DELAY_AFTER_CLOSE),
+                ): vol.Coerce(int),
+                vol.Optional(
+                    CONF_VENTILATION_ALLOW_HIGHER_POSITION,
+                    default=bool(self._options.get(CONF_VENTILATION_ALLOW_HIGHER_POSITION, DEFAULT_CONTACT_SETTINGS[CONF_VENTILATION_ALLOW_HIGHER_POSITION])),
+                ): bool,
+                vol.Optional(
+                    CONF_VENTILATION_USE_AFTER_SHADING,
+                    default=bool(self._options.get(CONF_VENTILATION_USE_AFTER_SHADING, DEFAULT_CONTACT_SETTINGS[CONF_VENTILATION_USE_AFTER_SHADING])),
+                ): bool,
+                vol.Optional(
+                    CONF_LOCKOUT_TILT_CLOSE,
+                    default=bool(self._options.get(CONF_LOCKOUT_TILT_CLOSE, DEFAULT_CONTACT_SETTINGS[CONF_LOCKOUT_TILT_CLOSE])),
+                ): bool,
+                vol.Optional(
+                    CONF_LOCKOUT_TILT_SHADING_START,
+                    default=bool(self._options.get(CONF_LOCKOUT_TILT_SHADING_START, DEFAULT_CONTACT_SETTINGS[CONF_LOCKOUT_TILT_SHADING_START])),
+                ): bool,
+                vol.Optional(
+                    CONF_LOCKOUT_TILT_SHADING_END,
+                    default=bool(self._options.get(CONF_LOCKOUT_TILT_SHADING_END, DEFAULT_CONTACT_SETTINGS[CONF_LOCKOUT_TILT_SHADING_END])),
+                ): bool,
+            }
+        )
+        return self.async_show_form(step_id="contact_sensors", data_schema=vol.Schema(schema))
+
+    async def async_step_brightness(self, user_input=None) -> FlowResult:
+        if user_input is not None:
+            await self._save_options(user_input)
+            return await self.async_step_menu()
 
         return self.async_show_form(
-            step_id="functions",
+            step_id="brightness",
             data_schema=vol.Schema(
                 {
-                    vol.Required(
-                        "time_control_enabled",
-                        default=bool(self._options.get(CONF_AUTO_UP) or self._options.get(CONF_AUTO_DOWN)),
+                    vol.Optional(
+                        CONF_BRIGHTNESS_SENSOR,
+                        default=self._optional_default(CONF_BRIGHTNESS_SENSOR),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor"], device_class=["illuminance"])
+                    ),
+                    vol.Optional(
+                        CONF_BRIGHTNESS_OPEN_ABOVE,
+                        default=self._options.get(CONF_BRIGHTNESS_OPEN_ABOVE, DEFAULT_BRIGHTNESS_OPEN),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_BRIGHTNESS_CLOSE_BELOW,
+                        default=self._options.get(CONF_BRIGHTNESS_CLOSE_BELOW, DEFAULT_BRIGHTNESS_CLOSE),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_AUTO_SUN,
+                        default=bool(self._options.get(CONF_AUTO_SUN, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_SUN])),
                     ): bool,
-                    vol.Required(
-                        "contact_control_enabled",
-                        default=bool(self._options.get(CONF_AUTO_VENTILATE, False)),
-                    ): bool,
-                    vol.Required(
-                        "brightness_control_enabled",
-                        default=bool(self._options.get(CONF_AUTO_BRIGHTNESS, False)),
-                    ): bool,
-                    vol.Required(
-                        "shading_control_enabled",
-                        default=bool(self._options.get(CONF_AUTO_SHADING, False)),
-                    ): bool,
+                    vol.Optional(
+                        CONF_SUN_ELEVATION_OPEN,
+                        default=self._options.get(CONF_SUN_ELEVATION_OPEN, DEFAULT_SUN_ELEVATION_OPEN),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_SUN_ELEVATION_CLOSE,
+                        default=self._options.get(CONF_SUN_ELEVATION_CLOSE, DEFAULT_SUN_ELEVATION_CLOSE),
+                    ): vol.Coerce(float),
                 }
             ),
         )
 
-    async def async_step_time_control(self, user_input=None) -> FlowResult:
-        if not bool(self._options.get(CONF_AUTO_UP) or self._options.get(CONF_AUTO_DOWN)):
-            return await self.async_step_init()
+    async def async_step_shading(self, user_input=None) -> FlowResult:
         if user_input is not None:
-            clean_input = self._clean_user_input(user_input)
-            return await self._save_options(clean_input)
+            await self._save_options(user_input)
+            return await self.async_step_menu()
 
-        return self.async_show_form(step_id="time_control", data_schema=vol.Schema({
-            vol.Optional(CONF_WORKDAY_SENSOR, default=self._optional_default(CONF_WORKDAY_SENSOR)): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["binary_sensor"])
+        condition_selector = selector.ConditionSelector()
+        return self.async_show_form(
+            step_id="shading",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_SHADING_POSITION,
+                        default=self._options.get(CONF_SHADING_POSITION, DEFAULT_POSITION_SETTINGS[CONF_SHADING_POSITION]),
+                    ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+                    vol.Optional(CONF_SUN_AZIMUTH_START, default=self._options.get(CONF_SUN_AZIMUTH_START, DEFAULT_SHADING_AZIMUTH_START)): vol.Coerce(float),
+                    vol.Optional(CONF_SUN_AZIMUTH_END, default=self._options.get(CONF_SUN_AZIMUTH_END, DEFAULT_SHADING_AZIMUTH_END)): vol.Coerce(float),
+                    vol.Optional(CONF_SUN_ELEVATION_MIN, default=self._options.get(CONF_SUN_ELEVATION_MIN, DEFAULT_SHADING_ELEVATION_MIN)): vol.Coerce(float),
+                    vol.Optional(CONF_SUN_ELEVATION_MAX, default=self._options.get(CONF_SUN_ELEVATION_MAX, DEFAULT_SHADING_ELEVATION_MAX)): vol.Coerce(float),
+                    vol.Optional(CONF_SHADING_BRIGHTNESS_START, default=self._options.get(CONF_SHADING_BRIGHTNESS_START, DEFAULT_SHADING_BRIGHTNESS_START)): vol.Coerce(float),
+                    vol.Optional(CONF_SHADING_BRIGHTNESS_END, default=self._options.get(CONF_SHADING_BRIGHTNESS_END, DEFAULT_SHADING_BRIGHTNESS_END)): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_SHADING_FORECAST_SENSOR,
+                        default=self._optional_default(CONF_SHADING_FORECAST_SENSOR),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor", "weather"])
+                    ),
+                    vol.Optional(
+                        CONF_SHADING_FORECAST_TYPE,
+                        default=self._options.get(CONF_SHADING_FORECAST_TYPE, DEFAULT_SHADING_FORECAST_TYPE),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                {"value": "daily", "label": "Use the daily weather forecast service"},
+                                {"value": "hourly", "label": "Use the hourly weather forecast service"},
+                                {"value": "weather_attributes", "label": "Use current weather attributes"},
+                            ]
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_SHADING_WEATHER_CONDITIONS,
+                        default=self._options.get(CONF_SHADING_WEATHER_CONDITIONS, []),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                "clear-night", "clear", "cloudy", "fog", "hail", "lightning", "lightning-rainy",
+                                "partlycloudy", "pouring", "rainy", "snowy", "snowy-rainy", "sunny", "windy",
+                                "windy-variant", "exceptional",
+                            ],
+                            multiple=True,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_ADDITIONAL_CONDITION_SHADING,
+                        default=self._optional_default(CONF_ADDITIONAL_CONDITION_SHADING),
+                    ): condition_selector,
+                    vol.Optional(
+                        CONF_ADDITIONAL_CONDITION_SHADING_TILT,
+                        default=self._optional_default(CONF_ADDITIONAL_CONDITION_SHADING_TILT),
+                    ): condition_selector,
+                    vol.Optional(
+                        CONF_ADDITIONAL_CONDITION_SHADING_END,
+                        default=self._optional_default(CONF_ADDITIONAL_CONDITION_SHADING_END),
+                    ): condition_selector,
+                }
             ),
-            vol.Optional(CONF_TIME_UP_EARLY_WORKDAY, default=_time_default(self._options.get(CONF_TIME_UP_EARLY_WORKDAY), DEFAULT_TIME_SETTINGS[CONF_TIME_UP_EARLY_WORKDAY])): selector.TimeSelector(),
-            vol.Optional(CONF_TIME_UP_LATE_WORKDAY, default=_time_default(self._options.get(CONF_TIME_UP_LATE_WORKDAY), DEFAULT_TIME_SETTINGS[CONF_TIME_UP_LATE_WORKDAY])): selector.TimeSelector(),
-            vol.Optional(CONF_TIME_DOWN_EARLY_WORKDAY, default=_time_default(self._options.get(CONF_TIME_DOWN_EARLY_WORKDAY), DEFAULT_TIME_SETTINGS[CONF_TIME_DOWN_EARLY_WORKDAY])): selector.TimeSelector(),
-            vol.Optional(CONF_TIME_DOWN_LATE_WORKDAY, default=_time_default(self._options.get(CONF_TIME_DOWN_LATE_WORKDAY), DEFAULT_TIME_SETTINGS[CONF_TIME_DOWN_LATE_WORKDAY])): selector.TimeSelector(),
-            vol.Optional(CONF_TIME_UP_EARLY_NON_WORKDAY, default=_time_default(self._options.get(CONF_TIME_UP_EARLY_NON_WORKDAY), DEFAULT_TIME_SETTINGS[CONF_TIME_UP_EARLY_NON_WORKDAY])): selector.TimeSelector(),
-            vol.Optional(CONF_TIME_UP_LATE_NON_WORKDAY, default=_time_default(self._options.get(CONF_TIME_UP_LATE_NON_WORKDAY), DEFAULT_TIME_SETTINGS[CONF_TIME_UP_LATE_NON_WORKDAY])): selector.TimeSelector(),
-            vol.Optional(CONF_TIME_DOWN_EARLY_NON_WORKDAY, default=_time_default(self._options.get(CONF_TIME_DOWN_EARLY_NON_WORKDAY), DEFAULT_TIME_SETTINGS[CONF_TIME_DOWN_EARLY_NON_WORKDAY])): selector.TimeSelector(),
-            vol.Optional(CONF_TIME_DOWN_LATE_NON_WORKDAY, default=_time_default(self._options.get(CONF_TIME_DOWN_LATE_NON_WORKDAY), DEFAULT_TIME_SETTINGS[CONF_TIME_DOWN_LATE_NON_WORKDAY])): selector.TimeSelector(),
-        }))
+        )
 
-    async def async_step_contact_sensors(self, user_input=None) -> FlowResult:
-        if not bool(self._options.get(CONF_AUTO_VENTILATE, False)):
-            return await self.async_step_init()
-        covers = self._options.get(CONF_COVERS, [])
-        if user_input is not None:
-            clean_input = self._clean_user_input(user_input)
+    async def _save_options(self, user_input: dict, include_contacts: bool = False) -> None:
+        clean_input = self._clean_user_input(user_input)
+        name = clean_input.pop(CONF_NAME, self._config_entry.title).strip() or DEFAULT_NAME
+
+        if include_contacts:
+            covers = self._options.get(CONF_COVERS, [])
             full_mapping: dict[str, list[str]] = {}
             tilt_mapping: dict[str, list[str]] = {}
             for cover in covers:
-                full_mapping[cover] = [sensor for sensor in clean_input.get(self._cover_full_key(cover), []) if isinstance(sensor, str) and sensor]
-                tilt_mapping[cover] = [sensor for sensor in clean_input.get(self._cover_tilt_key(cover), []) if isinstance(sensor, str) and sensor]
+                full_mapping[cover] = [
+                    sensor
+                    for sensor in clean_input.get(
+                        self._cover_full_key(cover),
+                        self._existing_full_contacts_for_cover(cover),
+                    )
+                    if isinstance(sensor, str) and sensor
+                ]
+                tilt_mapping[cover] = [
+                    sensor
+                    for sensor in clean_input.get(
+                        self._cover_tilt_key(cover),
+                        self._existing_tilt_contacts_for_cover(cover),
+                    )
+                    if isinstance(sensor, str) and sensor
+                ]
             clean_input[CONF_WINDOW_SENSOR_FULL] = full_mapping
             clean_input[CONF_WINDOW_SENSOR_TILT] = tilt_mapping
-            return await self._save_options(clean_input)
 
-        multi_selector = selector.EntitySelector(
-            selector.EntitySelectorConfig(domain=["binary_sensor"], device_class=["window", "door", "opening"], multiple=True)
-        )
-        schema: dict[Any, Any] = {
-            vol.Optional(CONF_VENTILATE_POSITION, default=self._options.get(CONF_VENTILATE_POSITION, DEFAULT_POSITION_SETTINGS[CONF_VENTILATE_POSITION])): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
-            vol.Optional(CONF_CONTACT_TRIGGER_DELAY, default=self._options.get(CONF_CONTACT_TRIGGER_DELAY, DEFAULT_CONTACT_TRIGGER_DELAY)): vol.Coerce(int),
-            vol.Optional(CONF_CONTACT_STATUS_DELAY, default=self._options.get(CONF_CONTACT_STATUS_DELAY, DEFAULT_CONTACT_STATUS_DELAY)): vol.Coerce(int),
-        }
-        for cover in covers:
-            schema[vol.Optional(self._cover_full_key(cover), default=_selector_default(self._existing_full_contacts_for_cover(cover)))] = multi_selector
-            schema[vol.Optional(self._cover_tilt_key(cover), default=_selector_default(self._existing_tilt_contacts_for_cover(cover)))] = multi_selector
-        return self.async_show_form(step_id="contact_sensors", data_schema=vol.Schema(schema))
-
-    async def async_step_brightness_control(self, user_input=None) -> FlowResult:
-        if not bool(self._options.get(CONF_AUTO_BRIGHTNESS, False)):
-            return await self.async_step_init()
-        if user_input is not None:
-            clean_input = self._clean_user_input(user_input)
-            return await self._save_options(clean_input)
-
-        return self.async_show_form(step_id="brightness_control", data_schema=vol.Schema({
-            vol.Optional(CONF_BRIGHTNESS_SENSOR, default=self._optional_default(CONF_BRIGHTNESS_SENSOR)): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["sensor"], device_class=["illuminance"])
-            ),
-            vol.Optional(CONF_BRIGHTNESS_OPEN_ABOVE, default=self._options.get(CONF_BRIGHTNESS_OPEN_ABOVE, DEFAULT_BRIGHTNESS_OPEN)): vol.Coerce(float),
-            vol.Optional(CONF_BRIGHTNESS_CLOSE_BELOW, default=self._options.get(CONF_BRIGHTNESS_CLOSE_BELOW, DEFAULT_BRIGHTNESS_CLOSE)): vol.Coerce(float),
-            vol.Optional(CONF_AUTO_SUN, default=bool(self._options.get(CONF_AUTO_SUN, False))): bool,
-            vol.Optional(CONF_SUN_ELEVATION_OPEN, default=self._options.get(CONF_SUN_ELEVATION_OPEN, DEFAULT_SUN_ELEVATION_OPEN)): vol.Coerce(float),
-            vol.Optional(CONF_SUN_ELEVATION_CLOSE, default=self._options.get(CONF_SUN_ELEVATION_CLOSE, DEFAULT_SUN_ELEVATION_CLOSE)): vol.Coerce(float),
-        }))
-
-    async def async_step_shading(self, user_input=None) -> FlowResult:
-        if not bool(self._options.get(CONF_AUTO_SHADING, False)):
-            return await self.async_step_init()
-        if user_input is not None:
-            clean_input = self._clean_user_input(user_input)
-            return await self._save_options(clean_input)
-
-        return self.async_show_form(step_id="shading", data_schema=vol.Schema({
-            vol.Optional(CONF_SHADING_FORECAST_SENSOR, default=self._optional_default(CONF_SHADING_FORECAST_SENSOR)): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["sensor", "weather"])
-            ),
-            vol.Optional(CONF_TEMPERATURE_SENSOR_OUTDOOR, default=self._optional_default(CONF_TEMPERATURE_SENSOR_OUTDOOR)): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["sensor"])
-            ),
-            vol.Optional(CONF_BRIGHTNESS_SENSOR, default=self._optional_default(CONF_BRIGHTNESS_SENSOR)): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["sensor"], device_class=["illuminance"])
-            ),
-            vol.Optional(CONF_TEMPERATURE_THRESHOLD, default=self._options.get(CONF_TEMPERATURE_THRESHOLD, DEFAULT_TEMPERATURE_THRESHOLD)): vol.Coerce(float),
-            vol.Optional(CONF_SHADING_BRIGHTNESS_START, default=self._options.get(CONF_SHADING_BRIGHTNESS_START, DEFAULT_SHADING_BRIGHTNESS_START)): vol.Coerce(float),
-            vol.Optional(CONF_SHADING_WEATHER_CONDITIONS, default=self._options.get(CONF_SHADING_WEATHER_CONDITIONS, [])): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=["clear-night", "cloudy", "exceptional", "fog", "hail", "lightning", "lightning-rainy", "partlycloudy", "pouring", "rainy", "snowy", "snowy-rainy", "sunny", "windy", "windy-variant"],
-                    multiple=True,
-                )
-            ),
-        }))
+        overrides = {CONF_NAME: name} | clean_input
+        self._options = self._normalize_options(self._config_entry, overrides)
+        self.hass.config_entries.async_update_entry(self._config_entry, title=name)
     
     def _cover_full_key(self, cover: str) -> str:
         state = self.hass.states.get(cover)

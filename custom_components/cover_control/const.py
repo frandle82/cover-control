@@ -6,6 +6,7 @@ from homeassistant.const import Platform
 DOMAIN = "cover_control"
 EVENT_COVER_CONTROL = "cover_control_event"
 CONF_NAME = "name"
+CONF_ROOM = "room"
 DEFAULT_NAME = "Cover Control"
 PLATFORMS: list[Platform] = [Platform.SWITCH]
 
@@ -91,6 +92,8 @@ CONF_AUTO_UP = "auto_up_enabled"
 CONF_AUTO_UP_ENTITY = "auto_up_entity"
 CONF_AUTO_DOWN = "auto_down_enabled"
 CONF_AUTO_DOWN_ENTITY = "auto_down_entity"
+CONF_AUTO_TIME = "auto_time_enabled"
+CONF_AUTO_TIME_ENTITY = "auto_time_entity"
 CONF_AUTO_BRIGHTNESS = "auto_brightness_enabled"
 CONF_AUTO_BRIGHTNESS_ENTITY = "auto_brightness_entity"
 CONF_AUTO_SUN = "auto_sun_enabled"
@@ -104,6 +107,7 @@ CONF_EXPOSE_SWITCH_SETTINGS = "expose_switch_settings"
 DEFAULT_AUTOMATION_FLAGS: dict[str, bool] = {
     CONF_AUTO_UP: True,
     CONF_AUTO_DOWN: True,
+    CONF_AUTO_TIME: True,
     CONF_AUTO_BRIGHTNESS: True,
     CONF_AUTO_SUN: True,
     CONF_AUTO_VENTILATE: True,

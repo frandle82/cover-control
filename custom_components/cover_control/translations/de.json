@@ -12,24 +12,11 @@
   "config": {
     "step": {
       "user": {
-        "title": "Wähle Abdeckung",
-        "description": "Lege nur Raum und Rollos fest. Weitere Konfiguration erfolgt danach in den Einstellungen.",
+        "title": "Raum und Cover auswählen",
+        "description": "Wähle den Raum und die Cover aus, die automatisiert werden sollen.",
         "data": {
-          "covers": "Abdeckung"
-        },
-        "sections": {
-          "automation_features": {
-            "name": "Funktionen",
-            "description": "Aktiviere die Funktionen, für die Switch-Entitäten erstellt werden sollen.",
-            "data": {
-              "auto_up_enabled": "Automatisches Öffnen aktivieren",
-              "auto_down_enabled": "Automatisches Schließen aktivieren",
-              "auto_brightness_enabled": "Helligkeitsautomatik aktivieren",
-              "auto_sun_enabled": "Sonnenautomatik aktivieren",
-              "auto_ventilate_enabled": "Lüftungsautomatik aktivieren",
-              "auto_shading_enabled": "Beschattungsautomatik aktivieren"
-            }
-          }
+          "covers": "Abdeckung",
+          "room": "Raum"
         }
       },
       "windows": {
@@ -110,16 +97,93 @@
   "options": {
     "step": {
       "init": {
-        "title": "Konfiguration",
-        "description": "Wähle den Bereich, den du konfigurieren möchtest.",
-        "menu_options": {"general":"Allgemein","functions":"Funktionen","time_control":"Zeitsteuerung","contact_sensors":"Kontaktsensoren","brightness_control":"Helligkeitsautomatik","shading":"Beschattung"}
+        "title": "Allgemeine Konfiguration",
+        "description": "Raum, Cover, Basispositionen und aktive Funktionen festlegen.",
+        "data": {
+          "name": "Instanzname",
+          "room": "Raum",
+          "covers": "Cover",
+          "open_position": "Öffnungsposition",
+          "close_position": "Schließposition",
+          "position_tolerance": "Positionstoleranz",
+          "auto_time_enabled": "Zeitsteuerung aktivieren",
+          "auto_ventilate_enabled": "Lüftungssteuerung aktivieren",
+          "auto_brightness_enabled": "Helligkeitssteuerung aktivieren",
+          "auto_shading_enabled": "Beschattungssteuerung aktivieren",
+          "expose_switch_settings": "Automationswerte als Schalterattribute anzeigen"
+        }
       },
-      "functions":{"title":"Funktionen","description":"Aktiviere die Funktionen, die konfiguriert werden sollen. Nur aktivierte Funktionen erscheinen im Menü.","data":{"time_control_enabled":"Zeitsteuerung aktivieren","contact_control_enabled":"Kontaktsensor-Steuerung aktivieren","brightness_control_enabled":"Helligkeitssteuerung aktivieren","shading_control_enabled":"Beschattung aktivieren"}},
-      "general":{"title":"Allgemein","data":{"name":"Raum","covers":"Rollos","open_position":"Öffnungsposition","close_position":"Schließposition","position_tolerance":"Positionstoleranz","shading_position":"Beschattungsposition","ventilate_position":"Lüftungsposition","expose_switch_settings":"Konfiguration als Switch-Attribute anzeigen"}},
-      "time_control":{"title":"Zeitsteuerung","data":{"workday_sensor":"Binary Sensor (on=frei/off=Arbeitstag)","time_up_early_workday":"Früheste Öffnungszeit (Arbeitstag)","time_up_late_workday":"Späteste Öffnungszeit (Arbeitstag)","time_down_early_workday":"Früheste Schließzeit (Arbeitstag)","time_down_late_workday":"Späteste Schließzeit (Arbeitstag)","time_up_early_non_workday":"Früheste Öffnungszeit (frei)","time_up_late_non_workday":"Späteste Öffnungszeit (frei)","time_down_early_non_workday":"Früheste Schließzeit (frei)","time_down_late_non_workday":"Späteste Schließzeit (frei)"}},
-      "contact_sensors":{"title":"Kontaktsensoren","data":{"ventilate_position":"Öffnungsposition bei offenem Kontakt","contact_trigger_delay":"Wartezeit bis Reaktion (Sekunden)","contact_status_delay":"Status-Verzögerung offen/zu (Sekunden)"}},
-      "brightness_control":{"title":"Helligkeitsautomatik","data":{"brightness_sensor":"Helligkeitssensor","brightness_open_above":"Öffnen über","brightness_close_below":"Schließen unter","auto_sun_enabled":"Alternativ Sonnenstand nutzen","sun_elevation_open":"Sonnenhöhe Öffnen","sun_elevation_close":"Sonnenhöhe Schließen"}},
-      "shading":{"title":"Beschattung","data":{"shading_forecast_sensor":"Wettersensor","temperature_sensor_outdoor":"Außentemperatursensor","brightness_sensor":"Helligkeitssensor","temperature_threshold":"Temperaturschwelle","shading_brightness_start":"Lichtschwelle","shading_weather_conditions":"Wetterzustände"}}
+      "menu": {
+        "title": "Funktionsmenü",
+        "description": "Wähle eine aktive Funktion zur Konfiguration aus."
+      },
+      "time_control": {
+        "title": "Zeitsteuerung",
+        "data": {
+          "workday_sensor": "Arbeitstag/Frei-Entität (on=frei, off=Arbeitstag)",
+          "time_up_early_workday": "Früheste Öffnungszeit (Arbeitstag)",
+          "time_up_late_workday": "Späteste Öffnungszeit (Arbeitstag)",
+          "time_down_early_workday": "Früheste Schließzeit (Arbeitstag)",
+          "time_down_late_workday": "Späteste Schließzeit (Arbeitstag)",
+          "time_up_early_non_workday": "Früheste Öffnungszeit (frei)",
+          "time_up_late_non_workday": "Späteste Öffnungszeit (frei)",
+          "time_down_early_non_workday": "Früheste Schließzeit (frei)",
+          "time_down_late_non_workday": "Späteste Schließzeit (frei)"
+        }
+      },
+      "contact_sensors": {
+        "title": "Kontaktsensoren",
+        "data": {
+          "contact_trigger_delay": "Wartezeit bei Kontaktänderung",
+          "contact_status_delay": "Stabilisierungszeit Kontaktstatus",
+          "ventilation_delay_after_close": "Wartezeit nach Schließen bis Lüftung",
+          "ventilation_allow_higher_position": "Lüftung über Schließposition erlauben",
+          "ventilation_use_after_shading": "Lüftung nach Beschattung verwenden",
+          "lockout_tilt_close": "Schließen bei Kippkontakt sperren",
+          "lockout_tilt_shading_start": "Beschattung-Start bei Kippkontakt sperren",
+          "lockout_tilt_shading_end": "Beschattung-Ende bei Kippkontakt sperren"
+        }
+      },
+      "brightness": {
+        "title": "Helligkeitsautomatik",
+        "data": {
+          "brightness_sensor": "Helligkeitssensor",
+          "brightness_open_above": "Öffnen bei Helligkeit über",
+          "brightness_close_below": "Schließen bei Helligkeit unter",
+          "auto_sun_enabled": "Sonnenstand als Alternative nutzen",
+          "sun_elevation_open": "Sonnenhöhe für Öffnung",
+          "sun_elevation_close": "Sonnenhöhe für Schließung"
+        }
+      },
+      "shading": {
+        "title": "Beschattung",
+        "data": {
+          "shading_position": "Beschattungsposition",
+          "shading_azimuth_start": "Azimut Start Beschattung",
+          "shading_azimuth_end": "Azimut Ende Beschattung",
+          "shading_elevation_min": "Minimale Sonnenhöhe Beschattung",
+          "shading_elevation_max": "Maximale Sonnenhöhe Beschattung",
+          "shading_brightness_start": "Helligkeit Start Beschattung",
+          "shading_brightness_end": "Helligkeit Ende Beschattung",
+          "shading_forecast_sensor": "Vorhersage-Wettersensor (optional)",
+          "shading_forecast_type": "Vorhersagetyp Beschattung",
+          "shading_weather_conditions": "Wetterbedingungen für Beschattung",
+          "additional_condition_shading": "Zusatzbedingung Beschattung",
+          "additional_condition_shading_tilt": "Zusatzbedingung Beschattung Kipp",
+          "additional_condition_shading_end": "Zusatzbedingung Ende Beschattung"
+        }
+      },
+      "finish": {
+        "title": "Fertig",
+        "description": "Konfiguration speichern."
+      }
+    },
+    "menu_options": {
+      "finish": "Speichern und schließen",
+      "time_control": "Zeitsteuerung",
+      "contact_sensors": "Kontaktsensoren",
+      "brightness": "Helligkeitsautomatik",
+      "shading": "Beschattung"
     }
   },
   "entity": {
@@ -198,6 +262,9 @@
       },
       "auto_shading": {
         "name": "Beschattung"
+      },
+      "auto_time": {
+        "name": "Zeitsteuerung"
       }
     }
   },

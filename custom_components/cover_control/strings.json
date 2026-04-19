@@ -3,10 +3,10 @@
   "config": {
     "step": {
       "user": {
-        "title": "Select covers",
-        "description": "Choose the covers or blinds that will be automated.",
+        "title": "Select room and covers",
+        "description": "Choose the room and shutters or blinds that will be automated.",
         "data": {
-          "name": "Instance name",
+          "room": "Room",
           "covers": "Covers"
         },
         "sections": {
@@ -116,32 +116,93 @@
   "options": {
     "step": {
       "init": {
-        "title": "Configuration",
-        "description": "Choose which configuration area to edit.",
-        "menu_options": {
-          "general": "General",
-          "functions": "Functions",
-          "time_control": "Time control",
-          "contact_sensors": "Contact sensors",
-          "brightness_control": "Brightness control",
-          "shading": "Shading"
-        }
-      },
-      "functions": {
-        "title": "Functions",
-        "description": "Enable the functions you want to configure.",
+        "title": "General configuration",
+        "description": "Set room, covers, base positions, and activate functions.",
         "data": {
-          "time_control_enabled": "Enable time control",
-          "contact_control_enabled": "Enable contact sensor control",
-          "brightness_control_enabled": "Enable brightness control",
-          "shading_control_enabled": "Enable shading"
+          "name": "Instance name",
+          "room": "Room",
+          "covers": "Covers",
+          "open_position": "Open position",
+          "close_position": "Close position",
+          "position_tolerance": "Position tolerance",
+          "auto_time_enabled": "Activate time control",
+          "auto_ventilate_enabled": "Activate ventilation control",
+          "auto_brightness_enabled": "Activate brightness control",
+          "auto_shading_enabled": "Activate shading control",
+          "expose_switch_settings": "Expose automation settings as switch attributes"
         }
       },
-      "general": {"title":"General settings","data":{"name":"Room","covers":"Covers","open_position":"Open position","close_position":"Close position","position_tolerance":"Position tolerance","shading_position":"Shading position","ventilate_position":"Ventilation position","expose_switch_settings":"Expose automation settings as switch attributes"}},
-      "time_control": {"title":"Time control","data":{"workday_sensor":"Workday binary sensor (on=free/off=workday)","time_up_early_workday":"Earliest open time (workday)","time_up_late_workday":"Latest open time (workday)","time_down_early_workday":"Earliest close time (workday)","time_down_late_workday":"Latest close time (workday)","time_up_early_non_workday":"Earliest open time (free day)","time_up_late_non_workday":"Latest open time (free day)","time_down_early_non_workday":"Earliest close time (free day)","time_down_late_non_workday":"Latest close time (free day)"}},
-      "contact_sensors": {"title":"Contact sensors","data":{"ventilate_position":"Open position while contacts are open","contact_trigger_delay":"Delay before reaction (seconds)","contact_status_delay":"Delay for close/open state (seconds)"}},
-      "brightness_control": {"title":"Brightness control","data":{"brightness_sensor":"Brightness sensor","brightness_open_above":"Open when above","brightness_close_below":"Close when below","auto_sun_enabled":"Use sun position as alternative","sun_elevation_open":"Open sun elevation","sun_elevation_close":"Close sun elevation"}},
-      "shading": {"title":"Shading","data":{"shading_forecast_sensor":"Weather sensor","temperature_sensor_outdoor":"Outdoor temperature sensor","brightness_sensor":"Brightness sensor","temperature_threshold":"Temperature threshold","shading_brightness_start":"Brightness threshold","shading_weather_conditions":"Weather conditions"}}
+      "menu": {
+        "title": "Function menu",
+        "description": "Select a function to configure, then finish."
+      },
+      "time_control": {
+        "title": "Time control",
+        "data": {
+          "workday_sensor": "Workday/free-day sensor (on=free, off=workday)",
+          "time_up_early_workday": "Earliest open time (workday)",
+          "time_up_late_workday": "Latest open time (workday)",
+          "time_down_early_workday": "Earliest close time (workday)",
+          "time_down_late_workday": "Latest close time (workday)",
+          "time_up_early_non_workday": "Earliest open time (free day)",
+          "time_up_late_non_workday": "Latest open time (free day)",
+          "time_down_early_non_workday": "Earliest close time (free day)",
+          "time_down_late_non_workday": "Latest close time (free day)"
+        }
+      },
+      "contact_sensors": {
+        "title": "Contact sensors",
+        "data": {
+          "contact_trigger_delay": "Delay before reaction on contact change",
+          "contact_status_delay": "Stability delay for contact status",
+          "ventilation_delay_after_close": "Delay after close before ventilation",
+          "ventilation_allow_higher_position": "Allow ventilation above close position",
+          "ventilation_use_after_shading": "Use ventilation after shading",
+          "lockout_tilt_close": "Block close when tilt contact active",
+          "lockout_tilt_shading_start": "Block shading start when tilt contact active",
+          "lockout_tilt_shading_end": "Block shading end when tilt contact active"
+        }
+      },
+      "brightness": {
+        "title": "Brightness control",
+        "data": {
+          "brightness_sensor": "Brightness sensor",
+          "brightness_open_above": "Open when brightness above",
+          "brightness_close_below": "Close when brightness below",
+          "auto_sun_enabled": "Use sun elevation as alternative",
+          "sun_elevation_open": "Sun elevation for opening",
+          "sun_elevation_close": "Sun elevation for closing"
+        }
+      },
+      "shading": {
+        "title": "Shading control",
+        "data": {
+          "shading_position": "Shading position",
+          "shading_azimuth_start": "Shading azimuth start",
+          "shading_azimuth_end": "Shading azimuth end",
+          "shading_elevation_min": "Shading elevation minimum",
+          "shading_elevation_max": "Shading elevation maximum",
+          "shading_brightness_start": "Brightness to start shading",
+          "shading_brightness_end": "Brightness to end shading",
+          "shading_forecast_sensor": "Forecast weather sensor (optional)",
+          "shading_forecast_type": "Shading forecast type",
+          "shading_weather_conditions": "Weather conditions for shading",
+          "additional_condition_shading": "Additional condition for shading",
+          "additional_condition_shading_tilt": "Additional condition for shading tilt",
+          "additional_condition_shading_end": "Additional condition for ending shading"
+        }
+      },
+      "finish": {
+        "title": "Finish",
+        "description": "Save configuration changes."
+      }
+    },
+    "menu_options": {
+      "finish": "Save and close",
+      "time_control": "Time control",
+      "contact_sensors": "Contact sensors",
+      "brightness": "Brightness control",
+      "shading": "Shading control"
     }
   },
   "entity": {
@@ -197,7 +258,7 @@
       },
       "time_down_early_non_workday": {
         "name": "Earliest close (non-workday)"
-        },
+      },
       "time_down_late_non_workday": {
         "name": "Latest close (non-workday)"
       }
@@ -205,6 +266,9 @@
     "switch": {
       "master": {
         "name": "Cover Control"
+      },
+      "auto_time": {
+        "name": "Time control"
       },
       "auto_time": {
         "name": "Time control"

@@ -44,6 +44,7 @@ from .const import (
     CONF_AUTO_DOWN,
     CONF_AUTO_SHADING,
     CONF_AUTO_SUN,
+    CONF_AUTO_TIME,
     CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
     CONF_MASTER_ENABLED,
@@ -99,14 +100,18 @@ from .controller import ControllerManager
 
 
 AUTOMATION_TOGGLES: tuple[tuple[str, str], ...] = (
-    ("auto_time_enabled", "auto_time"),
+    (CONF_AUTO_TIME, "auto_time"),
+    (CONF_AUTO_UP, "auto_up"),
+    (CONF_AUTO_DOWN, "auto_down"),
     (CONF_AUTO_BRIGHTNESS, "auto_brightness"),
     (CONF_AUTO_VENTILATE, "auto_ventilate"),
     (CONF_AUTO_SHADING, "auto_shading"),
 )
 
 TOGGLE_ICONS: dict[str, str] = {
-    "auto_time_enabled": "mdi:clock-outline",
+    CONF_AUTO_TIME: "mdi:clock-time-eight-auto",
+    CONF_AUTO_UP: "mdi:arrow-up-bold-circle",
+    CONF_AUTO_DOWN: "mdi:arrow-down-bold-circle",
     CONF_AUTO_BRIGHTNESS: "mdi:brightness-auto",
     CONF_AUTO_VENTILATE: "mdi:fan-auto",
     CONF_AUTO_SHADING: "mdi:theme-light-dark",
