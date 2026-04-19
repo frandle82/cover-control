@@ -205,25 +205,40 @@
     "set_manual_override": {
       "name": "Set manual override",
       "description": "Pause automatic control for a cover for the given minutes.",
+      "target": {
+        "entity": {
+          "name": "Rollladen",
+          "description": "Rollladen, dessen Automatisierung pausiert werden soll."
+        }
+      },
       "fields": {
-        "covers": {
-          "name": "Cover",
-          "description": "The cover entity to pause."
-        },
         "manual_override_minutes": {
           "name": "Minutes",
           "description": "Duration of the pause."
         }
       }
     },
+    "clear_manual_override": {
+      "name": "Clear manual override",
+      "description": "Resume automation immediately for the selected cover.",
+      "target": {
+        "entity": {
+          "name": "Rollladen",
+          "description": "Rollladen, für den die Automatisierung wieder aktiviert werden soll."
+        }
+      },
+      "fields": {}
+    },
     "activate_shading": {
       "name": "Activate shading now",
       "description": "Send a cover to the shading position immediately and hold it there for the override duration.",
+      "target": {
+        "entity": {
+          "name": "Rollladen",
+          "description": "Rollladen, der sofort in die Beschattungsposition fahren soll."
+        }
+      },
       "fields": {
-        "covers": {
-          "name": "Cover",
-          "description": "The cover entity to shade."
-        },
         "manual_override_minutes": {
           "name": "Minutes",
           "description": "Optional override duration; defaults to the integration setting."
@@ -233,11 +248,13 @@
     "recalibrate_cover": {
       "name": "Abdeckung neu kalibrieren",
       "description": "Setzt einen manuellen Override, nutzt den Standardbefehl zum Öffnen für eine vollständig geöffnete Abdeckung, stellt danach die vorherige Position wieder her und hebt den Override wieder auf. Hilfreich, wenn eine Abdeckung neu ausgerichtet werden muss.",
+      "target": {
+        "entity": {
+          "name": "Rollladen",
+          "description": "Rollladen, der neu kalibriert werden soll."
+        }
+      },
       "fields": {
-        "covers": {
-          "name": "Cover",
-          "description": "Die zu kalibrierende Abdeckung."
-        },
         "full_open_position": {
           "name": "Position für vollständig offen",
           "description": "Position für das vollständige Öffnen; Standard ist 100 %."
@@ -255,6 +272,22 @@
         "settings": {
           "name": "Einstellungen",
           "description": "Schlüssel/Wert-Paare, die in der Schalter-Kategorie gespeichert werden."
+        }
+      }
+    },
+    "force_action": {
+      "name": "Aktion erzwingen",
+      "description": "Führt eine sofortige Aktion am ausgewählten Rollladen ohne weitere Prüfungen aus.",
+      "target": {
+        "entity": {
+          "name": "Rollladen",
+          "description": "Rollladen, auf den die Aktion angewendet werden soll."
+        }
+      },
+      "fields": {
+        "action": {
+          "name": "Aktion",
+          "description": "Wählen Sie die auszuführende Sofortaktion."
         }
       }
     }

@@ -26,6 +26,9 @@ from .const import (
     CONF_SUN_AZIMUTH_END,
     CONF_SUN_AZIMUTH_START,
     CONF_SUN_ELEVATION_CLOSE,
+    CONF_SUN_ELEVATION_MODE,
+    CONF_SUN_ELEVATION_OPEN_OFFSET,
+    CONF_SUN_ELEVATION_CLOSE_OFFSET,
     CONF_SUN_ELEVATION_MAX,
     CONF_SUN_ELEVATION_MIN,
     CONF_SUN_ELEVATION_OPEN,
@@ -62,6 +65,9 @@ from .const import (
     DEFAULT_SHADING_POSITION,
     DEFAULT_SUN_ELEVATION_CLOSE,
     DEFAULT_SUN_ELEVATION_OPEN,
+    DEFAULT_SUN_ELEVATION_MODE,
+    DEFAULT_SUN_ELEVATION_OPEN_OFFSET,
+    DEFAULT_SUN_ELEVATION_CLOSE_OFFSET,
     DEFAULT_OPEN_POSITION,
     DEFAULT_CLOSE_POSITION,
     DEFAULT_MASTER_FLAGS,
@@ -120,6 +126,9 @@ DEFAULT_LOOKUP = {
     CONF_SUN_ELEVATION_MAX: DEFAULT_SHADING_ELEVATION_MAX,
     CONF_SUN_ELEVATION_OPEN: DEFAULT_SUN_ELEVATION_OPEN,
     CONF_SUN_ELEVATION_CLOSE: DEFAULT_SUN_ELEVATION_CLOSE,
+    CONF_SUN_ELEVATION_MODE: DEFAULT_SUN_ELEVATION_MODE,
+    CONF_SUN_ELEVATION_OPEN_OFFSET: DEFAULT_SUN_ELEVATION_OPEN_OFFSET,
+    CONF_SUN_ELEVATION_CLOSE_OFFSET: DEFAULT_SUN_ELEVATION_CLOSE_OFFSET,
     CONF_TIME_UP_EARLY_WORKDAY: DEFAULT_TIME_UP_EARLY_WORKDAY,
     CONF_TIME_UP_LATE_WORKDAY: DEFAULT_TIME_UP_LATE_WORKDAY,
     CONF_TIME_DOWN_EARLY_WORKDAY: DEFAULT_TIME_DOWN_EARLY_WORKDAY,
@@ -224,14 +233,14 @@ class AutomationToggleSwitch(SwitchEntity):
     @property
     def extra_state_attributes(self):
         return None
-    
+
     async def async_turn_on(self, **kwargs) -> None:  # type: ignore[override]
         if self._key == "auto_time_enabled":
             options = {**self.entry.options, CONF_AUTO_UP: True, CONF_AUTO_DOWN: True}
             await self.hass.config_entries.async_update_entry(self.entry, options=options)
             return
         options = {**self.entry.options, self._key: True}
-        await self.hass.config_entries.async_update_entry(self.entry, options=options)
+        self.hass.config_entries.async_update_entry(self.entry, options=options)
 
     async def async_turn_off(self, **kwargs) -> None:  # type: ignore[override]
         if self._key == "auto_time_enabled":
@@ -239,7 +248,7 @@ class AutomationToggleSwitch(SwitchEntity):
             await self.hass.config_entries.async_update_entry(self.entry, options=options)
             return
         options = {**self.entry.options, self._key: False}
-        await self.hass.config_entries.async_update_entry(self.entry, options=options)
+        self.hass.config_entries.async_update_entry(self.entry, options=options)
 
     async def _handle_entry_update(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         """Refresh state when config entry is updated."""
@@ -438,11 +447,11 @@ class MasterControlSwitch(SwitchEntity):
 
     async def async_turn_on(self, **kwargs) -> None:  # type: ignore[override]
         options = {**self.entry.options, CONF_MASTER_ENABLED: True}
-        await self.hass.config_entries.async_update_entry(self.entry, options=options)
+        self.hass.config_entries.async_update_entry(self.entry, options=options)
 
     async def async_turn_off(self, **kwargs) -> None:  # type: ignore[override]
         options = {**self.entry.options, CONF_MASTER_ENABLED: False}
-        await self.hass.config_entries.async_update_entry(self.entry, options=options)
+        self.hass.config_entries.async_update_entry(self.entry, options=options)
 
     async def async_added_to_hass(self) -> None:
         self.async_on_remove(
