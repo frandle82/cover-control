@@ -310,7 +310,51 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                 ),
                             }
                         ),
-                        {"collapsed": False},
+                    ): bool,
+                    vol.Optional(
+                        CONF_VENTILATION_USE_AFTER_SHADING,
+                        default=bool(
+                            self._data.get(
+                                CONF_VENTILATION_USE_AFTER_SHADING,
+                                DEFAULT_CONTACT_SETTINGS[CONF_VENTILATION_USE_AFTER_SHADING],
+                            )
+                        ),
+                    ): bool,
+                    vol.Optional(
+                        CONF_LOCKOUT_TILT_CLOSE,
+                        default=bool(
+                            self._data.get(
+                                CONF_LOCKOUT_TILT_CLOSE,
+                                DEFAULT_CONTACT_SETTINGS[CONF_LOCKOUT_TILT_CLOSE],
+                            )
+                        ),
+                    ): bool,
+                    vol.Optional(
+                        CONF_LOCKOUT_TILT_SHADING_START,
+                        default=bool(
+                            self._data.get(
+                                CONF_LOCKOUT_TILT_SHADING_START,
+                                DEFAULT_CONTACT_SETTINGS[CONF_LOCKOUT_TILT_SHADING_START],
+                            )
+                        ),
+                    ): bool,
+                    vol.Optional(
+                        CONF_LOCKOUT_TILT_SHADING_END,
+                        default=bool(
+                            self._data.get(
+                                CONF_LOCKOUT_TILT_SHADING_END,
+                                DEFAULT_CONTACT_SETTINGS[CONF_LOCKOUT_TILT_SHADING_END],
+                            )
+                        ),
+                    ): bool,
+                    vol.Optional(CONF_BRIGHTNESS_SENSOR): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor"], device_class="illuminance")
+                    ),
+                    vol.Optional(CONF_TEMPERATURE_SENSOR_INDOOR): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor"])
+                    ),
+                    vol.Optional(CONF_TEMPERATURE_SENSOR_OUTDOOR): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor"])
                     ),
                     vol.Required("timing", default={}): section(
                         vol.Schema(
@@ -640,7 +684,6 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         multi_selector = selector.EntitySelector(
             selector.EntitySelectorConfig(
                 domain=["binary_sensor"],
-                device_class=["window", "door", "opening"],
                 multiple=True,
             )
         )
@@ -819,19 +862,48 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
         return sanitized
 
     async def async_step_init(self, user_input=None) -> FlowResult:
-        menu_options = ["general", "functions"]
-        if bool(self._options.get(CONF_AUTO_UP) or self._options.get(CONF_AUTO_DOWN)):
-            menu_options.append("time_control")
-        if bool(self._options.get(CONF_AUTO_VENTILATE)):
-            menu_options.append("contact_sensors")
-        if bool(self._options.get(CONF_AUTO_BRIGHTNESS)):
-            menu_options.append("brightness_control")
-        if bool(self._options.get(CONF_AUTO_SHADING)):
-            menu_options.append("shading")
-        return self.async_show_menu(
-            step_id="init",
-            menu_options=menu_options,
-        )
+        if user_input is not None:
+            clean_input = self._clean_user_input(user_input)
+
+            name = clean_input.pop(CONF_NAME, self._config_entry.title).strip() or DEFAULT_NAME
+            covers = clean_input.get(CONF_COVERS, self._options.get(CONF_COVERS, []))
+            full_mapping: dict[str, list[str]] = {}
+            tilt_mapping: dict[str, list[str]] = {}
+            for cover in covers:
+                full_mapping[cover] = [
+                    sensor
+                    for sensor in clean_input.get(
+                        self._cover_full_key(cover),
+                        self._existing_full_contacts_for_cover(cover),
+                    ) 
+                    if isinstance(sensor, str) and sensor
+                ]
+
+                tilt_mapping[cover] = [
+                    sensor
+                    for sensor in clean_input.get(
+                        self._cover_tilt_key(cover),
+                        self._existing_tilt_contacts_for_cover(cover),
+                    )
+                    if isinstance(sensor, str) and sensor
+                ]
+            clean_input[CONF_WINDOW_SENSOR_FULL] = full_mapping
+            clean_input[CONF_WINDOW_SENSOR_TILT] = tilt_mapping
+            overrides = {CONF_NAME: name} | clean_input
+            try:
+                self._options = self._normalize_options(self._config_entry, overrides)
+            except Exception:  # pragma: no cover - defensive fallback for HA runtime
+                LOGGER.exception("Failed to normalize Cover Control options")
+                merged = {
+                    **(self._config_entry.data or {}),
+                    **(self._config_entry.options or {}),
+                    **overrides,
+                }
+                self._options = self._sanitize_options(
+                    _with_config_defaults(merged)
+                )
+            self.hass.config_entries.async_update_entry(self._config_entry, title=name)
+            return self.async_create_entry(title="", data=self._options)
 
     async def _save_options(self, updates: dict[str, Any]) -> FlowResult:
         overrides = {CONF_NAME: self._config_entry.title} | updates
@@ -889,31 +961,42 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                 default=bool(self._options.get(CONF_EXPOSE_SWITCH_SETTINGS, False)),
             ): bool,
         }
-
-        return self.async_show_form(step_id="init", data_schema=vol.Schema(schema))
-
-    async def async_step_menu(self, user_input=None) -> FlowResult:
-        menu_options: list[str] = ["finish"]
-        if self._options.get(CONF_AUTO_TIME, True):
-            menu_options.append("time_control")
-        if self._options.get(CONF_AUTO_VENTILATE, True):
-            menu_options.append("contact_sensors")
-        if self._options.get(CONF_AUTO_BRIGHTNESS, True):
-            menu_options.append("brightness")
-        if self._options.get(CONF_AUTO_SHADING, True):
-            menu_options.append("shading")
-        return self.async_show_menu(step_id="menu", menu_options=menu_options)
-
-    async def async_step_finish(self, user_input=None) -> FlowResult:
-        return self.async_create_entry(title="", data=self._options)
-
-    async def async_step_time_control(self, user_input=None) -> FlowResult:
-        if user_input is not None:
-            await self._save_options(user_input)
-            return await self.async_step_menu()
-
-        schema = vol.Schema(
-            {
+        if auto_ventilate:  
+            multi_selector = selector.EntitySelector(
+                selector.EntitySelectorConfig(
+                    domain=["binary_sensor"],
+                    multiple=True,
+                )
+            )
+            schema.update(
+                {
+                    **{
+                        vol.Optional(
+                            self._cover_full_key(cover),
+                            default=_selector_default(
+                                self._existing_full_contacts_for_cover(cover)    
+                            ),
+                        ): multi_selector
+                        for cover in self._options.get(CONF_COVERS, [])
+                        },
+                    **{
+                        vol.Optional(
+                            self._cover_tilt_key(cover),
+                            default=_selector_default(
+                                self._existing_tilt_contacts_for_cover(cover)
+                            ),
+                        ): multi_selector
+                        for cover in self._options.get(CONF_COVERS, [])
+                        },
+                    }
+                )
+            schema.update(
+                {
+                vol.Optional(
+                    CONF_RESIDENT_SENSOR, default=self._optional_default(CONF_RESIDENT_SENSOR)
+                ): selector.EntitySelector(
+                    selector.EntitySelectorConfig(domain=["binary_sensor", "switch"])
+                ),
                 vol.Optional(
                     CONF_WORKDAY_SENSOR, default=self._optional_default(CONF_WORKDAY_SENSOR)
                 ): selector.EntitySelector(
@@ -1039,7 +1122,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                         CONF_BRIGHTNESS_SENSOR,
                         default=self._optional_default(CONF_BRIGHTNESS_SENSOR),
                     ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor"], device_class=["illuminance"])
+                        selector.EntitySelectorConfig(domain=["sensor"], device_class="illuminance")
                     ),
                     vol.Optional(
                         CONF_BRIGHTNESS_OPEN_ABOVE,
