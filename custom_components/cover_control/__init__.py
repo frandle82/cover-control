@@ -392,7 +392,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     for entity_entry in list(registry.entities.values()):
         if entity_entry.config_entry_id != entry.entry_id:
             continue
-        if entity_entry.domain in {"number", "text", "time", "sensor"}:
+        if entity_entry.domain in {"number", "text", "time"}:
             registry.async_remove(entity_entry.entity_id)
     
     manager = ControllerManager(hass, entry)
@@ -416,3 +416,4 @@ async def _handle_options_update(hass: HomeAssistant, entry: ConfigEntry) -> Non
     manager: ControllerManager | None = hass.data.get(DOMAIN, {}).get(entry.entry_id)
     if manager:
         manager.async_update_options()
+    await hass.config_entries.async_reload(entry.entry_id)
