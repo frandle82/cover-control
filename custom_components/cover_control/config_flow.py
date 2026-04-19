@@ -283,7 +283,7 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         ),
                     ): bool,
                     vol.Optional(CONF_BRIGHTNESS_SENSOR): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor"],device_class=["illuminance"])
+                        selector.EntitySelectorConfig(domain=["sensor"], device_class="illuminance")
                     ),
                     vol.Optional(CONF_TEMPERATURE_SENSOR_INDOOR): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor"])
@@ -513,7 +513,6 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         multi_selector = selector.EntitySelector(
             selector.EntitySelectorConfig(
                 domain=["binary_sensor"],
-                device_class=["window", "door", "opening"],
                 multiple=True,
             )
         )
@@ -699,7 +698,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
             try:
                 self._options = self._normalize_options(self._config_entry, overrides)
             except Exception:  # pragma: no cover - defensive fallback for HA runtime
-                _LOGGER.exception("Failed to normalize Cover Control options")
+                LOGGER.exception("Failed to normalize Cover Control options")
                 merged = {
                     **(self._config_entry.data or {}),
                     **(self._config_entry.options or {}),
@@ -927,7 +926,6 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
             multi_selector = selector.EntitySelector(
                 selector.EntitySelectorConfig(
                     domain=["binary_sensor"],
-                    device_class=["window", "door", "opening"],
                     multiple=True,
                 )
             )
@@ -1029,7 +1027,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                         CONF_BRIGHTNESS_SENSOR,
                         default=self._optional_default(CONF_BRIGHTNESS_SENSOR),
                     ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor"],device_class=["illuminance"])
+                        selector.EntitySelectorConfig(domain=["sensor"], device_class="illuminance")
                     ),
                     vol.Optional(
                         CONF_BRIGHTNESS_OPEN_ABOVE,

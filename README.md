@@ -52,3 +52,22 @@ guided configuration flow and adding per-cover controllers that react to sensor 
 - If actions do not trigger, check that the relevant condition sensors are **on** (true) and that manual overrides or
   ventilation locks are not active.
 - Review Home Assistant logs for `shuttercontrol` entries to understand why an action was skipped or deferred.
+
+## Test environment (inspired by Magic Areas)
+For reproducible local tests, this repository now includes a dedicated pytest/tox setup similar to the Home Assistant custom-component workflow used by Magic Areas.
+
+### Quick start
+1. Create a virtual environment:
+   - `python -m venv .venv`
+   - `source .venv/bin/activate`
+2. Install test dependencies:
+   - `pip install -r requirements_test.txt`
+3. Run tests:
+   - `pytest`
+
+### Tox
+- Run all configured environments: `tox`
+- Run only pytest env: `tox -e py310`
+- Run lint env: `tox -e lint`
+
+> Note: Full config/options-flow assertions require Home Assistant >= 2023.9. In older runtimes, these tests are skipped automatically.
