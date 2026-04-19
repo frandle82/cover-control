@@ -85,39 +85,30 @@
   "options": {
     "step": {
       "init": {
-        "title": "Rollo Einstellungen",
-        "description": "Schwellenwerte, Helfer und Verhalten bei manuellem Override anpassen.",
+        "title": "Allgemeine Konfiguration",
+        "description": "Raum, Cover, Basispositionen und aktive Funktionen festlegen.",
         "data": {
           "name": "Instanzname",
-          "window_{cover}": "Fenster {cover}",
-          "workday_sensor": "Arbeitstags-Helfer (optional)",
-          "resident_sensor": "Anwesenheits-/Ruhe-Sensor (optional)",
-          "master_enabled": "Cover Control Instanz aktivieren",
-          "brightness_sensor": "Helligkeitssensor (optional)",
-          "brightness_open_above": "Öffnen bei Helligkeit über",
-          "brightness_close_below": "Schließen bei Helligkeit unter",
-          "sun_elevation_open": "Minimale Sonnenhöhe zum Öffnen",
-          "sun_elevation_close": "Maximale Sonnenhöhe zum Schließen",
-          "shading_azimuth_start": "Azimut für Start der Beschattung",
-          "shading_azimuth_end": "Azimut für Ende der Beschattung",
-          "shading_elevation_min": "Minimale Sonnenhöhe für Beschattung",
-          "shading_elevation_max": "Maximale Sonnenhöhe für Beschattung",
-          "shading_brightness_start": "Helligkeit zum Start der Beschattung",
-          "shading_brightness_end": "Helligkeit zum Ende der Beschattung",
-          "shading_forecast_sensor": "Vorhersage-Wettersensor (optional)",
-          "shading_forecast_type": "Beschattung Vorhersagetyp",
-          "shading_weather_conditions": "Wetterbedingungen für Beschattung",
-          "temperature_sensor_indoor": "Temperatursensor innen (optional)",
-          "temperature_sensor_outdoor": "Temperatursensor außen (optional)",
-          "temperature_threshold": "Temperaturschwelle",
-          "temperature_forecast_threshold": "Vorhersage-Temperaturschwelle",
-          "manual_override_minutes": "Minuten bis zum Zurücksetzen des manuellen Overrides",
-          "manual_override_reset_mode": "Manuelles Override zurücksetzen",
-          "manual_override_reset_time": "Uhrzeit zum Zurücksetzen des manuellen Overrides",
-          "manual_override_block_open": "Nächste automatische Öffnung nach manueller Änderung ignorieren",
-          "manual_override_block_close": "Nächste automatische Schließung nach manueller Änderung ignorieren",
-          "manual_override_block_ventilate": "Nächste automatische Lüftung nach manueller Änderung ignorieren",
-          "manual_override_block_shading": "Nächste automatische Beschattung nach manueller Änderung ignorieren",
+          "room": "Raum",
+          "covers": "Cover",
+          "open_position": "Öffnungsposition",
+          "close_position": "Schließposition",
+          "position_tolerance": "Positionstoleranz",
+          "auto_time_enabled": "Zeitsteuerung aktivieren",
+          "auto_ventilate_enabled": "Lüftungssteuerung aktivieren",
+          "auto_brightness_enabled": "Helligkeitssteuerung aktivieren",
+          "auto_shading_enabled": "Beschattungssteuerung aktivieren",
+          "expose_switch_settings": "Automationswerte als Schalterattribute anzeigen"
+        }
+      },
+      "menu": {
+        "title": "Funktionsmenü",
+        "description": "Wähle eine aktive Funktion zur Konfiguration aus."
+      },
+      "time_control": {
+        "title": "Zeitsteuerung",
+        "data": {
+          "workday_sensor": "Arbeitstag/Frei-Entität (on=frei, off=Arbeitstag)",
           "time_up_early_workday": "Früheste Öffnungszeit (Arbeitstag)",
           "time_up_late_workday": "Späteste Öffnungszeit (Arbeitstag)",
           "time_down_early_workday": "Früheste Schließzeit (Arbeitstag)",
@@ -125,24 +116,62 @@
           "time_up_early_non_workday": "Früheste Öffnungszeit (frei)",
           "time_up_late_non_workday": "Späteste Öffnungszeit (frei)",
           "time_down_early_non_workday": "Früheste Schließzeit (frei)",
-          "time_down_late_non_workday": "Späteste Schließzeit (frei)",
-          "open_position": "Öffnungsposition",
-          "close_position": "Schließposition",
-          "ventilate_position": "Lüftungsposition",
-          "shading_position": "Beschattungsposition",
-          "additional_condition_global": "Zusätzliche Bedingung für die gesamte Automatisierung",
-          "additional_condition_open": "Zusätzliche Bedingung zum Öffnen",
-          "additional_condition_close": "Zusätzliche Bedingung zum Schließen",
-          "additional_condition_ventilate": "Zusätzliche Bedingung zum Aktivieren der Lüftung",
-          "additional_condition_ventilate_end": "Zusätzliche Bedingung zum Beenden der Lüftung",
-          "additional_condition_shading": "Zusätzliche Bedingung für Sonnenschutz",
-          "additional_condition_shading_tilt": "Zusätzliche Bedingung für Sonnenschutz-Kippautomatik",
-          "additional_condition_shading_end": "Zusätzliche Bedingung zum Beenden des Sonnenschutzes",
-          "expose_switch_settings": "Konfiguration als Switch-Attribute anzeigen",
-          "room": "Raum",
-          "auto_time_enabled": "Zeitsteuerung aktivieren"
+          "time_down_late_non_workday": "Späteste Schließzeit (frei)"
         }
+      },
+      "contact_sensors": {
+        "title": "Kontaktsensoren",
+        "data": {
+          "contact_trigger_delay": "Wartezeit bei Kontaktänderung",
+          "contact_status_delay": "Stabilisierungszeit Kontaktstatus",
+          "ventilation_delay_after_close": "Wartezeit nach Schließen bis Lüftung",
+          "ventilation_allow_higher_position": "Lüftung über Schließposition erlauben",
+          "ventilation_use_after_shading": "Lüftung nach Beschattung verwenden",
+          "lockout_tilt_close": "Schließen bei Kippkontakt sperren",
+          "lockout_tilt_shading_start": "Beschattung-Start bei Kippkontakt sperren",
+          "lockout_tilt_shading_end": "Beschattung-Ende bei Kippkontakt sperren"
+        }
+      },
+      "brightness": {
+        "title": "Helligkeitsautomatik",
+        "data": {
+          "brightness_sensor": "Helligkeitssensor",
+          "brightness_open_above": "Öffnen bei Helligkeit über",
+          "brightness_close_below": "Schließen bei Helligkeit unter",
+          "auto_sun_enabled": "Sonnenstand als Alternative nutzen",
+          "sun_elevation_open": "Sonnenhöhe für Öffnung",
+          "sun_elevation_close": "Sonnenhöhe für Schließung"
+        }
+      },
+      "shading": {
+        "title": "Beschattung",
+        "data": {
+          "shading_position": "Beschattungsposition",
+          "shading_azimuth_start": "Azimut Start Beschattung",
+          "shading_azimuth_end": "Azimut Ende Beschattung",
+          "shading_elevation_min": "Minimale Sonnenhöhe Beschattung",
+          "shading_elevation_max": "Maximale Sonnenhöhe Beschattung",
+          "shading_brightness_start": "Helligkeit Start Beschattung",
+          "shading_brightness_end": "Helligkeit Ende Beschattung",
+          "shading_forecast_sensor": "Vorhersage-Wettersensor (optional)",
+          "shading_forecast_type": "Vorhersagetyp Beschattung",
+          "shading_weather_conditions": "Wetterbedingungen für Beschattung",
+          "additional_condition_shading": "Zusatzbedingung Beschattung",
+          "additional_condition_shading_tilt": "Zusatzbedingung Beschattung Kipp",
+          "additional_condition_shading_end": "Zusatzbedingung Ende Beschattung"
+        }
+      },
+      "finish": {
+        "title": "Fertig",
+        "description": "Konfiguration speichern."
       }
+    },
+    "menu_options": {
+      "finish": "Speichern und schließen",
+      "time_control": "Zeitsteuerung",
+      "contact_sensors": "Kontaktsensoren",
+      "brightness": "Helligkeitsautomatik",
+      "shading": "Beschattung"
     }
   },
   "entity": {
