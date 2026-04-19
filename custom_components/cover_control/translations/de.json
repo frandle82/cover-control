@@ -12,10 +12,11 @@
   "config": {
     "step": {
       "user": {
-        "title": "Wähle Abdeckung",
-        "description": "Wähle die automatisierten Abdeckung aus.",
+        "title": "Raum und Cover auswählen",
+        "description": "Wähle den Raum und die Cover aus, die automatisiert werden sollen.",
         "data": {
-          "covers": "Abdeckung"
+          "covers": "Abdeckung",
+          "room": "Raum"
         }
       },
       "windows": {
@@ -137,7 +138,9 @@
           "additional_condition_shading": "Zusätzliche Bedingung für Sonnenschutz",
           "additional_condition_shading_tilt": "Zusätzliche Bedingung für Sonnenschutz-Kippautomatik",
           "additional_condition_shading_end": "Zusätzliche Bedingung zum Beenden des Sonnenschutzes",
-          "expose_switch_settings": "Konfiguration als Switch-Attribute anzeigen"
+          "expose_switch_settings": "Konfiguration als Switch-Attribute anzeigen",
+          "room": "Raum",
+          "auto_time_enabled": "Zeitsteuerung aktivieren"
         }
       }
     }
@@ -221,6 +224,9 @@
       },
       "auto_shading": {
         "name": "Beschattung"
+      },
+      "auto_time": {
+        "name": "Zeitsteuerung"
       }
     }
   },

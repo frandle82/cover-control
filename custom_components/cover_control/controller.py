@@ -33,6 +33,7 @@ from .const import (
     CONF_AUTO_SHADING_ENTITY,
     CONF_AUTO_SUN,
     CONF_AUTO_SUN_ENTITY,
+    CONF_AUTO_TIME,
     CONF_AUTO_UP,
     CONF_AUTO_UP_ENTITY,
     CONF_AUTO_VENTILATE,
@@ -986,7 +987,11 @@ class CoverController:
                     )
                 )
 
-            if self._auto_enabled(CONF_AUTO_DOWN) and down_due:
+            if (
+                self._auto_enabled(CONF_AUTO_TIME)
+                and self._auto_enabled(CONF_AUTO_DOWN)
+                and down_due
+            ):
                 close_events.append(
                     (
                         self._next_close or now,
@@ -1024,7 +1029,11 @@ class CoverController:
 
             time_window_open = self._within_open_close_window(now)
 
-            if self._auto_enabled(CONF_AUTO_UP) and (up_due or time_window_open):
+            if (
+                self._auto_enabled(CONF_AUTO_TIME)
+                and self._auto_enabled(CONF_AUTO_UP)
+                and (up_due or time_window_open)
+            ):
                 open_events.append(
                     (
                         self._next_open or now,

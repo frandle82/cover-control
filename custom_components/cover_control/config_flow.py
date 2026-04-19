@@ -17,6 +17,7 @@ from .const import (
     CONF_AUTO_BRIGHTNESS,
     CONF_AUTO_SHADING,
     CONF_AUTO_SUN,
+    CONF_AUTO_TIME,
     CONF_AUTO_VENTILATE,
     CONF_ADDITIONAL_CONDITION_CLOSE,
     CONF_ADDITIONAL_CONDITION_GLOBAL,
@@ -48,6 +49,7 @@ from .const import (
     CONF_MANUAL_OVERRIDE_RESET_TIME,
     CONF_NAME,
     CONF_OPEN_POSITION,
+    CONF_ROOM,
     CONF_POSITION_TOLERANCE,
     CONF_RESIDENT_SENSOR,
     CONF_SHADING_FORECAST_SENSOR,
@@ -165,13 +167,19 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input=None) -> FlowResult:
         if user_input is not None:
             self._data.update(user_input)
-            return await self.async_step_windows()
+            room = self._data.get(CONF_ROOM)
+            title = room or self._data.get(CONF_NAME, DEFAULT_NAME)
+            title = str(title).strip() or DEFAULT_NAME
+            return self.async_create_entry(
+                title=title,
+                data=_with_config_defaults(self._data),
+            )
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(CONF_NAME, default=DEFAULT_NAME): str,
+                    vol.Required(CONF_ROOM): selector.AreaSelector(),
                     vol.Required(CONF_COVERS): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["cover"], multiple=True)
                     ),
@@ -720,6 +728,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
 
         schema: dict = {
             vol.Optional(CONF_NAME, default=self._options.get(CONF_NAME, self._config_entry.title or DEFAULT_NAME)): str,
+            vol.Optional(CONF_ROOM, default=self._optional_default(CONF_ROOM)): selector.AreaSelector(),
             vol.Required(CONF_COVERS, default=self._options.get(CONF_COVERS, [])): selector.EntitySelector(
                 selector.EntitySelectorConfig(domain=["cover"], multiple=True)
             ),
@@ -827,6 +836,15 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(
                 CONF_EXPOSE_SWITCH_SETTINGS,
                 default=bool(self._options.get(CONF_EXPOSE_SWITCH_SETTINGS, False)),
+            ): bool,
+            vol.Optional(
+                CONF_AUTO_TIME,
+                default=bool(
+                    self._options.get(
+                        CONF_AUTO_TIME,
+                        DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_TIME],
+                    )
+                ),
             ): bool,
             vol.Optional(
                 CONF_CONTACT_TRIGGER_DELAY,

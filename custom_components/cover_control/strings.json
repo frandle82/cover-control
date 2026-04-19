@@ -3,10 +3,10 @@
   "config": {
     "step": {
       "user": {
-        "title": "Select covers",
-        "description": "Choose the shutters or blinds that will be automated.",
+        "title": "Select room and covers",
+        "description": "Choose the room and shutters or blinds that will be automated.",
         "data": {
-          "name": "Instance name",
+          "room": "Room",
           "covers": "Covers"
         }
       },
@@ -94,6 +94,7 @@
         "description": "Adjust thresholds, helpers, and manual override behaviour.",
         "data": {
           "name": "Instance name",
+          "room": "Room",
           "windows": "Window-/Door-Contact",
           "workday_sensor": "Workday helper (optional)",
           "resident_sensor": "Resident/quiet sensor (optional)",
@@ -144,6 +145,8 @@
           "additional_condition_shading_tilt": "Additional condition for sun shading tilt",
           "additional_condition_shading_end": "Additional condition for ending sun shading",
           "expose_switch_settings": "Expose automation settings as switch attributes"
+          ,
+          "auto_time_enabled": "Enable time control"
         }
       }
     }
@@ -215,6 +218,9 @@
       },
       "auto_down": {
         "name": "Auto close"
+      },
+      "auto_time": {
+        "name": "Time control"
       },
       "auto_brightness": {
         "name": "Brightness auto"

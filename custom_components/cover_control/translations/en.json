@@ -3,10 +3,11 @@
   "config": {
     "step": {
       "user": {
-        "title": "Select covers",
-        "description": "Choose the shutters or blinds that will be automated.",
+        "title": "Select room and covers",
+        "description": "Choose the room and shutters or blinds that will be automated.",
         "data": {
-          "covers": "Covers"
+          "covers": "Covers",
+          "room": "Room"
         }
       },
       "windows": {
@@ -128,7 +129,9 @@
           "additional_condition_shading": "Additional condition for sun shading",
           "additional_condition_shading_tilt": "Additional condition for sun shading tilt",
           "additional_condition_shading_end": "Additional condition for ending sun shading",
-          "expose_switch_settings": "Expose automation settings as switch attributes"
+          "expose_switch_settings": "Expose automation settings as switch attributes",
+          "room": "Room",
+          "auto_time_enabled": "Enable time control"
         }
       }
     }
@@ -212,6 +215,9 @@
       },
       "auto_shading": {
         "name": "Sun shading"
+      },
+      "auto_time": {
+        "name": "Time control"
       }
     }
   },
