@@ -14,7 +14,7 @@ guided configuration flow and adding per-cover controllers that react to sensor 
   status, and the next planned open/close timestamps.
 
 ## Requirements
-- Home Assistant 2023.9 or newer.
+- Home Assistant 2024.10.0 or newer.
 - At least one supported cover entity.
 - Optional: binary sensors, input booleans or switches for brightness, sun position, doors/windows, vacation mode, ventilation, and any conditional
   overrides you want to use.
@@ -27,7 +27,7 @@ guided configuration flow and adding per-cover controllers that react to sensor 
 
 ### Manual copy
 1. Download the latest release archive.
-2. Copy the `custom_components/shuttercontrol` folder into your Home Assistant `config/custom_components/` directory.
+2. Copy the `custom_components/cover_control` folder into your Home Assistant `config/custom_components/` directory.
 3. Restart Home Assistant.
 
 ## Configuration
@@ -38,8 +38,11 @@ guided configuration flow and adding per-cover controllers that react to sensor 
    time.
 
 ### Services
-- `shuttercontrol.set_manual_override`: Pause automation for a cover for a specified number of minutes.
-- `shuttercontrol.activate_shading`: Immediately move a cover to its shading position and hold it using the override timer.
+- `cover_control.set_manual_override`: Pause automation for a cover for a specified number of minutes.
+- `cover_control.clear_manual_override`: Resume automation immediately for a cover.
+- `cover_control.activate_shading`: Immediately move a cover to its shading position and hold it using the override timer.
+- `cover_control.force_action`: Run an immediate action (open, close, ventilation start/stop, shading activate/deactivate) on a
+  cover without further automation checks.
 
 ## Entities
 - **Master switch**: Enables/disables automation globally and exposes attributes for any settings that differ from the defaults.
@@ -52,3 +55,22 @@ guided configuration flow and adding per-cover controllers that react to sensor 
 - If actions do not trigger, check that the relevant condition sensors are **on** (true) and that manual overrides or
   ventilation locks are not active.
 - Review Home Assistant logs for `shuttercontrol` entries to understand why an action was skipped or deferred.
+
+## Test environment (inspired by Magic Areas)
+For reproducible local tests, this repository now includes a dedicated pytest/tox setup similar to the Home Assistant custom-component workflow used by Magic Areas.
+
+### Quick start
+1. Create a virtual environment:
+   - `python -m venv .venv`
+   - `source .venv/bin/activate`
+2. Install test dependencies:
+   - `pip install -r requirements_test.txt`
+3. Run tests:
+   - `pytest`
+
+### Tox
+- Run all configured environments: `tox`
+- Run only pytest env: `tox -e py310`
+- Run lint env: `tox -e lint`
+
+> Note: Full config/options-flow assertions require Home Assistant >= 2023.9. In older runtimes, these tests are skipped automatically.

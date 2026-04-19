@@ -6,8 +6,9 @@ from homeassistant.const import Platform
 DOMAIN = "cover_control"
 EVENT_COVER_CONTROL = "cover_control_event"
 CONF_NAME = "name"
+CONF_ROOM = "room"
 DEFAULT_NAME = "Cover Control"
-PLATFORMS: list[Platform] = [Platform.SWITCH]
+PLATFORMS: list[Platform] = [Platform.SWITCH, Platform.SENSOR]
 
 CONF_COVERS = "covers"
 CONF_OPEN_POSITION = "open_position"
@@ -25,12 +26,22 @@ CONF_TIME_DOWN_EARLY_NON_WORKDAY = "time_down_early_non_workday"
 CONF_TIME_DOWN_LATE_NON_WORKDAY = "time_down_late_non_workday"
 
 CONF_WORKDAY_SENSOR = "workday_sensor"
+CONF_WORKDAY_TOMORROW_SENSOR = "workday_tomorrow_sensor"
+CONF_USE_WORKDAY_SENSOR = "use_workday_sensor"
 CONF_BRIGHTNESS_SENSOR = "brightness_sensor"
+CONF_USE_BRIGHTNESS_SENSOR = "use_brightness_sensor"
 CONF_BRIGHTNESS_OPEN_ABOVE = "brightness_open_above"
 CONF_BRIGHTNESS_CLOSE_BELOW = "brightness_close_below"
 
 CONF_SUN_ELEVATION_OPEN = "sun_elevation_open"
 CONF_SUN_ELEVATION_CLOSE = "sun_elevation_close"
+CONF_SUN_ELEVATION_MODE = "sun_elevation_mode"
+CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR = "sun_elevation_dynamic_open_sensor"
+CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR = "use_sun_elevation_dynamic_open_sensor"
+CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR = "sun_elevation_dynamic_close_sensor"
+CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR = "use_sun_elevation_dynamic_close_sensor"
+CONF_SUN_ELEVATION_OPEN_OFFSET = "sun_elevation_open_offset"
+CONF_SUN_ELEVATION_CLOSE_OFFSET = "sun_elevation_close_offset"
 CONF_SUN_AZIMUTH_START = "shading_azimuth_start"
 CONF_SUN_AZIMUTH_END = "shading_azimuth_end"
 CONF_SUN_ELEVATION_MIN = "shading_elevation_min"
@@ -39,15 +50,19 @@ CONF_SHADING_BRIGHTNESS_START = "shading_brightness_start"
 CONF_SHADING_BRIGHTNESS_END = "shading_brightness_end"
 DEFAULT_SHADING_FORECAST_TYPE = "weather_attributes"
 CONF_SHADING_FORECAST_SENSOR = "shading_forecast_sensor"
+CONF_USE_SHADING_FORECAST_SENSOR = "use_shading_forecast_sensor"
 CONF_SHADING_FORECAST_TYPE = "shading_forecast_type"
 CONF_SHADING_WEATHER_CONDITIONS = "shading_weather_conditions"
 
 CONF_TEMPERATURE_SENSOR_INDOOR = "temperature_sensor_indoor"
+CONF_USE_TEMPERATURE_SENSOR_INDOOR = "use_temperature_sensor_indoor"
 CONF_TEMPERATURE_SENSOR_OUTDOOR = "temperature_sensor_outdoor"
+CONF_USE_TEMPERATURE_SENSOR_OUTDOOR = "use_temperature_sensor_outdoor"
 CONF_TEMPERATURE_THRESHOLD = "temperature_threshold"
 CONF_TEMPERATURE_FORECAST_THRESHOLD = "temperature_forecast_threshold"
 
 CONF_RESIDENT_SENSOR = "resident_sensor"
+CONF_USE_RESIDENT_SENSOR = "use_resident_sensor"
 CONF_WINDOW_SENSORS = "window_sensors"
 CONF_WINDOW_SENSOR_FULL = "window_sensor_full_open"
 CONF_WINDOW_SENSOR_TILT = "window_sensor_tilt"
@@ -78,6 +93,8 @@ CONF_AUTO_UP = "auto_up_enabled"
 CONF_AUTO_UP_ENTITY = "auto_up_entity"
 CONF_AUTO_DOWN = "auto_down_enabled"
 CONF_AUTO_DOWN_ENTITY = "auto_down_entity"
+CONF_AUTO_TIME = "auto_time_enabled"
+CONF_AUTO_TIME_ENTITY = "auto_time_entity"
 CONF_AUTO_BRIGHTNESS = "auto_brightness_enabled"
 CONF_AUTO_BRIGHTNESS_ENTITY = "auto_brightness_entity"
 CONF_AUTO_SUN = "auto_sun_enabled"
@@ -86,21 +103,37 @@ CONF_AUTO_VENTILATE = "auto_ventilate_enabled"
 CONF_AUTO_VENTILATE_ENTITY = "auto_ventilate_entity"
 CONF_AUTO_SHADING = "auto_shading_enabled"
 CONF_AUTO_SHADING_ENTITY = "auto_shading_entity"
+CONF_RESIDENT_STATUS = "resident_status_enabled"
+CONF_RESIDENT_OPEN_ENABLED = "resident_open_enabled"
+CONF_RESIDENT_CLOSE_ENABLED = "resident_close_enabled"
+CONF_RESIDENT_ALLOW_SHADING = "resident_allow_shading"
+CONF_RESIDENT_ALLOW_OPEN = "resident_allow_open"
+CONF_RESIDENT_ALLOW_VENTILATION = "resident_allow_ventilation"
+CONF_ADDITIONAL_CONDITIONS_ENABLED = "additional_conditions_enabled"
 CONF_EXPOSE_SWITCH_SETTINGS = "expose_switch_settings"
 
 DEFAULT_AUTOMATION_FLAGS: dict[str, bool] = {
     CONF_AUTO_UP: True,
     CONF_AUTO_DOWN: True,
+    CONF_AUTO_TIME: True,
     CONF_AUTO_BRIGHTNESS: True,
     CONF_AUTO_SUN: True,
     CONF_AUTO_VENTILATE: True,
     CONF_AUTO_SHADING: True,
+    CONF_RESIDENT_STATUS: False,
+    CONF_RESIDENT_OPEN_ENABLED: True,
+    CONF_RESIDENT_CLOSE_ENABLED: True,
+    CONF_RESIDENT_ALLOW_SHADING: False,
+    CONF_RESIDENT_ALLOW_OPEN: False,
+    CONF_RESIDENT_ALLOW_VENTILATION: False,
+    CONF_ADDITIONAL_CONDITIONS_ENABLED: False,
 }
 
 DEFAULT_MASTER_FLAGS: dict[str, bool] = {CONF_MASTER_ENABLED: True}
 
 CONF_COLD_PROTECTION_THRESHOLD = "cold_protection_temperature"
 CONF_COLD_PROTECTION_FORECAST_SENSOR = "cold_protection_forecast_sensor"
+CONF_USE_COLD_PROTECTION_FORECAST_SENSOR = "use_cold_protection_forecast_sensor"
 
 CONF_MANUAL_OVERRIDE_MINUTES = "manual_override_minutes"
 CONF_MANUAL_OVERRIDE_BLOCK_OPEN = "manual_override_block_open"
@@ -142,6 +175,9 @@ DEFAULT_BRIGHTNESS_OPEN = 500
 DEFAULT_BRIGHTNESS_CLOSE = 100
 DEFAULT_SUN_ELEVATION_OPEN = -2.0
 DEFAULT_SUN_ELEVATION_CLOSE = -4.0
+DEFAULT_SUN_ELEVATION_MODE = "fixed"
+DEFAULT_SUN_ELEVATION_OPEN_OFFSET = 0.0
+DEFAULT_SUN_ELEVATION_CLOSE_OFFSET = 0.0
 DEFAULT_SHADING_AZIMUTH_START = 90
 DEFAULT_SHADING_AZIMUTH_END = 270
 DEFAULT_SHADING_ELEVATION_MIN = 10
