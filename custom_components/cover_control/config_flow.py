@@ -245,7 +245,7 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                 DEFAULT_CONTACT_SETTINGS[CONF_VENTILATION_ALLOW_HIGHER_POSITION],
                             )
                         ),
-                    ): bool,
+                    ): selector.BooleanSelector(),
                     vol.Optional(
                         CONF_VENTILATION_USE_AFTER_SHADING,
                         default=bool(
@@ -254,7 +254,7 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                 DEFAULT_CONTACT_SETTINGS[CONF_VENTILATION_USE_AFTER_SHADING],
                             )
                         ),
-                    ): bool,
+                    ): selector.BooleanSelector(),
                     vol.Optional(
                         CONF_LOCKOUT_TILT_CLOSE,
                         default=bool(
@@ -263,7 +263,7 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                 DEFAULT_CONTACT_SETTINGS[CONF_LOCKOUT_TILT_CLOSE],
                             )
                         ),
-                    ): bool,
+                    ): selector.BooleanSelector(),
                     vol.Optional(
                         CONF_LOCKOUT_TILT_SHADING_START,
                         default=bool(
@@ -272,7 +272,7 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                 DEFAULT_CONTACT_SETTINGS[CONF_LOCKOUT_TILT_SHADING_START],
                             )
                         ),
-                    ): bool,
+                    ): selector.BooleanSelector(),
                     vol.Optional(
                         CONF_LOCKOUT_TILT_SHADING_END,
                         default=bool(
@@ -281,7 +281,7 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                 DEFAULT_CONTACT_SETTINGS[CONF_LOCKOUT_TILT_SHADING_END],
                             )
                         ),
-                    ): bool,
+                    ): selector.BooleanSelector(),
                     vol.Optional(CONF_BRIGHTNESS_SENSOR): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["sensor"],device_class=["illuminance"])
                     ),
@@ -468,10 +468,10 @@ class ShutterControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         ),
                     ): selector.TimeSelector(),
                     vol.Optional(CONF_MANUAL_OVERRIDE_MINUTES, default=self._data.get(CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES)): vol.Coerce(int),
-                    vol.Optional(CONF_MANUAL_OVERRIDE_BLOCK_OPEN, default=self._data.get(CONF_MANUAL_OVERRIDE_BLOCK_OPEN, DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_OPEN])): bool,
-                    vol.Optional(CONF_MANUAL_OVERRIDE_BLOCK_CLOSE, default=self._data.get(CONF_MANUAL_OVERRIDE_BLOCK_CLOSE, DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_CLOSE])): bool,
-                    vol.Optional(CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE, default=self._data.get(CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE, DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE])): bool,
-                    vol.Optional(CONF_MANUAL_OVERRIDE_BLOCK_SHADING, default=self._data.get(CONF_MANUAL_OVERRIDE_BLOCK_SHADING, DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_SHADING])): bool,
+                    vol.Optional(CONF_MANUAL_OVERRIDE_BLOCK_OPEN, default=self._data.get(CONF_MANUAL_OVERRIDE_BLOCK_OPEN, DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_OPEN])): selector.BooleanSelector(),
+                    vol.Optional(CONF_MANUAL_OVERRIDE_BLOCK_CLOSE, default=self._data.get(CONF_MANUAL_OVERRIDE_BLOCK_CLOSE, DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_CLOSE])): selector.BooleanSelector(),
+                    vol.Optional(CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE, default=self._data.get(CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE, DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE])): selector.BooleanSelector(),
+                    vol.Optional(CONF_MANUAL_OVERRIDE_BLOCK_SHADING, default=self._data.get(CONF_MANUAL_OVERRIDE_BLOCK_SHADING, DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_SHADING])): selector.BooleanSelector(),
                 }
             ),
         )
@@ -827,7 +827,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(
                 CONF_EXPOSE_SWITCH_SETTINGS,
                 default=bool(self._options.get(CONF_EXPOSE_SWITCH_SETTINGS, False)),
-            ): bool,
+            ): selector.BooleanSelector(),
             vol.Optional(
                 CONF_CONTACT_TRIGGER_DELAY,
                 default=self._options.get(
@@ -854,7 +854,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                         DEFAULT_CONTACT_SETTINGS[CONF_VENTILATION_ALLOW_HIGHER_POSITION],
                     )
                 ),
-            ): bool,
+            ): selector.BooleanSelector(),
             vol.Optional(
                 CONF_VENTILATION_USE_AFTER_SHADING,
                 default=bool(
@@ -863,7 +863,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                         DEFAULT_CONTACT_SETTINGS[CONF_VENTILATION_USE_AFTER_SHADING],
                     )
                 ),
-            ): bool,
+            ): selector.BooleanSelector(),
             vol.Optional(
                 CONF_LOCKOUT_TILT_CLOSE,
                 default=bool(
@@ -871,7 +871,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                         CONF_LOCKOUT_TILT_CLOSE, DEFAULT_CONTACT_SETTINGS[CONF_LOCKOUT_TILT_CLOSE]
                     )
                 ),
-            ): bool,
+            ): selector.BooleanSelector(),
             vol.Optional(
                 CONF_LOCKOUT_TILT_SHADING_START,
                 default=bool(
@@ -880,7 +880,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                         DEFAULT_CONTACT_SETTINGS[CONF_LOCKOUT_TILT_SHADING_START],
                     )
                 ),
-            ): bool,
+            ): selector.BooleanSelector(),
             vol.Optional(
                 CONF_LOCKOUT_TILT_SHADING_END,
                 default=bool(
@@ -889,7 +889,7 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                         DEFAULT_CONTACT_SETTINGS[CONF_LOCKOUT_TILT_SHADING_END],
                     )
                 ),
-            ): bool,
+            ): selector.BooleanSelector(),
             vol.Optional(
                 CONF_ADDITIONAL_CONDITION_GLOBAL,
                 default=self._optional_default(CONF_ADDITIONAL_CONDITION_GLOBAL),
@@ -997,28 +997,28 @@ class ShutterOptionsFlow(config_entries.OptionsFlow):
                         CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
                         DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_OPEN],
                     ),
-                ): bool,
+                ): selector.BooleanSelector(),
                 vol.Optional(
                     CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
                     default=self._options.get(
                         CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
                         DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_CLOSE],
                     ),
-                ): bool,
+                ): selector.BooleanSelector(),
                 vol.Optional(
                     CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
                     default=self._options.get(
                         CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
                         DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE],
                     ),
-                ): bool,
+                ): selector.BooleanSelector(),
                 vol.Optional(
                     CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
                     default=self._options.get(
                         CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
                         DEFAULT_MANUAL_OVERRIDE_FLAGS[CONF_MANUAL_OVERRIDE_BLOCK_SHADING],
                     ),
-                ): bool,
+                ): selector.BooleanSelector(),
             }
         )
 
