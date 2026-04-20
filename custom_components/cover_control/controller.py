@@ -89,8 +89,6 @@ from .const import (
     CONF_SUN_ELEVATION_MODE,
     CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
     CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
-    CONF_SUN_ELEVATION_OPEN_OFFSET,
-    CONF_SUN_ELEVATION_CLOSE_OFFSET,
     CONF_TEMPERATURE_FORECAST_THRESHOLD,
     CONF_TEMPERATURE_SENSOR_INDOOR,
     CONF_TEMPERATURE_SENSOR_OUTDOOR,
@@ -305,6 +303,7 @@ class CoverController:
         self._manual_scope_all: bool = False
         self._target: float | None = None
         self._last_position: float | None = None
+        self._pre_ventilation_position: float | None = None
         self._last_command_at: datetime | None = None
         self._manual_expire_unsub: CALLBACK_TYPE | None = None
         self._last_command_context_id: str | None = None
@@ -551,6 +550,14 @@ class CoverController:
         self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
 
+    def _remember_pre_ventilation_position(self) -> None:
+        """Remember current position before switching into ventilation mode."""
+        if self._reason in {"ventilation", "ventilation_full"}:
+            return
+        current = self._current_position()
+        if current is not None:
+            self._pre_ventilation_position = float(current)
+
     def publish_state(self) -> None:
         """Expose the current state via dispatcher for newly added entities."""
         self._refresh_next_events(dt_util.utcnow())
@@ -660,6 +667,7 @@ class CoverController:
     async def force_ventilation(self, action: str) -> None:
         self._activate_manual_override(scope_all=True, reason="ventilation")
         if action == "start":
+            self._remember_pre_ventilation_position()
             target = self._position_value(CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION)
             if target is None:
                 return
@@ -667,11 +675,14 @@ class CoverController:
             self._target = float(target)
             self._reason = "ventilation"
         elif action == "stop":
-            target = self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)
+            target = self._pre_ventilation_position
+            if target is None:
+                target = self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)
             if target is None:
                 return
             await self._command_position(float(target), reason="ventilation_stop")
             self._target = float(target)
+            self._pre_ventilation_position = None
             if self._reason == "ventilation":
                 self._reason = None
         else:
@@ -907,10 +918,12 @@ class CoverController:
             self.config.get(CONF_LOCKOUT_TILT_SHADING_END, False)
         )
 
-        time_window_open = self._within_open_close_window(now)
+        open_window_active = self._within_open_close_window(now)
+        close_window_active = self._within_close_window(now)
 
         if auto_ventilate and full_contact_active and ventilation_condition and not resident_blocks_ventilation:
             if not self._manual_blocks_action("ventilation"):
+                self._remember_pre_ventilation_position()
                 await self._set_position(
                     self._position_value(
                         CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION
@@ -923,6 +936,7 @@ class CoverController:
 
         if auto_ventilate and tilt_contact_active and ventilation_condition and not resident_blocks_ventilation:
             if not self._manual_blocks_action("ventilation"):
+                self._remember_pre_ventilation_position()
                 target = self._position_value(
                     CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION
                 )
@@ -990,6 +1004,7 @@ class CoverController:
                     )
                     and not self._manual_blocks_action("ventilation")
                 ):
+                    self._remember_pre_ventilation_position()
                     await self._set_position(
                         self._position_value(CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION),
                         "shading_end_ventilation",
@@ -1034,16 +1049,26 @@ class CoverController:
         open_events: list[tuple[datetime, str, float | None]] = []
 
         if post_ventilation and ventilation_end_condition:
+            restore_position = self._pre_ventilation_position
+            if restore_position is None:
+                restore_position = self._position_value(
+                    CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION
+                )
             close_events.append(
                 (
                     now + timedelta(seconds=1),
-                    "ventilation_end_close",
-                    self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
+                    "ventilation_end_restore",
+                    restore_position,
                 )
             )
+            self._pre_ventilation_position = None
 
         if close_condition and not self._manual_blocks_action("close"):
-            if self._auto_enabled(CONF_AUTO_SUN) and self._sun_allows_close(sun_elevation):
+            if (
+                close_window_active
+                and self._auto_enabled(CONF_AUTO_SUN)
+                and self._sun_allows_close(sun_elevation)
+            ):
                 close_events.append(
                     (
                         now,
@@ -1052,7 +1077,8 @@ class CoverController:
                     )
                 )
             if (
-                self._auto_enabled(CONF_AUTO_BRIGHTNESS)
+                close_window_active
+                and self._auto_enabled(CONF_AUTO_BRIGHTNESS)
                 and brightness is not None
                 and self._brightness_allows_close(brightness)
             ):
@@ -1095,7 +1121,11 @@ class CoverController:
                 or not resident_sleeping
             )
         ):
-            if self._auto_enabled(CONF_AUTO_SUN) and self._sun_allows_open(sun_elevation):
+            if (
+                open_window_active
+                and self._auto_enabled(CONF_AUTO_SUN)
+                and self._sun_allows_open(sun_elevation)
+            ):
                 open_events.append(
                     (
                         now,
@@ -1106,7 +1136,8 @@ class CoverController:
             
 
             if (
-                self._auto_enabled(CONF_AUTO_BRIGHTNESS)
+                open_window_active
+                and self._auto_enabled(CONF_AUTO_BRIGHTNESS)
                 and brightness is not None
                 and self._brightness_allows_open(brightness)
             ):
@@ -1118,12 +1149,10 @@ class CoverController:
                     )
                 )
 
-            time_window_open = self._within_open_close_window(now)
-
             if (
                 self._auto_enabled(CONF_AUTO_TIME)
                 and self._auto_enabled(CONF_AUTO_UP)
-                and (up_due or time_window_open)
+                and up_due
             ):
                 open_events.append(
                     (
@@ -1163,17 +1192,20 @@ class CoverController:
         self._publish_state()
 
     def _dynamic_sun_threshold(self, kind: str) -> float | None:
-        mode = str(self.config.get(CONF_SUN_ELEVATION_MODE, DEFAULT_SUN_ELEVATION_MODE) or DEFAULT_SUN_ELEVATION_MODE).lower()
+        mode = str(
+            self.config.get(CONF_SUN_ELEVATION_MODE, DEFAULT_SUN_ELEVATION_MODE)
+            or DEFAULT_SUN_ELEVATION_MODE
+        ).lower()
+        if mode == "hybid":
+            mode = "hybrid"
 
         if kind == "open":
             fixed_key = CONF_SUN_ELEVATION_OPEN
             sensor_key = CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR
-            offset_key = CONF_SUN_ELEVATION_OPEN_OFFSET
             fixed_default = DEFAULT_SUN_ELEVATION_OPEN
         else:
             fixed_key = CONF_SUN_ELEVATION_CLOSE
             sensor_key = CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR
-            offset_key = CONF_SUN_ELEVATION_CLOSE_OFFSET
             fixed_default = DEFAULT_SUN_ELEVATION_CLOSE
 
         try:
@@ -1185,18 +1217,16 @@ class CoverController:
             return fixed_threshold
 
         sensor_value = _float_state(self.hass, self.config.get(sensor_key))
-        if sensor_value is None:
-            return fixed_threshold
-
         if mode == "dynamic":
-            return sensor_value
+            # Dynamic sensor is optional in config flow. If unavailable or invalid,
+            # fall back to the configured fixed threshold so sun timing still works.
+            return sensor_value if sensor_value is not None else fixed_threshold
 
         if mode == "hybrid":
-            try:
-                offset = float(self.config.get(offset_key, 0.0))
-            except (TypeError, ValueError):
-                offset = 0.0
-            return sensor_value + offset
+            if sensor_value is None:
+                return fixed_threshold
+            # Hybrid mode uses the fixed value as manual offset.
+            return sensor_value + fixed_threshold
 
         return fixed_threshold
 
@@ -1440,6 +1470,11 @@ class CoverController:
         early, late = self._time_bounds(workday, True)
         return self._within_time_window(now, early, late)
 
+    def _within_close_window(self, now: datetime) -> bool:
+        workday_tomorrow = self._is_workday_tomorrow()
+        early, late = self._time_bounds(workday_tomorrow, False)
+        return self._within_time_window(now, early, late)
+
     def _event_due(self, target: datetime | None, now: datetime) -> bool:
         if not target:
             return False
@@ -1667,27 +1702,58 @@ class CoverController:
     def _refresh_next_events(self, now: datetime) -> None:
 
         sun_enabled = self._auto_enabled(CONF_AUTO_SUN)
+        time_up_enabled = self._auto_enabled(CONF_AUTO_TIME) and self._auto_enabled(CONF_AUTO_UP)
+        time_down_enabled = self._auto_enabled(CONF_AUTO_TIME) and self._auto_enabled(CONF_AUTO_DOWN)
         sun_state = self.hass.states.get("sun.sun") if sun_enabled else None
+        sun_elevation_raw = sun_state and sun_state.attributes.get("elevation")
+        try:
+            sun_elevation = float(sun_elevation_raw) if sun_elevation_raw is not None else None
+        except (TypeError, ValueError):
+            sun_elevation = None
         sun_next_rising = self._parse_datetime_attr(
             sun_state and sun_state.attributes.get("next_rising")
         )
         sun_next_setting = self._parse_datetime_attr(
             sun_state and sun_state.attributes.get("next_setting")
         )
+        open_threshold = self._dynamic_sun_threshold("open")
+        close_threshold = self._dynamic_sun_threshold("close")
+        mode = str(
+            self.config.get(CONF_SUN_ELEVATION_MODE, DEFAULT_SUN_ELEVATION_MODE)
+            or DEFAULT_SUN_ELEVATION_MODE
+        ).lower()
+        if mode == "hybid":
+            mode = "hybrid"
+
         sun_open_target = (
             self._next_sun_time_for_elevation(
-                self._dynamic_sun_threshold("open"), SunDirection.RISING, now
+                open_threshold, SunDirection.RISING, now
             )
             if sun_enabled
             else None
         )
         sun_close_target = (
             self._next_sun_time_for_elevation(
-                self._dynamic_sun_threshold("close"), SunDirection.SETTING, now
+                close_threshold, SunDirection.SETTING, now
             )
             if sun_enabled
             else None
         )
+
+        if (
+            sun_enabled
+            and open_threshold is not None
+            and sun_elevation is not None
+            and sun_elevation >= open_threshold
+        ):
+            sun_open_target = now
+        if (
+            sun_enabled
+            and close_threshold is not None
+            and sun_elevation is not None
+            and sun_elevation <= close_threshold
+        ):
+            sun_close_target = now
         workday = self._is_workday()
         workday_tomorrow = self._is_workday_tomorrow()
         up_early_time, up_late_time = self._time_bounds(workday, True)
@@ -1713,24 +1779,34 @@ class CoverController:
                 return base
             
             first, second = fallback_candidates
-            return first or second
+            return second or first
         
-        open_base = (sun_open_target or sun_next_rising) if sun_enabled else None
-        close_base = (sun_close_target or sun_next_setting) if sun_enabled else None
+        if sun_enabled and mode in {"dynamic", "hybrid"}:
+            # Dynamic/Hybrid use the elevation-based calculation first.
+            # If unavailable, fall back to the native sun integration times
+            # so next_open/next_close still remain sun-based.
+            open_base = sun_open_target or sun_next_rising
+            close_base = sun_close_target or sun_next_setting
+        else:
+            open_base = (sun_open_target or sun_next_rising) if sun_enabled else None
+            close_base = (sun_close_target or sun_next_setting) if sun_enabled else None
 
-        self._next_open = _clamp_candidate(
-            open_base, next_up_early, next_up_late, (next_up_early, next_up_late)
-        )
-        self._next_close = _clamp_candidate(
-            close_base,
-            next_down_early,
-            next_down_late,
-            (next_down_early, next_down_late),
-        )
+        if time_up_enabled:
+            self._next_open = _clamp_candidate(
+                open_base, next_up_early, next_up_late, (next_up_early, next_up_late)
+            )
+        else:
+            self._next_open = open_base
 
-        if self._within_open_close_window(now):
-            if self._next_open is None or self._next_open > now:
-                self._next_open = now
+        if time_down_enabled:
+            self._next_close = _clamp_candidate(
+                close_base,
+                next_down_early,
+                next_down_late,
+                (next_down_early, next_down_late),
+            )
+        else:
+            self._next_close = close_base
 
         # Avoid reporting identical timestamps when the clamped opening and closing
         # targets converge. Prefer the next distinct closing point that still
