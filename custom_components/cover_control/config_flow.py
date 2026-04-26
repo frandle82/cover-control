@@ -32,6 +32,9 @@ from .const import (
     CONF_ADDITIONAL_CONDITIONS_ENABLED,
     CONF_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_COLD_PROTECTION_THRESHOLD,
+    CONF_CALENDAR_CLOSE_TITLE,
+    CONF_CALENDAR_ENTITY,
+    CONF_CALENDAR_OPEN_TITLE,
     CONF_BRIGHTNESS_CLOSE_BELOW,
     CONF_BRIGHTNESS_HYSTERESIS,
     CONF_BRIGHTNESS_OPEN_ABOVE,
@@ -81,7 +84,12 @@ from .const import (
     CONF_SHADING_WEATHER_CONDITIONS,
     CONF_SHADING_BRIGHTNESS_END,
     CONF_SHADING_BRIGHTNESS_START,
+    CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
+    CONF_SHADING_END_MAX_DURATION,
     CONF_SHADING_POSITION,
+    CONF_SHADING_START_MAX_DURATION,
+    CONF_SHADING_WAITINGTIME_END,
+    CONF_SHADING_WAITINGTIME_START,
     CONF_SUN_AZIMUTH_END,
     CONF_SUN_AZIMUTH_START,
     CONF_SUN_ELEVATION_CLOSE,
@@ -142,9 +150,14 @@ from .const import (
     DEFAULT_SHADING_AZIMUTH_START,
     DEFAULT_SHADING_BRIGHTNESS_END,
     DEFAULT_SHADING_BRIGHTNESS_START,
+    DEFAULT_SHADING_END_MAX_DURATION,
     DEFAULT_SHADING_FORECAST_TYPE,
     DEFAULT_SHADING_ELEVATION_MAX,
     DEFAULT_SHADING_ELEVATION_MIN,
+    DEFAULT_SHADING_START_MAX_DURATION,
+    DEFAULT_SHADING_TIMING_SETTINGS,
+    DEFAULT_SHADING_WAITINGTIME_END,
+    DEFAULT_SHADING_WAITINGTIME_START,
     DEFAULT_SUN_ELEVATION_CLOSE,
     DEFAULT_SUN_ELEVATION_OPEN,
     DEFAULT_SUN_ELEVATION_MODE,
@@ -162,7 +175,7 @@ from .const import (
     MANUAL_OVERRIDE_RESET_NONE,
     MANUAL_OVERRIDE_RESET_TIME,
     MANUAL_OVERRIDE_RESET_TIMEOUT,
-    
+
 )
 
 
@@ -178,6 +191,7 @@ def _with_config_defaults(config: dict) -> dict:
         **DEFAULT_CONTACT_SETTINGS,
         **DEFAULT_BEHAVIOR_SETTINGS,
         **DEFAULT_BUTTON_SETTINGS,
+        **DEFAULT_SHADING_TIMING_SETTINGS,
         CONF_SUN_ELEVATION_MODE: DEFAULT_SUN_ELEVATION_MODE,
         CONF_SUN_ELEVATION_OPEN_OFFSET: DEFAULT_SUN_ELEVATION_OPEN_OFFSET,
         CONF_SUN_ELEVATION_CLOSE_OFFSET: DEFAULT_SUN_ELEVATION_CLOSE_OFFSET,
@@ -199,6 +213,7 @@ LOGGER = logging.getLogger(__name__)
 CLEARABLE_ENTITY_SELECTOR_KEYS = {
     CONF_WORKDAY_SENSOR,
     CONF_WORKDAY_TOMORROW_SENSOR,
+    CONF_CALENDAR_ENTITY,
     CONF_RESIDENT_SENSOR,
     CONF_BRIGHTNESS_SENSOR,
     CONF_TEMPERATURE_SENSOR_INDOOR,
@@ -319,7 +334,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                     selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
                                 ),
                                 vol.Optional(CONF_RESIDENT_SENSOR): selector.EntitySelector(
-                                    selector.EntitySelectorConfig(domain=["binary_sensor", "switch"])
+                                    selector.EntitySelectorConfig(domain=["binary_sensor", "input_boolean", "switch"])
                                 ),
                                 vol.Optional(CONF_BRIGHTNESS_SENSOR): selector.EntitySelector(
                                     selector.EntitySelectorConfig(domain=["sensor"], device_class=["illuminance"])
@@ -445,7 +460,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             self._data.get(CONF_TIME_DOWN_LATE_WORKDAY),
                             DEFAULT_TIME_SETTINGS[CONF_TIME_DOWN_LATE_WORKDAY],
                         ),
-                    ): selector.TimeSelector(),   
+                    ): selector.TimeSelector(),
                     vol.Optional(
                         CONF_TIME_DOWN_LATE_NON_WORKDAY,
                         default=_time_default(
@@ -453,6 +468,11 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             DEFAULT_TIME_SETTINGS[CONF_TIME_DOWN_LATE_NON_WORKDAY],
                         ),
                     ): selector.TimeSelector(),
+                    vol.Optional(CONF_CALENDAR_ENTITY): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["calendar"])
+                    ),
+                    vol.Optional(CONF_CALENDAR_OPEN_TITLE, default=""): str,
+                    vol.Optional(CONF_CALENDAR_CLOSE_TITLE, default=""): str,
                             }
                         ),
                         {"collapsed": False},
@@ -605,6 +625,11 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         vol.Optional(CONF_SUN_ELEVATION_MAX, default=DEFAULT_SHADING_ELEVATION_MAX): vol.Coerce(float),
                         vol.Optional(CONF_SHADING_BRIGHTNESS_START, default=DEFAULT_SHADING_BRIGHTNESS_START): vol.Coerce(float),
                         vol.Optional(CONF_SHADING_BRIGHTNESS_END, default=DEFAULT_SHADING_BRIGHTNESS_END): vol.Coerce(float),
+                        vol.Optional(CONF_SHADING_WAITINGTIME_START, default=DEFAULT_SHADING_WAITINGTIME_START): vol.Coerce(int),
+                        vol.Optional(CONF_SHADING_WAITINGTIME_END, default=DEFAULT_SHADING_WAITINGTIME_END): vol.Coerce(int),
+                        vol.Optional(CONF_SHADING_START_MAX_DURATION, default=DEFAULT_SHADING_START_MAX_DURATION): vol.Coerce(int),
+                        vol.Optional(CONF_SHADING_END_MAX_DURATION, default=DEFAULT_SHADING_END_MAX_DURATION): vol.Coerce(int),
+                        vol.Optional(CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION, default=False): bool,
                         vol.Optional(CONF_SHADING_FORECAST_SENSOR): selector.EntitySelector(
                             selector.EntitySelectorConfig(domain=["sensor", "weather"])
                         ),
@@ -718,7 +743,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def _build_windows_schema(self, covers: list[str]) -> vol.Schema:
         """Build the windows step schema using ordered fields per cover."""
-        
+
         multi_selector = selector.EntitySelector(
             selector.EntitySelectorConfig(
                 domain=["binary_sensor"],
@@ -754,7 +779,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 continue
             flattened[key] = value
         return flattened
-    
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:
@@ -774,6 +799,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
         CONF_ADDITIONAL_CONDITION_SHADING,
         CONF_ADDITIONAL_CONDITION_SHADING_TILT,
         CONF_ADDITIONAL_CONDITION_SHADING_END,
+        CONF_CALENDAR_ENTITY,
     }
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
@@ -797,7 +823,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
             if isinstance(value, dict):
                 return {key: _json_safe(val) for key, val in value.items()}
             return value
-        
+
         cleaned: dict[str, Any] = {}
         for key, value in user_input.items():
             if key in self._CLEARABLE_OPTION_KEYS and value in ("", vol.UNDEFINED, None, [], {}):
@@ -825,7 +851,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                 cleaned[entity_key] = None
 
             cleaned.pop(toggle_key, None)
-        
+
         return cleaned
 
     def _optional_default(self, key: str):
@@ -833,7 +859,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
 
         if key not in self._options:
             return vol.UNDEFINED
-        
+
         value = self._options.get(key)
         if value in (None, "", vol.UNDEFINED):
             return vol.UNDEFINED
@@ -1284,6 +1310,20 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                             )
                         ),
                     ): selector.TimeSelector(),
+                    vol.Optional(
+                        CONF_CALENDAR_ENTITY,
+                        default=self._optional_default(CONF_CALENDAR_ENTITY),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["calendar"])
+                    ),
+                    vol.Optional(
+                        CONF_CALENDAR_OPEN_TITLE,
+                        default=self._options.get(CONF_CALENDAR_OPEN_TITLE, ""),
+                    ): str,
+                    vol.Optional(
+                        CONF_CALENDAR_CLOSE_TITLE,
+                        default=self._options.get(CONF_CALENDAR_CLOSE_TITLE, ""),
+                    ): str,
                 }
             )
         return self.async_show_form(step_id="time_control", data_schema=vol.Schema(schema))
@@ -1484,6 +1524,31 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(CONF_SHADING_BRIGHTNESS_START, default=self._options.get(CONF_SHADING_BRIGHTNESS_START, DEFAULT_SHADING_BRIGHTNESS_START)): vol.Coerce(float),
                     vol.Optional(CONF_SHADING_BRIGHTNESS_END, default=self._options.get(CONF_SHADING_BRIGHTNESS_END, DEFAULT_SHADING_BRIGHTNESS_END)): vol.Coerce(float),
                     vol.Optional(
+                        CONF_SHADING_WAITINGTIME_START,
+                        default=self._options.get(CONF_SHADING_WAITINGTIME_START, DEFAULT_SHADING_WAITINGTIME_START),
+                    ): vol.Coerce(int),
+                    vol.Optional(
+                        CONF_SHADING_WAITINGTIME_END,
+                        default=self._options.get(CONF_SHADING_WAITINGTIME_END, DEFAULT_SHADING_WAITINGTIME_END),
+                    ): vol.Coerce(int),
+                    vol.Optional(
+                        CONF_SHADING_START_MAX_DURATION,
+                        default=self._options.get(CONF_SHADING_START_MAX_DURATION, DEFAULT_SHADING_START_MAX_DURATION),
+                    ): vol.Coerce(int),
+                    vol.Optional(
+                        CONF_SHADING_END_MAX_DURATION,
+                        default=self._options.get(CONF_SHADING_END_MAX_DURATION, DEFAULT_SHADING_END_MAX_DURATION),
+                    ): vol.Coerce(int),
+                    vol.Optional(
+                        CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
+                        default=bool(
+                            self._options.get(
+                                CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
+                                DEFAULT_SHADING_TIMING_SETTINGS[CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION],
+                            )
+                        ),
+                    ): bool,
+                    vol.Optional(
                         CONF_SHADING_FORECAST_SENSOR,
                         default=self._optional_default(CONF_SHADING_FORECAST_SENSOR),
                     ): selector.EntitySelector(
@@ -1552,7 +1617,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
             overrides,
             base_options=self._options,
         )
-    
+
     def _cover_full_key(self, cover: str) -> str:
         state = self.hass.states.get(cover)
         friendly_name = state.name if state else cover.split(".")[-1]
@@ -1562,7 +1627,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
         state = self.hass.states.get(cover)
         friendly_name = state.name if state else cover.split(".")[-1]
         return f"Kipp-Sensor(e) für {friendly_name}"
-    
+
     def _existing_full_contacts_for_cover(self, cover: str) -> list[str]:
         mapping = self._options.get(CONF_WINDOW_SENSOR_FULL) or {}
         sensors = mapping.get(cover, [])
