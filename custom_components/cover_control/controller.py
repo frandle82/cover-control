@@ -55,6 +55,9 @@ from .const import (
     CONF_BRIGHTNESS_OPEN_ABOVE,
     CONF_BRIGHTNESS_SENSOR,
     CONF_BRIGHTNESS_TIME_DURATION,
+    CONF_CALENDAR_CLOSE_TITLE,
+    CONF_CALENDAR_ENTITY,
+    CONF_CALENDAR_OPEN_TITLE,
     CONF_CLOSE_POSITION,
     CONF_COVERS,
     CONF_CONTACT_STATUS_DELAY,
@@ -94,7 +97,11 @@ from .const import (
     CONF_SHADING_WEATHER_CONDITIONS,
     CONF_SHADING_BRIGHTNESS_END,
     CONF_SHADING_BRIGHTNESS_START,
+    CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
     CONF_SHADING_POSITION,
+    CONF_SHADING_START_MAX_DURATION,
+    CONF_SHADING_WAITINGTIME_END,
+    CONF_SHADING_WAITINGTIME_START,
     CONF_SUN_AZIMUTH_END,
     CONF_SUN_AZIMUTH_START,
     CONF_SUN_ELEVATION_CLOSE,
@@ -137,20 +144,15 @@ from .const import (
     DEFAULT_MASTER_FLAGS,
     DEFAULT_POSITION_SETTINGS,
     DEFAULT_TIME_SETTINGS,
-    DEFAULT_TIME_DOWN_LATE_NON_WORKDAY,
-    DEFAULT_TIME_DOWN_EARLY_NON_WORKDAY,
-    DEFAULT_TIME_DOWN_EARLY_WORKDAY,
-    DEFAULT_TIME_DOWN_LATE_WORKDAY,
-    DEFAULT_TIME_UP_EARLY_NON_WORKDAY,
-    DEFAULT_TIME_UP_LATE_NON_WORKDAY,
-    DEFAULT_TIME_UP_LATE_WORKDAY,
-    DEFAULT_TIME_UP_EARLY_WORKDAY,
     DEFAULT_OPEN_POSITION,
     DEFAULT_TOLERANCE,
     DEFAULT_VENTILATE_POSITION,
     DEFAULT_SHADING_POSITION,
     DEFAULT_CLOSE_POSITION,
+    DEFAULT_SHADING_BRIGHTNESS_END,
+    DEFAULT_SHADING_BRIGHTNESS_START,
     DEFAULT_SHADING_FORECAST_TYPE,
+    DEFAULT_SHADING_TIMING_SETTINGS,
     DEFAULT_SUN_ELEVATION_MODE,
     DEFAULT_SUN_ELEVATION_OPEN,
     DEFAULT_SUN_ELEVATION_CLOSE,
@@ -522,10 +524,6 @@ class CoverController:
         self._condition_since: dict[str, datetime] = {}
         self._last_action_dates: dict[str, datetime.date] = {}
         self._hydrate_persistent_status()
-        # Position helpers were removed, but keep the mapping available so
-        # legacy config entries that still reference helper entities do not
-        # cause attribute errors during lookups.
-        self._position_entity_map: dict[str, str] = {}
         self._auto_entity_map = {
             CONF_AUTO_UP: CONF_AUTO_UP_ENTITY,
             CONF_AUTO_DOWN: CONF_AUTO_DOWN_ENTITY,
@@ -597,6 +595,59 @@ class CoverController:
         section["active"] = active
         section["ts"] = ts if ts is not None else _ts_now()
 
+    def _status_active(self, bucket: str) -> bool:
+        section = self._status.get(bucket, {})
+        return isinstance(section, dict) and bool(section.get("active"))
+
+    def _ventilation_status_active(self) -> bool:
+        section = self._status.get("ventilation", {})
+        return isinstance(section, dict) and bool(
+            section.get("partial") or section.get("full")
+        )
+
+    def _shading_status(self) -> dict:
+        section = self._status.setdefault("shading", {})
+        if not isinstance(section, dict):
+            section = {}
+            self._status["shading"] = section
+        section.setdefault("active", False)
+        section.setdefault("start_pending", 0)
+        section.setdefault("end_pending", 0)
+        section.setdefault("ts", 0)
+        return section
+
+    def _set_shading_pending(
+        self, kind: str, due_at: datetime | None, active: bool | None = None
+    ) -> None:
+        section = self._shading_status()
+        key = "start_pending" if kind == "start" else "end_pending"
+        section[key] = int(due_at.timestamp()) if due_at else 0
+        section["ts"] = _ts_now()
+        if active is not None:
+            section["active"] = active
+        self.persist_status()
+
+    def _shading_pending_due(self, kind: str, now: datetime) -> bool:
+        section = self._shading_status()
+        key = "start_pending" if kind == "start" else "end_pending"
+        due_ts = _coerce_float(section.get(key)) or 0
+        return bool(due_ts and now.timestamp() >= due_ts)
+
+    def _shading_pending_active(self, kind: str) -> bool:
+        section = self._shading_status()
+        key = "start_pending" if kind == "start" else "end_pending"
+        return bool((_coerce_float(section.get(key)) or 0) > 0)
+
+    def _clear_shading_pending(self, kind: str | None = None, persist: bool = True) -> None:
+        section = self._shading_status()
+        if kind in (None, "start"):
+            section["start_pending"] = 0
+        if kind in (None, "end"):
+            section["end_pending"] = 0
+        section["ts"] = _ts_now()
+        if persist:
+            self.persist_status()
+
     def _set_ventilation_status(
         self, partial: bool = False, full: bool = False, ts: int | None = None
     ) -> None:
@@ -618,12 +669,14 @@ class CoverController:
             self._set_status_bucket("open", True, ts)
             self._set_status_bucket("close", False, ts)
             self._set_status_bucket("shading", False, ts)
+            self._clear_shading_pending(persist=False)
             self._set_ventilation_status(False, False, ts)
         elif "close" in reason or reason == "resident_asleep":
             self._last_action_dates["close"] = today
             self._set_status_bucket("open", False, ts)
             self._set_status_bucket("close", True, ts)
             self._set_status_bucket("shading", False, ts)
+            self._clear_shading_pending(persist=False)
             self._set_ventilation_status(False, False, ts)
         elif reason in {"ventilation", "shading_end_ventilation"}:
             self._set_status_bucket("open", False, ts)
@@ -634,6 +687,7 @@ class CoverController:
             self._set_status_bucket("open", True, ts)
             self._set_status_bucket("close", False, ts)
             self._set_status_bucket("shading", reason != "manual_shading_end", ts)
+            self._clear_shading_pending(persist=False)
             self._set_ventilation_status(False, False, ts)
 
         self._status["target"] = position if position is not None else self._target
@@ -660,9 +714,10 @@ class CoverController:
             self.config.get(CONF_TEMPERATURE_SENSOR_OUTDOOR),
             self.config.get(CONF_RESIDENT_SENSOR),
             self.config.get(CONF_SHADING_FORECAST_SENSOR),
+            self.config.get(CONF_CALENDAR_ENTITY),
             self.cover,
         }
-        sensor_entities.update(self._contact_sensors())
+        sensor_entities.update(self._contact_entities())
         sensor_entities.update(
             entity
             for entity in (self.config.get(entity_key) for entity_key in self._auto_entity_map.values())
@@ -1304,10 +1359,16 @@ class CoverController:
         )
 
         auto_time_enabled = self._auto_enabled(CONF_AUTO_TIME)
-        is_opening_phase = self._within_opening_phase(now)
-        is_daytime_phase = (not auto_time_enabled) or self._within_daytime_phase(now)
-        is_closing_phase = self._within_closing_phase(now)
-        is_evening_phase = auto_time_enabled and self._within_evening_phase(now)
+        calendar_open_active = auto_time_enabled and self._calendar_open_active(now)
+        calendar_close_active = auto_time_enabled and self._calendar_close_active(now)
+        is_opening_phase = self._within_opening_phase(now) or calendar_open_active
+        is_daytime_phase = (
+            (not auto_time_enabled)
+            or self._within_daytime_phase(now)
+            or (calendar_open_active and not calendar_close_active)
+        )
+        is_closing_phase = self._within_closing_phase(now) or calendar_close_active
+        is_evening_phase = (auto_time_enabled and self._within_evening_phase(now)) or calendar_close_active
         is_time_up_late = self._is_time_up_late(now)
         is_time_down_late = self._is_time_down_late(now)
         has_environment_control = self._auto_enabled(CONF_AUTO_BRIGHTNESS) or self._auto_enabled(
@@ -1370,7 +1431,10 @@ class CoverController:
         post_ventilation = (
             auto_ventilate
             and not ventilation_contact_active
-            and self._reason in {"ventilation", "ventilation_full"}
+            and (
+                self._reason in {"ventilation", "ventilation_full", "shading_end_ventilation"}
+                or self._ventilation_status_active()
+            )
         )
 
         if post_ventilation and not ventilation_end_condition:
@@ -1383,7 +1447,10 @@ class CoverController:
             and not self._manual_blocks_action("shading")
             and not resident_blocks_shading
         ):
-            shading_active = self._reason in {"shading", "manual_shading"}
+            shading_active = self._status_active("shading") or self._reason in {
+                "shading",
+                "manual_shading",
+            }
             shading_allowed = self._shading_conditions(
                 sun_azimuth, sun_elevation, brightness
             )
@@ -1392,6 +1459,27 @@ class CoverController:
                 shading_allowed = shading_allowed and shading_tilt_condition
             if tilt_lock_shading_start and not shading_active:
                 shading_allowed = False
+            if shading_allowed:
+                if self._shading_pending_active("end"):
+                    self._clear_shading_pending("end")
+            elif self._shading_pending_active("start"):
+                max_duration = self._duration_value(
+                    CONF_SHADING_START_MAX_DURATION,
+                    DEFAULT_SHADING_TIMING_SETTINGS[CONF_SHADING_START_MAX_DURATION],
+                )
+                if max_duration <= 0:
+                    self._clear_shading_pending("start")
+                else:
+                    pending_ts = _coerce_float(
+                        self._shading_status().get("start_pending")
+                    ) or 0
+                    waiting = self._duration_value(
+                        CONF_SHADING_WAITINGTIME_START,
+                        DEFAULT_SHADING_TIMING_SETTINGS[CONF_SHADING_WAITINGTIME_START],
+                    )
+                    started_ts = max(0, pending_ts - waiting)
+                    if started_ts and now.timestamp() - started_ts > max_duration:
+                        self._clear_shading_pending("start")
             if shading_active and not shading_allowed:
                 if not shading_end_condition:
                     self._publish_state()
@@ -1405,6 +1493,32 @@ class CoverController:
                 ):
                     self._publish_state()
                     return
+                waiting_end = self._duration_value(
+                    CONF_SHADING_WAITINGTIME_END,
+                    DEFAULT_SHADING_TIMING_SETTINGS[CONF_SHADING_WAITINGTIME_END],
+                )
+                if bool(self.config.get(CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION, False)):
+                    sun_out_of_range = False
+                    if sun_azimuth is not None and sun_elevation is not None:
+                        az_start = self._number_value(CONF_SUN_AZIMUTH_START, 0)
+                        az_end = self._number_value(CONF_SUN_AZIMUTH_END, 360)
+                        el_min = self._number_value(CONF_SUN_ELEVATION_MIN, 0)
+                        el_max = self._number_value(CONF_SUN_ELEVATION_MAX, 90)
+                        sun_out_of_range = not (
+                            az_start <= sun_azimuth <= az_end
+                            and el_min <= sun_elevation <= el_max
+                        )
+                    if sun_out_of_range:
+                        waiting_end = min(waiting_end, 5)
+                if waiting_end > 0 and not self._shading_pending_due("end", now):
+                    if not self._shading_pending_active("end"):
+                        self._set_shading_pending(
+                            "end", now + timedelta(seconds=waiting_end), True
+                        )
+                    self._publish_state()
+                    return
+                if self._shading_pending_active("end"):
+                    self._clear_shading_pending("end")
                 if (
                     auto_ventilate
                     and ventilation_condition
@@ -1449,12 +1563,33 @@ class CoverController:
                             "shading_end_open",
                         )
                         return
+                if self._reason in {"shading", "manual_shading"}:
+                    self._reason = None
+                self._set_status_bucket("shading", False)
+                self._clear_shading_pending("end", persist=False)
+                self.persist_status()
+                self._publish_state()
+                return
             if (
                 shading_allowed
+                and not shading_active
                 and not self._action_already_done_today(
                     "shading", CONF_PREVENT_SHADING_MULTIPLE_TIMES
                 )
             ):
+                waiting_start = self._duration_value(
+                    CONF_SHADING_WAITINGTIME_START,
+                    DEFAULT_SHADING_TIMING_SETTINGS[CONF_SHADING_WAITINGTIME_START],
+                )
+                if waiting_start > 0 and not self._shading_pending_due("start", now):
+                    if not self._shading_pending_active("start"):
+                        self._set_shading_pending(
+                            "start", now + timedelta(seconds=waiting_start), False
+                        )
+                    self._publish_state()
+                    return
+                if self._shading_pending_active("start"):
+                    self._clear_shading_pending("start")
                 await self._set_position(
                     self._position_value(CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION),
                     "shading",
@@ -1485,9 +1620,19 @@ class CoverController:
             self._set_ventilation_status(False, False)
             self.persist_status()
 
+        close_target = self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION)
+        open_target = self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)
+        close_status_satisfied = self._status_active("close") and self._position_matches(
+            close_target, current_position
+        )
+        open_status_satisfied = self._status_active("open") and self._position_matches(
+            open_target, current_position
+        )
+
         if (
             close_condition
             and not self._manual_blocks_action("close")
+            and not close_status_satisfied
             and not self._action_already_done_today(
                 "close", CONF_PREVENT_CLOSING_MULTIPLE_TIMES
             )
@@ -1513,7 +1658,7 @@ class CoverController:
                     (
                         now,
                         "sun_close",
-                        self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
+                        close_target,
                     )
                 )
             if (
@@ -1527,7 +1672,7 @@ class CoverController:
                     (
                         now,
                         "brightness_close",
-                        self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
+                        close_target,
                     )
                 )
 
@@ -1542,7 +1687,7 @@ class CoverController:
                     (
                         self._next_close or now,
                         "scheduled_close",
-                        self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
+                        close_target,
                     )
                 )
 
@@ -1553,6 +1698,7 @@ class CoverController:
             open_condition
             and not resident_blocks_open
             and not self._manual_blocks_action("open")
+            and not open_status_satisfied
             and not self._action_already_done_today(
                 "open", CONF_PREVENT_OPENING_MULTIPLE_TIMES
             )
@@ -1582,7 +1728,7 @@ class CoverController:
                     (
                         now,
                         "sun_open",
-                        self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+                        open_target,
                     )
                 )
 
@@ -1597,7 +1743,7 @@ class CoverController:
                     (
                         now,
                         "brightness_open",
-                        self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+                        open_target,
                     )
                 )
 
@@ -1611,7 +1757,7 @@ class CoverController:
                     (
                         self._next_open or now,
                         "scheduled_open",
-                        self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+                        open_target,
                     )
                 )
 
@@ -1841,17 +1987,6 @@ class CoverController:
         last_date = self._last_action_dates.get(action)
         return last_date == dt_util.as_local(dt_util.utcnow()).date()
 
-    def _mark_action_done(self, reason: str) -> None:
-        action: str | None = None
-        if "open" in reason:
-            action = "open"
-        elif "close" in reason:
-            action = "close"
-        elif "shading" in reason:
-            action = "shading"
-        if action:
-            self._last_action_dates[action] = dt_util.as_local(dt_util.utcnow()).date()
-
     def _shading_conditions(
         self, sun_azimuth: float | None, sun_elevation: float | None, brightness: float | None
     ) -> bool:
@@ -1861,20 +1996,27 @@ class CoverController:
             return False
         if not self._weather_allows_shading():
             return False
-        az_start = float(self.config.get(CONF_SUN_AZIMUTH_START))
-        az_end = float(self.config.get(CONF_SUN_AZIMUTH_END))
-        el_min = float(self.config.get(CONF_SUN_ELEVATION_MIN))
-        el_max = float(self.config.get(CONF_SUN_ELEVATION_MAX))
-        bright_start = float(self.config.get(CONF_SHADING_BRIGHTNESS_START))
-        bright_end = float(self.config.get(CONF_SHADING_BRIGHTNESS_END))
+        az_start = self._number_value(CONF_SUN_AZIMUTH_START, 90)
+        az_end = self._number_value(CONF_SUN_AZIMUTH_END, 270)
+        el_min = self._number_value(CONF_SUN_ELEVATION_MIN, 10)
+        el_max = self._number_value(CONF_SUN_ELEVATION_MAX, 70)
+        bright_start = self._number_value(
+            CONF_SHADING_BRIGHTNESS_START, DEFAULT_SHADING_BRIGHTNESS_START
+        )
+        bright_end = self._number_value(
+            CONF_SHADING_BRIGHTNESS_END, DEFAULT_SHADING_BRIGHTNESS_END
+        )
         if not (az_start <= sun_azimuth <= az_end and el_min <= sun_elevation <= el_max):
             return False
-        if brightness < bright_start:
-            return False
-        if self._reason == "shading" and brightness <= bright_end:
+        shading_active = self._status_active("shading") or self._reason in {
+            "shading",
+            "manual_shading",
+        }
+        brightness_limit = bright_end if shading_active else bright_start
+        if brightness < brightness_limit:
             return False
         temp_ok = self._temperature_allows_shading()
-        return temp_ok or brightness >= bright_start
+        return temp_ok or (shading_active and brightness >= bright_end) or brightness >= bright_start
 
     def _temperature_allows_shading(self) -> bool:
         indoor = _float_state(self.hass, self.config.get(CONF_TEMPERATURE_SENSOR_INDOOR))
@@ -2038,6 +2180,38 @@ class CoverController:
         fallback = DEFAULT_TIME_SETTINGS.get(key)
         return _parse_time(fallback) if fallback is not None else None
 
+    def _calendar_window(self, title_key: str, now: datetime) -> tuple[datetime, datetime] | None:
+        calendar_entity = self.config.get(CONF_CALENDAR_ENTITY)
+        title = str(self.config.get(title_key) or "").strip().lower()
+        if not calendar_entity or not title:
+            return None
+
+        state = self.hass.states.get(calendar_entity)
+        if state is None or state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
+            return None
+
+        message = str(state.attributes.get("message") or "").strip().lower()
+        if title not in message:
+            return None
+
+        start_raw = state.attributes.get("start_time") or state.attributes.get("start")
+        end_raw = state.attributes.get("end_time") or state.attributes.get("end")
+        start_dt = dt_util.parse_datetime(str(start_raw)) if start_raw else None
+        end_dt = dt_util.parse_datetime(str(end_raw)) if end_raw else None
+        if not start_dt or not end_dt:
+            return None
+        start_dt = dt_util.as_utc(start_dt)
+        end_dt = dt_util.as_utc(end_dt)
+        if end_dt <= start_dt:
+            return None
+        return (start_dt, end_dt) if start_dt <= now < end_dt else None
+
+    def _calendar_open_active(self, now: datetime) -> bool:
+        return self._calendar_window(CONF_CALENDAR_OPEN_TITLE, now) is not None
+
+    def _calendar_close_active(self, now: datetime) -> bool:
+        return self._calendar_window(CONF_CALENDAR_CLOSE_TITLE, now) is not None
+
     def _time_bounds(self, workday: bool, is_up: bool) -> tuple[time | None, time | None]:
         if workday:
             early_key = (CONF_TIME_UP_EARLY_WORKDAY if is_up else CONF_TIME_DOWN_EARLY_WORKDAY)
@@ -2118,13 +2292,7 @@ class CoverController:
         late_dt = self._today_at(now, late)
         return bool(late_dt and dt_util.as_local(now) >= late_dt)
 
-    def _event_due(self, target: datetime | None, now: datetime) -> bool:
-        if not target:
-            return False
-        return now >= target
-
     def _position_value(self, key: str, default: float) -> float | None:
-        entity_key = self._position_entity_map.get(key)
         raw_value = self.config.get(key, default)
         try:
             return float(raw_value)
@@ -2293,14 +2461,12 @@ class CoverController:
             if self._reason is None:
                 self._reason = reason
             self._target = float(position)
-            self._mark_action_done(reason)
             self._record_action_status(reason, float(position))
             self._publish_state()
             return
         await self._command_position(float(position), reason=reason)
         self._target = float(position)
         self._reason = reason
-        self._mark_action_done(reason)
         self._record_action_status(reason, float(position))
         self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
@@ -2346,11 +2512,6 @@ class CoverController:
             if sensor not in sensors:
                 sensors.append(sensor)
         return sensors
-
-    # Backwards compatibility: older setups referenced `_contact_sensors`.
-    # Preserve the legacy name to avoid AttributeError during upgrades.
-    def _contact_sensors(self) -> list[str]:
-        return self._contact_entities()
 
     def _refresh_next_events(self, now: datetime) -> None:
 
