@@ -3,23 +3,34 @@
   "config": {
     "step": {
       "user": {
-        "title": "Select room and covers",
-        "description": "Choose the room and shutters or blinds that will be automated.",
+        "title": "General settings and functions",
+        "description": "Choose the instance name, room, covers, and automation functions to set up.",
         "data": {
+          "name": "Instance name",
           "room": "Room",
           "covers": "Covers"
         },
         "sections": {
           "automation_features": {
-            "name": "Functions",
-            "description": "Enable the functions that should be available and exposed as switches.",
+            "name": "Automation functions",
+            "description": "Only enabled functions are configured, exposed as switches, and evaluated by the controller.",
             "data": {
-              "auto_up_enabled": "Enable automatic opening",
-              "auto_down_enabled": "Enable automatic closing",
-              "auto_brightness_enabled": "Use brightness control",
-              "auto_sun_enabled": "Use sun elevation control",
-              "auto_ventilate_enabled": "Enable ventilation/lockout",
-              "auto_shading_enabled": "Enable sun shading"
+              "auto_time_enabled": "Time control - open in the morning and close in the evening",
+              "auto_ventilate_enabled": "Ventilation and lockout - react to window contacts",
+              "auto_brightness_enabled": "Brightness - add threshold-based open/close behavior",
+              "auto_sun_enabled": "Sun elevation - add sun-height based open/close behavior",
+              "auto_shading_enabled": "Shading - partially close during direct sun",
+              "resident_status_enabled": "Resident mode - respect sleep and wake-up state",
+              "additional_conditions_enabled": "Additional conditions - dynamically limit actions"
+            },
+            "data_description": {
+              "auto_time_enabled": "Enables daily opening and closing windows. Internally, opening and closing are toggled together.",
+              "auto_ventilate_enabled": "Uses full-open and tilt contacts. Full-open moves to the open position, tilted moves to the ventilation position; awnings are excluded.",
+              "auto_brightness_enabled": "Adds brightness thresholds to the time logic. Useful when it gets bright or dark earlier than the schedule.",
+              "auto_sun_enabled": "Adds sun elevation thresholds to the time logic. This is not the shading function.",
+              "auto_shading_enabled": "Moves to the shading position when sun position and brightness match, then restores later.",
+              "resident_status_enabled": "Blocks regular opening while the resident sensor is active. Closing when going to sleep can happen immediately.",
+              "additional_conditions_enabled": "Allows optional Home Assistant conditions for the whole automation or individual actions."
             }
           }
         }
@@ -30,8 +41,8 @@
         "data": {}
       },
       "schedule": {
-        "title": "elper sensors and thresholds",
-        "description": "Choose optional helpers for workdays, residents, brightness, and temperature protection.",
+        "title": "Helper sensors and thresholds",
+        "description": "Only sections for enabled functions are shown. Positions are the base targets for all movements.",
         "data": {
           "workday_sensor": "Workday helper (optional)",
           "resident_sensor": "Resident/quiet sensor (optional)",
@@ -42,6 +53,9 @@
           "temperature_forecast_threshold": "Forecast temperature threshold",
           "cold_protection_temperature": "Close when temperature below",
           "cold_protection_forecast_sensor": "Forecast temperature sensor (optional)",
+          "calendar_entity": "Calendar entity (optional)",
+          "calendar_open_title": "Calendar title for opening",
+          "calendar_close_title": "Calendar title for closing",
           "time_up_early_workday": "Earliest open time (workday)",
           "time_up_late_workday": "Latest open time (workday)",
           "time_down_early_workday": "Earliest close time (workday)",
@@ -50,15 +64,26 @@
           "time_up_late_non_workday": "Latest open time (non-workday)",
           "time_down_early_non_workday": "Earliest close time (non-workday)",
           "time_down_late_non_workday": "Latest close time (non-workday)",
-          "open_position": "Open position",
-          "close_position": "Close position",
-          "ventilate_position": "Ventilation position",
-          "shading_position": "Shading position",
-          "open_tilt_position": "Open tilt position",
-          "close_tilt_position": "Closed tilt position",
-          "ventilate_tilt_position": "Ventilation tilt position",
-          "shading_tilt_position": "Shading tilt position",
+          "open_position": "Open position (%)",
+          "close_position": "Close position (%)",
+          "ventilate_position": "Ventilation position (%)",
+          "shading_position": "Shading position (%)",
+          "open_tilt_position": "Open tilt position (%)",
+          "close_tilt_position": "Closed tilt position (%)",
+          "ventilate_tilt_position": "Ventilation tilt position (%)",
+          "shading_tilt_position": "Shading tilt position (%)",
           "workday_tomorrow_sensor": "Workday tomorrow entity (optional)"
+        },
+        "data_description": {
+          "open_position": "Target position when opening. For blinds usually 100; for awnings often 0.",
+          "close_position": "Target position when closing. For blinds usually 0; for awnings often 100.",
+          "ventilate_position": "Target position for tilted windows. Not used for awnings.",
+          "shading_position": "Target position for sun shading.",
+          "position_tolerance": "Absolute tolerance used when comparing the current position with a target.",
+          "open_tilt_position": "Tilt target after opening.",
+          "close_tilt_position": "Tilt target after closing.",
+          "ventilate_tilt_position": "Tilt target during ventilation.",
+          "shading_tilt_position": "Tilt target during sun shading."
         },
         "sections": {
           "presence": {
@@ -68,10 +93,10 @@
             "name": "Schedule"
           },
           "positions": {
-            "name": "Positions"
+            "name": "Movement positions"
           },
           "contacts": {
-            "name": "Ventilation & lockout"
+            "name": "Ventilation and lockout"
           },
           "tilt_positions": {
             "name": "Tilt positions"
@@ -79,8 +104,8 @@
         }
       },
       "shading": {
-        "title": "Sun, brightness, and sensors",
-        "description": "Carry over CCA inputs for sun shading, brightness, ventilation, and protection sensors.",
+        "title": "Brightness, sun, shading, and manual override",
+        "description": "Set thresholds for enabled functions and define how manual position changes are handled.",
         "data": {
           "brightness_sensor": "Brightness sensor",
           "brightness_open_above": "Open when brightness above",
@@ -93,6 +118,11 @@
           "shading_elevation_max": "Shading elevation maximum",
           "shading_brightness_start": "Brightness to start shading",
           "shading_brightness_end": "Brightness to end shading",
+          "shading_waitingtime_start": "Delay before starting shading",
+          "shading_waitingtime_end": "Delay before ending shading",
+          "shading_start_max_duration": "Maximum wait for shading start",
+          "shading_end_max_duration": "Maximum wait for shading end",
+          "shading_end_immediate_by_sun_position": "End shading quickly when sun leaves range",
           "shading_forecast_sensor": "Forecast weather sensor (optional)",
           "shading_forecast_type": "Sun shading forecast type",
           "shading_weather_conditions": "Weather conditions to allow shading",
@@ -106,19 +136,39 @@
           "manual_override_block_open": "Ignore next automatic opening after manual changes",
           "manual_override_block_close": "Ignore next automatic closing after manual changes",
           "manual_override_block_ventilate": "Ignore next automatic ventilation after manual changes",
-          "manual_override_block_shading": "Ignore next automatic sun shading after manual changes",
-          "auto_up_enabled_entity": "Entity to toggle automatic opening",
-          "auto_up_enabled": "Enable automatic opening",
-          "auto_down_enabled_entity": "Entity to toggle automatic closing",
-          "auto_down_enabled": "Enable automatic closing",
-          "auto_brightness_enabled_entity": "Entity to toggle brightness control",
-          "auto_brightness_enabled": "Use brightness control",
-          "auto_sun_enabled_entity": "Entity to toggle sun control",
-          "auto_sun_enabled": "Use sun elevation control",
-          "auto_ventilate_enabled_entity": "Entity to toggle ventilation/lockout",
-          "auto_ventilate_enabled": "Enable ventilation/lockout",
-          "auto_shading_enabled_entity": "Entity to toggle sun shading",
-          "auto_shading_enabled": "Enable sun shading"
+          "manual_override_block_shading": "Ignore next automatic sun shading after manual changes"
+        },
+        "data_description": {
+          "brightness_sensor": "Sensor used for brightness-based opening and closing.",
+          "brightness_open_above": "Opening may run once brightness stays above this value.",
+          "brightness_close_below": "Closing may run once brightness stays below this value.",
+          "sun_elevation_open": "Opening may run once the sun is high enough.",
+          "sun_elevation_close": "Closing may run once the sun is low enough.",
+          "shading_azimuth_start": "Minimum azimuth where the sun can hit the window.",
+          "shading_azimuth_end": "Maximum azimuth where the sun can hit the window.",
+          "shading_elevation_min": "Minimum sun elevation for shading.",
+          "shading_elevation_max": "Maximum sun elevation for shading.",
+          "shading_brightness_start": "Brightness from which shading may start.",
+          "shading_brightness_end": "Brightness below which shading may end.",
+          "shading_waitingtime_start": "Delay used to avoid short shading activations.",
+          "shading_waitingtime_end": "Delay used to avoid short shading releases.",
+          "shading_start_max_duration": "Maximum time to keep a pending shading start valid.",
+          "shading_end_max_duration": "Maximum time to keep a pending shading end valid.",
+          "shading_end_immediate_by_sun_position": "Use a short delay when the sun leaves the configured range.",
+          "shading_forecast_sensor": "Optional weather or forecast source for temperature and conditions.",
+          "shading_forecast_type": "Choose daily, hourly, or current weather attributes.",
+          "shading_weather_conditions": "Only allow shading for selected weather conditions.",
+          "temperature_sensor_indoor": "Optional indoor temperature condition for shading protection.",
+          "temperature_sensor_outdoor": "Optional outdoor temperature condition for shading protection.",
+          "temperature_threshold": "Minimum measured temperature for temperature-based shading.",
+          "temperature_forecast_threshold": "Minimum forecast temperature for forecast-based shading.",
+          "manual_override_minutes": "Timeout after which manual override status is cleared.",
+          "manual_override_reset_mode": "Choose whether manual override resets by time, timeout, or not automatically.",
+          "manual_override_reset_time": "Daily time for clearing manual override status.",
+          "manual_override_block_open": "Skip the next automatic opening after a manual movement.",
+          "manual_override_block_close": "Skip the next automatic closing after a manual movement.",
+          "manual_override_block_ventilate": "Skip the next automatic ventilation action after a manual movement.",
+          "manual_override_block_shading": "Skip the next automatic shading action after a manual movement."
         },
         "sections": {
           "brightness_controls": {
@@ -150,7 +200,7 @@
       },
       "menu": {
         "title": "Function menu",
-        "description": "Select a section to configure, then save with \"Save and close\".",
+        "description": "Select a section, adjust settings, then apply them with \"Save and close\".",
         "menu_options": {
           "general": "General configuration",
           "finish": "Save and close",
@@ -171,21 +221,37 @@
         "description": "Set cover type, movement targets, tolerance, and tilt targets.",
         "data": {
           "cover_type": "Cover type",
-          "open_position": "Open position",
-          "close_position": "Close position",
-          "ventilate_position": "Ventilation position",
-          "shading_position": "Shading position",
-          "position_tolerance": "Position tolerance",
-          "open_tilt_position": "Open tilt position",
-          "close_tilt_position": "Close tilt position",
-          "ventilate_tilt_position": "Ventilation tilt position",
-          "shading_tilt_position": "Shading tilt position"
+          "open_position": "Open position (%)",
+          "close_position": "Close position (%)",
+          "ventilate_position": "Ventilation position (%)",
+          "shading_position": "Shading position (%)",
+          "position_tolerance": "Position tolerance (%)",
+          "open_tilt_position": "Open tilt position (%)",
+          "close_tilt_position": "Close tilt position (%)",
+          "ventilate_tilt_position": "Ventilation tilt position (%)",
+          "shading_tilt_position": "Shading tilt position (%)"
+        },
+        "data_description": {
+          "cover_type": "Blinds use 0 as closed and 100 as open. Awnings commonly use the opposite direction.",
+          "open_position": "Target position when opening. For blinds usually 100; for awnings often 0.",
+          "close_position": "Target position when closing. For blinds usually 0; for awnings often 100.",
+          "ventilate_position": "Target position for tilted windows. Not used for awnings.",
+          "shading_position": "Target position for sun shading.",
+          "position_tolerance": "Absolute tolerance used when comparing the current position with a target.",
+          "open_tilt_position": "Tilt target after opening.",
+          "close_tilt_position": "Tilt target after closing.",
+          "ventilate_tilt_position": "Tilt target during ventilation.",
+          "shading_tilt_position": "Tilt target during sun shading."
         }
       },
       "time_control": {
         "title": "Time control",
+        "description": "Configure daily windows and optional calendar events used for automatic opening and closing.",
         "data": {
           "workday_sensor": "Workday/free-day sensor (on=workday, off=free day)",
+          "calendar_entity": "Calendar entity",
+          "calendar_open_title": "Calendar title for opening",
+          "calendar_close_title": "Calendar title for closing",
           "time_up_early_workday": "Earliest open time (workday)",
           "time_up_late_workday": "Latest open time (workday)",
           "time_down_early_workday": "Earliest close time (workday)",
@@ -195,10 +261,26 @@
           "time_down_early_non_workday": "Earliest close time (free day)",
           "time_down_late_non_workday": "Latest close time (free day)",
           "workday_tomorrow_sensor": "Workday tomorrow entity (on=workday, off=free day)"
+        },
+        "data_description": {
+          "workday_sensor": "On means workday, off means free day; used to pick the matching time window.",
+          "calendar_entity": "Optional calendar whose event titles define open or close windows.",
+          "calendar_open_title": "Case-insensitive title fragment for calendar events that allow opening.",
+          "calendar_close_title": "Case-insensitive title fragment for calendar events that allow closing.",
+          "time_up_early_workday": "Opening may start after this time on workdays.",
+          "time_up_late_workday": "Opening is forced at this time if all required conditions allow it.",
+          "time_down_early_workday": "Closing may start after this time on workdays.",
+          "time_down_late_workday": "Closing is forced at this time if all required conditions allow it.",
+          "time_up_early_non_workday": "Opening may start after this time on free days.",
+          "time_up_late_non_workday": "Opening is forced at this time on free days if allowed.",
+          "time_down_early_non_workday": "Closing may start after this time on free days.",
+          "time_down_late_non_workday": "Closing is forced at this time on free days if allowed.",
+          "workday_tomorrow_sensor": "Optional helper for choosing the evening close window based on tomorrow."
         }
       },
       "contact_sensors": {
         "title": "Contact sensors",
+        "description": "Configure how assigned full-open and tilt contacts trigger ventilation and lockout behavior.",
         "data": {
           "contact_trigger_delay": "Delay before reaction on contact change",
           "contact_status_delay": "Stability delay for contact status",
@@ -208,16 +290,34 @@
           "lockout_tilt_close": "Block close when tilt contact active",
           "lockout_tilt_shading_start": "Block shading start when tilt contact active",
           "lockout_tilt_shading_end": "Block shading end when tilt contact active"
+        },
+        "data_description": {
+          "contact_trigger_delay": "How long a contact change must remain stable before the cover reacts.",
+          "contact_status_delay": "Delay before the current contact status is evaluated.",
+          "ventilation_delay_after_close": "Wait this many seconds after closing contacts before restoring from ventilation.",
+          "ventilation_allow_higher_position": "Allow ventilation even if the current cover position is already above the ventilation target.",
+          "ventilation_use_after_shading": "After shading ends, use the ventilation position if a tilt contact is still active.",
+          "lockout_tilt_close": "Prevent full closing while a tilt contact is active.",
+          "lockout_tilt_shading_start": "Prevent shading from starting while a tilt contact is active.",
+          "lockout_tilt_shading_end": "Prevent shading from ending while a tilt contact is active."
         }
       },
       "brightness": {
         "title": "Brightness control",
+        "description": "Brightness thresholds can complement time control for earlier or later opening and closing.",
         "data": {
           "brightness_sensor": "Brightness sensor",
           "brightness_open_above": "Open when brightness above",
           "brightness_close_below": "Close when brightness below",
           "brightness_hysteresis": "Brightness hysteresis",
           "brightness_time_duration": "Brightness duration"
+        },
+        "data_description": {
+          "brightness_sensor": "Illuminance sensor used for brightness conditions.",
+          "brightness_open_above": "Opening is allowed when brightness rises above this value plus hysteresis.",
+          "brightness_close_below": "Closing is allowed when brightness drops below this value minus hysteresis.",
+          "brightness_hysteresis": "Buffer around thresholds to prevent rapid toggling.",
+          "brightness_time_duration": "Brightness must stay above or below the threshold for this many seconds."
         }
       },
       "sun_elevation": {
@@ -230,11 +330,19 @@
           "sun_time_duration": "Sun elevation duration",
           "sun_elevation_dynamic_open_sensor": "Sun elevation up sensor (dynamic/hybrid)",
           "sun_elevation_dynamic_close_sensor": "Sun elevation down sensor (dynamic/hybrid)"
+        },
+        "data_description": {
+          "sun_elevation_mode": "Fixed uses the configured values; dynamic uses sensors; hybrid adds configured offsets to sensors.",
+          "sun_elevation_open": "Fixed opening threshold, or offset in hybrid mode.",
+          "sun_elevation_close": "Fixed closing threshold, or offset in hybrid mode.",
+          "sun_time_duration": "Sun elevation must stay beyond the threshold for this many seconds.",
+          "sun_elevation_dynamic_open_sensor": "Sensor or number helper that provides the dynamic opening threshold.",
+          "sun_elevation_dynamic_close_sensor": "Sensor or number helper that provides the dynamic closing threshold."
         }
       },
       "behavior": {
         "title": "Behavior",
-        "description": "Fine-tune cover type handling and safeguards from the blueprint.",
+        "description": "Blueprint safeguards: limit movement, prevent automatic returns, and block repeated daily actions.",
         "data": {
           "prevent_higher_position_closing": "Prevent closing from a higher position",
           "prevent_lowering_when_closing_if_shaded": "Prevent lowering while closing if already shaded",
@@ -244,10 +352,21 @@
           "prevent_opening_multiple_times": "Prevent opening multiple times per day",
           "prevent_closing_multiple_times": "Prevent closing multiple times per day",
           "prevent_shading_multiple_times": "Prevent shading multiple times per day"
+        },
+        "data_description": {
+          "prevent_higher_position_closing": "Do not raise the cover before evening closing.",
+          "prevent_lowering_when_closing_if_shaded": "If already shaded, do not lower further during closing.",
+          "prevent_shading_end_if_closed": "Do not end shading when the cover is already closed.",
+          "prevent_opening_after_shading_end": "Do not automatically open after shading ends.",
+          "prevent_opening_after_ventilation_end": "Do not automatically open after ventilation ends.",
+          "prevent_opening_multiple_times": "Run automatic opening at most once per day.",
+          "prevent_closing_multiple_times": "Run automatic closing at most once per day.",
+          "prevent_shading_multiple_times": "Start shading at most once per day."
         }
       },
       "shading": {
         "title": "Shading control",
+        "description": "Shading reacts to direct sun using azimuth, elevation, brightness, optional forecast data, and additional conditions.",
         "data": {
           "shading_azimuth_start": "Shading azimuth start",
           "shading_azimuth_end": "Shading azimuth end",
@@ -255,12 +374,36 @@
           "shading_elevation_max": "Shading elevation maximum",
           "shading_brightness_start": "Brightness to start shading",
           "shading_brightness_end": "Brightness to end shading",
+          "shading_waitingtime_start": "Delay before starting shading",
+          "shading_waitingtime_end": "Delay before ending shading",
+          "shading_start_max_duration": "Maximum wait for shading start",
+          "shading_end_max_duration": "Maximum wait for shading end",
+          "shading_end_immediate_by_sun_position": "End shading quickly when sun leaves range",
           "shading_forecast_sensor": "Forecast weather sensor (optional)",
           "shading_forecast_type": "Shading forecast type",
           "shading_weather_conditions": "Weather conditions for shading",
           "additional_condition_shading": "Additional condition for shading",
           "additional_condition_shading_tilt": "Additional condition for shading tilt",
           "additional_condition_shading_end": "Additional condition for ending shading"
+        },
+        "data_description": {
+          "shading_azimuth_start": "Minimum azimuth where the sun can hit the window.",
+          "shading_azimuth_end": "Maximum azimuth where the sun can hit the window.",
+          "shading_elevation_min": "Minimum sun elevation for starting shading.",
+          "shading_elevation_max": "Maximum sun elevation for keeping shading active.",
+          "shading_brightness_start": "Brightness from which shading may start.",
+          "shading_brightness_end": "Brightness below which shading may end.",
+          "shading_waitingtime_start": "Delay used to avoid short shading activations.",
+          "shading_waitingtime_end": "Delay used to avoid short shading releases.",
+          "shading_start_max_duration": "Maximum time to keep a pending shading start valid.",
+          "shading_end_max_duration": "Maximum time to keep a pending shading end valid.",
+          "shading_end_immediate_by_sun_position": "Use a short delay when the sun leaves the configured range.",
+          "shading_forecast_sensor": "Optional weather or forecast source for temperature and conditions.",
+          "shading_forecast_type": "Choose daily, hourly, or current weather attributes.",
+          "shading_weather_conditions": "Only allow shading for selected weather conditions.",
+          "additional_condition_shading": "Extra Home Assistant condition that must pass before shading starts.",
+          "additional_condition_shading_tilt": "Extra condition for tilt movement while shaded.",
+          "additional_condition_shading_end": "Extra Home Assistant condition that must pass before shading ends."
         }
       },
       "finish": {
@@ -268,22 +411,32 @@
         "description": "Save configuration changes."
       },
       "functions": {
-        "title": "Functions",
-        "description": "Enable or disable each function individually.",
+        "title": "Automation functions",
+        "description": "Enable or disable functions. Only active functions appear in the menu, are exposed as switches, and are evaluated by the controller.",
         "data": {
           "auto_time_enabled": "Time control",
-          "auto_ventilate_enabled": "Contact sensors",
+          "auto_ventilate_enabled": "Ventilation and lockout",
           "auto_brightness_enabled": "Brightness automation",
           "auto_sun_enabled": "Sun elevation control",
           "auto_shading_enabled": "Shading",
-          "resident_status_enabled": "Resident",
+          "resident_status_enabled": "Resident mode",
           "additional_conditions_enabled": "Additional conditions",
           "manual_control_enabled": "Manual control"
+        },
+        "data_description": {
+          "auto_time_enabled": "Opens and closes within configured time windows. Internally toggles opening and closing together.",
+          "auto_ventilate_enabled": "Reacts to window contacts, moves tilted windows to ventilation position, and prevents lockout.",
+          "auto_brightness_enabled": "Adds brightness thresholds to automatic opening and closing.",
+          "auto_sun_enabled": "Adds sun elevation thresholds to automatic opening and closing. Do not confuse with shading.",
+          "auto_shading_enabled": "Moves to the shading position when direct sun conditions match.",
+          "resident_status_enabled": "Respects resident status: sleeping blocks regular opening, closing can happen immediately.",
+          "additional_conditions_enabled": "Shows additional conditions for global approval and individual actions.",
+          "manual_control_enabled": "Enables manual helper actions such as recalibration and clearing manual overrides."
         }
       },
       "resident": {
-        "title": "Resident",
-        "description": "Resident mode: when sensor is on/true, closing can happen immediately and regular opening stays blocked until sensor switches off/false. All settings are optional.",
+        "title": "Resident mode",
+        "description": "Defines how sleep and wake-up state affect automation. All settings are optional.",
         "data": {
           "resident_sensor": "Resident sensor (binary_sensor/input_boolean/switch)",
           "resident_open_enabled": "Enable automatic opening when resident wakes up (respects opening conditions)",
@@ -291,6 +444,14 @@
           "resident_allow_shading": "Allow sun protection while resident mode is active",
           "resident_allow_open": "Allow opening while resident mode is active",
           "resident_allow_ventilation": "Allow ventilation while resident mode is active"
+        },
+        "data_description": {
+          "resident_sensor": "On/true means resident mode is active, usually sleeping or quiet time.",
+          "resident_open_enabled": "When the sensor turns off, opening may run if all normal opening conditions are met.",
+          "resident_close_enabled": "When the sensor turns on, closing may run immediately.",
+          "resident_allow_shading": "Allow shading even while resident mode blocks regular opening.",
+          "resident_allow_open": "Allow regular opening even while resident mode is active.",
+          "resident_allow_ventilation": "Allow ventilation movements even while resident mode is active."
         }
       },
       "additional_conditions": {
@@ -305,6 +466,16 @@
           "additional_condition_shading": "Additional condition when activating sun shading",
           "additional_condition_shading_tilt": "Additional condition for sun shading tilt",
           "additional_condition_shading_end": "Additional condition when deactivating sun shading"
+        },
+        "data_description": {
+          "additional_condition_global": "Must pass before any automatic action can run.",
+          "additional_condition_open": "Must pass before automatic opening can run.",
+          "additional_condition_close": "Must pass before automatic closing can run.",
+          "additional_condition_ventilate": "Must pass before ventilation can start.",
+          "additional_condition_ventilate_end": "Must pass before ventilation can end.",
+          "additional_condition_shading": "Must pass before shading can start.",
+          "additional_condition_shading_tilt": "Must pass before shading tilt can run.",
+          "additional_condition_shading_end": "Must pass before shading can end."
         }
       }
     }
