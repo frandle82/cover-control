@@ -71,6 +71,9 @@
           },
           "contacts": {
             "name": "Lüftung & Sperren"
+          },
+          "tilt_positions": {
+            "name": "Lamellenpositionen"
           }
         }
       },
@@ -130,16 +133,11 @@
     "step": {
       "general": {
         "title": "Allgemeine Konfiguration",
-        "description": "Raum, Cover, Basispositionen und allgemeine Einstellungen festlegen.",
+        "description": "Instanzname, Raum und Cover festlegen.",
         "data": {
           "name": "Instanzname",
           "room": "Raum",
-          "covers": "Cover",
-          "open_position": "Öffnungsposition",
-          "close_position": "Schließposition",
-          "open_tilt_position": "Lamellenposition beim Öffnen",
-          "close_tilt_position": "Lamellenposition beim Schließen",
-          "position_tolerance": "Positionstoleranz"
+          "covers": "Cover"
         }
       },
       "menu": {
@@ -155,8 +153,25 @@
           "shading": "Beschattung",
           "functions": "Funktionen",
           "behavior": "Verhalten",
+          "positions": "Positionen",
           "resident": "Resident",
           "additional_conditions": "Zusatzbedingungen"
+        }
+      },
+      "positions": {
+        "title": "Cover-Positionen",
+        "description": "Cover-Typ, Fahrpositionen, Toleranz und Lamellenpositionen festlegen.",
+        "data": {
+          "cover_type": "Cover-Typ",
+          "open_position": "Öffnungsposition",
+          "close_position": "Schließposition",
+          "ventilate_position": "Lüftungsposition",
+          "shading_position": "Beschattungsposition",
+          "position_tolerance": "Positionstoleranz",
+          "open_tilt_position": "Lamellenposition beim Öffnen",
+          "close_tilt_position": "Lamellenposition beim Schließen",
+          "ventilate_tilt_position": "Lamellenposition für Lüftung",
+          "shading_tilt_position": "Lamellenposition für Beschattung"
         }
       },
       "time_control": {
@@ -184,7 +199,6 @@
           "contact_status_delay": "Stabilisierungszeit Kontaktstatus",
           "ventilation_delay_after_close": "Wartezeit nach Schließen bis Lüftung",
           "ventilation_allow_higher_position": "Lüftung über Schließposition erlauben",
-          "ventilate_tilt_position": "Lamellenposition für Lüftung",
           "ventilation_use_after_shading": "Lüftung nach Beschattung verwenden",
           "lockout_tilt_close": "Schließen bei Kippkontakt sperren",
           "lockout_tilt_shading_start": "Beschattung-Start bei Kippkontakt sperren",
@@ -217,7 +231,6 @@
         "title": "Verhalten",
         "description": "Cover-Typ und Schutzoptionen aus der Blueprint feinjustieren.",
         "data": {
-          "cover_type": "Cover-Typ",
           "prevent_higher_position_closing": "Schließen aus höherer Position verhindern",
           "prevent_lowering_when_closing_if_shaded": "Absenken beim Schließen verhindern, wenn bereits beschattet",
           "prevent_shading_end_if_closed": "Beschattung nicht beenden, wenn das Cover geschlossen ist",
@@ -231,8 +244,6 @@
       "shading": {
         "title": "Beschattung",
         "data": {
-          "shading_position": "Beschattungsposition",
-          "shading_tilt_position": "Lamellenposition für Beschattung",
           "shading_azimuth_start": "Azimut Start Beschattung",
           "shading_azimuth_end": "Azimut Ende Beschattung",
           "shading_elevation_min": "Minimale Sonnenhöhe Beschattung",
