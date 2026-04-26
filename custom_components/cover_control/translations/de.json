@@ -12,11 +12,36 @@
   "config": {
     "step": {
       "user": {
-        "title": "Raum und Cover auswählen",
-        "description": "Wähle den Raum und die Cover aus, die automatisiert werden sollen.",
+        "title": "Grundeinstellungen und Funktionen",
+        "description": "Name, Raum, Cover und die gewünschten Automatikfunktionen auswählen.",
         "data": {
+          "name": "Instanzname",
           "covers": "Abdeckung",
           "room": "Raum"
+        },
+        "sections": {
+          "automation_features": {
+            "name": "Automatikfunktionen",
+            "description": "Nur aktivierte Funktionen werden eingerichtet, als Schalter angezeigt und vom Controller ausgewertet.",
+            "data": {
+              "auto_time_enabled": "Zeitsteuerung - morgens öffnen und abends schließen",
+              "auto_ventilate_enabled": "Lüftung und Sperrschutz - auf Fensterkontakte reagieren",
+              "auto_brightness_enabled": "Helligkeit - Öffnen/Schließen über Schwellen ergänzen",
+              "auto_sun_enabled": "Sonnenstand - Öffnen/Schließen über Sonnenhöhe ergänzen",
+              "auto_shading_enabled": "Beschattung - bei direkter Sonne teilweise schließen",
+              "resident_status_enabled": "Bewohner-Modus - Ruhezeiten und Aufwachen berücksichtigen",
+              "additional_conditions_enabled": "Zusatzbedingungen - einzelne Aktionen dynamisch begrenzen"
+            },
+            "data_description": {
+              "auto_time_enabled": "Aktiviert die täglichen Öffnungs- und Schließfenster. Intern werden Öffnen und Schließen gemeinsam geschaltet.",
+              "auto_ventilate_enabled": "Nutzt Voll- und Kippkontakte. Voll geöffnet fährt in die Öffnungsposition, gekippt in die Lüftungsposition; Markisen werden ausgeschlossen.",
+              "auto_brightness_enabled": "Ergänzt die Zeitlogik um Helligkeitsschwellen. Nützlich, wenn es früher hell oder dunkel wird.",
+              "auto_sun_enabled": "Ergänzt die Zeitlogik um Sonnenhöhe. Das ist nicht die Beschattungsfunktion.",
+              "auto_shading_enabled": "Fährt bei passendem Sonnenstand und Helligkeit in die Beschattungsposition und später wieder zurück.",
+              "resident_status_enabled": "Blockiert reguläres Öffnen, solange der Bewohner-Sensor aktiv ist. Schließen beim Schlafengehen kann sofort erfolgen.",
+              "additional_conditions_enabled": "Erlaubt optionale Home-Assistant-Bedingungen für die gesamte Automation oder einzelne Aktionen."
+            }
+          }
         }
       },
       "windows": {
@@ -26,13 +51,12 @@
       },
       "schedule": {
         "title": "Hilfssensoren und Schwellenwerte",
-        "description": "Optionale Helfer für Arbeitstage, Anwesenheit, Helligkeit und Temperaturschutz auswählen",
+        "description": "Nur die Bereiche der aktivierten Funktionen werden angezeigt. Positionen sind Basiswerte für alle Bewegungen.",
         "data": {
           "workday_sensor": "Arbeitstags-Helfer (optional)",
           "resident_sensor": "Anwesenheits-/Ruhe-Sensor (optional)",
           "brightness_sensor": "Helligkeitssensor (optional)",
           "temperature_sensor_indoor": "Temperatursensor innen (optional)",
-          "ventilate_position_entity": "Positions-Helfer für Lüftung",
           "temperature_sensor_outdoor": "Temperatursensor außen (optional)",
           "temperature_threshold": "Temperaturschwelle",
           "temperature_forecast_threshold": "Vorhersage-Temperaturschwelle",
@@ -49,15 +73,26 @@
           "time_up_late_non_workday": "Späteste Öffnungszeit (frei)",
           "time_down_early_non_workday": "Früheste Schließzeit (frei)",
           "time_down_late_non_workday": "Späteste Schließzeit (frei)",
-          "open_position": "Öffnungsposition",
-          "close_position": "Schließposition",
-          "ventilate_position": "Lüftungsposition",
-          "shading_position": "Beschattungsposition",
-          "open_tilt_position": "Lamellenposition beim Öffnen",
-          "close_tilt_position": "Lamellenposition beim Schließen",
-          "ventilate_tilt_position": "Lamellenposition für Lüftung",
-          "shading_tilt_position": "Lamellenposition für Beschattung",
+          "open_position": "Öffnungsposition (%)",
+          "close_position": "Schließposition (%)",
+          "ventilate_position": "Lüftungsposition (%)",
+          "shading_position": "Beschattungsposition (%)",
+          "open_tilt_position": "Lamellenposition beim Öffnen (%)",
+          "close_tilt_position": "Lamellenposition beim Schließen (%)",
+          "ventilate_tilt_position": "Lamellenposition für Lüftung (%)",
+          "shading_tilt_position": "Lamellenposition für Beschattung (%)",
           "workday_tomorrow_sensor": "Arbeitstag-morgen Entität (optional)"
+        },
+        "data_description": {
+          "open_position": "Zielposition beim Öffnen. Bei Rollläden meist 100, bei Markisen oft 0.",
+          "close_position": "Zielposition beim Schließen. Bei Rollläden meist 0, bei Markisen oft 100.",
+          "ventilate_position": "Zielposition bei gekipptem Fenster. Für Markisen nicht relevant.",
+          "shading_position": "Zielposition für die Beschattung.",
+          "position_tolerance": "Absolute Toleranz beim Vergleich der aktuellen Position mit der Zielposition.",
+          "open_tilt_position": "Lamellenziel nach dem Öffnen.",
+          "close_tilt_position": "Lamellenziel nach dem Schließen.",
+          "ventilate_tilt_position": "Lamellenziel während der Lüftung.",
+          "shading_tilt_position": "Lamellenziel während der Beschattung."
         },
         "sections": {
           "presence": {
@@ -67,10 +102,10 @@
             "name": "Zeitplan"
           },
           "positions": {
-            "name": "Positionen"
+            "name": "Fahrpositionen"
           },
           "contacts": {
-            "name": "Lüftung & Sperren"
+            "name": "Lüftung und Sperrschutz"
           },
           "tilt_positions": {
             "name": "Lamellenpositionen"
@@ -78,8 +113,8 @@
         }
       },
       "shading": {
-        "title": "Sonne, Helligkeit und manueller Überschreiben",
-        "description": "Grenzwerte für Sonnensteuerung, Beschattung und den manuellen Override anpassen.",
+        "title": "Helligkeit, Sonne, Beschattung und manueller Override",
+        "description": "Schwellenwerte der aktivierten Funktionen und den Umgang mit manuellen Positionsänderungen festlegen.",
         "data": {
           "brightness_sensor": "Helligkeitssensor",
           "brightness_open_above": "Öffnen bei Helligkeit über",
@@ -112,6 +147,38 @@
           "manual_override_block_ventilate": "Nächste automatische Lüftung nach manueller Änderung ignorieren",
           "manual_override_block_shading": "Nächste automatische Beschattung nach manueller Änderung ignorieren"
         },
+        "data_description": {
+          "brightness_sensor": "Sensor für helligkeitsbasiertes Öffnen und Schließen.",
+          "brightness_open_above": "Öffnen darf laufen, wenn die Helligkeit über diesem Wert bleibt.",
+          "brightness_close_below": "Schließen darf laufen, wenn die Helligkeit unter diesem Wert bleibt.",
+          "sun_elevation_open": "Öffnen darf laufen, wenn die Sonne hoch genug steht.",
+          "sun_elevation_close": "Schließen darf laufen, wenn die Sonne niedrig genug steht.",
+          "shading_azimuth_start": "Minimaler Azimut, bei dem die Sonne das Fenster treffen kann.",
+          "shading_azimuth_end": "Maximaler Azimut, bei dem die Sonne das Fenster treffen kann.",
+          "shading_elevation_min": "Minimale Sonnenhöhe für Beschattung.",
+          "shading_elevation_max": "Maximale Sonnenhöhe für Beschattung.",
+          "shading_brightness_start": "Helligkeit, ab der Beschattung starten darf.",
+          "shading_brightness_end": "Helligkeit, unter der Beschattung enden darf.",
+          "shading_waitingtime_start": "Verzögerung gegen kurze Beschattungsstarts.",
+          "shading_waitingtime_end": "Verzögerung gegen kurzes Freigeben der Beschattung.",
+          "shading_start_max_duration": "Maximale Gültigkeit eines wartenden Beschattungsstarts.",
+          "shading_end_max_duration": "Maximale Gültigkeit eines wartenden Beschattungsendes.",
+          "shading_end_immediate_by_sun_position": "Kurze Verzögerung verwenden, sobald die Sonne den Bereich verlässt.",
+          "shading_forecast_sensor": "Optionale Wetter- oder Vorhersagequelle für Temperatur und Bedingungen.",
+          "shading_forecast_type": "Täglich, stündlich oder aktuelle Wetterattribute verwenden.",
+          "shading_weather_conditions": "Beschattung nur bei ausgewählten Wetterbedingungen erlauben.",
+          "temperature_sensor_indoor": "Optionale Innentemperaturbedingung für Hitzeschutz.",
+          "temperature_sensor_outdoor": "Optionale Außentemperaturbedingung für Hitzeschutz.",
+          "temperature_threshold": "Minimale gemessene Temperatur für temperaturbasierte Beschattung.",
+          "temperature_forecast_threshold": "Minimale Vorhersagetemperatur für vorhersagebasierte Beschattung.",
+          "manual_override_minutes": "Zeitlimit, nach dem der manuelle Override gelöscht wird.",
+          "manual_override_reset_mode": "Festlegen, ob per Uhrzeit, Zeitlimit oder nicht automatisch zurückgesetzt wird.",
+          "manual_override_reset_time": "Tägliche Uhrzeit zum Löschen des manuellen Overrides.",
+          "manual_override_block_open": "Nächste automatische Öffnung nach manueller Fahrt überspringen.",
+          "manual_override_block_close": "Nächste automatische Schließung nach manueller Fahrt überspringen.",
+          "manual_override_block_ventilate": "Nächste automatische Lüftung nach manueller Fahrt überspringen.",
+          "manual_override_block_shading": "Nächste automatische Beschattung nach manueller Fahrt überspringen."
+        },
         "sections": {
           "brightness_controls": {
             "name": "Helligkeit"
@@ -142,7 +209,7 @@
       },
       "menu": {
         "title": "Funktionsmenü",
-        "description": "Wähle einen Bereich zur Konfiguration und speichere am Ende mit \"Speichern und schließen\".",
+        "description": "Bereich auswählen, Einstellungen anpassen und am Ende mit \"Speichern und schließen\" übernehmen.",
         "menu_options": {
           "general": "Allgemein",
           "finish": "Speichern und schließen",
@@ -163,19 +230,32 @@
         "description": "Cover-Typ, Fahrpositionen, Toleranz und Lamellenpositionen festlegen.",
         "data": {
           "cover_type": "Cover-Typ",
-          "open_position": "Öffnungsposition",
-          "close_position": "Schließposition",
-          "ventilate_position": "Lüftungsposition",
-          "shading_position": "Beschattungsposition",
-          "position_tolerance": "Positionstoleranz",
-          "open_tilt_position": "Lamellenposition beim Öffnen",
-          "close_tilt_position": "Lamellenposition beim Schließen",
-          "ventilate_tilt_position": "Lamellenposition für Lüftung",
-          "shading_tilt_position": "Lamellenposition für Beschattung"
+          "open_position": "Öffnungsposition (%)",
+          "close_position": "Schließposition (%)",
+          "ventilate_position": "Lüftungsposition (%)",
+          "shading_position": "Beschattungsposition (%)",
+          "position_tolerance": "Positionstoleranz (%)",
+          "open_tilt_position": "Lamellenposition beim Öffnen (%)",
+          "close_tilt_position": "Lamellenposition beim Schließen (%)",
+          "ventilate_tilt_position": "Lamellenposition für Lüftung (%)",
+          "shading_tilt_position": "Lamellenposition für Beschattung (%)"
+        },
+        "data_description": {
+          "cover_type": "Rollläden verwenden meist 0 als geschlossen und 100 als offen. Markisen arbeiten häufig umgekehrt.",
+          "open_position": "Zielposition beim Öffnen. Bei Rollläden meist 100, bei Markisen oft 0.",
+          "close_position": "Zielposition beim Schließen. Bei Rollläden meist 0, bei Markisen oft 100.",
+          "ventilate_position": "Zielposition bei gekipptem Fenster. Für Markisen nicht relevant.",
+          "shading_position": "Zielposition für die Beschattung.",
+          "position_tolerance": "Absolute Toleranz beim Vergleich der aktuellen Position mit der Zielposition.",
+          "open_tilt_position": "Lamellenziel nach dem Öffnen.",
+          "close_tilt_position": "Lamellenziel nach dem Schließen.",
+          "ventilate_tilt_position": "Lamellenziel während der Lüftung.",
+          "shading_tilt_position": "Lamellenziel während der Beschattung."
         }
       },
       "time_control": {
         "title": "Zeitsteuerung",
+        "description": "Tägliche Zeitfenster und optionale Kalenderereignisse für automatisches Öffnen und Schließen konfigurieren.",
         "data": {
           "workday_sensor": "Arbeitstag/Frei-Entität (on=Arbeitstag, off=frei)",
           "calendar_entity": "Kalender-Entität",
@@ -190,10 +270,26 @@
           "time_down_early_non_workday": "Früheste Schließzeit (frei)",
           "time_down_late_non_workday": "Späteste Schließzeit (frei)",
           "workday_tomorrow_sensor": "Arbeitstag-morgen Entität (on=Arbeitstag, off=frei)"
+        },
+        "data_description": {
+          "workday_sensor": "On bedeutet Arbeitstag, off bedeutet frei; wählt das passende Zeitfenster.",
+          "calendar_entity": "Optionaler Kalender, dessen Ereignistitel Öffnungs- oder Schließfenster definieren.",
+          "calendar_open_title": "Titelbestandteil für Kalenderereignisse, die Öffnen erlauben.",
+          "calendar_close_title": "Titelbestandteil für Kalenderereignisse, die Schließen erlauben.",
+          "time_up_early_workday": "Öffnen darf an Arbeitstagen ab dieser Uhrzeit starten.",
+          "time_up_late_workday": "Öffnen wird zu dieser Uhrzeit ausgeführt, wenn alle Bedingungen es erlauben.",
+          "time_down_early_workday": "Schließen darf an Arbeitstagen ab dieser Uhrzeit starten.",
+          "time_down_late_workday": "Schließen wird zu dieser Uhrzeit ausgeführt, wenn alle Bedingungen es erlauben.",
+          "time_up_early_non_workday": "Öffnen darf an freien Tagen ab dieser Uhrzeit starten.",
+          "time_up_late_non_workday": "Öffnen wird an freien Tagen zu dieser Uhrzeit ausgeführt, wenn erlaubt.",
+          "time_down_early_non_workday": "Schließen darf an freien Tagen ab dieser Uhrzeit starten.",
+          "time_down_late_non_workday": "Schließen wird an freien Tagen zu dieser Uhrzeit ausgeführt, wenn erlaubt.",
+          "workday_tomorrow_sensor": "Optionaler Helfer, um das abendliche Schließfenster anhand von morgen zu wählen."
         }
       },
       "contact_sensors": {
         "title": "Kontaktsensoren",
+        "description": "Legt fest, wie zugewiesene Öffnungs- und Kippkontakte Lüftung und Sperrschutz auslösen.",
         "data": {
           "contact_trigger_delay": "Wartezeit bei Kontaktänderung",
           "contact_status_delay": "Stabilisierungszeit Kontaktstatus",
@@ -203,16 +299,34 @@
           "lockout_tilt_close": "Schließen bei Kippkontakt sperren",
           "lockout_tilt_shading_start": "Beschattung-Start bei Kippkontakt sperren",
           "lockout_tilt_shading_end": "Beschattung-Ende bei Kippkontakt sperren"
+        },
+        "data_description": {
+          "contact_trigger_delay": "So lange muss eine Kontaktänderung stabil bleiben, bevor das Cover reagiert.",
+          "contact_status_delay": "Wartezeit, bevor der aktuelle Kontaktstatus ausgewertet wird.",
+          "ventilation_delay_after_close": "Nach geschlossenen Kontakten so viele Sekunden warten, bevor aus Lüftung zurückgefahren wird.",
+          "ventilation_allow_higher_position": "Lüftung auch erlauben, wenn die aktuelle Position bereits oberhalb der Lüftungsposition liegt.",
+          "ventilation_use_after_shading": "Nach Beschattungsende die Lüftungsposition nutzen, wenn ein Kippkontakt noch aktiv ist.",
+          "lockout_tilt_close": "Vollständiges Schließen verhindern, solange ein Kippkontakt aktiv ist.",
+          "lockout_tilt_shading_start": "Beschattungsstart verhindern, solange ein Kippkontakt aktiv ist.",
+          "lockout_tilt_shading_end": "Beschattungsende verhindern, solange ein Kippkontakt aktiv ist."
         }
       },
       "brightness": {
         "title": "Helligkeitsautomatik",
+        "description": "Helligkeitsschwellen ergänzen die Zeitsteuerung für früheres oder späteres Öffnen und Schließen.",
         "data": {
           "brightness_sensor": "Helligkeitssensor",
           "brightness_open_above": "Öffnen bei Helligkeit über",
           "brightness_close_below": "Schließen bei Helligkeit unter",
           "brightness_hysteresis": "Helligkeitshysterese",
           "brightness_time_duration": "Helligkeitsdauer"
+        },
+        "data_description": {
+          "brightness_sensor": "Helligkeitssensor für die Helligkeitsbedingungen.",
+          "brightness_open_above": "Öffnen ist erlaubt, wenn die Helligkeit über diesen Wert plus Hysterese steigt.",
+          "brightness_close_below": "Schließen ist erlaubt, wenn die Helligkeit unter diesen Wert minus Hysterese fällt.",
+          "brightness_hysteresis": "Puffer um die Schwellenwerte, um schnelles Umschalten zu verhindern.",
+          "brightness_time_duration": "Die Helligkeit muss so viele Sekunden über oder unter dem Schwellenwert bleiben."
         }
       },
       "sun_elevation": {
@@ -225,11 +339,19 @@
           "sun_time_duration": "Sonnenhöhen-Dauer",
           "sun_elevation_dynamic_open_sensor": "Sonnenhöhe-Auf Sensor (dynamisch/hybrid)",
           "sun_elevation_dynamic_close_sensor": "Sonnenhöhe-Ab Sensor (dynamisch/hybrid)"
+        },
+        "data_description": {
+          "sun_elevation_mode": "Fest nutzt die eingetragenen Werte; dynamisch nutzt Sensoren; hybrid addiert die Werte als Offset.",
+          "sun_elevation_open": "Fester Öffnungswert oder Offset im Hybridmodus.",
+          "sun_elevation_close": "Fester Schließwert oder Offset im Hybridmodus.",
+          "sun_time_duration": "Die Sonnenhöhe muss so viele Sekunden jenseits des Schwellenwerts bleiben.",
+          "sun_elevation_dynamic_open_sensor": "Sensor oder Zahlenhelfer für den dynamischen Öffnungswert.",
+          "sun_elevation_dynamic_close_sensor": "Sensor oder Zahlenhelfer für den dynamischen Schließwert."
         }
       },
       "behavior": {
         "title": "Verhalten",
-        "description": "Cover-Typ und Schutzoptionen aus der Blueprint feinjustieren.",
+        "description": "Schutzoptionen aus der Blueprint: Bewegungen begrenzen, Rückfahrten verhindern und Mehrfachaktionen pro Tag blockieren.",
         "data": {
           "prevent_higher_position_closing": "Schließen aus höherer Position verhindern",
           "prevent_lowering_when_closing_if_shaded": "Absenken beim Schließen verhindern, wenn bereits beschattet",
@@ -239,10 +361,21 @@
           "prevent_opening_multiple_times": "Mehrfaches Öffnen pro Tag verhindern",
           "prevent_closing_multiple_times": "Mehrfaches Schließen pro Tag verhindern",
           "prevent_shading_multiple_times": "Mehrfache Beschattung pro Tag verhindern"
+        },
+        "data_description": {
+          "prevent_higher_position_closing": "Beim abendlichen Schließen nicht erst nach oben fahren.",
+          "prevent_lowering_when_closing_if_shaded": "Wenn bereits beschattet ist, beim Schließen nicht weiter absenken.",
+          "prevent_shading_end_if_closed": "Beschattung nicht beenden, wenn das Cover bereits geschlossen ist.",
+          "prevent_opening_after_shading_end": "Nach Ende der Beschattung nicht automatisch öffnen.",
+          "prevent_opening_after_ventilation_end": "Nach Ende der Lüftung nicht automatisch öffnen.",
+          "prevent_opening_multiple_times": "Öffnen höchstens einmal pro Tag ausführen.",
+          "prevent_closing_multiple_times": "Schließen höchstens einmal pro Tag ausführen.",
+          "prevent_shading_multiple_times": "Beschattung höchstens einmal pro Tag starten."
         }
       },
       "shading": {
         "title": "Beschattung",
+        "description": "Beschattung reagiert auf direkte Sonne über Azimut, Sonnenhöhe, Helligkeit, optionale Vorhersage und Zusatzbedingungen.",
         "data": {
           "shading_azimuth_start": "Azimut Start Beschattung",
           "shading_azimuth_end": "Azimut Ende Beschattung",
@@ -261,6 +394,25 @@
           "additional_condition_shading": "Zusatzbedingung Beschattung",
           "additional_condition_shading_tilt": "Zusatzbedingung Beschattung Kipp",
           "additional_condition_shading_end": "Zusatzbedingung Ende Beschattung"
+        },
+        "data_description": {
+          "shading_azimuth_start": "Minimaler Azimut, bei dem die Sonne das Fenster treffen kann.",
+          "shading_azimuth_end": "Maximaler Azimut, bei dem die Sonne das Fenster treffen kann.",
+          "shading_elevation_min": "Minimale Sonnenhöhe für den Start der Beschattung.",
+          "shading_elevation_max": "Maximale Sonnenhöhe, bis zu der Beschattung aktiv bleiben darf.",
+          "shading_brightness_start": "Helligkeit, ab der Beschattung starten darf.",
+          "shading_brightness_end": "Helligkeit, unter der Beschattung enden darf.",
+          "shading_waitingtime_start": "Verzögerung gegen kurze Beschattungsstarts.",
+          "shading_waitingtime_end": "Verzögerung gegen kurzes Freigeben der Beschattung.",
+          "shading_start_max_duration": "Maximale Gültigkeit eines wartenden Beschattungsstarts.",
+          "shading_end_max_duration": "Maximale Gültigkeit eines wartenden Beschattungsendes.",
+          "shading_end_immediate_by_sun_position": "Kurze Verzögerung verwenden, sobald die Sonne den Bereich verlässt.",
+          "shading_forecast_sensor": "Optionale Wetter- oder Vorhersagequelle für Temperatur und Bedingungen.",
+          "shading_forecast_type": "Täglich, stündlich oder aktuelle Wetterattribute verwenden.",
+          "shading_weather_conditions": "Beschattung nur bei ausgewählten Wetterbedingungen erlauben.",
+          "additional_condition_shading": "Zusätzliche Home-Assistant-Bedingung, die vor Beschattungsstart erfüllt sein muss.",
+          "additional_condition_shading_tilt": "Zusätzliche Bedingung für Lamellenbewegungen während Beschattung.",
+          "additional_condition_shading_end": "Zusätzliche Home-Assistant-Bedingung, die vor Beschattungsende erfüllt sein muss."
         }
       },
       "finish": {
@@ -268,22 +420,32 @@
         "description": "Konfiguration speichern."
       },
       "functions": {
-        "title": "Funktionen",
-        "description": "Funktionen einzeln ein- oder ausblenden.",
+        "title": "Automatikfunktionen",
+        "description": "Funktionen ein- oder ausschalten. Nur aktive Funktionen erscheinen im Menü, werden als Schalter angelegt und vom Controller berücksichtigt.",
         "data": {
           "auto_time_enabled": "Zeitsteuerung",
-          "auto_ventilate_enabled": "Kontaktsensoren",
+          "auto_ventilate_enabled": "Lüftung und Sperrschutz",
           "auto_brightness_enabled": "Helligkeitsautomatik",
           "auto_sun_enabled": "Sonnenstandssteuerung",
           "auto_shading_enabled": "Beschattung",
           "resident_status_enabled": "Bewohner-Modus",
           "additional_conditions_enabled": "Zusatzbedingungen",
           "manual_control_enabled": "Manuelle Steuerung"
+        },
+        "data_description": {
+          "auto_time_enabled": "Öffnet und schließt innerhalb der konfigurierten Zeitfenster. Schaltet intern Öffnen und Schließen gemeinsam.",
+          "auto_ventilate_enabled": "Reagiert auf Fensterkontakte, fährt bei Kippkontakt in Lüftungsposition und verhindert Aussperren.",
+          "auto_brightness_enabled": "Erweitert Öffnen und Schließen um Helligkeitsschwellen.",
+          "auto_sun_enabled": "Erweitert Öffnen und Schließen um Sonnenhöhen-Schwellen. Nicht mit Beschattung verwechseln.",
+          "auto_shading_enabled": "Fährt bei direkter Sonne in die Beschattungsposition.",
+          "resident_status_enabled": "Berücksichtigt Bewohnerstatus: Schlafen blockiert reguläres Öffnen, Schließen kann sofort erfolgen.",
+          "additional_conditions_enabled": "Zeigt zusätzliche Bedingungen für globale Freigabe und einzelne Aktionen.",
+          "manual_control_enabled": "Aktiviert manuelle Hilfsaktionen wie Rekalibrierung und Zurücksetzen manueller Overrides."
         }
       },
       "resident": {
         "title": "Bewohner-Modus",
-        "description": "Resident-Modus: Bei Sensor on/true kann sofort geschlossen werden; automatische Öffnung bleibt gesperrt, bis der Sensor wieder off/false ist. Alle Optionen sind optional.",
+        "description": "Legt fest, wie Schlafen und Aufwachen die Automation beeinflussen. Alle Einstellungen sind optional.",
         "data": {
           "resident_sensor": "Bewohner-Sensor (binary_sensor/input_boolean/switch)",
           "resident_open_enabled": "Automatisches Öffnen beim Aufwachen (mit allen Öffnungsbedingungen)",
@@ -291,6 +453,14 @@
           "resident_allow_shading": "Beschattung trotz Resident-Modus erlauben",
           "resident_allow_open": "Öffnen trotz Resident-Modus erlauben",
           "resident_allow_ventilation": "Lüften trotz Resident-Modus erlauben"
+        },
+        "data_description": {
+          "resident_sensor": "On/true bedeutet Bewohner-Modus aktiv, meist Schlaf- oder Ruhezeit.",
+          "resident_open_enabled": "Wenn der Sensor auf off wechselt, darf geöffnet werden, sofern alle normalen Öffnungsbedingungen erfüllt sind.",
+          "resident_close_enabled": "Wenn der Sensor auf on wechselt, darf sofort geschlossen werden.",
+          "resident_allow_shading": "Beschattung erlauben, obwohl der Bewohner-Modus reguläres Öffnen blockiert.",
+          "resident_allow_open": "Reguläres Öffnen trotz aktivem Bewohner-Modus erlauben.",
+          "resident_allow_ventilation": "Lüftungsbewegungen trotz aktivem Bewohner-Modus erlauben."
         }
       },
       "additional_conditions": {
@@ -305,6 +475,16 @@
           "additional_condition_shading": "Zusatzbedingung für Start Beschattung",
           "additional_condition_shading_tilt": "Zusatzbedingung für Beschattung Kipp",
           "additional_condition_shading_end": "Zusatzbedingung für Ende Beschattung"
+        },
+        "data_description": {
+          "additional_condition_global": "Muss erfüllt sein, bevor irgendeine automatische Aktion läuft.",
+          "additional_condition_open": "Muss erfüllt sein, bevor automatisch geöffnet wird.",
+          "additional_condition_close": "Muss erfüllt sein, bevor automatisch geschlossen wird.",
+          "additional_condition_ventilate": "Muss erfüllt sein, bevor Lüftung startet.",
+          "additional_condition_ventilate_end": "Muss erfüllt sein, bevor Lüftung endet.",
+          "additional_condition_shading": "Muss erfüllt sein, bevor Beschattung startet.",
+          "additional_condition_shading_tilt": "Muss erfüllt sein, bevor Lamellenbewegungen für Beschattung laufen.",
+          "additional_condition_shading_end": "Muss erfüllt sein, bevor Beschattung endet."
         }
       }
     }
