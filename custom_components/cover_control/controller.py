@@ -59,6 +59,7 @@ from .const import (
     CONF_CALENDAR_ENTITY,
     CONF_CALENDAR_OPEN_TITLE,
     CONF_CLOSE_POSITION,
+    CONF_CLOSE_TILT_POSITION,
     CONF_COVERS,
     CONF_CONTACT_STATUS_DELAY,
     CONF_CONTACT_TRIGGER_DELAY,
@@ -76,6 +77,7 @@ from .const import (
     CONF_MANUAL_OVERRIDE_RESET_TIME,
     CONF_MASTER_ENABLED,
     CONF_OPEN_POSITION,
+    CONF_OPEN_TILT_POSITION,
     CONF_POSITION_TOLERANCE,
     CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
     CONF_PREVENT_HIGHER_POSITION_CLOSING,
@@ -98,8 +100,10 @@ from .const import (
     CONF_SHADING_BRIGHTNESS_END,
     CONF_SHADING_BRIGHTNESS_START,
     CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
+    CONF_SHADING_END_MAX_DURATION,
     CONF_SHADING_POSITION,
     CONF_SHADING_START_MAX_DURATION,
+    CONF_SHADING_TILT_POSITION,
     CONF_SHADING_WAITINGTIME_END,
     CONF_SHADING_WAITINGTIME_START,
     CONF_SUN_AZIMUTH_END,
@@ -128,6 +132,7 @@ from .const import (
     CONF_VENTILATION_DELAY_AFTER_CLOSE,
     CONF_VENTILATION_USE_AFTER_SHADING,
     CONF_VENTILATE_POSITION,
+    CONF_VENTILATE_TILT_POSITION,
     CONF_WINDOW_SENSOR_FULL,
     CONF_WINDOW_SENSOR_TILT,
     CONF_WORKDAY_SENSOR,
@@ -143,12 +148,17 @@ from .const import (
     DEFAULT_MANUAL_OVERRIDE_RESET_TIME,
     DEFAULT_MASTER_FLAGS,
     DEFAULT_POSITION_SETTINGS,
+    DEFAULT_CONTACT_SETTINGS,
     DEFAULT_TIME_SETTINGS,
     DEFAULT_OPEN_POSITION,
+    DEFAULT_OPEN_TILT_POSITION,
     DEFAULT_TOLERANCE,
     DEFAULT_VENTILATE_POSITION,
+    DEFAULT_VENTILATE_TILT_POSITION,
     DEFAULT_SHADING_POSITION,
+    DEFAULT_SHADING_TILT_POSITION,
     DEFAULT_CLOSE_POSITION,
+    DEFAULT_CLOSE_TILT_POSITION,
     DEFAULT_SHADING_BRIGHTNESS_END,
     DEFAULT_SHADING_BRIGHTNESS_START,
     DEFAULT_SHADING_FORECAST_TYPE,
@@ -244,6 +254,13 @@ def _default_cover_status() -> dict:
             "partial": False,
             "full": False,
             "restore_position": None,
+            "background": {"open": False, "close": False, "shading": False},
+            "ts": 0,
+        },
+        "force": {
+            "active": False,
+            "restore_position": None,
+            "background": {"open": False, "close": False, "shading": False},
             "ts": 0,
         },
         "manual": {"active": False, "scope_all": False, "until": None, "ts": 0},
@@ -278,7 +295,21 @@ def _normalize_cover_status(raw: object) -> dict:
         status["ventilation"]["restore_position"] = _coerce_float(
             ventilation.get("restore_position")
         )
+        background = ventilation.get("background")
+        if isinstance(background, dict):
+            for key in ("open", "close", "shading"):
+                status["ventilation"]["background"][key] = bool(background.get(key))
         status["ventilation"]["ts"] = int(ventilation.get("ts") or 0)
+
+    force = raw.get("force")
+    if isinstance(force, dict):
+        status["force"]["active"] = bool(force.get("active", False))
+        status["force"]["restore_position"] = _coerce_float(force.get("restore_position"))
+        background = force.get("background")
+        if isinstance(background, dict):
+            for key in ("open", "close", "shading"):
+                status["force"]["background"][key] = bool(background.get(key))
+        status["force"]["ts"] = int(force.get("ts") or 0)
 
     manual = raw.get("manual")
     if isinstance(manual, dict):
@@ -331,7 +362,9 @@ class ControllerManager:
             **DEFAULT_TIME_SETTINGS,
             **DEFAULT_AUTOMATION_FLAGS,
             **DEFAULT_MANUAL_OVERRIDE_FLAGS,
+            **DEFAULT_CONTACT_SETTINGS,
             **DEFAULT_BEHAVIOR_SETTINGS,
+            **DEFAULT_SHADING_TIMING_SETTINGS,
             **self.entry.data,
             **self.entry.options,
         }
@@ -368,7 +401,9 @@ class ControllerManager:
             **DEFAULT_TIME_SETTINGS,
             **DEFAULT_AUTOMATION_FLAGS,
             **DEFAULT_MANUAL_OVERRIDE_FLAGS,
+            **DEFAULT_CONTACT_SETTINGS,
             **DEFAULT_BEHAVIOR_SETTINGS,
+            **DEFAULT_SHADING_TIMING_SETTINGS,
             **self.entry.data,
             **self.entry.options,
         }
@@ -655,7 +690,59 @@ class CoverController:
         section["partial"] = partial
         section["full"] = full
         section["restore_position"] = self._pre_ventilation_position
+        section.setdefault("background", {"open": False, "close": False, "shading": False})
         section["ts"] = ts if ts is not None else _ts_now()
+
+    def _status_background(self) -> dict[str, bool]:
+        return {
+            "open": self._status_active("open"),
+            "close": self._status_active("close"),
+            "shading": self._status_active("shading")
+            or self._reason in {"shading", "manual_shading"},
+        }
+
+    def _remember_status_background(self, section_key: str) -> None:
+        section = self._status.setdefault(section_key, {})
+        section["background"] = self._status_background()
+        section["restore_position"] = self._current_position()
+        section["ts"] = _ts_now()
+
+    def _background_for(self, section_key: str) -> dict[str, bool]:
+        section = self._status.get(section_key, {})
+        background = section.get("background") if isinstance(section, dict) else None
+        if not isinstance(background, dict):
+            return {"open": False, "close": False, "shading": False}
+        return {key: bool(background.get(key)) for key in ("open", "close", "shading")}
+
+    def _background_return_target(
+        self,
+        background: dict[str, bool],
+        *,
+        fallback: float | None,
+        allow_open: bool = True,
+        allow_shading: bool = True,
+    ) -> tuple[float | None, str]:
+        if background.get("shading") and allow_shading:
+            return (
+                self._position_value(CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION),
+                "ventilation_end_shading",
+            )
+        if background.get("close"):
+            return (
+                self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
+                "ventilation_end_close",
+            )
+        if background.get("open") and allow_open:
+            return (
+                self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+                "ventilation_end_open",
+            )
+        if fallback is not None:
+            return fallback, "ventilation_end_restore"
+        return (
+            self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
+            "ventilation_end_close",
+        )
 
     def _record_action_status(self, reason: str, position: float | None = None) -> None:
         ts = _ts_now()
@@ -830,7 +917,12 @@ class CoverController:
             return
 
         service = event.data.get("service")
-        if service not in {"set_cover_position", "open_cover", "close_cover"}:
+        if service not in {
+            "set_cover_position",
+            "set_cover_tilt_position",
+            "open_cover",
+            "close_cover",
+        }:
             return
 
         service_data = event.data.get("service_data") or {}
@@ -852,6 +944,8 @@ class CoverController:
                 position = float(position_value) if position_value is not None else None
             except (TypeError, ValueError):
                 position = None
+        elif service == "set_cover_tilt_position":
+            position = self._current_position()
         elif service == "open_cover":
             position = 100.0
         elif service == "close_cover":
@@ -963,6 +1057,7 @@ class CoverController:
         """Remember current position before switching into ventilation mode."""
         if self._reason in {"ventilation", "ventilation_full"}:
             return
+        self._remember_status_background("ventilation")
         current = self._current_position()
         if current is not None:
             self._pre_ventilation_position = float(current)
@@ -970,6 +1065,35 @@ class CoverController:
                 "restore_position"
             ] = self._pre_ventilation_position
             self.persist_status()
+
+    def _remember_force_background(self) -> None:
+        section = self._status.setdefault("force", {})
+        if not section.get("active"):
+            self._remember_status_background("force")
+        section["active"] = True
+        section["ts"] = _ts_now()
+        self.persist_status()
+
+    def _clear_force_background(self) -> None:
+        section = self._status.setdefault("force", {})
+        section["active"] = False
+        section["restore_position"] = None
+        section["background"] = {"open": False, "close": False, "shading": False}
+        section["ts"] = _ts_now()
+
+    def _force_return_target(
+        self, *, allow_open: bool = True, allow_shading: bool = True
+    ) -> tuple[float | None, str]:
+        section = self._status.get("force", {})
+        fallback = None
+        if isinstance(section, dict):
+            fallback = _coerce_float(section.get("restore_position"))
+        return self._background_return_target(
+            self._background_for("force"),
+            fallback=fallback,
+            allow_open=allow_open,
+            allow_shading=allow_shading,
+        )
 
     def publish_state(self) -> None:
         """Expose the current state via dispatcher for newly added entities."""
@@ -1076,8 +1200,12 @@ class CoverController:
             return
         if target is None:
             return
+        self._remember_force_background()
         self._activate_manual_override(scope_all=True, reason=reason)
         await self._command_position(float(target), reason=reason)
+        tilt_position = self._tilt_position_value(reason)
+        if tilt_position is not None:
+            await self._command_tilt_position(float(tilt_position), reason=reason)
         self._target = float(target)
         self._reason = reason
         self._record_action_status(reason, float(target))
@@ -1087,27 +1215,40 @@ class CoverController:
     async def force_ventilation(self, action: str) -> None:
         self._activate_manual_override(scope_all=True, reason="ventilation")
         if action == "start":
+            self._remember_force_background()
             self._remember_pre_ventilation_position()
             target = self._position_value(CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION)
             if target is None:
                 return
             await self._command_position(float(target), reason="ventilation_start")
+            tilt_position = self._tilt_position_value("ventilation_start")
+            if tilt_position is not None:
+                await self._command_tilt_position(
+                    float(tilt_position), reason="ventilation_start"
+                )
             self._target = float(target)
             self._reason = "ventilation"
             self._set_ventilation_status(True, False)
             self.persist_status()
         elif action == "stop":
-            target = self._pre_ventilation_position
+            target, reason = self._force_return_target()
+            if target is None:
+                target = self._pre_ventilation_position
+                reason = "ventilation_stop"
             if target is None:
                 target = self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)
             if target is None:
                 return
-            await self._command_position(float(target), reason="ventilation_stop")
+            await self._command_position(float(target), reason=reason)
+            tilt_position = self._tilt_position_value(reason)
+            if tilt_position is not None:
+                await self._command_tilt_position(float(tilt_position), reason=reason)
             self._target = float(target)
+            self._reason = reason
             self._pre_ventilation_position = None
-            if self._reason == "ventilation":
-                self._reason = None
             self._set_ventilation_status(False, False)
+            self._record_action_status(reason, float(target))
+            self._clear_force_background()
             self.persist_status()
         else:
             return
@@ -1117,22 +1258,34 @@ class CoverController:
     async def force_shading(self, action: str) -> None:
         self._activate_manual_override(scope_all=True, reason="manual_shading")
         if action == "activate":
+            self._remember_force_background()
             target = self._position_value(CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION)
             if target is None:
                 return
             await self._command_position(float(target), reason="manual_shading")
+            tilt_position = self._tilt_position_value("manual_shading")
+            if tilt_position is not None:
+                await self._command_tilt_position(
+                    float(tilt_position), reason="manual_shading"
+                )
             self._target = float(target)
             self._reason = "manual_shading"
             self._record_action_status("manual_shading", float(target))
         elif action == "deactivate":
-            target = self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)
+            target, reason = self._force_return_target()
+            if target is None:
+                target = self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)
+                reason = "manual_shading_end"
             if target is None:
                 return
-            await self._command_position(float(target), reason="manual_shading_end")
+            await self._command_position(float(target), reason=reason)
+            tilt_position = self._tilt_position_value(reason)
+            if tilt_position is not None:
+                await self._command_tilt_position(float(tilt_position), reason=reason)
             self._target = float(target)
-            if self._reason in {"shading", "manual_shading"}:
-                self._reason = None
-            self._record_action_status("manual_shading_end", float(target))
+            self._reason = reason
+            self._record_action_status(reason, float(target))
+            self._clear_force_background()
         else:
             return
         self._refresh_next_events(dt_util.utcnow())
@@ -1359,18 +1512,37 @@ class CoverController:
         )
 
         auto_time_enabled = self._auto_enabled(CONF_AUTO_TIME)
-        calendar_open_active = auto_time_enabled and self._calendar_open_active(now)
-        calendar_close_active = auto_time_enabled and self._calendar_close_active(now)
+        calendar_open_window, calendar_close_window = (
+            await self._calendar_windows(now) if auto_time_enabled else (None, None)
+        )
+        calendar_open_active = self._calendar_window_active(calendar_open_window, now)
+        calendar_close_active = self._calendar_window_active(calendar_close_window, now)
+        calendar_daytime_phase = self._calendar_daytime_phase(
+            calendar_open_window, calendar_close_window, now
+        )
         is_opening_phase = self._within_opening_phase(now) or calendar_open_active
         is_daytime_phase = (
             (not auto_time_enabled)
             or self._within_daytime_phase(now)
-            or (calendar_open_active and not calendar_close_active)
+            or calendar_daytime_phase
         )
         is_closing_phase = self._within_closing_phase(now) or calendar_close_active
-        is_evening_phase = (auto_time_enabled and self._within_evening_phase(now)) or calendar_close_active
-        is_time_up_late = self._is_time_up_late(now)
-        is_time_down_late = self._is_time_down_late(now)
+        is_evening_phase = (
+            (auto_time_enabled and self._within_evening_phase(now))
+            or calendar_close_active
+            or self._calendar_after_start(calendar_close_window, now)
+        )
+        is_time_up_late = self._is_time_up_late(now) or self._calendar_between(
+            calendar_open_window, calendar_close_window, now
+        )
+        is_time_down_late = self._is_time_down_late(now) or self._calendar_after_end(
+            calendar_close_window, now
+        )
+        is_shading_allowed_window = (not auto_time_enabled) or self._within_shading_window(now) or (
+            calendar_open_window is not None
+            and calendar_close_window is not None
+            and calendar_open_window[0] <= now <= calendar_close_window[1]
+        )
         has_environment_control = self._auto_enabled(CONF_AUTO_BRIGHTNESS) or self._auto_enabled(
             CONF_AUTO_SUN
         )
@@ -1454,7 +1626,9 @@ class CoverController:
             shading_allowed = self._shading_conditions(
                 sun_azimuth, sun_elevation, brightness
             )
-            shading_allowed = shading_allowed and shading_condition
+            shading_allowed = (
+                shading_allowed and shading_condition and is_shading_allowed_window
+            )
             if tilt_contact_active:
                 shading_allowed = shading_allowed and shading_tilt_condition
             if tilt_lock_shading_start and not shading_active:
@@ -1497,6 +1671,23 @@ class CoverController:
                     CONF_SHADING_WAITINGTIME_END,
                     DEFAULT_SHADING_TIMING_SETTINGS[CONF_SHADING_WAITINGTIME_END],
                 )
+                max_end_duration = self._duration_value(
+                    CONF_SHADING_END_MAX_DURATION,
+                    DEFAULT_SHADING_TIMING_SETTINGS[CONF_SHADING_END_MAX_DURATION],
+                )
+                if self._shading_pending_active("end") and max_end_duration > 0:
+                    pending_ts = _coerce_float(
+                        self._shading_status().get("end_pending")
+                    ) or 0
+                    started_ts = max(0, pending_ts - waiting_end)
+                    if started_ts and now.timestamp() - started_ts > max_end_duration:
+                        self._clear_shading_pending("end")
+                        if self._reason in {"shading", "manual_shading"}:
+                            self._reason = None
+                        self._set_status_bucket("shading", False)
+                        self.persist_status()
+                        self._publish_state()
+                        return
                 if bool(self.config.get(CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION, False)):
                     sun_out_of_range = False
                     if sun_azimuth is not None and sun_elevation is not None:
@@ -1563,6 +1754,14 @@ class CoverController:
                             "shading_end_open",
                         )
                         return
+                if self._config_bool(CONF_PREVENT_OPENING_AFTER_SHADING_END):
+                    open_tilt = self._position_value(
+                        CONF_OPEN_TILT_POSITION, DEFAULT_OPEN_TILT_POSITION
+                    )
+                    if open_tilt is not None:
+                        await self._command_tilt_position(
+                            float(open_tilt), reason="shading_end_tilt"
+                        )
                 if self._reason in {"shading", "manual_shading"}:
                     self._reason = None
                 self._set_status_bucket("shading", False)
@@ -1601,19 +1800,21 @@ class CoverController:
 
         if post_ventilation and ventilation_end_condition:
             restore_position = self._pre_ventilation_position
-            if restore_position is None:
-                restore_position = self._position_value(
-                    CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION
-                )
+            target, reason = self._background_return_target(
+                self._background_for("ventilation"),
+                fallback=restore_position,
+                allow_open=not self._config_bool(CONF_PREVENT_OPENING_AFTER_VENTILATION_END),
+                allow_shading=not resident_blocks_shading,
+            )
             if not (
                 self._config_bool(CONF_PREVENT_OPENING_AFTER_VENTILATION_END)
-                and self._target_is_opening_move(restore_position)
+                and self._target_is_opening_move(target)
             ):
                 close_events.append(
                     (
                         now + timedelta(seconds=1),
-                        "ventilation_end_restore",
-                        restore_position,
+                        reason,
+                        target,
                     )
                 )
             self._pre_ventilation_position = None
@@ -2180,7 +2381,9 @@ class CoverController:
         fallback = DEFAULT_TIME_SETTINGS.get(key)
         return _parse_time(fallback) if fallback is not None else None
 
-    def _calendar_window(self, title_key: str, now: datetime) -> tuple[datetime, datetime] | None:
+    def _calendar_window_from_state(
+        self, title_key: str, now: datetime
+    ) -> tuple[datetime, datetime] | None:
         calendar_entity = self.config.get(CONF_CALENDAR_ENTITY)
         title = str(self.config.get(title_key) or "").strip().lower()
         if not calendar_entity or not title:
@@ -2206,11 +2409,136 @@ class CoverController:
             return None
         return (start_dt, end_dt) if start_dt <= now < end_dt else None
 
-    def _calendar_open_active(self, now: datetime) -> bool:
-        return self._calendar_window(CONF_CALENDAR_OPEN_TITLE, now) is not None
+    async def _calendar_windows(
+        self, now: datetime
+    ) -> tuple[tuple[datetime, datetime] | None, tuple[datetime, datetime] | None]:
+        calendar_entity = self.config.get(CONF_CALENDAR_ENTITY)
+        if not calendar_entity:
+            return None, None
 
-    def _calendar_close_active(self, now: datetime) -> bool:
-        return self._calendar_window(CONF_CALENDAR_CLOSE_TITLE, now) is not None
+        state = self.hass.states.get(calendar_entity)
+        if state is None or state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
+            return None, None
+
+        local_now = dt_util.as_local(now)
+        start = datetime.combine(
+            local_now.date(), time.min, local_now.tzinfo
+        ) - timedelta(hours=1)
+        end = start + timedelta(days=2, hours=1)
+        response = None
+        try:
+            response = await self.hass.services.async_call(
+                "calendar",
+                "get_events",
+                {
+                    "entity_id": calendar_entity,
+                    "start_date_time": start.isoformat(),
+                    "end_date_time": end.isoformat(),
+                },
+                blocking=True,
+                return_response=True,
+            )
+        except Exception:
+            _LOGGER.debug(
+                "Calendar event lookup failed for %s", calendar_entity, exc_info=True
+            )
+
+        if isinstance(response, dict):
+            events = response.get(calendar_entity, {}).get("events", [])
+            open_window = self._calendar_window_from_events(
+                events, CONF_CALENDAR_OPEN_TITLE, now
+            )
+            close_window = self._calendar_window_from_events(
+                events, CONF_CALENDAR_CLOSE_TITLE, now
+            )
+            if open_window or close_window:
+                return open_window, close_window
+
+        return (
+            self._calendar_window_from_state(CONF_CALENDAR_OPEN_TITLE, now),
+            self._calendar_window_from_state(CONF_CALENDAR_CLOSE_TITLE, now),
+        )
+
+    def _calendar_window_from_events(
+        self, events: object, title_key: str, now: datetime
+    ) -> tuple[datetime, datetime] | None:
+        title = str(self.config.get(title_key) or "").strip().lower()
+        if not title or not isinstance(events, list):
+            return None
+
+        candidates: list[tuple[datetime, datetime]] = []
+        for event in events:
+            if not isinstance(event, dict):
+                continue
+            summary = str(event.get("summary") or event.get("message") or "").lower()
+            if title not in summary:
+                continue
+            start_dt = self._parse_calendar_event_datetime(event.get("start"))
+            end_dt = self._parse_calendar_event_datetime(event.get("end"))
+            if not start_dt or not end_dt or end_dt <= start_dt:
+                continue
+            if end_dt >= now:
+                candidates.append((start_dt, end_dt))
+
+        if not candidates:
+            return None
+        return sorted(candidates, key=lambda item: item[0])[0]
+
+    def _parse_calendar_event_datetime(self, value: object) -> datetime | None:
+        raw = value
+        if isinstance(raw, dict):
+            raw = raw.get("dateTime") or raw.get("date")
+        if isinstance(raw, datetime):
+            return dt_util.as_utc(raw)
+        if not raw:
+            return None
+        parsed = dt_util.parse_datetime(str(raw))
+        if parsed:
+            return dt_util.as_utc(parsed)
+        try:
+            parsed_date = datetime.fromisoformat(str(raw)).date()
+        except (TypeError, ValueError):
+            parsed_date = None
+        if parsed_date:
+            local_start = datetime.combine(
+                parsed_date, time.min, dt_util.get_default_time_zone()
+            )
+            return dt_util.as_utc(local_start)
+        return None
+
+    @staticmethod
+    def _calendar_window_active(
+        window: tuple[datetime, datetime] | None, now: datetime
+    ) -> bool:
+        return bool(window and window[0] <= now < window[1])
+
+    @staticmethod
+    def _calendar_after_start(
+        window: tuple[datetime, datetime] | None, now: datetime
+    ) -> bool:
+        return bool(window and now >= window[0])
+
+    @staticmethod
+    def _calendar_after_end(
+        window: tuple[datetime, datetime] | None, now: datetime
+    ) -> bool:
+        return bool(window and now >= window[1])
+
+    @staticmethod
+    def _calendar_between(
+        open_window: tuple[datetime, datetime] | None,
+        close_window: tuple[datetime, datetime] | None,
+        now: datetime,
+    ) -> bool:
+        return bool(open_window and close_window and open_window[1] <= now < close_window[0])
+
+    @staticmethod
+    def _calendar_daytime_phase(
+        open_window: tuple[datetime, datetime] | None,
+        close_window: tuple[datetime, datetime] | None,
+        now: datetime,
+    ) -> bool:
+        return bool(open_window and close_window and open_window[0] <= now < close_window[0])
 
     def _time_bounds(self, workday: bool, is_up: bool) -> tuple[time | None, time | None]:
         if workday:
@@ -2291,6 +2619,16 @@ class CoverController:
         _early, late = self._time_bounds(workday_tomorrow, False)
         late_dt = self._today_at(now, late)
         return bool(late_dt and dt_util.as_local(now) >= late_dt)
+
+    def _within_shading_window(self, now: datetime) -> bool:
+        workday = self._is_workday()
+        workday_tomorrow = self._is_workday_tomorrow()
+        open_early, _open_late = self._time_bounds(workday, True)
+        _close_early, close_late = self._time_bounds(workday_tomorrow, False)
+        open_dt = self._today_at(now, open_early)
+        close_dt = self._today_at(now, close_late)
+        local_now = dt_util.as_local(now)
+        return bool(open_dt and close_dt and open_dt <= local_now <= close_dt)
 
     def _position_value(self, key: str, default: float) -> float | None:
         raw_value = self.config.get(key, default)
@@ -2453,11 +2791,14 @@ class CoverController:
     async def _set_position(self, position: float | None, reason: str) -> None:
         if position is None:
             return
+        tilt_position = self._tilt_position_value(reason)
         tolerance = float(
             self._position_value(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE)
         )
         current = self._current_position()
         if current is not None and abs(current - float(position)) <= tolerance:
+            if tilt_position is not None:
+                await self._command_tilt_position(float(tilt_position), reason=reason)
             if self._reason is None:
                 self._reason = reason
             self._target = float(position)
@@ -2465,6 +2806,8 @@ class CoverController:
             self._publish_state()
             return
         await self._command_position(float(position), reason=reason)
+        if tilt_position is not None:
+            await self._command_tilt_position(float(tilt_position), reason=reason)
         self._target = float(position)
         self._reason = reason
         self._record_action_status(reason, float(position))
@@ -2475,6 +2818,30 @@ class CoverController:
         state = self.hass.states.get(self.cover)
         if not state:
             return None
+
+    def _tilt_position_value(self, reason: str | None) -> float | None:
+        if not reason:
+            return None
+        if reason == "ventilation_full" or "open" in reason or reason == "recalibrate_open":
+            return self._position_value(
+                CONF_OPEN_TILT_POSITION, DEFAULT_OPEN_TILT_POSITION
+            )
+        if "close" in reason or reason == "resident_asleep":
+            return self._position_value(
+                CONF_CLOSE_TILT_POSITION, DEFAULT_CLOSE_TILT_POSITION
+            )
+        if "ventilation" in reason or reason.startswith("ventilate"):
+            return self._position_value(
+                CONF_VENTILATE_TILT_POSITION, DEFAULT_VENTILATE_TILT_POSITION
+            )
+        if "shading" in reason and reason not in {"manual_shading_end"}:
+            if "end_open" in reason or "end_close" in reason:
+                pass
+            else:
+                return self._position_value(
+                    CONF_SHADING_TILT_POSITION, DEFAULT_SHADING_TILT_POSITION
+                )
+        return None
         try:
             if "current_position" in state.attributes:
                 return float(state.attributes["current_position"])
@@ -2849,6 +3216,39 @@ class CoverController:
         )
         await self.hass.services.async_call(
             "cover", service, service_data, blocking=True, context=ctx
+        )
+
+    async def _command_tilt_position(
+        self, tilt_position: float, *, reason: str | None = None
+    ) -> None:
+        state = self._cover_state_or_warn(
+            "set_cover_tilt_position",
+            reason=reason,
+            target_position=tilt_position,
+        )
+        if not state:
+            return
+        supported = (state.attributes.get("supported_features")) or 0
+        if not bool(int(supported) & CoverEntityFeature.SET_TILT_POSITION):
+            return
+
+        ctx = Context()
+        self._last_command_context_id = ctx.id
+        self._last_command_at = dt_util.utcnow()
+        self._fire_event(
+            "command",
+            {
+                "service": "set_cover_tilt_position",
+                "reason": reason or self._reason,
+                "target_tilt_position": float(tilt_position),
+            },
+        )
+        await self.hass.services.async_call(
+            "cover",
+            "set_cover_tilt_position",
+            {"entity_id": self.cover, "tilt_position": float(tilt_position)},
+            blocking=True,
+            context=ctx,
         )
 
     async def _wait_for_position(
