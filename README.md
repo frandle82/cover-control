@@ -92,18 +92,6 @@ Mögliche Schutzfunktionen:
 
 ---
 
-## Home Assistant Integration
-
-Die Integration unterstützt:
-
-- Geräte & Dienste
-- UI-Konfiguration
-- HACS
-- automatische Entitätserkennung
-- moderne Home-Assistant-Brandings
-
----
-
 # Installation
 
 ## Installation über HACS
@@ -184,26 +172,3 @@ Bitte beachte zusätzlich die Lizenzdateien dieses Repositories.
 # Support
 
 Fehler oder Wünsche bitte über GitHub Issues melden.
-
----
-
-# Disclaimer
-
-Die Nutzung erfolgt auf eigene Verantwortung. Vor allem bei automatisierten Cover-Steuerungen sollten Sicherheitsbedingungen sorgfältig geprüft werden.
-
-
-### Quick start
-1. Create a virtual environment:
-   - `python -m venv .venv`
-   - `source .venv/bin/activate`
-2. Install test dependencies:
-   - `pip install -r requirements_test.txt`
-3. Run tests:
-   - `pytest`
-
-### Tox
-- Run all configured environments: `tox`
-- Run only pytest env: `tox -e py310`
-- Run lint env: `tox -e lint`
-
-> Note: Full config/options-flow assertions require Home Assistant >= 2023.9. In older runtimes, these tests are skipped automatically.
