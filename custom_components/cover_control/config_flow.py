@@ -256,6 +256,18 @@ def _time_default(value, fallback: str | None = None):
     return vol.UNDEFINED
 
 
+def _position_number_selector(max_value: int = 100) -> selector.NumberSelector:
+    return selector.NumberSelector(
+        selector.NumberSelectorConfig(
+            min=0,
+            max=max_value,
+            step=1,
+            mode=selector.NumberSelectorMode.BOX,
+            unit_of_measurement="%",
+        )
+    )
+
+
 class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the config flow."""
 
@@ -484,7 +496,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required("positions", default={}): section(
                         vol.Schema(
                             {
-                                vol.Optional(
+                                vol.Required(
                                     CONF_COVER_TYPE,
                                     default=self._data.get(
                                         CONF_COVER_TYPE,
@@ -499,76 +511,76 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                         mode=selector.SelectSelectorMode.DROPDOWN,
                                     )
                                 ),
-                                vol.Optional(
+                                vol.Required(
                                     CONF_OPEN_POSITION,
                                     default=self._data.get(
                                         CONF_OPEN_POSITION,
                                         DEFAULT_POSITION_SETTINGS[CONF_OPEN_POSITION],
                                     ),
-                                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
-                                vol.Optional(
+                                ): _position_number_selector(),
+                                vol.Required(
                                     CONF_CLOSE_POSITION,
                                     default=self._data.get(
                                         CONF_CLOSE_POSITION,
                                         DEFAULT_POSITION_SETTINGS[CONF_CLOSE_POSITION],
                                     ),
-                                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
-                                vol.Optional(
+                                ): _position_number_selector(),
+                                vol.Required(
                                     CONF_VENTILATE_POSITION,
                                     default=self._data.get(
                                         CONF_VENTILATE_POSITION,
                                         DEFAULT_POSITION_SETTINGS[CONF_VENTILATE_POSITION],
                                     ),
-                                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
-                                vol.Optional(
+                                ): _position_number_selector(),
+                                vol.Required(
                                     CONF_SHADING_POSITION,
                                     default=self._data.get(
                                         CONF_SHADING_POSITION,
                                         DEFAULT_POSITION_SETTINGS[CONF_SHADING_POSITION],
                                     ),
-                                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
-                                vol.Optional(
+                                ): _position_number_selector(),
+                                vol.Required(
                                     CONF_POSITION_TOLERANCE,
                                     default=self._data.get(
                                         CONF_POSITION_TOLERANCE,
                                         DEFAULT_POSITION_SETTINGS[CONF_POSITION_TOLERANCE],
                                     ),
-                                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=20)),
+                                ): _position_number_selector(20),
                             }
                         ),
                         {"collapsed": True},
                     ),
-                    vol.Optional("tilt_positions", default={}): section(
+                    vol.Required("tilt_positions", default={}): section(
                         vol.Schema(
                             {
-                                vol.Optional(
+                                vol.Required(
                                     CONF_OPEN_TILT_POSITION,
                                     default=self._data.get(
                                         CONF_OPEN_TILT_POSITION,
                                         DEFAULT_POSITION_SETTINGS[CONF_OPEN_TILT_POSITION],
                                     ),
-                                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
-                                vol.Optional(
+                                ): _position_number_selector(),
+                                vol.Required(
                                     CONF_CLOSE_TILT_POSITION,
                                     default=self._data.get(
                                         CONF_CLOSE_TILT_POSITION,
                                         DEFAULT_POSITION_SETTINGS[CONF_CLOSE_TILT_POSITION],
                                     ),
-                                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
-                                vol.Optional(
+                                ): _position_number_selector(),
+                                vol.Required(
                                     CONF_VENTILATE_TILT_POSITION,
                                     default=self._data.get(
                                         CONF_VENTILATE_TILT_POSITION,
                                         DEFAULT_POSITION_SETTINGS[CONF_VENTILATE_TILT_POSITION],
                                     ),
-                                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
-                                vol.Optional(
+                                ): _position_number_selector(),
+                                vol.Required(
                                     CONF_SHADING_TILT_POSITION,
                                     default=self._data.get(
                                         CONF_SHADING_TILT_POSITION,
                                         DEFAULT_POSITION_SETTINGS[CONF_SHADING_TILT_POSITION],
                                     ),
-                                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+                                ): _position_number_selector(),
                             }
                         ),
                         {"collapsed": True},
@@ -1060,7 +1072,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
             return await self.async_step_menu()
 
         schema: dict = {
-            vol.Optional(
+            vol.Required(
                 CONF_COVER_TYPE,
                 default=self._options.get(
                     CONF_COVER_TYPE,
@@ -1075,67 +1087,67 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                     mode=selector.SelectSelectorMode.DROPDOWN,
                 )
             ),
-            vol.Optional(
+            vol.Required(
                 CONF_OPEN_POSITION,
                 default=self._options.get(
                     CONF_OPEN_POSITION, DEFAULT_POSITION_SETTINGS[CONF_OPEN_POSITION]
                 ),
-            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
-            vol.Optional(
+            ): _position_number_selector(),
+            vol.Required(
                 CONF_CLOSE_POSITION,
                 default=self._options.get(
                     CONF_CLOSE_POSITION, DEFAULT_POSITION_SETTINGS[CONF_CLOSE_POSITION]
                 ),
-            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
-            vol.Optional(
+            ): _position_number_selector(),
+            vol.Required(
                 CONF_VENTILATE_POSITION,
                 default=self._options.get(
                     CONF_VENTILATE_POSITION,
                     DEFAULT_POSITION_SETTINGS[CONF_VENTILATE_POSITION],
                 ),
-            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
-            vol.Optional(
+            ): _position_number_selector(),
+            vol.Required(
                 CONF_SHADING_POSITION,
                 default=self._options.get(
                     CONF_SHADING_POSITION,
                     DEFAULT_POSITION_SETTINGS[CONF_SHADING_POSITION],
                 ),
-            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
-            vol.Optional(
+            ): _position_number_selector(),
+            vol.Required(
                 CONF_POSITION_TOLERANCE,
                 default=self._options.get(
                     CONF_POSITION_TOLERANCE,
                     DEFAULT_POSITION_SETTINGS[CONF_POSITION_TOLERANCE],
                 ),
-            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=20)),
-            vol.Optional(
+            ): _position_number_selector(20),
+            vol.Required(
                 CONF_OPEN_TILT_POSITION,
                 default=self._options.get(
                     CONF_OPEN_TILT_POSITION,
                     DEFAULT_POSITION_SETTINGS[CONF_OPEN_TILT_POSITION],
                 ),
-            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
-            vol.Optional(
+            ): _position_number_selector(),
+            vol.Required(
                 CONF_CLOSE_TILT_POSITION,
                 default=self._options.get(
                     CONF_CLOSE_TILT_POSITION,
                     DEFAULT_POSITION_SETTINGS[CONF_CLOSE_TILT_POSITION],
                 ),
-            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
-            vol.Optional(
+            ): _position_number_selector(),
+            vol.Required(
                 CONF_VENTILATE_TILT_POSITION,
                 default=self._options.get(
                     CONF_VENTILATE_TILT_POSITION,
                     DEFAULT_POSITION_SETTINGS[CONF_VENTILATE_TILT_POSITION],
                 ),
-            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
-            vol.Optional(
+            ): _position_number_selector(),
+            vol.Required(
                 CONF_SHADING_TILT_POSITION,
                 default=self._options.get(
                     CONF_SHADING_TILT_POSITION,
                     DEFAULT_POSITION_SETTINGS[CONF_SHADING_TILT_POSITION],
                 ),
-            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+            ): _position_number_selector(),
         }
         return self.async_show_form(step_id="positions", data_schema=vol.Schema(schema))
 
