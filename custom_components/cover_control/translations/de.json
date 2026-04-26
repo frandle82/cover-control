@@ -134,8 +134,10 @@
           "time_control": "Zeitsteuerung",
           "contact_sensors": "Kontaktsensoren",
           "brightness": "Helligkeitsautomatik",
+          "sun_elevation": "Sonnenstandssteuerung",
           "shading": "Beschattung",
           "functions": "Funktionen",
+          "behavior": "Verhalten",
           "resident": "Resident",
           "additional_conditions": "Zusatzbedingungen"
         }
@@ -174,9 +176,35 @@
           "brightness_sensor": "Helligkeitssensor",
           "brightness_open_above": "Öffnen bei Helligkeit über",
           "brightness_close_below": "Schließen bei Helligkeit unter",
-          "auto_sun_enabled": "Sonnenstand als Alternative nutzen",
+          "brightness_hysteresis": "Helligkeitshysterese",
+          "brightness_time_duration": "Helligkeitsdauer"
+        }
+      },
+      "sun_elevation": {
+        "title": "Sonnenstandssteuerung",
+        "description": "Wähle festen, dynamischen oder hybriden Modus für Öffnen/Schließen per Sonnenhöhe.",
+        "data": {
+          "sun_elevation_mode": "Sonnenstandsmodus",
           "sun_elevation_open": "Sonnenhöhe für Öffnung",
-          "sun_elevation_close": "Sonnenhöhe für Schließung"
+          "sun_elevation_close": "Sonnenhöhe für Schließung",
+          "sun_time_duration": "Sonnenhöhen-Dauer",
+          "sun_elevation_dynamic_open_sensor": "Sonnenhöhe-Auf Sensor (dynamisch/hybrid)",
+          "sun_elevation_dynamic_close_sensor": "Sonnenhöhe-Ab Sensor (dynamisch/hybrid)"
+        }
+      },
+      "behavior": {
+        "title": "Verhalten",
+        "description": "Cover-Typ und Schutzoptionen aus der Blueprint feinjustieren.",
+        "data": {
+          "cover_type": "Cover-Typ",
+          "prevent_higher_position_closing": "Schließen aus höherer Position verhindern",
+          "prevent_lowering_when_closing_if_shaded": "Absenken beim Schließen verhindern, wenn bereits beschattet",
+          "prevent_shading_end_if_closed": "Beschattung nicht beenden, wenn das Cover geschlossen ist",
+          "prevent_opening_after_shading_end": "Nach Beschattungsende nicht öffnen",
+          "prevent_opening_after_ventilation_end": "Nach Lüftungsende nicht öffnen",
+          "prevent_opening_multiple_times": "Mehrfaches Öffnen pro Tag verhindern",
+          "prevent_closing_multiple_times": "Mehrfaches Schließen pro Tag verhindern",
+          "prevent_shading_multiple_times": "Mehrfache Beschattung pro Tag verhindern"
         }
       },
       "shading": {
@@ -208,16 +236,18 @@
           "auto_time_enabled": "Zeitsteuerung",
           "auto_ventilate_enabled": "Kontaktsensoren",
           "auto_brightness_enabled": "Helligkeitsautomatik",
+          "auto_sun_enabled": "Sonnenstandssteuerung",
           "auto_shading_enabled": "Beschattung",
-          "resident_status_enabled": "Resident",
-          "additional_conditions_enabled": "Zusatzbedingungen"
+          "resident_status_enabled": "Bewohner-Modus",
+          "additional_conditions_enabled": "Zusatzbedingungen",
+          "manual_control_enabled": "Manuelle Steuerung"
         }
       },
       "resident": {
-        "title": "Resident",
+        "title": "Bewohner-Modus",
         "description": "Resident-Modus: Bei Sensor on/true kann sofort geschlossen werden; automatische Öffnung bleibt gesperrt, bis der Sensor wieder off/false ist. Alle Optionen sind optional.",
         "data": {
-          "resident_sensor": "Resident Sensor (binary_sensor/input_boolean/switch)",
+          "resident_sensor": "Bewohner-Sensor (binary_sensor/input_boolean/switch)",
           "resident_open_enabled": "Automatisches Öffnen beim Aufwachen (mit allen Öffnungsbedingungen)",
           "resident_close_enabled": "Automatisches Schließen beim Schlafengehen (sofort)",
           "resident_allow_shading": "Beschattung trotz Resident-Modus erlauben",
@@ -244,68 +274,16 @@
   "entity": {
     "sensor": {
       "next_open": {
-        "name": "Nächste Öffnung:"
+        "name": "Nächste Öffnung"
       },
       "next_close": {
-        "name": "Nächste Schließung:"
-      },
-      "reason": {
-        "name": "Grund:"
-      },
-      "shading_active": {
-        "name": "Beschattung aktiv:"
-      },
-      "ventilation": {
-        "name": "Lüftung"
+        "name": "Nächste Schließung"
       },
       "resident_status": {
         "name": "Bewohnerstatus"
       }
     },
-    "number": {
-      "open_position": {
-        "name": "Öffnungsposition"
-      },
-      "close_position": {
-        "name": "Schließposition"
-      },
-      "ventilate_position": {
-        "name": "Lüftungsposition"
-      },
-      "shading_position": {
-        "name": "Verschattungsposition"
-      }
-    },
-    "time": {
-      "time_up_early_workday": {
-        "name": "Früheste Öffnung (Arbeitstag)"
-      },
-      "time_up_late_workday": {
-        "name": "Späteste Öffnung (Arbeitstag)"
-      },
-      "time_down_early_workday": {
-        "name": "Frühestes Schließen (Arbeitstag)"
-      },
-      "time_down_late_workday": {
-        "name": "Spätestes Schließen (Arbeitstag)"
-      },
-      "time_up_early_non_workday": {
-        "name": "Früheste Öffnung (frei)"
-      },
-      "time_up_late_non_workday": {
-        "name": "Späteste Öffnung (frei)"
-      },
-      "time_down_early_non_workday": {
-        "name": "Frühestes Schließen (frei)"
-      },
-      "time_down_late_non_workday": {
-        "name": "Spätestes Schließen (frei)"
-      }
-    },
     "switch": {
-      "master": {
-        "name": "Cover Control"
-      },
       "auto_time": {
         "name": "Zeitsteuerung"
       },
@@ -321,96 +299,13 @@
       "auto_shading": {
         "name": "Beschattung"
       }
-    }
-  },
-  "services": {
-    "set_manual_override": {
-      "name": "Set manual override",
-      "description": "Pause automatic control for a cover for the given minutes.",
-      "target": {
-        "entity": {
-          "name": "Rollladen",
-          "description": "Rollladen, dessen Automatisierung pausiert werden soll."
-        }
-      },
-      "fields": {
-        "manual_override_minutes": {
-          "name": "Minutes",
-          "description": "Duration of the pause."
-        }
-      }
     },
-    "clear_manual_override": {
-      "name": "Clear manual override",
-      "description": "Resume automation immediately for the selected cover.",
-      "target": {
-        "entity": {
-          "name": "Rollladen",
-          "description": "Rollladen, für den die Automatisierung wieder aktiviert werden soll."
-        }
+    "button": {
+      "recalibrate": {
+        "name": "Cover neu kalibrieren"
       },
-      "fields": {}
-    },
-    "activate_shading": {
-      "name": "Activate shading now",
-      "description": "Send a cover to the shading position immediately and hold it there for the override duration.",
-      "target": {
-        "entity": {
-          "name": "Rollladen",
-          "description": "Rollladen, der sofort in die Beschattungsposition fahren soll."
-        }
-      },
-      "fields": {
-        "manual_override_minutes": {
-          "name": "Minutes",
-          "description": "Optional override duration; defaults to the integration setting."
-        }
-      }
-    },
-    "recalibrate_cover": {
-      "name": "Abdeckung neu kalibrieren",
-      "description": "Setzt einen manuellen Override, nutzt den Standardbefehl zum Öffnen für eine vollständig geöffnete Abdeckung, stellt danach die vorherige Position wieder her und hebt den Override wieder auf. Hilfreich, wenn eine Abdeckung neu ausgerichtet werden muss.",
-      "target": {
-        "entity": {
-          "name": "Rollladen",
-          "description": "Rollladen, der neu kalibriert werden soll."
-        }
-      },
-      "fields": {
-        "full_open_position": {
-          "name": "Position für vollständig offen",
-          "description": "Position für das vollständige Öffnen; Standard ist 100 %."
-        }
-      }
-    },
-    "change_switch_settings": {
-      "name": "Schalter-Einstellungen aktualisieren",
-      "description": "Schreibe neue Konfigurationswerte für einen Automations-Schalter.",
-      "fields": {
-        "entity_id": {
-          "name": "Automationsschalter",
-          "description": "Der Schalter, dessen Einstellungen übernommen werden sollen."
-        },
-        "settings": {
-          "name": "Einstellungen",
-          "description": "Schlüssel/Wert-Paare, die in der Schalter-Kategorie gespeichert werden."
-        }
-      }
-    },
-    "force_action": {
-      "name": "Aktion erzwingen",
-      "description": "Führt eine sofortige Aktion am ausgewählten Rollladen ohne weitere Prüfungen aus.",
-      "target": {
-        "entity": {
-          "name": "Rollladen",
-          "description": "Rollladen, auf den die Aktion angewendet werden soll."
-        }
-      },
-      "fields": {
-        "action": {
-          "name": "Aktion",
-          "description": "Wählen Sie die auszuführende Sofortaktion."
-        }
+      "clear_manual_override": {
+        "name": "Manuellen Override löschen"
       }
     }
   }
