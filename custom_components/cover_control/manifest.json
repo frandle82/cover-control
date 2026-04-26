@@ -1,7 +1,7 @@
 {
   "domain": "cover_control",
   "name": "Cover Control",
-  "version": "0.4.0",
+  "version": "0.5.0",
   "documentation": "https://github.com/frandle82/cover-control",
   "issue_tracker": "https://github.com/frandle82/cover-control/issues",
   "codeowners": ["@frandle82"],
