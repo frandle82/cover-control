@@ -43,6 +43,10 @@
           "close_position": "Close position",
           "ventilate_position": "Ventilation position",
           "shading_position": "Shading position",
+          "open_tilt_position": "Open tilt position",
+          "close_tilt_position": "Closed tilt position",
+          "ventilate_tilt_position": "Ventilation tilt position",
+          "shading_tilt_position": "Shading tilt position",
           "workday_tomorrow_sensor": "Workday tomorrow entity (optional)"
         },
         "sections": {
@@ -123,6 +127,8 @@
           "covers": "Covers",
           "open_position": "Open position",
           "close_position": "Close position",
+          "open_tilt_position": "Open tilt position",
+          "close_tilt_position": "Closed tilt position",
           "position_tolerance": "Position tolerance"
         }
       },
@@ -168,6 +174,7 @@
           "contact_status_delay": "Stability delay for contact status",
           "ventilation_delay_after_close": "Delay after close before ventilation",
           "ventilation_allow_higher_position": "Allow ventilation above close position",
+          "ventilate_tilt_position": "Ventilation tilt position",
           "ventilation_use_after_shading": "Use ventilation after shading",
           "lockout_tilt_close": "Block close when tilt contact active",
           "lockout_tilt_shading_start": "Block shading start when tilt contact active",
@@ -215,6 +222,7 @@
         "title": "Shading control",
         "data": {
           "shading_position": "Shading position",
+          "shading_tilt_position": "Shading tilt position",
           "shading_azimuth_start": "Shading azimuth start",
           "shading_azimuth_end": "Shading azimuth end",
           "shading_elevation_min": "Shading elevation minimum",
