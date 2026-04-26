@@ -104,6 +104,7 @@ AUTOMATION_TOGGLES: tuple[tuple[str, str], ...] = (
     (CONF_AUTO_TIME, "auto_time"),
     (CONF_AUTO_VENTILATE, "auto_ventilate"),
     (CONF_AUTO_BRIGHTNESS, "auto_brightness"),
+    (CONF_AUTO_SUN, "auto_sun"),
     (CONF_AUTO_SHADING, "auto_shading"),
 )
 
@@ -111,6 +112,7 @@ TOGGLE_ICONS: dict[str, str] = {
     CONF_AUTO_TIME: "mdi:clock-time-eight-auto",
     CONF_AUTO_VENTILATE: "mdi:door-open",
     CONF_AUTO_BRIGHTNESS: "mdi:brightness-auto",
+    CONF_AUTO_SUN: "mdi:weather-sunset",
     CONF_AUTO_SHADING: "mdi:theme-light-dark",
 }
 
@@ -185,6 +187,12 @@ async def async_setup_entry(
         key = unique_id.removeprefix(f"{entry.entry_id}-")
         if key in {CONF_AUTO_UP, CONF_AUTO_DOWN} or key not in enabled_keys:
             registry.async_remove(entity_entry.entity_id)
+            continue
+        if entity_entry.entity_category != EntityCategory.CONFIG:
+            registry.async_update_entity(
+                entity_entry.entity_id,
+                entity_category=EntityCategory.CONFIG,
+            )
 
     entities: list[SwitchEntity] = [
         AutomationToggleSwitch(entry, key, translation_key)
@@ -230,6 +238,11 @@ class AutomationToggleSwitch(SwitchEntity):
 
     @property
     def is_on(self) -> bool:
+        manager = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id) if self.hass else None
+        if isinstance(manager, ControllerManager):
+            runtime_value = manager.get_runtime_toggle(self._key)
+            if runtime_value is not None:
+                return bool(runtime_value)
         value = self.entry.options.get(self._key)
         if value is None:
             value = self.entry.data.get(self._key, DEFAULT_AUTOMATION_FLAGS.get(self._key))
@@ -240,6 +253,15 @@ class AutomationToggleSwitch(SwitchEntity):
         return None
 
     async def async_turn_on(self, **kwargs) -> None:  # type: ignore[override]
+        manager = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id)
+        if isinstance(manager, ControllerManager):
+            manager.clear_runtime_toggle(self._key)
+            if self._key == CONF_AUTO_TIME:
+                manager.clear_runtime_toggle(CONF_AUTO_UP)
+                manager.clear_runtime_toggle(CONF_AUTO_DOWN)
+            self.async_write_ha_state()
+            return
+
         options = {**self.entry.options, self._key: True}
         if self._key == CONF_AUTO_TIME:
             options[CONF_AUTO_UP] = True
@@ -247,6 +269,15 @@ class AutomationToggleSwitch(SwitchEntity):
         self.hass.config_entries.async_update_entry(self.entry, options=options)
 
     async def async_turn_off(self, **kwargs) -> None:  # type: ignore[override]
+        manager = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id)
+        if isinstance(manager, ControllerManager):
+            manager.set_runtime_toggle(self._key, False)
+            if self._key == CONF_AUTO_TIME:
+                manager.set_runtime_toggle(CONF_AUTO_UP, False)
+                manager.set_runtime_toggle(CONF_AUTO_DOWN, False)
+            self.async_write_ha_state()
+            return
+
         options = {**self.entry.options, self._key: False}
         if self._key == CONF_AUTO_TIME:
             options[CONF_AUTO_UP] = False
