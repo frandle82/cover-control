@@ -136,37 +136,6 @@ Danach Home Assistant neu starten.
 
 ---
 
-# Branding
-
-Die Integration nutzt lokales Home-Assistant-Branding.
-
-Dateien:
-
-```text
-custom_components/cover_control/brand/
-```
-
-Enthalten:
-
-```text
-icon.png
-icon@2x.png
-logo.png
-logo@2x.png
-```
-
----
-
-# Beispiel-Konfiguration
-
-```yaml
-cover_control:
-```
-
-Die eigentliche Konfiguration erfolgt vollständig über die Home-Assistant-Oberfläche.
-
----
-
 # Voraussetzungen
 
 - Home Assistant
