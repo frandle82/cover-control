@@ -1,7 +1,7 @@
 # Cover Control
 
 <p align="center">
-  <img src="https://github.com/frandle82/custom_components/cover-control/icons/icon.png" width="180" alt="Cover Control Logo">
+  <img src="custom_components/cover_control/icons/icon.png" width="180" alt="Cover Control Logo">
 </p>
 
 <p align="center">
