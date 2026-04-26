@@ -43,6 +43,7 @@ from .const import (
     CONF_CONTACT_STATUS_DELAY,
     CONF_CONTACT_TRIGGER_DELAY,
     CONF_CLOSE_POSITION,
+    CONF_CLOSE_TILT_POSITION,
     CONF_COVERS,
     CONF_COVER_TYPE,
     CONF_COVER_TYPE_AWNING,
@@ -62,6 +63,7 @@ from .const import (
     CONF_MANUAL_OVERRIDE_RESET_TIME,
     CONF_NAME,
     CONF_OPEN_POSITION,
+    CONF_OPEN_TILT_POSITION,
     CONF_ROOM,
     CONF_POSITION_TOLERANCE,
     CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
@@ -87,6 +89,7 @@ from .const import (
     CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
     CONF_SHADING_END_MAX_DURATION,
     CONF_SHADING_POSITION,
+    CONF_SHADING_TILT_POSITION,
     CONF_SHADING_START_MAX_DURATION,
     CONF_SHADING_WAITINGTIME_END,
     CONF_SHADING_WAITINGTIME_START,
@@ -118,6 +121,7 @@ from .const import (
     CONF_VENTILATION_DELAY_AFTER_CLOSE,
     CONF_VENTILATION_USE_AFTER_SHADING,
     CONF_VENTILATE_POSITION,
+    CONF_VENTILATE_TILT_POSITION,
     CONF_WINDOW_SENSOR_FULL,
     CONF_WINDOW_SENSOR_TILT,
     CONF_WORKDAY_SENSOR,
@@ -503,6 +507,34 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_SHADING_POSITION,
                         default=self._data.get(
                             CONF_SHADING_POSITION, DEFAULT_POSITION_SETTINGS[CONF_SHADING_POSITION]
+                        ),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_OPEN_TILT_POSITION,
+                        default=self._data.get(
+                            CONF_OPEN_TILT_POSITION,
+                            DEFAULT_POSITION_SETTINGS[CONF_OPEN_TILT_POSITION],
+                        ),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_CLOSE_TILT_POSITION,
+                        default=self._data.get(
+                            CONF_CLOSE_TILT_POSITION,
+                            DEFAULT_POSITION_SETTINGS[CONF_CLOSE_TILT_POSITION],
+                        ),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_VENTILATE_TILT_POSITION,
+                        default=self._data.get(
+                            CONF_VENTILATE_TILT_POSITION,
+                            DEFAULT_POSITION_SETTINGS[CONF_VENTILATE_TILT_POSITION],
+                        ),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_SHADING_TILT_POSITION,
+                        default=self._data.get(
+                            CONF_SHADING_TILT_POSITION,
+                            DEFAULT_POSITION_SETTINGS[CONF_SHADING_TILT_POSITION],
                         ),
                     ): vol.Coerce(float),
                             }
@@ -992,6 +1024,20 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                 ),
             ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
             vol.Optional(
+                CONF_OPEN_TILT_POSITION,
+                default=self._options.get(
+                    CONF_OPEN_TILT_POSITION,
+                    DEFAULT_POSITION_SETTINGS[CONF_OPEN_TILT_POSITION],
+                ),
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+            vol.Optional(
+                CONF_CLOSE_TILT_POSITION,
+                default=self._options.get(
+                    CONF_CLOSE_TILT_POSITION,
+                    DEFAULT_POSITION_SETTINGS[CONF_CLOSE_TILT_POSITION],
+                ),
+            ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+            vol.Optional(
                 CONF_POSITION_TOLERANCE,
                 default=self._options.get(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE),
             ): vol.Coerce(float),
@@ -1369,6 +1415,13 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                     default=bool(self._options.get(CONF_VENTILATION_ALLOW_HIGHER_POSITION, DEFAULT_CONTACT_SETTINGS[CONF_VENTILATION_ALLOW_HIGHER_POSITION])),
                 ): bool,
                 vol.Optional(
+                    CONF_VENTILATE_TILT_POSITION,
+                    default=self._options.get(
+                        CONF_VENTILATE_TILT_POSITION,
+                        DEFAULT_POSITION_SETTINGS[CONF_VENTILATE_TILT_POSITION],
+                    ),
+                ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+                vol.Optional(
                     CONF_VENTILATION_USE_AFTER_SHADING,
                     default=bool(self._options.get(CONF_VENTILATION_USE_AFTER_SHADING, DEFAULT_CONTACT_SETTINGS[CONF_VENTILATION_USE_AFTER_SHADING])),
                 ): bool,
@@ -1516,6 +1569,13 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(
                         CONF_SHADING_POSITION,
                         default=self._options.get(CONF_SHADING_POSITION, DEFAULT_POSITION_SETTINGS[CONF_SHADING_POSITION]),
+                    ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
+                    vol.Optional(
+                        CONF_SHADING_TILT_POSITION,
+                        default=self._options.get(
+                            CONF_SHADING_TILT_POSITION,
+                            DEFAULT_POSITION_SETTINGS[CONF_SHADING_TILT_POSITION],
+                        ),
                     ): vol.All(vol.Coerce(int), vol.Range(min=0, max=100)),
                     vol.Optional(CONF_SUN_AZIMUTH_START, default=self._options.get(CONF_SUN_AZIMUTH_START, DEFAULT_SHADING_AZIMUTH_START)): vol.Coerce(float),
                     vol.Optional(CONF_SUN_AZIMUTH_END, default=self._options.get(CONF_SUN_AZIMUTH_END, DEFAULT_SHADING_AZIMUTH_END)): vol.Coerce(float),
