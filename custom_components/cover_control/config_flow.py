@@ -33,12 +33,20 @@ from .const import (
     CONF_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_COLD_PROTECTION_THRESHOLD,
     CONF_BRIGHTNESS_CLOSE_BELOW,
+    CONF_BRIGHTNESS_HYSTERESIS,
     CONF_BRIGHTNESS_OPEN_ABOVE,
     CONF_BRIGHTNESS_SENSOR,
+    CONF_BRIGHTNESS_TIME_DURATION,
     CONF_CONTACT_STATUS_DELAY,
     CONF_CONTACT_TRIGGER_DELAY,
     CONF_CLOSE_POSITION,
     CONF_COVERS,
+    CONF_COVER_TYPE,
+    CONF_COVER_TYPE_AWNING,
+    CONF_COVER_TYPE_BLIND,
+    CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON,
+    CONF_ENABLE_RECALIBRATE_BUTTON,
+    CONF_MANUAL_CONTROL,
     CONF_LOCKOUT_TILT_CLOSE,
     CONF_LOCKOUT_TILT_SHADING_END,
     CONF_LOCKOUT_TILT_SHADING_START,
@@ -53,6 +61,14 @@ from .const import (
     CONF_OPEN_POSITION,
     CONF_ROOM,
     CONF_POSITION_TOLERANCE,
+    CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
+    CONF_PREVENT_HIGHER_POSITION_CLOSING,
+    CONF_PREVENT_LOWERING_WHEN_CLOSING_IF_SHADED,
+    CONF_PREVENT_OPENING_AFTER_SHADING_END,
+    CONF_PREVENT_OPENING_AFTER_VENTILATION_END,
+    CONF_PREVENT_OPENING_MULTIPLE_TIMES,
+    CONF_PREVENT_SHADING_END_IF_CLOSED,
+    CONF_PREVENT_SHADING_MULTIPLE_TIMES,
     CONF_RESIDENT_SENSOR,
     CONF_RESIDENT_STATUS,
     CONF_RESIDENT_OPEN_ENABLED,
@@ -72,6 +88,7 @@ from .const import (
     CONF_SUN_ELEVATION_MODE,
     CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
     CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+    CONF_SUN_TIME_DURATION,
     CONF_SUN_ELEVATION_OPEN_OFFSET,
     CONF_SUN_ELEVATION_CLOSE_OFFSET,
     CONF_SUN_ELEVATION_MAX,
@@ -108,8 +125,12 @@ from .const import (
     CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
     DEFAULT_CONTACT_SETTINGS,
     DEFAULT_AUTOMATION_FLAGS,
+    DEFAULT_BEHAVIOR_SETTINGS,
+    DEFAULT_BUTTON_SETTINGS,
     DEFAULT_BRIGHTNESS_CLOSE,
+    DEFAULT_BRIGHTNESS_HYSTERESIS,
     DEFAULT_BRIGHTNESS_OPEN,
+    DEFAULT_BRIGHTNESS_TIME_DURATION,
     DEFAULT_COLD_PROTECTION_THRESHOLD,
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
     DEFAULT_MANUAL_OVERRIDE_FLAGS,
@@ -129,6 +150,7 @@ from .const import (
     DEFAULT_SUN_ELEVATION_MODE,
     DEFAULT_SUN_ELEVATION_OPEN_OFFSET,
     DEFAULT_SUN_ELEVATION_CLOSE_OFFSET,
+    DEFAULT_SUN_TIME_DURATION,
     DEFAULT_TIME_SETTINGS,
     DEFAULT_TEMPERATURE_FORECAST_THRESHOLD,
     DEFAULT_TEMPERATURE_THRESHOLD,
@@ -154,6 +176,8 @@ def _with_config_defaults(config: dict) -> dict:
         **DEFAULT_MASTER_FLAGS,
         **DEFAULT_MANUAL_OVERRIDE_FLAGS,
         **DEFAULT_CONTACT_SETTINGS,
+        **DEFAULT_BEHAVIOR_SETTINGS,
+        **DEFAULT_BUTTON_SETTINGS,
         CONF_SUN_ELEVATION_MODE: DEFAULT_SUN_ELEVATION_MODE,
         CONF_SUN_ELEVATION_OPEN_OFFSET: DEFAULT_SUN_ELEVATION_OPEN_OFFSET,
         CONF_SUN_ELEVATION_CLOSE_OFFSET: DEFAULT_SUN_ELEVATION_CLOSE_OFFSET,
@@ -787,7 +811,13 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
             if toggle_key in user_input:
                 enabled = bool(user_input.get(toggle_key))
             else:
-                enabled = _is_enabled(self._options, entity_key)
+                # In options menus without explicit toggle fields, keep newly
+                # selected entities active instead of clearing them.
+                enabled = (
+                    entity_key in user_input
+                    or cleaned.get(entity_key) not in ("", vol.UNDEFINED, None)
+                    or _is_enabled(self._options, entity_key)
+                )
 
             if not enabled:
                 cleaned[entity_key] = None
@@ -880,13 +910,15 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
     def _menu_options(self) -> list[str]:
         """Return dynamic options menu entries based on active features."""
 
-        options = ["general", "functions"]
+        options = ["general", "functions", "behavior"]
         if bool(self._options.get(CONF_AUTO_TIME, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_TIME])):
             options.append("time_control")
         if bool(self._options.get(CONF_AUTO_VENTILATE, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_VENTILATE])):
             options.append("contact_sensors")
         if bool(self._options.get(CONF_AUTO_BRIGHTNESS, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_BRIGHTNESS])):
             options.append("brightness")
+        if bool(self._options.get(CONF_AUTO_SUN, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_SUN])):
+            options.append("sun_elevation")
         if bool(self._options.get(CONF_AUTO_SHADING, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_SHADING])):
             options.append("shading")
         if bool(
@@ -946,8 +978,6 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                 time_enabled = bool(user_input[CONF_AUTO_TIME])
                 user_input[CONF_AUTO_UP] = time_enabled
                 user_input[CONF_AUTO_DOWN] = time_enabled
-            if CONF_AUTO_BRIGHTNESS in user_input and not bool(user_input[CONF_AUTO_BRIGHTNESS]):
-                user_input[CONF_AUTO_SUN] = False
             await self._save_options(user_input)
             return await self.async_step_menu()
 
@@ -963,6 +993,10 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(
                 CONF_AUTO_BRIGHTNESS,
                 default=bool(self._options.get(CONF_AUTO_BRIGHTNESS, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_BRIGHTNESS])),
+            ): bool,
+            vol.Optional(
+                CONF_AUTO_SUN,
+                default=bool(self._options.get(CONF_AUTO_SUN, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_SUN])),
             ): bool,
             vol.Optional(
                 CONF_AUTO_SHADING,
@@ -981,8 +1015,79 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                     )
                 ),
             ): bool,
+            vol.Optional(
+                CONF_MANUAL_CONTROL,
+                default=bool(
+                    self._options.get(
+                        CONF_MANUAL_CONTROL,
+                        self._options.get(
+                            CONF_ENABLE_RECALIBRATE_BUTTON,
+                            self._options.get(
+                                CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON,
+                                DEFAULT_BUTTON_SETTINGS[CONF_MANUAL_CONTROL],
+                            ),
+                        ),
+                    )
+                ),
+            ): bool,
         }
         return self.async_show_form(step_id="functions", data_schema=vol.Schema(schema))
+
+    async def async_step_behavior(self, user_input=None) -> FlowResult:
+        if user_input is not None:
+            await self._save_options(user_input)
+            return await self.async_step_menu()
+
+        schema: dict = {
+            vol.Optional(
+                CONF_COVER_TYPE,
+                default=self._options.get(
+                    CONF_COVER_TYPE,
+                    DEFAULT_BEHAVIOR_SETTINGS[CONF_COVER_TYPE],
+                ),
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        {"value": CONF_COVER_TYPE_BLIND, "label": "Blind / roller shutter"},
+                        {"value": CONF_COVER_TYPE_AWNING, "label": "Awning / sunshade"},
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Optional(
+                CONF_PREVENT_HIGHER_POSITION_CLOSING,
+                default=bool(self._options.get(CONF_PREVENT_HIGHER_POSITION_CLOSING, False)),
+            ): bool,
+            vol.Optional(
+                CONF_PREVENT_LOWERING_WHEN_CLOSING_IF_SHADED,
+                default=bool(self._options.get(CONF_PREVENT_LOWERING_WHEN_CLOSING_IF_SHADED, False)),
+            ): bool,
+            vol.Optional(
+                CONF_PREVENT_SHADING_END_IF_CLOSED,
+                default=bool(self._options.get(CONF_PREVENT_SHADING_END_IF_CLOSED, False)),
+            ): bool,
+            vol.Optional(
+                CONF_PREVENT_OPENING_AFTER_SHADING_END,
+                default=bool(self._options.get(CONF_PREVENT_OPENING_AFTER_SHADING_END, False)),
+            ): bool,
+            vol.Optional(
+                CONF_PREVENT_OPENING_AFTER_VENTILATION_END,
+                default=bool(self._options.get(CONF_PREVENT_OPENING_AFTER_VENTILATION_END, False)),
+            ): bool,
+            vol.Optional(
+                CONF_PREVENT_OPENING_MULTIPLE_TIMES,
+                default=bool(self._options.get(CONF_PREVENT_OPENING_MULTIPLE_TIMES, False)),
+            ): bool,
+            vol.Optional(
+                CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
+                default=bool(self._options.get(CONF_PREVENT_CLOSING_MULTIPLE_TIMES, False)),
+            ): bool,
+            vol.Optional(
+                CONF_PREVENT_SHADING_MULTIPLE_TIMES,
+                default=bool(self._options.get(CONF_PREVENT_SHADING_MULTIPLE_TIMES, False)),
+            ): bool,
+        }
+        return self.async_show_form(step_id="behavior", data_schema=vol.Schema(schema))
 
     async def async_step_additional_conditions(self, user_input=None) -> FlowResult:
         if user_input is not None:
@@ -1184,12 +1289,9 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_form(step_id="time_control", data_schema=vol.Schema(schema))
 
     async def async_step_finish(self, user_input=None) -> FlowResult:
-        if user_input is not None:
-            name = str(self._options.get(CONF_NAME, self._config_entry.title)).strip() or DEFAULT_NAME
-            self.hass.config_entries.async_update_entry(self._config_entry, title=name)
-            return self.async_create_entry(title="", data=self._options)
-
-        return self.async_show_form(step_id="finish", data_schema=vol.Schema({}))
+        name = str(self._options.get(CONF_NAME, self._config_entry.title)).strip() or DEFAULT_NAME
+        self.hass.config_entries.async_update_entry(self._config_entry, title=name)
+        return self.async_create_entry(title="", data=self._options)
 
     async def async_step_contact_sensors(self, user_input=None) -> FlowResult:
         covers = self._options.get(CONF_COVERS, [])
@@ -1254,7 +1356,6 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
         auto_brightness = bool(
             self._options.get(CONF_AUTO_BRIGHTNESS, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_BRIGHTNESS])
         )
-        auto_sun = bool(self._options.get(CONF_AUTO_SUN, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_SUN]))
 
         schema: dict = {}
         if auto_brightness:
@@ -1274,24 +1375,92 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                         CONF_BRIGHTNESS_CLOSE_BELOW,
                         default=self._options.get(CONF_BRIGHTNESS_CLOSE_BELOW, DEFAULT_BRIGHTNESS_CLOSE),
                     ): vol.Coerce(float),
-                }
-            )
-        if auto_sun:
-            schema.update(
-                {
                     vol.Optional(
-                        CONF_SUN_ELEVATION_OPEN,
-                        default=self._options.get(CONF_SUN_ELEVATION_OPEN, DEFAULT_SUN_ELEVATION_OPEN),
+                        CONF_BRIGHTNESS_HYSTERESIS,
+                        default=self._options.get(CONF_BRIGHTNESS_HYSTERESIS, DEFAULT_BRIGHTNESS_HYSTERESIS),
                     ): vol.Coerce(float),
                     vol.Optional(
-                        CONF_SUN_ELEVATION_CLOSE,
-                        default=self._options.get(CONF_SUN_ELEVATION_CLOSE, DEFAULT_SUN_ELEVATION_CLOSE),
-                    ): vol.Coerce(float),
+                        CONF_BRIGHTNESS_TIME_DURATION,
+                        default=self._options.get(CONF_BRIGHTNESS_TIME_DURATION, DEFAULT_BRIGHTNESS_TIME_DURATION),
+                    ): vol.Coerce(int),
                 }
             )
 
         return self.async_show_form(
             step_id="brightness",
+            data_schema=vol.Schema(schema),
+        )
+
+    async def async_step_sun_elevation(self, user_input=None) -> FlowResult:
+        selected_mode = str(
+            (user_input or {}).get(
+                CONF_SUN_ELEVATION_MODE,
+                self._options.get(CONF_SUN_ELEVATION_MODE, DEFAULT_SUN_ELEVATION_MODE),
+            )
+            or DEFAULT_SUN_ELEVATION_MODE
+        ).lower()
+
+        schema: dict = {
+            vol.Optional(
+                CONF_SUN_ELEVATION_MODE,
+                default=selected_mode,
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        {"value": "fixed", "label": "Fixed - use only fixed values"},
+                        {"value": "dynamic", "label": "Dynamic - use only sensor values"},
+                        {"value": "hybrid", "label": "Hybrid - sensor + fixed value as offset"},
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Optional(
+                CONF_SUN_ELEVATION_OPEN,
+                default=(user_input or {}).get(
+                    CONF_SUN_ELEVATION_OPEN,
+                    self._options.get(CONF_SUN_ELEVATION_OPEN, DEFAULT_SUN_ELEVATION_OPEN),
+                ),
+            ): vol.Coerce(float),
+            vol.Optional(
+                CONF_SUN_ELEVATION_CLOSE,
+                default=(user_input or {}).get(
+                    CONF_SUN_ELEVATION_CLOSE,
+                    self._options.get(CONF_SUN_ELEVATION_CLOSE, DEFAULT_SUN_ELEVATION_CLOSE),
+                ),
+            ): vol.Coerce(float),
+            vol.Optional(
+                CONF_SUN_TIME_DURATION,
+                default=(user_input or {}).get(
+                    CONF_SUN_TIME_DURATION,
+                    self._options.get(CONF_SUN_TIME_DURATION, DEFAULT_SUN_TIME_DURATION),
+                ),
+            ): vol.Coerce(int),
+            vol.Optional(
+                CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
+                default=(user_input or {}).get(
+                    CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
+                    self._optional_default(CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR),
+                ),
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["sensor", "input_number", "number"])
+            ),
+            vol.Optional(
+                CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+                default=(user_input or {}).get(
+                    CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+                    self._optional_default(CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR),
+                ),
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["sensor", "input_number", "number"])
+            ),
+        }
+
+        if user_input is not None:
+            await self._save_options(user_input)
+            return await self.async_step_menu()
+
+        return self.async_show_form(
+            step_id="sun_elevation",
             data_schema=vol.Schema(schema),
         )
 
