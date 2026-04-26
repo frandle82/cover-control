@@ -54,6 +54,10 @@
           "close_position": "Close position",
           "ventilate_position": "Ventilation position",
           "shading_position": "Shading position",
+          "open_tilt_position": "Open tilt position",
+          "close_tilt_position": "Closed tilt position",
+          "ventilate_tilt_position": "Ventilation tilt position",
+          "shading_tilt_position": "Shading tilt position",
           "workday_tomorrow_sensor": "Workday tomorrow entity (optional)"
         },
         "sections": {
@@ -68,6 +72,9 @@
           },
           "contacts": {
             "name": "Ventilation & lockout"
+          },
+          "tilt_positions": {
+            "name": "Tilt positions"
           }
         }
       },
@@ -134,14 +141,11 @@
     "step": {
       "general": {
         "title": "General configuration",
-        "description": "Set room, covers, base positions, and general settings.",
+        "description": "Set instance name, room, and covers.",
         "data": {
           "name": "Instance name",
           "room": "Room",
-          "covers": "Covers",
-          "open_position": "Open position",
-          "close_position": "Close position",
-          "position_tolerance": "Position tolerance"
+          "covers": "Covers"
         }
       },
       "menu": {
@@ -153,10 +157,29 @@
           "time_control": "Time control",
           "contact_sensors": "Contact sensors",
           "brightness": "Brightness control",
+          "sun_elevation": "Sun elevation control",
           "shading": "Shading control",
           "functions": "Feature toggles",
+          "behavior": "Behavior",
+          "positions": "Positions",
           "resident": "Resident",
           "additional_conditions": "Additional conditions"
+        }
+      },
+      "positions": {
+        "title": "Cover positions",
+        "description": "Set cover type, movement targets, tolerance, and tilt targets.",
+        "data": {
+          "cover_type": "Cover type",
+          "open_position": "Open position",
+          "close_position": "Close position",
+          "ventilate_position": "Ventilation position",
+          "shading_position": "Shading position",
+          "position_tolerance": "Position tolerance",
+          "open_tilt_position": "Open tilt position",
+          "close_tilt_position": "Close tilt position",
+          "ventilate_tilt_position": "Ventilation tilt position",
+          "shading_tilt_position": "Shading tilt position"
         }
       },
       "time_control": {
@@ -193,15 +216,39 @@
           "brightness_sensor": "Brightness sensor",
           "brightness_open_above": "Open when brightness above",
           "brightness_close_below": "Close when brightness below",
-          "auto_sun_enabled": "Use sun elevation as alternative",
-          "sun_elevation_open": "Sun elevation for opening",
-          "sun_elevation_close": "Sun elevation for closing"
+          "brightness_hysteresis": "Brightness hysteresis",
+          "brightness_time_duration": "Brightness duration"
+        }
+      },
+      "sun_elevation": {
+        "title": "Sun elevation control",
+        "description": "Select fixed, dynamic, or hybrid mode for open/close sun elevation thresholds.",
+        "data": {
+          "sun_elevation_mode": "Sun elevation mode",
+          "sun_elevation_open": "Sun elevation value for opening",
+          "sun_elevation_close": "Sun elevation value for closing",
+          "sun_time_duration": "Sun elevation duration",
+          "sun_elevation_dynamic_open_sensor": "Sun elevation up sensor (dynamic/hybrid)",
+          "sun_elevation_dynamic_close_sensor": "Sun elevation down sensor (dynamic/hybrid)"
+        }
+      },
+      "behavior": {
+        "title": "Behavior",
+        "description": "Fine-tune cover type handling and safeguards from the blueprint.",
+        "data": {
+          "prevent_higher_position_closing": "Prevent closing from a higher position",
+          "prevent_lowering_when_closing_if_shaded": "Prevent lowering while closing if already shaded",
+          "prevent_shading_end_if_closed": "Do not end shading when cover is closed",
+          "prevent_opening_after_shading_end": "Do not open after shading ends",
+          "prevent_opening_after_ventilation_end": "Do not open after ventilation ends",
+          "prevent_opening_multiple_times": "Prevent opening multiple times per day",
+          "prevent_closing_multiple_times": "Prevent closing multiple times per day",
+          "prevent_shading_multiple_times": "Prevent shading multiple times per day"
         }
       },
       "shading": {
         "title": "Shading control",
         "data": {
-          "shading_position": "Shading position",
           "shading_azimuth_start": "Shading azimuth start",
           "shading_azimuth_end": "Shading azimuth end",
           "shading_elevation_min": "Shading elevation minimum",
@@ -227,9 +274,11 @@
           "auto_time_enabled": "Time control",
           "auto_ventilate_enabled": "Contact sensors",
           "auto_brightness_enabled": "Brightness automation",
+          "auto_sun_enabled": "Sun elevation control",
           "auto_shading_enabled": "Shading",
           "resident_status_enabled": "Resident",
-          "additional_conditions_enabled": "Additional conditions"
+          "additional_conditions_enabled": "Additional conditions",
+          "manual_control_enabled": "Manual control"
         }
       },
       "resident": {
@@ -263,68 +312,16 @@
   "entity": {
     "sensor": {
       "next_open": {
-        "name": "Next open"
+        "name": "Next opening"
       },
       "next_close": {
-        "name": "Next close"
-      },
-      "reason": {
-        "name": "Reason"
-      },
-      "shading_active": {
-        "name": "Shading"
-      },
-      "ventilation": {
-        "name": "Ventilation"
+        "name": "Next closing"
       },
       "resident_status": {
         "name": "Resident status"
       }
     },
-    "number": {
-      "open_position": {
-        "name": "Open position"
-      },
-      "close_position": {
-        "name": "Close position"
-      },
-      "ventilate_position": {
-        "name": "Ventilation position"
-      },
-      "shading_position": {
-        "name": "Shading position"
-      }
-    },
-    "time": {
-      "time_up_early_workday": {
-        "name": "Earliest open (workday)"
-      },
-      "time_up_late_workday": {
-        "name": "Latest open (workday)"
-      },
-      "time_down_early_workday": {
-        "name": "Earliest close (workday)"
-      },
-      "time_down_late_workday": {
-        "name": "Latest close (workday)"
-      },
-      "time_up_early_non_workday": {
-        "name": "Earliest open (non-workday)"
-      },
-      "time_up_late_non_workday": {
-        "name": "Latest open (non-workday)"
-      },
-      "time_down_early_non_workday": {
-        "name": "Earliest close (non-workday)"
-      },
-      "time_down_late_non_workday": {
-        "name": "Latest close (non-workday)"
-      }
-    },
     "switch": {
-      "master": {
-        "name": "Cover Control"
-      },
       "auto_time": {
         "name": "Time control"
       },
@@ -340,96 +337,13 @@
       "auto_shading": {
         "name": "Shading"
       }
-    }
-  },
-  "services": {
-    "set_manual_override": {
-      "name": "Set manual override",
-      "description": "Pause automatic control for a cover for the given minutes.",
-      "target": {
-        "entity_id": {
-          "name": "Cover",
-          "description": "Cover to pause automation for."
-        }
-      },
-      "fields": {
-        "manual_override_minutes": {
-          "name": "Minutes",
-          "description": "Duration of the pause."
-        }
-      }
     },
-    "clear_manual_override": {
-      "name": "Clear manual override",
-      "description": "Resume automation immediately for the selected cover.",
-      "target": {
-        "entity": {
-          "name": "Cover",
-          "description": "Cover to resume automation for."
-        }
+    "button": {
+      "recalibrate": {
+        "name": "Recalibrate covers"
       },
-      "fields": {}
-    },
-    "recalibrate_cover": {
-      "name": "Recalibrate cover",
-      "description": "Temporarily override a cover, use the standard open command to fully open it, then return to the previous position and clear the override. Use this when a cover needs to be realigned.",
-      "target": {
-        "entity": {
-          "name": "Cover",
-          "description": "Cover to recalibrate."
-        }
-      },
-      "fields": {
-        "full_open_position": {
-          "name": "Fully open position",
-          "description": "Position to use for fully opening the cover; defaults to 100%."
-        }
-      }
-    },
-    "activate_shading": {
-      "name": "Activate shading now",
-      "description": "Send a cover to the shading position immediately and hold it there for the override duration.",
-      "target": {
-        "entity": {
-          "name": "Cover",
-          "description": "Cover that should move to the shading position."
-        }
-      },
-      "fields": {
-        "manual_override_minutes": {
-          "name": "Minutes",
-          "description": "Optional override duration; defaults to the integration setting."
-        }
-      }
-    },
-    "change_switch_settings": {
-      "name": "Update switch settings",
-      "description": "Apply configuration values for an automation toggle switch.",
-      "fields": {
-        "entity_id": {
-          "name": "Automation switch",
-          "description": "Switch entity that represents the automation to update."
-        },
-        "settings": {
-          "name": "Settings",
-          "description": "Key/value pairs to store with the switch's configuration category."
-        }
-      }
-    },
-    "force_action": {
-      "name": "Force action",
-      "description": "Run an immediate action on the selected cover without further automation checks.",
-      "target": {
-        "entity": {
-          "name": "Cover",
-          "description": "Cover to run the action on."
-        }
-      },
-      "fields": {
-        "action": {
-          "name": "Action",
-          "description": "Select which immediate action to run."
-        }
+      "clear_manual_override": {
+        "name": "Clear manual override"
       }
     }
   }

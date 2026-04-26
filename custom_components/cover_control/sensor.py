@@ -12,10 +12,8 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.util import slugify
-
+from homeassistant.util import dt as dt_util
 from .const import (
-    CONF_COVERS,
     CONF_NAME,
     CONF_RESIDENT_SENSOR,
     CONF_RESIDENT_STATUS,
@@ -27,20 +25,11 @@ from .const import (
 from .controller import ControllerManager
 
 
-RUNTIME_SENSOR_KEYS: tuple[str, ...] = (
-    "next_open",
-    "next_close",
-)
-
-
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up Cover Control sensor entities."""
     merged = {**entry.data, **entry.options}
-    covers = [
-        cover for cover in merged.get(CONF_COVERS, []) if isinstance(cover, str) and cover
-    ]
     resident_enabled = bool(
         merged.get(
             CONF_RESIDENT_STATUS,
@@ -49,9 +38,8 @@ async def async_setup_entry(
     )
 
     desired_unique_ids = {
-        f"{entry.entry_id}-{slugify(cover)}-{key}"
-        for cover in covers
-        for key in RUNTIME_SENSOR_KEYS
+        f"{entry.entry_id}-next_open",
+        f"{entry.entry_id}-next_close",
     }
     if resident_enabled:
         desired_unique_ids.add(f"{entry.entry_id}-resident_status")
@@ -64,10 +52,10 @@ async def async_setup_entry(
         if unique_id not in desired_unique_ids:
             registry.async_remove(entity_entry.entity_id)
 
-    entities: list[SensorEntity] = []
-    for cover in covers:
-        entities.append(NextOpenSensor(hass, entry, cover))
-        entities.append(NextCloseSensor(hass, entry, cover))
+    entities: list[SensorEntity] = [
+        NextOpenSensor(hass, entry),
+        NextCloseSensor(hass, entry),
+    ]
 
     if resident_enabled:
         entities.append(ResidentStatusSensor(hass, entry))
@@ -102,28 +90,18 @@ class _BaseCoverControlSensor(SensorEntity):
         return manager if isinstance(manager, ControllerManager) else None
 
 
-class _BaseCoverRuntimeSensor(_BaseCoverControlSensor):
-    """Base class for per-cover runtime sensors."""
+class _BaseEntryRuntimeSensor(_BaseCoverControlSensor):
+    """Base class for entry-level runtime sensors."""
 
     _key: str
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry, cover: str) -> None:
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
         super().__init__(hass, entry)
-        self._cover = cover
-        self._snapshot: tuple[
-            float | None,
-            str | None,
-            datetime | None,
-            bool,
-            datetime | None,
-            datetime | None,
-            float | None,
-            bool,
-            bool,
-            bool,
-        ] | None = None
-        self._attr_unique_id = f"{entry.entry_id}-{slugify(cover)}-{self._key}"
+        self._attr_unique_id = f"{entry.entry_id}-{self._key}"
         self._attr_translation_key = self._key
+        self._target_time: datetime | None = None
+        self._target_cover: str | None = None
+        self._controlled_covers: list[str] = []
 
     async def async_added_to_hass(self) -> None:
         self._refresh_from_manager()
@@ -136,7 +114,32 @@ class _BaseCoverRuntimeSensor(_BaseCoverControlSensor):
     @callback
     def _refresh_from_manager(self) -> None:
         manager = self._manager()
-        self._snapshot = manager.state_snapshot(self._cover) if manager else None
+        if not manager or not manager.controllers:
+            self._target_time = None
+            self._target_cover = None
+            self._controlled_covers = []
+            return
+
+        self._controlled_covers = list(manager.controllers.keys())
+        candidates: list[tuple[datetime, str]] = []
+        now = dt_util.utcnow()
+        for cover, controller in manager.controllers.items():
+            candidate = self._event_time_for_controller(controller)
+            if isinstance(candidate, datetime) and candidate >= now:
+                candidates.append((candidate, cover))
+
+        if not candidates:
+            self._target_time = None
+            self._target_cover = None
+            return
+
+        self._target_time, self._target_cover = min(candidates, key=lambda item: item[0])
+
+    def _event_time_for_controller(self, controller) -> datetime | None:
+        snapshot = controller.state_snapshot()
+        idx = 4 if self._key == "next_open" else 5
+        scheduled = snapshot[idx]
+        return scheduled if isinstance(scheduled, datetime) else None
 
     @callback
     def _async_handle_state_update(
@@ -154,29 +157,21 @@ class _BaseCoverRuntimeSensor(_BaseCoverControlSensor):
         shading_active: bool,
         ventilation_active: bool,
     ) -> None:
-        if entry_id != self.entry.entry_id or cover != self._cover:
+        if entry_id != self.entry.entry_id:
             return
-        self._snapshot = (
-            target,
-            reason,
-            manual_until,
-            manual_active,
-            next_open,
-            next_close,
-            current_position,
-            shading_enabled,
-            shading_active,
-            ventilation_active,
-        )
+        self._refresh_from_manager()
         self.async_write_ha_state()
 
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
-        return {"cover": self._cover}
+        return {
+            "cover": self._target_cover,
+            "covers": self._controlled_covers,
+        }
 
 
-class NextOpenSensor(_BaseCoverRuntimeSensor):
-    """Next calculated opening timestamp for a cover."""
+class NextOpenSensor(_BaseEntryRuntimeSensor):
+    """Next calculated opening timestamp across controlled covers."""
 
     _key = "next_open"
     _attr_device_class = SensorDeviceClass.TIMESTAMP
@@ -184,13 +179,11 @@ class NextOpenSensor(_BaseCoverRuntimeSensor):
 
     @property
     def native_value(self) -> datetime | None:
-        if not self._snapshot:
-            return None
-        return self._snapshot[4]
+        return self._target_time
 
 
-class NextCloseSensor(_BaseCoverRuntimeSensor):
-    """Next calculated closing timestamp for a cover."""
+class NextCloseSensor(_BaseEntryRuntimeSensor):
+    """Next calculated closing timestamp across controlled covers."""
 
     _key = "next_close"
     _attr_device_class = SensorDeviceClass.TIMESTAMP
@@ -198,9 +191,7 @@ class NextCloseSensor(_BaseCoverRuntimeSensor):
 
     @property
     def native_value(self) -> datetime | None:
-        if not self._snapshot:
-            return None
-        return self._snapshot[5]
+        return self._target_time
 
 
 class ResidentStatusSensor(_BaseCoverControlSensor):
