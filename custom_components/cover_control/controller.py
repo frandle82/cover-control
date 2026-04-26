@@ -244,6 +244,23 @@ def _ts_now() -> int:
     return int(dt_util.utcnow().timestamp())
 
 
+def _unique_covers(value: object) -> list[str]:
+    if isinstance(value, str):
+        covers = [value]
+    elif isinstance(value, list):
+        covers = value
+    else:
+        covers = list(value) if value else []
+
+    unique: list[str] = []
+    for cover in covers:
+        if not isinstance(cover, str) or not cover:
+            continue
+        if cover not in unique:
+            unique.append(cover)
+    return unique
+
+
 def _default_cover_status() -> dict:
     return {
         "v": 1,
@@ -368,7 +385,7 @@ class ControllerManager:
             **self.entry.data,
             **self.entry.options,
         }
-        for cover in data.get(CONF_COVERS, []):
+        for cover in _unique_covers(data.get(CONF_COVERS, [])):
             controller = CoverController(
                 self.hass,
                 self.entry,
@@ -751,7 +768,7 @@ class CoverController:
             self._set_status_bucket("open", True, ts)
             self._set_status_bucket("close", False, ts)
             self._set_ventilation_status(False, True, ts)
-        elif "open" in reason or reason == "shading_end_open":
+        elif "open" in reason:
             self._last_action_dates["open"] = today
             self._set_status_bucket("open", True, ts)
             self._set_status_bucket("close", False, ts)
@@ -2818,30 +2835,6 @@ class CoverController:
         state = self.hass.states.get(self.cover)
         if not state:
             return None
-
-    def _tilt_position_value(self, reason: str | None) -> float | None:
-        if not reason:
-            return None
-        if reason == "ventilation_full" or "open" in reason or reason == "recalibrate_open":
-            return self._position_value(
-                CONF_OPEN_TILT_POSITION, DEFAULT_OPEN_TILT_POSITION
-            )
-        if "close" in reason or reason == "resident_asleep":
-            return self._position_value(
-                CONF_CLOSE_TILT_POSITION, DEFAULT_CLOSE_TILT_POSITION
-            )
-        if "ventilation" in reason or reason.startswith("ventilate"):
-            return self._position_value(
-                CONF_VENTILATE_TILT_POSITION, DEFAULT_VENTILATE_TILT_POSITION
-            )
-        if "shading" in reason and reason not in {"manual_shading_end"}:
-            if "end_open" in reason or "end_close" in reason:
-                pass
-            else:
-                return self._position_value(
-                    CONF_SHADING_TILT_POSITION, DEFAULT_SHADING_TILT_POSITION
-                )
-        return None
         try:
             if "current_position" in state.attributes:
                 return float(state.attributes["current_position"])
@@ -2854,6 +2847,36 @@ class CoverController:
             return float(state.state)
         except (TypeError, ValueError):
             return None
+
+    def _tilt_position_value(self, reason: str | None) -> float | None:
+        if not reason:
+            return None
+        if reason == "ventilation_full" or "open" in reason:
+            return self._position_value(
+                CONF_OPEN_TILT_POSITION, DEFAULT_OPEN_TILT_POSITION
+            )
+        if "close" in reason or reason == "resident_asleep":
+            return self._position_value(
+                CONF_CLOSE_TILT_POSITION, DEFAULT_CLOSE_TILT_POSITION
+            )
+        if reason == "ventilation_end_shading":
+            return self._position_value(
+                CONF_SHADING_TILT_POSITION, DEFAULT_SHADING_TILT_POSITION
+            )
+        if "ventilation" in reason or reason.startswith("ventilate"):
+            return self._position_value(
+                CONF_VENTILATE_TILT_POSITION, DEFAULT_VENTILATE_TILT_POSITION
+            )
+        if (
+            "shading" in reason
+            and reason != "manual_shading_end"
+            and "end_open" not in reason
+            and "end_close" not in reason
+        ):
+            return self._position_value(
+                CONF_SHADING_TILT_POSITION, DEFAULT_SHADING_TILT_POSITION
+            )
+        return None
 
     def _full_open_sensors(self) -> list[str]:
         mapping = self.config.get(CONF_WINDOW_SENSOR_FULL) or {}
