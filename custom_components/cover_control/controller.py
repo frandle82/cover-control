@@ -6,6 +6,7 @@ import logging
 import re
 from inspect import isawaitable
 from datetime import datetime, timedelta, time
+from typing import Callable
 
 from astral import LocationInfo
 from astral.sun import SunDirection, time_at_elevation
@@ -22,6 +23,7 @@ from homeassistant.helpers.event import (
     async_track_state_change_event,
     async_track_time_interval,
 )
+from homeassistant.helpers.storage import Store
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
 
@@ -162,6 +164,7 @@ from .const import (
 )
 
 IDLE_REASON = "idle"
+STORAGE_VERSION = 1
 _LOGGER = logging.getLogger(__name__)
 
 _FIRST_NUMBER_RE = re.compile(r"[-+]?\d+(?:[.,]\d+)?")
@@ -225,6 +228,78 @@ def _float_state(hass: HomeAssistant, entity_id: str | None) -> float | None:
     return _coerce_float(state.state)
 
 
+def _ts_now() -> int:
+    return int(dt_util.utcnow().timestamp())
+
+
+def _default_cover_status() -> dict:
+    return {
+        "v": 1,
+        "open": {"active": False, "ts": 0},
+        "close": {"active": False, "ts": 0},
+        "shading": {"active": False, "start_pending": 0, "end_pending": 0, "ts": 0},
+        "ventilation": {
+            "partial": False,
+            "full": False,
+            "restore_position": None,
+            "ts": 0,
+        },
+        "manual": {"active": False, "scope_all": False, "until": None, "ts": 0},
+        "reason": None,
+        "target": None,
+        "last_action_dates": {},
+    }
+
+
+def _normalize_cover_status(raw: object) -> dict:
+    status = _default_cover_status()
+    if not isinstance(raw, dict):
+        return status
+
+    for key in ("open", "close"):
+        value = raw.get(key)
+        if isinstance(value, dict):
+            status[key]["active"] = bool(value.get("active", status[key]["active"]))
+            status[key]["ts"] = int(value.get("ts") or 0)
+
+    shading = raw.get("shading")
+    if isinstance(shading, dict):
+        status["shading"]["active"] = bool(shading.get("active", False))
+        status["shading"]["start_pending"] = int(shading.get("start_pending") or 0)
+        status["shading"]["end_pending"] = int(shading.get("end_pending") or 0)
+        status["shading"]["ts"] = int(shading.get("ts") or 0)
+
+    ventilation = raw.get("ventilation")
+    if isinstance(ventilation, dict):
+        status["ventilation"]["partial"] = bool(ventilation.get("partial", False))
+        status["ventilation"]["full"] = bool(ventilation.get("full", False))
+        status["ventilation"]["restore_position"] = _coerce_float(
+            ventilation.get("restore_position")
+        )
+        status["ventilation"]["ts"] = int(ventilation.get("ts") or 0)
+
+    manual = raw.get("manual")
+    if isinstance(manual, dict):
+        status["manual"]["active"] = bool(manual.get("active", False))
+        status["manual"]["scope_all"] = bool(manual.get("scope_all", False))
+        until = manual.get("until")
+        status["manual"]["until"] = until if isinstance(until, str) and until else None
+        status["manual"]["ts"] = int(manual.get("ts") or 0)
+
+    reason = raw.get("reason")
+    status["reason"] = reason if isinstance(reason, str) and reason else None
+    status["target"] = _coerce_float(raw.get("target"))
+
+    dates = raw.get("last_action_dates")
+    if isinstance(dates, dict):
+        status["last_action_dates"] = {
+            str(action): str(date_value)
+            for action, date_value in dates.items()
+            if action and date_value
+        }
+    return status
+
+
 class ControllerManager:
     """Create and coordinate per-cover controllers."""
 
@@ -235,8 +310,20 @@ class ControllerManager:
         # Runtime-only feature overrides controlled by integration switch entities.
         # None/absent => follow persisted config flow options.
         self._runtime_toggles: dict[str, bool] = {}
+        self._store: Store | None = None
+        self._stored_state: dict = {"covers": {}}
 
     async def async_setup(self) -> None:
+        self._store = Store(
+            self.hass,
+            STORAGE_VERSION,
+            f"{DOMAIN}.{self.entry.entry_id}.cover_status",
+        )
+        loaded = await self._store.async_load()
+        if isinstance(loaded, dict):
+            self._stored_state = loaded
+        self._stored_state.setdefault("covers", {})
+
         data = {
             **DEFAULT_POSITION_SETTINGS,
             **DEFAULT_TIME_SETTINGS,
@@ -247,14 +334,30 @@ class ControllerManager:
             **self.entry.options,
         }
         for cover in data.get(CONF_COVERS, []):
-            controller = CoverController(self.hass, self.entry, cover, data)
+            controller = CoverController(
+                self.hass,
+                self.entry,
+                cover,
+                data,
+                self._stored_state["covers"].get(cover),
+                self._store_cover_status,
+            )
             await controller.async_setup()
             self.controllers[cover] = controller
 
     async def async_unload(self) -> None:
         for controller in self.controllers.values():
+            controller.persist_status()
             await controller.async_unload()
+        if self._store:
+            await self._store.async_save(self._stored_state)
         self.controllers.clear()
+
+    @callback
+    def _store_cover_status(self, cover: str, status: dict) -> None:
+        self._stored_state.setdefault("covers", {})[cover] = status
+        if self._store:
+            self._store.async_delay_save(lambda: self._stored_state, 1)
 
     @callback
     def async_update_options(self) -> None:
@@ -306,7 +409,7 @@ class ControllerManager:
             return False
         controller.activate_shading(minutes)
         return True
-    
+
     def clear_manual_override(self, cover: str) -> bool:
         controller = self.controllers.get(cover)
         if not controller:
@@ -332,12 +435,12 @@ class ControllerManager:
 
         for controller in self.controllers.values():
             await controller.recalibrate(full_open)
-    
+
     async def force_action(self, cover: str, action: str) -> bool:
         controller = self.controllers.get(cover)
         if not controller:
             return False
-        
+
         if action in {"open", "close"}:
             await controller.force_move(action)
             return True
@@ -351,7 +454,7 @@ class ControllerManager:
                 "activate" if action == "shading_activate" else "deactivate"
             )
             return True
-        
+
         return False
 
     def state_snapshot(
@@ -387,11 +490,21 @@ class ControllerManager:
 class CoverController:
     """Translate blueprint-style parameters into runtime cover control."""
 
-    def __init__(self, hass: HomeAssistant, entry: config_entries.ConfigEntry, cover: str, config: ConfigType) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: config_entries.ConfigEntry,
+        cover: str,
+        config: ConfigType,
+        persisted_status: object = None,
+        persist_callback: Callable[[str, dict], None] | None = None,
+    ) -> None:
         self.hass = hass
         self.entry = entry
         self.cover = cover
         self.config = config
+        self._persist_callback = persist_callback
+        self._status = _normalize_cover_status(persisted_status)
         self._unsubs: list[CALLBACK_TYPE] = []
         self._manual_until: datetime | None = None
         self._manual_active: bool = False
@@ -408,6 +521,7 @@ class CoverController:
         self._master_entity_id: str | None = None
         self._condition_since: dict[str, datetime] = {}
         self._last_action_dates: dict[str, datetime.date] = {}
+        self._hydrate_persistent_status()
         # Position helpers were removed, but keep the mapping available so
         # legacy config entries that still reference helper entities do not
         # cause attribute errors during lookups.
@@ -421,6 +535,111 @@ class CoverController:
             CONF_AUTO_SHADING: CONF_AUTO_SHADING_ENTITY,
         }
 
+    def _hydrate_persistent_status(self) -> None:
+        target = _coerce_float(self._status.get("target"))
+        self._target = target
+        reason = self._status.get("reason")
+        self._reason = reason if isinstance(reason, str) and reason else None
+
+        ventilation = self._status.get("ventilation", {})
+        if isinstance(ventilation, dict):
+            self._pre_ventilation_position = _coerce_float(
+                ventilation.get("restore_position")
+            )
+
+        manual = self._status.get("manual", {})
+        if isinstance(manual, dict):
+            until_raw = manual.get("until")
+            until = dt_util.parse_datetime(until_raw) if until_raw else None
+            if until:
+                until = dt_util.as_utc(until)
+            self._manual_until = until
+            self._manual_active = bool(manual.get("active") and (until is None or until > dt_util.utcnow()))
+            self._manual_scope_all = bool(manual.get("scope_all"))
+            if not self._manual_active:
+                self._manual_until = None
+                self._manual_scope_all = False
+
+        dates = self._status.get("last_action_dates", {})
+        if isinstance(dates, dict):
+            for action, date_value in dates.items():
+                try:
+                    self._last_action_dates[str(action)] = datetime.fromisoformat(
+                        str(date_value)
+                    ).date()
+                except (TypeError, ValueError):
+                    continue
+
+    def persist_status(self) -> None:
+        self._sync_runtime_status()
+        if self._persist_callback:
+            self._persist_callback(self.cover, self._status)
+
+    def _sync_runtime_status(self) -> None:
+        self._status["reason"] = self._reason
+        self._status["target"] = self._target
+        self._status["last_action_dates"] = {
+            action: date_value.isoformat()
+            for action, date_value in self._last_action_dates.items()
+        }
+        manual = self._status.setdefault("manual", {})
+        manual["active"] = self._manual_active
+        manual["scope_all"] = self._manual_scope_all
+        manual["until"] = self._manual_until.isoformat() if self._manual_until else None
+        if self._manual_active and not manual.get("ts"):
+            manual["ts"] = _ts_now()
+
+        ventilation = self._status.setdefault("ventilation", {})
+        ventilation["restore_position"] = self._pre_ventilation_position
+
+    def _set_status_bucket(self, bucket: str, active: bool, ts: int | None = None) -> None:
+        section = self._status.setdefault(bucket, {})
+        section["active"] = active
+        section["ts"] = ts if ts is not None else _ts_now()
+
+    def _set_ventilation_status(
+        self, partial: bool = False, full: bool = False, ts: int | None = None
+    ) -> None:
+        section = self._status.setdefault("ventilation", {})
+        section["partial"] = partial
+        section["full"] = full
+        section["restore_position"] = self._pre_ventilation_position
+        section["ts"] = ts if ts is not None else _ts_now()
+
+    def _record_action_status(self, reason: str, position: float | None = None) -> None:
+        ts = _ts_now()
+        today = dt_util.as_local(dt_util.utcnow()).date()
+        if reason == "ventilation_full":
+            self._set_status_bucket("open", True, ts)
+            self._set_status_bucket("close", False, ts)
+            self._set_ventilation_status(False, True, ts)
+        elif "open" in reason or reason == "shading_end_open":
+            self._last_action_dates["open"] = today
+            self._set_status_bucket("open", True, ts)
+            self._set_status_bucket("close", False, ts)
+            self._set_status_bucket("shading", False, ts)
+            self._set_ventilation_status(False, False, ts)
+        elif "close" in reason or reason == "resident_asleep":
+            self._last_action_dates["close"] = today
+            self._set_status_bucket("open", False, ts)
+            self._set_status_bucket("close", True, ts)
+            self._set_status_bucket("shading", False, ts)
+            self._set_ventilation_status(False, False, ts)
+        elif reason in {"ventilation", "shading_end_ventilation"}:
+            self._set_status_bucket("open", False, ts)
+            self._set_status_bucket("close", False, ts)
+            self._set_ventilation_status(True, False, ts)
+        elif "shading" in reason:
+            self._last_action_dates["shading"] = today
+            self._set_status_bucket("open", True, ts)
+            self._set_status_bucket("close", False, ts)
+            self._set_status_bucket("shading", reason != "manual_shading_end", ts)
+            self._set_ventilation_status(False, False, ts)
+
+        self._status["target"] = position if position is not None else self._target
+        self._status["reason"] = self._reason
+        self.persist_status()
+
     async def async_setup(self) -> None:
         registry = er.async_get(self.hass)
         self._master_entity_id = registry.async_get_entity_id(
@@ -430,7 +649,8 @@ class CoverController:
             async_track_time_interval(self.hass, self._handle_interval, timedelta(minutes=1))
         )
         self._unsubs.append(self.hass.bus.async_listen("call_service", self._handle_service_call))
-        self._target = self._current_position()
+        if self._target is None:
+            self._target = self._current_position()
         self._last_position = self._target
         sensor_entities = {
             self.config.get(CONF_BRIGHTNESS_SENSOR),
@@ -455,6 +675,8 @@ class CoverController:
                 async_track_state_change_event(self.hass, [entity_id], self._handle_state_event)
             )
         self._refresh_next_events(dt_util.utcnow())
+        self._schedule_manual_expiry()
+        self.persist_status()
         self._publish_state()
 
 
@@ -466,14 +688,15 @@ class CoverController:
     @callback
     def update_config(self, new_config: ConfigType) -> None:
         self.config = new_config
-        self._manual_until = None
-        self._manual_active = False
-        self._manual_scope_all = False
         self._clear_manual_expiry()
-        self._target = self._current_position()
+        self._hydrate_persistent_status()
+        if self._target is None:
+            self._target = self._current_position()
         self._last_position = self._target
         now = dt_util.utcnow()
         self._refresh_next_events(now)
+        self._schedule_manual_expiry()
+        self.persist_status()
         self.hass.async_create_task(self._evaluate("config"))
         self._publish_state()
 
@@ -489,7 +712,23 @@ class CoverController:
         self._expire_manual_override(now)
         self._ensure_manual_expiry_timer(now)
         previous_position = self._last_position
-        if event.data.get("entity_id") == self.cover:
+        entity_id = event.data.get("entity_id")
+        trigger = "state"
+        if entity_id == self.config.get(CONF_RESIDENT_SENSOR):
+            old_state = event.data.get("old_state")
+            new_state = event.data.get("new_state")
+            old_value = old_state.state if old_state else None
+            new_value = new_state.state if new_state else None
+            if self._resident_state_is_on(old_value) and self._resident_state_is_off(
+                new_value
+            ):
+                trigger = "resident_woke"
+            elif self._resident_state_is_off(old_value) and self._resident_state_is_on(
+                new_value
+            ):
+                trigger = "resident_asleep"
+
+        if entity_id == self.cover:
             tolerance = float(
                 self._position_value(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE)
             )
@@ -527,8 +766,8 @@ class CoverController:
                     self._activate_manual_override(
                         scope_all=True, reason="manual_override"
                     )
-            self._last_position = current if current is not None else previous_position  
-        self.hass.async_create_task(self._evaluate("state"))
+            self._last_position = current if current is not None else previous_position
+        self.hass.async_create_task(self._evaluate(trigger))
 
     @callback
     def _handle_service_call(self, event) -> None:
@@ -565,6 +804,7 @@ class CoverController:
 
         if position is not None:
             self._target = position
+            self._status["target"] = position
 
         self._activate_manual_override(scope_all=True, reason="manual_override")
         self.hass.async_create_task(self._evaluate("manual_service"))
@@ -597,6 +837,12 @@ class CoverController:
             self._reason = reason
         elif self._manual_scope_all:
             self._reason = "manual_override"
+        manual = self._status.setdefault("manual", {})
+        manual["active"] = True
+        manual["scope_all"] = self._manual_scope_all
+        manual["until"] = self._manual_until.isoformat() if self._manual_until else None
+        manual["ts"] = _ts_now()
+        self.persist_status()
         self._schedule_manual_expiry()
         self._refresh_next_events(now)
         self._publish_state()
@@ -650,6 +896,11 @@ class CoverController:
         self._clear_manual_expiry()
         if self._reason in {"manual_override", "manual_shading"}:
             self._reason = None
+        manual = self._status.setdefault("manual", {})
+        manual["active"] = False
+        manual["scope_all"] = False
+        manual["until"] = None
+        self.persist_status()
         self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
 
@@ -660,6 +911,10 @@ class CoverController:
         current = self._current_position()
         if current is not None:
             self._pre_ventilation_position = float(current)
+            self._status.setdefault("ventilation", {})[
+                "restore_position"
+            ] = self._pre_ventilation_position
+            self.persist_status()
 
     def publish_state(self) -> None:
         """Expose the current state via dispatcher for newly added entities."""
@@ -705,6 +960,12 @@ class CoverController:
         self._manual_until = dt_util.utcnow() + timedelta(minutes=duration)
         self._manual_active = True
         self._manual_scope_all = True
+        manual = self._status.setdefault("manual", {})
+        manual["active"] = True
+        manual["scope_all"] = True
+        manual["until"] = self._manual_until.isoformat()
+        manual["ts"] = _ts_now()
+        self.persist_status()
         self._schedule_manual_expiry()
         self.hass.async_create_task(
             self._set_position(self.config.get(CONF_SHADING_POSITION), "manual_shading")
@@ -764,6 +1025,7 @@ class CoverController:
         await self._command_position(float(target), reason=reason)
         self._target = float(target)
         self._reason = reason
+        self._record_action_status(reason, float(target))
         self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
 
@@ -777,6 +1039,8 @@ class CoverController:
             await self._command_position(float(target), reason="ventilation_start")
             self._target = float(target)
             self._reason = "ventilation"
+            self._set_ventilation_status(True, False)
+            self.persist_status()
         elif action == "stop":
             target = self._pre_ventilation_position
             if target is None:
@@ -788,6 +1052,8 @@ class CoverController:
             self._pre_ventilation_position = None
             if self._reason == "ventilation":
                 self._reason = None
+            self._set_ventilation_status(False, False)
+            self.persist_status()
         else:
             return
         self._refresh_next_events(dt_util.utcnow())
@@ -802,6 +1068,7 @@ class CoverController:
             await self._command_position(float(target), reason="manual_shading")
             self._target = float(target)
             self._reason = "manual_shading"
+            self._record_action_status("manual_shading", float(target))
         elif action == "deactivate":
             target = self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)
             if target is None:
@@ -810,6 +1077,7 @@ class CoverController:
             self._target = float(target)
             if self._reason in {"shading", "manual_shading"}:
                 self._reason = None
+            self._record_action_status("manual_shading_end", float(target))
         else:
             return
         self._refresh_next_events(dt_util.utcnow())
@@ -823,6 +1091,11 @@ class CoverController:
             self._clear_manual_expiry()
             if self._reason in {"manual_override", "manual_shading"}:
                 self._reason = None
+            manual = self._status.setdefault("manual", {})
+            manual["active"] = False
+            manual["scope_all"] = False
+            manual["until"] = None
+            self.persist_status()
 
     def _ensure_manual_expiry_timer(self, now: datetime) -> None:
         if not self._manual_active or not self._manual_until:
@@ -861,6 +1134,11 @@ class CoverController:
         self._manual_expire_unsub = None
         if self._reason in {"manual_override", "manual_shading"}:
             self._reason = None
+        manual = self._status.setdefault("manual", {})
+        manual["active"] = False
+        manual["scope_all"] = False
+        manual["until"] = None
+        self.persist_status()
         now = dt_util.utcnow()
         self._refresh_next_events(now)
         self._publish_state()
@@ -904,7 +1182,7 @@ class CoverController:
             self._refresh_next_events(now)
             self._publish_state()
             return
-        
+
         if bool(
             self.config.get(
                 CONF_ADDITIONAL_CONDITIONS_ENABLED,
@@ -957,6 +1235,7 @@ class CoverController:
             self.config.get(CONF_RESIDENT_STATUS, DEFAULT_AUTOMATION_FLAGS.get(CONF_RESIDENT_STATUS, False))
         )
         resident_sleeping = resident_mode_enabled and self._is_resident_sleeping()
+        resident_woke = trigger == "resident_woke"
 
         resident_allow_open = bool(
             self.config.get(
@@ -980,6 +1259,12 @@ class CoverController:
             self.config.get(
                 CONF_RESIDENT_CLOSE_ENABLED,
                 DEFAULT_AUTOMATION_FLAGS.get(CONF_RESIDENT_CLOSE_ENABLED, True),
+            )
+        )
+        resident_open_enabled = bool(
+            self.config.get(
+                CONF_RESIDENT_OPEN_ENABLED,
+                DEFAULT_AUTOMATION_FLAGS.get(CONF_RESIDENT_OPEN_ENABLED, True),
             )
         )
 
@@ -1076,10 +1361,12 @@ class CoverController:
                         await self._set_position(target, "ventilation")
                     else:
                         self._reason = "ventilation"
+                        self._set_ventilation_status(True, False)
+                        self.persist_status()
                         self._publish_state()
             return
 
-        
+
         post_ventilation = (
             auto_ventilate
             and not ventilation_contact_active
@@ -1173,7 +1460,7 @@ class CoverController:
                     "shading",
                 )
                 return
-        
+
         close_events: list[tuple[datetime, str, float | None]] = []
         open_events: list[tuple[datetime, str, float | None]] = []
 
@@ -1195,6 +1482,8 @@ class CoverController:
                     )
                 )
             self._pre_ventilation_position = None
+            self._set_ventilation_status(False, False)
+            self.persist_status()
 
         if (
             close_condition
@@ -1267,24 +1556,21 @@ class CoverController:
             and not self._action_already_done_today(
                 "open", CONF_PREVENT_OPENING_MULTIPLE_TIMES
             )
-            and (
-                not resident_mode_enabled
-                or not bool(
-                    self.config.get(
-                        CONF_RESIDENT_OPEN_ENABLED,
-                        DEFAULT_AUTOMATION_FLAGS.get(CONF_RESIDENT_OPEN_ENABLED, True),
-                    )
-                )
-                or not resident_sleeping
-            )
         ):
+            should_be_open_now = is_daytime_phase and not is_evening_phase and (
+                (not has_environment_control) or environment_allows_opening
+            )
             open_due = (
-                (not auto_time_enabled and environment_allows_opening)
-                or is_time_up_late
-                or (
-                    (is_opening_phase or is_daytime_phase)
-                    and not is_evening_phase
-                    and environment_allows_opening
+                resident_open_enabled and should_be_open_now
+                if resident_woke
+                else (
+                    (not auto_time_enabled and environment_allows_opening)
+                    or is_time_up_late
+                    or (
+                        (is_opening_phase or is_daytime_phase)
+                        and not is_evening_phase
+                        and environment_allows_opening
+                    )
                 )
             )
             if (
@@ -1299,7 +1585,7 @@ class CoverController:
                         self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
                     )
                 )
-            
+
 
             if (
                 open_due
@@ -1697,7 +1983,7 @@ class CoverController:
         if required_seconds and (now - last_changed) < timedelta(seconds=required_seconds):
             return False
         return True
-    
+
     def _contacts_active(self, entity_ids: list[str], now: datetime) -> bool:
         return any(self._single_contact_active(entity_id, now) for entity_id in entity_ids)
 
@@ -1733,7 +2019,16 @@ class CoverController:
         resident_entity = self.config.get(CONF_RESIDENT_SENSOR)
         if not resident_entity:
             return False
-        return self.hass.states.is_state(resident_entity, STATE_ON)
+        state = self.hass.states.get(resident_entity)
+        return self._resident_state_is_on(state.state if state else None)
+
+    @staticmethod
+    def _resident_state_is_on(value: str | None) -> bool:
+        return value in {STATE_ON, "true"}
+
+    @staticmethod
+    def _resident_state_is_off(value: str | None) -> bool:
+        return value in {"off", "false"}
 
     def _time_from_config(self, key: str) -> time | None:
         configured = self.config.get(key)
@@ -1742,14 +2037,14 @@ class CoverController:
             return parsed
         fallback = DEFAULT_TIME_SETTINGS.get(key)
         return _parse_time(fallback) if fallback is not None else None
-    
+
     def _time_bounds(self, workday: bool, is_up: bool) -> tuple[time | None, time | None]:
         if workday:
             early_key = (CONF_TIME_UP_EARLY_WORKDAY if is_up else CONF_TIME_DOWN_EARLY_WORKDAY)
             late_key = (CONF_TIME_UP_LATE_WORKDAY if is_up else CONF_TIME_DOWN_LATE_WORKDAY)
         else:
             early_key = (CONF_TIME_UP_EARLY_NON_WORKDAY if is_up else CONF_TIME_DOWN_EARLY_NON_WORKDAY)
-            late_key = (CONF_TIME_UP_LATE_NON_WORKDAY if is_up else CONF_TIME_DOWN_LATE_NON_WORKDAY)        
+            late_key = (CONF_TIME_UP_LATE_NON_WORKDAY if is_up else CONF_TIME_DOWN_LATE_NON_WORKDAY)
 
         return self._time_from_config(early_key), self._time_from_config(late_key)
 
@@ -1857,12 +2152,12 @@ class CoverController:
             if entity_id and self.hass.states.get(entity_id) is not None:
                 return self.hass.states.is_state(entity_id, STATE_ON)
         return bool(self.config.get(config_key))
-    
+
     async def _condition_allows(self, config_key: str) -> bool:
         condition_config = self.config.get(config_key)
         if condition_config in (None, "", []):
             return True
-        
+
         if isinstance(condition_config, bool):
             return condition_config
 
@@ -1906,7 +2201,7 @@ class CoverController:
         except Exception:  # pragma: no cover - defensive for runtime errors
             _LOGGER.exception("Failed to evaluate additional condition: %s", config_key)
             return False
-    
+
     def _normalize_condition_config(self, config: dict | list) -> dict | list:
         """Normalize condition configuration to match Home Assistant expectations.
 
@@ -1939,7 +2234,7 @@ class CoverController:
 
     def _master_enabled(self) -> bool:
         return bool(self.config.get(CONF_MASTER_ENABLED, DEFAULT_MASTER_FLAGS[CONF_MASTER_ENABLED]))
-    
+
     def _fire_event(self, kind: str, data: dict | None = None) -> None:
         payload: dict[str, object] = {
             "kind": kind,
@@ -1986,7 +2281,7 @@ class CoverController:
             )
             return None
         return state
-    
+
     async def _set_position(self, position: float | None, reason: str) -> None:
         if position is None:
             return
@@ -1997,12 +2292,16 @@ class CoverController:
         if current is not None and abs(current - float(position)) <= tolerance:
             if self._reason is None:
                 self._reason = reason
-                self._publish_state()
+            self._target = float(position)
+            self._mark_action_done(reason)
+            self._record_action_status(reason, float(position))
+            self._publish_state()
             return
         await self._command_position(float(position), reason=reason)
         self._target = float(position)
         self._reason = reason
         self._mark_action_done(reason)
+        self._record_action_status(reason, float(position))
         self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
 
@@ -2112,12 +2411,12 @@ class CoverController:
                 base = latest
             if base:
                 return base
-            
+
             future_fallbacks = sorted(
                 point for point in fallback_candidates if point is not None and point >= now
             )
             return future_fallbacks[0] if future_fallbacks else None
-        
+
         if sun_enabled and mode in {"dynamic", "hybrid"}:
             # Dynamic/Hybrid use the elevation-based calculation first.
             # If unavailable, fall back to the native sun integration times
@@ -2160,7 +2459,7 @@ class CoverController:
             if later_close:
                 self._next_close = later_close[0]
 
-        
+
     def _parse_datetime_attr(self, value: datetime | str | None) -> datetime | None:
         if isinstance(value, datetime):
             return value
@@ -2170,7 +2469,7 @@ class CoverController:
         if parsed:
             return dt_util.as_utc(parsed)
         return None
-    
+
     def _next_sun_time_for_elevation(
         self, elevation: float | int | str | None, direction: SunDirection, now: datetime
     ) -> datetime | None:
