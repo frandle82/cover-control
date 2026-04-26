@@ -8,7 +8,7 @@ EVENT_COVER_CONTROL = "cover_control_event"
 CONF_NAME = "name"
 CONF_ROOM = "room"
 DEFAULT_NAME = "Cover Control"
-PLATFORMS: list[Platform] = [Platform.SWITCH, Platform.SENSOR]
+PLATFORMS: list[Platform] = [Platform.SWITCH, Platform.SENSOR, Platform.BUTTON]
 
 CONF_COVERS = "covers"
 CONF_OPEN_POSITION = "open_position"
@@ -32,10 +32,13 @@ CONF_BRIGHTNESS_SENSOR = "brightness_sensor"
 CONF_USE_BRIGHTNESS_SENSOR = "use_brightness_sensor"
 CONF_BRIGHTNESS_OPEN_ABOVE = "brightness_open_above"
 CONF_BRIGHTNESS_CLOSE_BELOW = "brightness_close_below"
+CONF_BRIGHTNESS_HYSTERESIS = "brightness_hysteresis"
+CONF_BRIGHTNESS_TIME_DURATION = "brightness_time_duration"
 
 CONF_SUN_ELEVATION_OPEN = "sun_elevation_open"
 CONF_SUN_ELEVATION_CLOSE = "sun_elevation_close"
 CONF_SUN_ELEVATION_MODE = "sun_elevation_mode"
+CONF_SUN_TIME_DURATION = "sun_time_duration"
 CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR = "sun_elevation_dynamic_open_sensor"
 CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR = "use_sun_elevation_dynamic_open_sensor"
 CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR = "sun_elevation_dynamic_close_sensor"
@@ -77,6 +80,18 @@ CONF_ADDITIONAL_CONDITION_SHADING_TILT = "additional_condition_shading_tilt"
 CONF_ADDITIONAL_CONDITION_SHADING_END = "additional_condition_shading_end"
 
 CONF_MASTER_ENABLED = "master_enabled"
+CONF_COVER_TYPE = "cover_type"
+CONF_COVER_TYPE_BLIND = "blind"
+CONF_COVER_TYPE_AWNING = "awning"
+
+CONF_PREVENT_HIGHER_POSITION_CLOSING = "prevent_higher_position_closing"
+CONF_PREVENT_LOWERING_WHEN_CLOSING_IF_SHADED = "prevent_lowering_when_closing_if_shaded"
+CONF_PREVENT_SHADING_END_IF_CLOSED = "prevent_shading_end_if_closed"
+CONF_PREVENT_OPENING_AFTER_SHADING_END = "prevent_opening_after_shading_end"
+CONF_PREVENT_OPENING_AFTER_VENTILATION_END = "prevent_opening_after_ventilation_end"
+CONF_PREVENT_OPENING_MULTIPLE_TIMES = "prevent_opening_multiple_times"
+CONF_PREVENT_CLOSING_MULTIPLE_TIMES = "prevent_closing_multiple_times"
+CONF_PREVENT_SHADING_MULTIPLE_TIMES = "prevent_shading_multiple_times"
 
 CONF_LOCKOUT_TILT_CLOSE = "lockout_tilt_close"
 CONF_LOCKOUT_TILT_SHADING_START = "lockout_tilt_shading_start"
@@ -111,6 +126,9 @@ CONF_RESIDENT_ALLOW_OPEN = "resident_allow_open"
 CONF_RESIDENT_ALLOW_VENTILATION = "resident_allow_ventilation"
 CONF_ADDITIONAL_CONDITIONS_ENABLED = "additional_conditions_enabled"
 CONF_EXPOSE_SWITCH_SETTINGS = "expose_switch_settings"
+CONF_MANUAL_CONTROL = "manual_control_enabled"
+CONF_ENABLE_RECALIBRATE_BUTTON = "enable_recalibrate_button"
+CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON = "enable_clear_manual_override_button"
 
 DEFAULT_AUTOMATION_FLAGS: dict[str, bool] = {
     CONF_AUTO_UP: True,
@@ -130,6 +148,22 @@ DEFAULT_AUTOMATION_FLAGS: dict[str, bool] = {
 }
 
 DEFAULT_MASTER_FLAGS: dict[str, bool] = {CONF_MASTER_ENABLED: True}
+DEFAULT_BUTTON_SETTINGS: dict[str, bool] = {
+    CONF_MANUAL_CONTROL: False,
+    CONF_ENABLE_RECALIBRATE_BUTTON: False,
+    CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON: False,
+}
+DEFAULT_BEHAVIOR_SETTINGS: dict[str, str | bool] = {
+    CONF_COVER_TYPE: CONF_COVER_TYPE_BLIND,
+    CONF_PREVENT_HIGHER_POSITION_CLOSING: False,
+    CONF_PREVENT_LOWERING_WHEN_CLOSING_IF_SHADED: False,
+    CONF_PREVENT_SHADING_END_IF_CLOSED: False,
+    CONF_PREVENT_OPENING_AFTER_SHADING_END: False,
+    CONF_PREVENT_OPENING_AFTER_VENTILATION_END: False,
+    CONF_PREVENT_OPENING_MULTIPLE_TIMES: False,
+    CONF_PREVENT_CLOSING_MULTIPLE_TIMES: False,
+    CONF_PREVENT_SHADING_MULTIPLE_TIMES: False,
+}
 
 CONF_COLD_PROTECTION_THRESHOLD = "cold_protection_temperature"
 CONF_COLD_PROTECTION_FORECAST_SENSOR = "cold_protection_forecast_sensor"
@@ -173,9 +207,12 @@ DEFAULT_TOLERANCE = 3
 
 DEFAULT_BRIGHTNESS_OPEN = 500
 DEFAULT_BRIGHTNESS_CLOSE = 100
+DEFAULT_BRIGHTNESS_HYSTERESIS = 0
+DEFAULT_BRIGHTNESS_TIME_DURATION = 0
 DEFAULT_SUN_ELEVATION_OPEN = -2.0
 DEFAULT_SUN_ELEVATION_CLOSE = -4.0
 DEFAULT_SUN_ELEVATION_MODE = "fixed"
+DEFAULT_SUN_TIME_DURATION = 0
 DEFAULT_SUN_ELEVATION_OPEN_OFFSET = 0.0
 DEFAULT_SUN_ELEVATION_CLOSE_OFFSET = 0.0
 DEFAULT_SHADING_AZIMUTH_START = 90
