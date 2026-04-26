@@ -72,6 +72,9 @@
           },
           "contacts": {
             "name": "Ventilation & lockout"
+          },
+          "tilt_positions": {
+            "name": "Tilt positions"
           }
         }
       },
@@ -138,16 +141,11 @@
     "step": {
       "general": {
         "title": "General configuration",
-        "description": "Set room, covers, base positions, and general settings.",
+        "description": "Set instance name, room, and covers.",
         "data": {
           "name": "Instance name",
           "room": "Room",
-          "covers": "Covers",
-          "open_position": "Open position",
-          "close_position": "Close position",
-          "open_tilt_position": "Open tilt position",
-          "close_tilt_position": "Closed tilt position",
-          "position_tolerance": "Position tolerance"
+          "covers": "Covers"
         }
       },
       "menu": {
@@ -163,8 +161,25 @@
           "shading": "Shading control",
           "functions": "Feature toggles",
           "behavior": "Behavior",
+          "positions": "Positions",
           "resident": "Resident",
           "additional_conditions": "Additional conditions"
+        }
+      },
+      "positions": {
+        "title": "Cover positions",
+        "description": "Set cover type, movement targets, tolerance, and tilt targets.",
+        "data": {
+          "cover_type": "Cover type",
+          "open_position": "Open position",
+          "close_position": "Close position",
+          "ventilate_position": "Ventilation position",
+          "shading_position": "Shading position",
+          "position_tolerance": "Position tolerance",
+          "open_tilt_position": "Open tilt position",
+          "close_tilt_position": "Close tilt position",
+          "ventilate_tilt_position": "Ventilation tilt position",
+          "shading_tilt_position": "Shading tilt position"
         }
       },
       "time_control": {
@@ -189,7 +204,6 @@
           "contact_status_delay": "Stability delay for contact status",
           "ventilation_delay_after_close": "Delay after close before ventilation",
           "ventilation_allow_higher_position": "Allow ventilation above close position",
-          "ventilate_tilt_position": "Ventilation tilt position",
           "ventilation_use_after_shading": "Use ventilation after shading",
           "lockout_tilt_close": "Block close when tilt contact active",
           "lockout_tilt_shading_start": "Block shading start when tilt contact active",
@@ -222,7 +236,6 @@
         "title": "Behavior",
         "description": "Fine-tune cover type handling and safeguards from the blueprint.",
         "data": {
-          "cover_type": "Cover type",
           "prevent_higher_position_closing": "Prevent closing from a higher position",
           "prevent_lowering_when_closing_if_shaded": "Prevent lowering while closing if already shaded",
           "prevent_shading_end_if_closed": "Do not end shading when cover is closed",
@@ -236,8 +249,6 @@
       "shading": {
         "title": "Shading control",
         "data": {
-          "shading_position": "Shading position",
-          "shading_tilt_position": "Shading tilt position",
           "shading_azimuth_start": "Shading azimuth start",
           "shading_azimuth_end": "Shading azimuth end",
           "shading_elevation_min": "Shading elevation minimum",
