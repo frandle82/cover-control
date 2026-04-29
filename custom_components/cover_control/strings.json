@@ -220,6 +220,8 @@
         "title": "Cover positions",
         "description": "Set cover type, movement targets, tolerance, and tilt targets.",
         "data": {
+          "position_source": "Position source",
+          "custom_position_sensor": "Custom position sensor",
           "cover_type": "Cover type",
           "open_position": "Open position (%)",
           "close_position": "Close position (%)",
@@ -232,6 +234,8 @@
           "shading_tilt_position": "Shading tilt position (%)"
         },
         "data_description": {
+          "position_source": "Choose where the current cover position is read from. Use the standard current_position attribute, a position attribute, or a separate sensor.",
+          "custom_position_sensor": "Sensor that provides the current cover position from 0 to 100. Only used when the custom sensor position source is selected.",
           "cover_type": "Blinds use 0 as closed and 100 as open. Awnings commonly use the opposite direction.",
           "open_position": "Target position when opening. For blinds usually 100; for awnings often 0.",
           "close_position": "Target position when closing. For blinds usually 0; for awnings often 100.",
