@@ -60,6 +60,7 @@ from .const import (
     CONF_CALENDAR_OPEN_TITLE,
     CONF_CLOSE_POSITION,
     CONF_CLOSE_TILT_POSITION,
+    CONF_CUSTOM_POSITION_SENSOR,
     CONF_COVERS,
     CONF_CONTACT_STATUS_DELAY,
     CONF_CONTACT_TRIGGER_DELAY,
@@ -79,6 +80,10 @@ from .const import (
     CONF_OPEN_POSITION,
     CONF_OPEN_TILT_POSITION,
     CONF_POSITION_TOLERANCE,
+    CONF_POSITION_SOURCE,
+    CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
+    CONF_POSITION_SOURCE_CUSTOM_SENSOR,
+    CONF_POSITION_SOURCE_POSITION_ATTR,
     CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
     CONF_PREVENT_HIGHER_POSITION_CLOSING,
     CONF_PREVENT_LOWERING_WHEN_CLOSING_IF_SHADED,
@@ -575,6 +580,7 @@ class CoverController:
         self._master_entity_id: str | None = None
         self._condition_since: dict[str, datetime] = {}
         self._last_action_dates: dict[str, datetime.date] = {}
+        self._cover_unavailable_logged = False
         self._hydrate_persistent_status()
         self._auto_entity_map = {
             CONF_AUTO_UP: CONF_AUTO_UP_ENTITY,
@@ -819,6 +825,9 @@ class CoverController:
             self.config.get(CONF_RESIDENT_SENSOR),
             self.config.get(CONF_SHADING_FORECAST_SENSOR),
             self.config.get(CONF_CALENDAR_ENTITY),
+            self.config.get(CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR),
+            self.config.get(CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR),
+            self.config.get(CONF_CUSTOM_POSITION_SENSOR),
             self.cover,
         }
         sensor_entities.update(self._contact_entities())
@@ -1372,6 +1381,11 @@ class CoverController:
         now = dt_util.utcnow()
         self._expire_manual_override(now)
         self._ensure_manual_expiry_timer(now)
+        cover_state = self.hass.states.get(self.cover)
+        cover_available = (
+            cover_state is not None
+            and cover_state.state not in {STATE_UNAVAILABLE, STATE_UNKNOWN}
+        )
         self._fire_event(
             "evaluate",
             {
@@ -1381,8 +1395,22 @@ class CoverController:
                 "next_open": self._next_open,
                 "next_close": self._next_close,
                 "master_enabled": self._master_enabled(),
+                "cover_available": cover_available,
             },
         )
+        if not cover_available:
+            if not self._cover_unavailable_logged:
+                _LOGGER.info(
+                    "Cover Control waiting for %s to become available before evaluating",
+                    self.cover,
+                )
+                self._cover_unavailable_logged = True
+            self._refresh_next_events(now)
+            self._publish_state()
+            return
+        if self._cover_unavailable_logged:
+            _LOGGER.info("Cover Control resumed evaluation for %s", self.cover)
+            self._cover_unavailable_logged = False
         if self._manual_active:
             if self._manual_scope_all or all(
                 self._manual_blocks_action(action)
@@ -1399,8 +1427,10 @@ class CoverController:
 
         brightness = _float_state(self.hass, self.config.get(CONF_BRIGHTNESS_SENSOR))
         sun_state = self.hass.states.get("sun.sun")
-        sun_elevation = sun_state and sun_state.attributes.get("elevation")
-        sun_azimuth = sun_state and sun_state.attributes.get("azimuth")
+        sun_elevation = _coerce_float(
+            sun_state and sun_state.attributes.get("elevation")
+        )
+        sun_azimuth = _coerce_float(sun_state and sun_state.attributes.get("azimuth"))
 
         global_condition = await self._condition_allows(CONF_ADDITIONAL_CONDITION_GLOBAL)
         if not global_condition:
@@ -2835,7 +2865,27 @@ class CoverController:
         state = self.hass.states.get(self.cover)
         if not state:
             return None
+
+        source = str(
+            self.config.get(
+                CONF_POSITION_SOURCE, CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR
+            )
+            or CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR
+        )
+        if source == CONF_POSITION_SOURCE_CUSTOM_SENSOR:
+            return _float_state(self.hass, self.config.get(CONF_CUSTOM_POSITION_SENSOR))
+
         try:
+            if (
+                source == CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR
+                and "current_position" in state.attributes
+            ):
+                return float(state.attributes["current_position"])
+            if (
+                source == CONF_POSITION_SOURCE_POSITION_ATTR
+                and "position" in state.attributes
+            ):
+                return float(state.attributes["position"])
             if "current_position" in state.attributes:
                 return float(state.attributes["current_position"])
             if "position" in state.attributes:
@@ -2915,6 +2965,9 @@ class CoverController:
         sun_next_setting = self._parse_datetime_attr(
             sun_state and sun_state.attributes.get("next_setting")
         )
+        current_sun_elevation = _coerce_float(
+            sun_state and sun_state.attributes.get("elevation")
+        )
         open_threshold = self._dynamic_sun_threshold("open")
         close_threshold = self._dynamic_sun_threshold("close")
         mode = str(
@@ -2968,14 +3021,37 @@ class CoverController:
             )
             return future_fallbacks[0] if future_fallbacks else None
 
-        if sun_enabled and mode in {"dynamic", "hybrid"}:
+        sun_open_already_passed = (
+            current_sun_elevation is not None
+            and open_threshold is not None
+            and current_sun_elevation > open_threshold
+        )
+        sun_close_already_passed = (
+            current_sun_elevation is not None
+            and close_threshold is not None
+            and current_sun_elevation < close_threshold
+            and (
+                self._within_closing_phase(now)
+                or self._within_evening_phase(now)
+                or self._is_time_down_late(now)
+            )
+        )
+
+        if sun_enabled and sun_open_already_passed:
+            open_base = now
+        elif sun_enabled and mode in {"dynamic", "hybrid"}:
             # Dynamic/Hybrid use the elevation-based calculation first.
             # If unavailable, fall back to the native sun integration times
             # so next_open/next_close still remain sun-based.
             open_base = sun_open_target or sun_next_rising
-            close_base = sun_close_target or sun_next_setting
         else:
             open_base = (sun_open_target or sun_next_rising) if sun_enabled else None
+
+        if sun_enabled and sun_close_already_passed:
+            close_base = now
+        elif sun_enabled and mode in {"dynamic", "hybrid"}:
+            close_base = sun_close_target or sun_next_setting
+        else:
             close_base = (sun_close_target or sun_next_setting) if sun_enabled else None
 
         if time_up_enabled:
