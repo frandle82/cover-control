@@ -44,6 +44,7 @@ from .const import (
     CONF_CONTACT_TRIGGER_DELAY,
     CONF_CLOSE_POSITION,
     CONF_CLOSE_TILT_POSITION,
+    CONF_CUSTOM_POSITION_SENSOR,
     CONF_COVERS,
     CONF_COVER_TYPE,
     CONF_COVER_TYPE_AWNING,
@@ -66,6 +67,10 @@ from .const import (
     CONF_OPEN_TILT_POSITION,
     CONF_ROOM,
     CONF_POSITION_TOLERANCE,
+    CONF_POSITION_SOURCE,
+    CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
+    CONF_POSITION_SOURCE_CUSTOM_SENSOR,
+    CONF_POSITION_SOURCE_POSITION_ATTR,
     CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
     CONF_PREVENT_HIGHER_POSITION_CLOSING,
     CONF_PREVENT_LOWERING_WHEN_CLOSING_IF_SHADED,
@@ -225,6 +230,7 @@ CLEARABLE_ENTITY_SELECTOR_KEYS = {
     CONF_SHADING_FORECAST_SENSOR,
     CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
     CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+    CONF_CUSTOM_POSITION_SENSOR,
 }
 
 ENTITY_TOGGLE_MAP: dict[str, str] = {
@@ -546,6 +552,39 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         schema[vol.Required("positions", default={})] = section(
             vol.Schema(
                 {
+                    vol.Required(
+                        CONF_POSITION_SOURCE,
+                        default=self._data.get(
+                            CONF_POSITION_SOURCE,
+                            CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
+                        ),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                {
+                                    "value": CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
+                                    "label": "Use current_position attribute",
+                                },
+                                {
+                                    "value": CONF_POSITION_SOURCE_POSITION_ATTR,
+                                    "label": "Use position attribute",
+                                },
+                                {
+                                    "value": CONF_POSITION_SOURCE_CUSTOM_SENSOR,
+                                    "label": "Use custom position sensor",
+                                },
+                            ],
+                            mode=selector.SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_CUSTOM_POSITION_SENSOR,
+                        default=_selector_default(
+                            self._data.get(CONF_CUSTOM_POSITION_SENSOR)
+                        ),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor"])
+                    ),
                     vol.Required(
                         CONF_COVER_TYPE,
                         default=self._data.get(
@@ -965,6 +1004,12 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
 
             cleaned.pop(toggle_key, None)
 
+        if (
+            cleaned.get(CONF_POSITION_SOURCE)
+            and cleaned.get(CONF_POSITION_SOURCE) != CONF_POSITION_SOURCE_CUSTOM_SENSOR
+        ):
+            cleaned[CONF_CUSTOM_POSITION_SENSOR] = None
+
         return cleaned
 
     def _optional_default(self, key: str):
@@ -1109,6 +1154,37 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
             return await self.async_step_menu()
 
         schema: dict = {
+            vol.Required(
+                CONF_POSITION_SOURCE,
+                default=self._options.get(
+                    CONF_POSITION_SOURCE,
+                    CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
+                ),
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        {
+                            "value": CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
+                            "label": "Use current_position attribute",
+                        },
+                        {
+                            "value": CONF_POSITION_SOURCE_POSITION_ATTR,
+                            "label": "Use position attribute",
+                        },
+                        {
+                            "value": CONF_POSITION_SOURCE_CUSTOM_SENSOR,
+                            "label": "Use custom position sensor",
+                        },
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Optional(
+                CONF_CUSTOM_POSITION_SENSOR,
+                default=self._optional_default(CONF_CUSTOM_POSITION_SENSOR),
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["sensor"])
+            ),
             vol.Required(
                 CONF_COVER_TYPE,
                 default=self._options.get(
@@ -1555,7 +1631,9 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                         CONF_BRIGHTNESS_SENSOR,
                         default=self._optional_default(CONF_BRIGHTNESS_SENSOR),
                     ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor"], device_class="illuminance")
+                        selector.EntitySelectorConfig(
+                            domain=["sensor"], device_class=["illuminance"]
+                        )
                     ),
                     vol.Optional(
                         CONF_BRIGHTNESS_OPEN_ABOVE,
