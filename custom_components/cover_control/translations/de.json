@@ -73,6 +73,8 @@
           "time_up_late_non_workday": "Späteste Öffnungszeit (frei)",
           "time_down_early_non_workday": "Früheste Schließzeit (frei)",
           "time_down_late_non_workday": "Späteste Schließzeit (frei)",
+          "position_source": "Positionsquelle",
+          "custom_position_sensor": "Eigener Positionssensor",
           "open_position": "Öffnungsposition (%)",
           "close_position": "Schließposition (%)",
           "ventilate_position": "Lüftungsposition (%)",
@@ -84,6 +86,8 @@
           "workday_tomorrow_sensor": "Arbeitstag-morgen Entität (optional)"
         },
         "data_description": {
+          "position_source": "Legt fest, woher die aktuelle Cover-Position gelesen wird: aus dem Standardattribut current_position, aus dem Attribut position oder aus einem separaten Sensor.",
+          "custom_position_sensor": "Sensor mit der aktuellen Cover-Position von 0 bis 100. Wird nur verwendet, wenn als Positionsquelle ein eigener Sensor ausgewählt ist.",
           "open_position": "Zielposition beim Öffnen. Bei Rollläden meist 100, bei Markisen oft 0.",
           "close_position": "Zielposition beim Schließen. Bei Rollläden meist 0, bei Markisen oft 100.",
           "ventilate_position": "Zielposition bei gekipptem Fenster. Für Markisen nicht relevant.",
