@@ -64,6 +64,8 @@
           "time_up_late_non_workday": "Latest open time (non-workday)",
           "time_down_early_non_workday": "Earliest close time (non-workday)",
           "time_down_late_non_workday": "Latest close time (non-workday)",
+          "position_source": "Position source",
+          "custom_position_sensor": "Custom position sensor",
           "open_position": "Open position (%)",
           "close_position": "Close position (%)",
           "ventilate_position": "Ventilation position (%)",
@@ -75,6 +77,8 @@
           "workday_tomorrow_sensor": "Workday tomorrow entity (optional)"
         },
         "data_description": {
+          "position_source": "Choose where the current cover position is read from. Use the standard current_position attribute, a position attribute, or a separate sensor.",
+          "custom_position_sensor": "Sensor that provides the current cover position from 0 to 100. Only used when the custom sensor position source is selected.",
           "open_position": "Target position when opening. For blinds usually 100; for awnings often 0.",
           "close_position": "Target position when closing. For blinds usually 0; for awnings often 100.",
           "ventilate_position": "Target position for tilted windows. Not used for awnings.",
