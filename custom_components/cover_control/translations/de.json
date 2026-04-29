@@ -229,6 +229,8 @@
         "title": "Cover-Positionen",
         "description": "Cover-Typ, Fahrpositionen, Toleranz und Lamellenpositionen festlegen.",
         "data": {
+          "position_source": "Positionsquelle",
+          "custom_position_sensor": "Eigener Positionssensor",
           "cover_type": "Cover-Typ",
           "open_position": "Öffnungsposition (%)",
           "close_position": "Schließposition (%)",
@@ -241,6 +243,8 @@
           "shading_tilt_position": "Lamellenposition für Beschattung (%)"
         },
         "data_description": {
+          "position_source": "Legt fest, woher die aktuelle Cover-Position gelesen wird: aus dem Standardattribut current_position, aus dem Attribut position oder aus einem separaten Sensor.",
+          "custom_position_sensor": "Sensor mit der aktuellen Cover-Position von 0 bis 100. Wird nur verwendet, wenn als Positionsquelle ein eigener Sensor ausgewählt ist.",
           "cover_type": "Rollläden verwenden meist 0 als geschlossen und 100 als offen. Markisen arbeiten häufig umgekehrt.",
           "open_position": "Zielposition beim Öffnen. Bei Rollläden meist 100, bei Markisen oft 0.",
           "close_position": "Zielposition beim Schließen. Bei Rollläden meist 0, bei Markisen oft 100.",
