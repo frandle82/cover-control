@@ -804,6 +804,14 @@ class CoverController:
         self._status["reason"] = self._reason
         self.persist_status()
 
+    def _sync_position_reference_from_entity(self) -> None:
+        current_position = self._current_position()
+        if current_position is None:
+            return
+        self._target = current_position
+        self._last_position = current_position
+        self._status["target"] = current_position
+
     async def async_setup(self) -> None:
         registry = er.async_get(self.hass)
         self._master_entity_id = registry.async_get_entity_id(
@@ -813,9 +821,11 @@ class CoverController:
             async_track_time_interval(self.hass, self._handle_interval, timedelta(minutes=1))
         )
         self._unsubs.append(self.hass.bus.async_listen("call_service", self._handle_service_call))
+        self._sync_position_reference_from_entity()
         if self._target is None:
             self._target = self._current_position()
-        self._last_position = self._target
+        if self._last_position is None:
+            self._last_position = self._current_position()
         sensor_entities = {
             self.config.get(CONF_BRIGHTNESS_SENSOR),
             self.config.get(CONF_WORKDAY_SENSOR),
@@ -846,6 +856,7 @@ class CoverController:
         self._schedule_manual_expiry()
         self.persist_status()
         self._publish_state()
+        self.hass.async_create_task(self._evaluate("startup"))
 
 
     async def async_unload(self) -> None:
@@ -858,9 +869,11 @@ class CoverController:
         self.config = new_config
         self._clear_manual_expiry()
         self._hydrate_persistent_status()
+        self._sync_position_reference_from_entity()
         if self._target is None:
             self._target = self._current_position()
-        self._last_position = self._target
+        if self._last_position is None:
+            self._last_position = self._current_position()
         now = dt_util.utcnow()
         self._refresh_next_events(now)
         self._schedule_manual_expiry()
@@ -896,11 +909,18 @@ class CoverController:
             ):
                 trigger = "resident_asleep"
 
-        if entity_id == self.cover:
+        if self._is_position_state_event(entity_id):
             tolerance = float(
                 self._position_value(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE)
             )
             current = self._current_position()
+            if previous_position is None and current is not None:
+                self._target = current
+                self._status["target"] = current
+                self._last_position = current
+                self.persist_status()
+                self.hass.async_create_task(self._evaluate(trigger))
+                return
             if self._target is None and current is not None:
                 self._target = current
             command_recent = False
@@ -936,6 +956,20 @@ class CoverController:
                     )
             self._last_position = current if current is not None else previous_position
         self.hass.async_create_task(self._evaluate(trigger))
+
+    def _is_position_state_event(self, entity_id: str | None) -> bool:
+        if entity_id == self.cover:
+            return True
+        source = str(
+            self.config.get(
+                CONF_POSITION_SOURCE, CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR
+            )
+            or CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR
+        )
+        return (
+            source == CONF_POSITION_SOURCE_CUSTOM_SENSOR
+            and entity_id == self.config.get(CONF_CUSTOM_POSITION_SENSOR)
+        )
 
     @callback
     def _handle_service_call(self, event) -> None:
