@@ -60,6 +60,7 @@ from .const import (
     CONF_CALENDAR_OPEN_TITLE,
     CONF_CLOSE_POSITION,
     CONF_CLOSE_TILT_POSITION,
+    CONF_CUSTOM_POSITION_SENSOR,
     CONF_COVERS,
     CONF_CONTACT_STATUS_DELAY,
     CONF_CONTACT_TRIGGER_DELAY,
@@ -79,6 +80,10 @@ from .const import (
     CONF_OPEN_POSITION,
     CONF_OPEN_TILT_POSITION,
     CONF_POSITION_TOLERANCE,
+    CONF_POSITION_SOURCE,
+    CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
+    CONF_POSITION_SOURCE_CUSTOM_SENSOR,
+    CONF_POSITION_SOURCE_POSITION_ATTR,
     CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
     CONF_PREVENT_HIGHER_POSITION_CLOSING,
     CONF_PREVENT_LOWERING_WHEN_CLOSING_IF_SHADED,
@@ -575,6 +580,7 @@ class CoverController:
         self._master_entity_id: str | None = None
         self._condition_since: dict[str, datetime] = {}
         self._last_action_dates: dict[str, datetime.date] = {}
+        self._cover_unavailable_logged = False
         self._hydrate_persistent_status()
         self._auto_entity_map = {
             CONF_AUTO_UP: CONF_AUTO_UP_ENTITY,
@@ -798,6 +804,14 @@ class CoverController:
         self._status["reason"] = self._reason
         self.persist_status()
 
+    def _sync_position_reference_from_entity(self) -> None:
+        current_position = self._current_position()
+        if current_position is None:
+            return
+        self._target = current_position
+        self._last_position = current_position
+        self._status["target"] = current_position
+
     async def async_setup(self) -> None:
         registry = er.async_get(self.hass)
         self._master_entity_id = registry.async_get_entity_id(
@@ -807,9 +821,11 @@ class CoverController:
             async_track_time_interval(self.hass, self._handle_interval, timedelta(minutes=1))
         )
         self._unsubs.append(self.hass.bus.async_listen("call_service", self._handle_service_call))
+        self._sync_position_reference_from_entity()
         if self._target is None:
             self._target = self._current_position()
-        self._last_position = self._target
+        if self._last_position is None:
+            self._last_position = self._current_position()
         sensor_entities = {
             self.config.get(CONF_BRIGHTNESS_SENSOR),
             self.config.get(CONF_WORKDAY_SENSOR),
@@ -819,6 +835,9 @@ class CoverController:
             self.config.get(CONF_RESIDENT_SENSOR),
             self.config.get(CONF_SHADING_FORECAST_SENSOR),
             self.config.get(CONF_CALENDAR_ENTITY),
+            self.config.get(CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR),
+            self.config.get(CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR),
+            self.config.get(CONF_CUSTOM_POSITION_SENSOR),
             self.cover,
         }
         sensor_entities.update(self._contact_entities())
@@ -837,6 +856,7 @@ class CoverController:
         self._schedule_manual_expiry()
         self.persist_status()
         self._publish_state()
+        self.hass.async_create_task(self._evaluate("startup"))
 
 
     async def async_unload(self) -> None:
@@ -849,9 +869,11 @@ class CoverController:
         self.config = new_config
         self._clear_manual_expiry()
         self._hydrate_persistent_status()
+        self._sync_position_reference_from_entity()
         if self._target is None:
             self._target = self._current_position()
-        self._last_position = self._target
+        if self._last_position is None:
+            self._last_position = self._current_position()
         now = dt_util.utcnow()
         self._refresh_next_events(now)
         self._schedule_manual_expiry()
@@ -887,19 +909,23 @@ class CoverController:
             ):
                 trigger = "resident_asleep"
 
-        if entity_id == self.cover:
+        if self._is_position_state_event(entity_id):
             tolerance = float(
                 self._position_value(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE)
             )
             current = self._current_position()
+            if previous_position is None and current is not None:
+                self._target = current
+                self._status["target"] = current
+                self._last_position = current
+                self.persist_status()
+                self.hass.async_create_task(self._evaluate(trigger))
+                return
             if self._target is None and current is not None:
                 self._target = current
-            command_recent = False
             moving_toward_target = False
-            if self._last_command_at:
-                command_recent = (now - self._last_command_at) < timedelta(seconds=90)
             if (
-                command_recent
+                self._last_command_at is not None
                 and previous_position is not None
                 and current is not None
                 and self._target is not None
@@ -908,6 +934,14 @@ class CoverController:
                 curr_delta = abs(current - self._target)
                 moving_toward_target = curr_delta <= prev_delta + tolerance
             if current is not None and self._manual_detection_enabled():
+                target_reached = (
+                    self._target is not None
+                    and abs(current - self._target) <= tolerance
+                )
+                expected_command_move = (
+                    self._last_command_at is not None
+                    and (moving_toward_target or target_reached)
+                )
                 deviation_from_target = (
                     self._target is not None
                     and abs(current - self._target) > tolerance
@@ -918,15 +952,29 @@ class CoverController:
                     and previous_position is not None
                     and abs(current - previous_position) > tolerance
                 )
-                if (deviation_from_target or unexplained_move) and (
-                    not command_recent or not moving_toward_target
-                ):
+                if (
+                    deviation_from_target or unexplained_move
+                ) and not expected_command_move:
                     self._target = current
                     self._activate_manual_override(
                         scope_all=True, reason="manual_override"
                     )
             self._last_position = current if current is not None else previous_position
         self.hass.async_create_task(self._evaluate(trigger))
+
+    def _is_position_state_event(self, entity_id: str | None) -> bool:
+        if entity_id == self.cover:
+            return True
+        source = str(
+            self.config.get(
+                CONF_POSITION_SOURCE, CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR
+            )
+            or CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR
+        )
+        return (
+            source == CONF_POSITION_SOURCE_CUSTOM_SENSOR
+            and entity_id == self.config.get(CONF_CUSTOM_POSITION_SENSOR)
+        )
 
     @callback
     def _handle_service_call(self, event) -> None:
@@ -1372,6 +1420,11 @@ class CoverController:
         now = dt_util.utcnow()
         self._expire_manual_override(now)
         self._ensure_manual_expiry_timer(now)
+        cover_state = self.hass.states.get(self.cover)
+        cover_available = (
+            cover_state is not None
+            and cover_state.state not in {STATE_UNAVAILABLE, STATE_UNKNOWN}
+        )
         self._fire_event(
             "evaluate",
             {
@@ -1381,8 +1434,22 @@ class CoverController:
                 "next_open": self._next_open,
                 "next_close": self._next_close,
                 "master_enabled": self._master_enabled(),
+                "cover_available": cover_available,
             },
         )
+        if not cover_available:
+            if not self._cover_unavailable_logged:
+                _LOGGER.info(
+                    "Cover Control waiting for %s to become available before evaluating",
+                    self.cover,
+                )
+                self._cover_unavailable_logged = True
+            self._refresh_next_events(now)
+            self._publish_state()
+            return
+        if self._cover_unavailable_logged:
+            _LOGGER.info("Cover Control resumed evaluation for %s", self.cover)
+            self._cover_unavailable_logged = False
         if self._manual_active:
             if self._manual_scope_all or all(
                 self._manual_blocks_action(action)
@@ -1399,8 +1466,10 @@ class CoverController:
 
         brightness = _float_state(self.hass, self.config.get(CONF_BRIGHTNESS_SENSOR))
         sun_state = self.hass.states.get("sun.sun")
-        sun_elevation = sun_state and sun_state.attributes.get("elevation")
-        sun_azimuth = sun_state and sun_state.attributes.get("azimuth")
+        sun_elevation = _coerce_float(
+            sun_state and sun_state.attributes.get("elevation")
+        )
+        sun_azimuth = _coerce_float(sun_state and sun_state.attributes.get("azimuth"))
 
         global_condition = await self._condition_allows(CONF_ADDITIONAL_CONDITION_GLOBAL)
         if not global_condition:
@@ -2835,7 +2904,27 @@ class CoverController:
         state = self.hass.states.get(self.cover)
         if not state:
             return None
+
+        source = str(
+            self.config.get(
+                CONF_POSITION_SOURCE, CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR
+            )
+            or CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR
+        )
+        if source == CONF_POSITION_SOURCE_CUSTOM_SENSOR:
+            return _float_state(self.hass, self.config.get(CONF_CUSTOM_POSITION_SENSOR))
+
         try:
+            if (
+                source == CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR
+                and "current_position" in state.attributes
+            ):
+                return float(state.attributes["current_position"])
+            if (
+                source == CONF_POSITION_SOURCE_POSITION_ATTR
+                and "position" in state.attributes
+            ):
+                return float(state.attributes["position"])
             if "current_position" in state.attributes:
                 return float(state.attributes["current_position"])
             if "position" in state.attributes:
@@ -2915,6 +3004,9 @@ class CoverController:
         sun_next_setting = self._parse_datetime_attr(
             sun_state and sun_state.attributes.get("next_setting")
         )
+        current_sun_elevation = _coerce_float(
+            sun_state and sun_state.attributes.get("elevation")
+        )
         open_threshold = self._dynamic_sun_threshold("open")
         close_threshold = self._dynamic_sun_threshold("close")
         mode = str(
@@ -2968,14 +3060,37 @@ class CoverController:
             )
             return future_fallbacks[0] if future_fallbacks else None
 
-        if sun_enabled and mode in {"dynamic", "hybrid"}:
+        sun_open_already_passed = (
+            current_sun_elevation is not None
+            and open_threshold is not None
+            and current_sun_elevation > open_threshold
+        )
+        sun_close_already_passed = (
+            current_sun_elevation is not None
+            and close_threshold is not None
+            and current_sun_elevation < close_threshold
+            and (
+                self._within_closing_phase(now)
+                or self._within_evening_phase(now)
+                or self._is_time_down_late(now)
+            )
+        )
+
+        if sun_enabled and sun_open_already_passed:
+            open_base = now
+        elif sun_enabled and mode in {"dynamic", "hybrid"}:
             # Dynamic/Hybrid use the elevation-based calculation first.
             # If unavailable, fall back to the native sun integration times
             # so next_open/next_close still remain sun-based.
             open_base = sun_open_target or sun_next_rising
-            close_base = sun_close_target or sun_next_setting
         else:
             open_base = (sun_open_target or sun_next_rising) if sun_enabled else None
+
+        if sun_enabled and sun_close_already_passed:
+            close_base = now
+        elif sun_enabled and mode in {"dynamic", "hybrid"}:
+            close_base = sun_close_target or sun_next_setting
+        else:
             close_base = (sun_close_target or sun_next_setting) if sun_enabled else None
 
         if time_up_enabled:
@@ -3196,8 +3311,13 @@ class CoverController:
     async def _command_position(
         self, position: float, *, reason: str | None = None, trigger: str | None = None
     ) -> None:
+        self._target = float(position)
+        self._status["target"] = self._target
         state = self._cover_state_or_warn(
-            "set_cover_position", reason=reason, trigger=trigger, target_position=position
+            "set_cover_position",
+            reason=reason,
+            trigger=trigger,
+            target_position=self._target,
         )
         if not state:
             return
@@ -3209,14 +3329,14 @@ class CoverController:
         self._last_command_at = dt_util.utcnow()
         message_reason = reason or self._reason
         service: str = "set_cover_position"
-        service_data = {"entity_id": self.cover, "position": float(position)}
+        service_data = {"entity_id": self.cover, "position": self._target}
         if supports_position:
             pass
         else:
-            if position >= 99.5:
+            if self._target >= 99.5:
                 service = "open_cover"
                 service_data = {"entity_id": self.cover}
-            elif position <= 0.5:
+            elif self._target <= 0.5:
                 service = "close_cover"
                 service_data = {"entity_id": self.cover}
 
@@ -3224,7 +3344,7 @@ class CoverController:
             "Cover Control moving %s via %s to %.1f%% (reason=%s, trigger=%s)",
             self.cover,
             service,
-            float(position),
+            self._target,
             message_reason,
             trigger,
         )
@@ -3234,7 +3354,7 @@ class CoverController:
                 "service": service,
                 "reason": message_reason,
                 "trigger": trigger,
-                "target_position": float(position),
+                "target_position": self._target,
             },
         )
         await self.hass.services.async_call(
