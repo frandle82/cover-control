@@ -40,6 +40,7 @@ async def async_setup_entry(
     desired_unique_ids = {
         f"{entry.entry_id}-next_open",
         f"{entry.entry_id}-next_close",
+        f"{entry.entry_id}-control_state",
     }
     if resident_enabled:
         desired_unique_ids.add(f"{entry.entry_id}-resident_status")
@@ -55,6 +56,7 @@ async def async_setup_entry(
     entities: list[SensorEntity] = [
         NextOpenSensor(hass, entry),
         NextCloseSensor(hass, entry),
+        ControlStateSensor(hass, entry),
     ]
 
     if resident_enabled:
@@ -192,6 +194,111 @@ class NextCloseSensor(_BaseEntryRuntimeSensor):
     @property
     def native_value(self) -> datetime | None:
         return self._target_time
+
+
+class ControlStateSensor(_BaseCoverControlSensor):
+    """Expose the currently active control situation for troubleshooting."""
+
+    _attr_translation_key = "control_state"
+    _attr_icon = "mdi:state-machine"
+
+    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+        super().__init__(hass, entry)
+        self._attr_unique_id = f"{entry.entry_id}-control_state"
+        self._state: str = "idle"
+        self._cover_states: dict[str, dict[str, Any]] = {}
+
+    async def async_added_to_hass(self) -> None:
+        self._refresh_state()
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass, SIGNAL_STATE_UPDATED, self._async_handle_state_update
+            )
+        )
+
+    @callback
+    def _async_handle_state_update(
+        self,
+        entry_id: str,
+        cover: str,
+        target: float | None,
+        reason: str | None,
+        manual_until: datetime | None,
+        manual_active: bool,
+        next_open: datetime | None,
+        next_close: datetime | None,
+        current_position: float | None,
+        shading_enabled: bool,
+        shading_active: bool,
+        ventilation_active: bool,
+    ) -> None:
+        if entry_id != self.entry.entry_id:
+            return
+        self._refresh_state()
+        self.async_write_ha_state()
+
+    @callback
+    def _refresh_state(self) -> None:
+        manager = self._manager()
+        if not manager or not manager.controllers:
+            self._state = "idle"
+            self._cover_states = {}
+            return
+
+        cover_states: dict[str, dict[str, Any]] = {}
+        active_reasons: list[str] = []
+        for cover, controller in manager.controllers.items():
+            (
+                target,
+                reason,
+                manual_until,
+                manual_active,
+                next_open,
+                next_close,
+                current_position,
+                shading_enabled,
+                shading_active,
+                ventilation_active,
+            ) = controller.state_snapshot()
+
+            reason_value = reason or "idle"
+            cover_states[cover] = {
+                "reason": reason_value,
+                "current_position": current_position,
+                "target_position": target,
+                "manual_active": manual_active,
+                "manual_until": manual_until.isoformat() if manual_until else None,
+                "next_open": next_open.isoformat() if next_open else None,
+                "next_close": next_close.isoformat() if next_close else None,
+                "shading_enabled": shading_enabled,
+                "shading_active": shading_active,
+                "ventilation_active": ventilation_active,
+            }
+            if reason_value != "idle" and reason_value not in active_reasons:
+                active_reasons.append(reason_value)
+
+        self._cover_states = cover_states
+        if not active_reasons:
+            self._state = "idle"
+        elif len(active_reasons) == 1:
+            self._state = active_reasons[0]
+        else:
+            self._state = "multiple"
+
+    @property
+    def native_value(self) -> str:
+        return self._state
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        return {
+            "covers": self._cover_states,
+            "active_covers": [
+                cover
+                for cover, state in self._cover_states.items()
+                if state.get("reason") != "idle"
+            ],
+        }
 
 
 class ResidentStatusSensor(_BaseCoverControlSensor):
