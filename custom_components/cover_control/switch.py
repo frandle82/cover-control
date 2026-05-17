@@ -3,17 +3,14 @@ from __future__ import annotations
 
 from homeassistant.components.switch import SwitchEntity
 from homeassistant.config_entries import ConfigEntry
-from homeassistant.core import HomeAssistant, callback
-from homeassistant.helpers.dispatcher import async_dispatcher_connect
+from homeassistant.core import HomeAssistant
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
-from homeassistant.util import dt as dt_util
 
 from .const import (
     CONF_MANUAL_OVERRIDE_MINUTES,
     CONF_MANUAL_OVERRIDE_RESET_TIME,
-    CONF_EXPOSE_SWITCH_SETTINGS,
     CONF_CLOSE_POSITION,
     CONF_OPEN_POSITION,
     CONF_POSITION_TOLERANCE,
@@ -48,9 +45,7 @@ from .const import (
     CONF_AUTO_TIME,
     CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
-    CONF_MASTER_ENABLED,
     CONF_VENTILATE_POSITION,
-    CONF_BRIGHTNESS_SENSOR,
     CONF_BRIGHTNESS_OPEN_ABOVE,
     CONF_BRIGHTNESS_CLOSE_BELOW,
     CONF_NAME,
@@ -93,9 +88,7 @@ from .const import (
     DEFAULT_TEMPERATURE_THRESHOLD,
     DEFAULT_TEMPERATURE_FORECAST_THRESHOLD,
     DEFAULT_COLD_PROTECTION_THRESHOLD,
-    REASON_LABELS,
     DOMAIN,
-    SIGNAL_STATE_UPDATED,
 )
 from .controller import ControllerManager
 
@@ -171,7 +164,7 @@ async def async_setup_entry(
     def _is_enabled_in_flow(key: str) -> bool:
         if key in options_and_data:
             return bool(options_and_data.get(key))
-        return bool(DEFAULT_AUTOMATION_FLAGS.get(key, True))
+        return bool(DEFAULT_AUTOMATION_FLAGS.get(key, False))
 
     enabled_keys = {
         key for key, _translation_key in AUTOMATION_TOGGLES if _is_enabled_in_flow(key)
@@ -224,6 +217,12 @@ class AutomationToggleSwitch(SwitchEntity):
         self.async_on_remove(
             self.entry.add_update_listener(self._handle_entry_update)
         )
+
+    @property
+    def icon(self) -> str | None:
+        """Return the configured icon for the automation toggle."""
+
+        return TOGGLE_ICONS.get(self._key)
 
     @property
     def device_info(self) -> DeviceInfo:
