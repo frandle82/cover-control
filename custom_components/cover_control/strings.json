@@ -74,6 +74,18 @@
           "close_tilt_position": "Closed tilt position (%)",
           "ventilate_tilt_position": "Ventilation tilt position (%)",
           "shading_tilt_position": "Shading tilt position (%)",
+          "shading_tilt_position_0": "Shading tilt – below elev. 1 (%)",
+          "shading_tilt_position_1": "Shading tilt – above elev. 1 (%)",
+          "shading_tilt_position_2": "Shading tilt – above elev. 2 (%)",
+          "shading_tilt_position_3": "Shading tilt – above elev. 3 (%)",
+          "shading_tilt_elevation_1": "Elevation threshold 1 (°)",
+          "shading_tilt_elevation_2": "Elevation threshold 2 (°)",
+          "shading_tilt_elevation_3": "Elevation threshold 3 (°)",
+          "drive_time": "Drive time (seconds)",
+          "cover_tilt_wait_mode": "Tilt wait mode",
+          "cover_tilt_wait_timeout": "Tilt wait timeout (seconds)",
+          "ventilation_start_no_delay": "Start ventilation immediately (no delay)",
+          "ventilation_keep_open_on_full_to_tilt": "Keep full-open when switching from full to tilt",
           "workday_tomorrow_sensor": "Workday tomorrow entity (optional)"
         },
         "data_description": {
@@ -87,7 +99,19 @@
           "open_tilt_position": "Tilt target after opening.",
           "close_tilt_position": "Tilt target after closing.",
           "ventilate_tilt_position": "Tilt target during ventilation.",
-          "shading_tilt_position": "Tilt target during sun shading."
+          "shading_tilt_position": "Tilt target during sun shading.",
+          "shading_tilt_position_0": "Tilt position used when sun elevation is below threshold 1.",
+          "shading_tilt_position_1": "Tilt position used when sun elevation is at or above threshold 1 but below threshold 2.",
+          "shading_tilt_position_2": "Tilt position used when sun elevation is at or above threshold 2 but below threshold 3.",
+          "shading_tilt_position_3": "Tilt position used when sun elevation is at or above threshold 3.",
+          "shading_tilt_elevation_1": "Sun elevation above which tilt position 1 is used instead of position 0.",
+          "shading_tilt_elevation_2": "Sun elevation above which tilt position 2 is used instead of position 1.",
+          "shading_tilt_elevation_3": "Sun elevation above which tilt position 3 is used instead of position 2.",
+          "drive_time": "Seconds after a command during which state changes are not treated as manual overrides.",
+          "cover_tilt_wait_mode": "How to wait before sending the tilt command after a position move. Fixed delay uses the drive time; wait idle waits until the cover stops moving.",
+          "cover_tilt_wait_timeout": "Maximum seconds to wait for the cover to become idle before sending the tilt command.",
+          "ventilation_start_no_delay": "Skip the trigger and status delay when a window contact opens.",
+          "ventilation_keep_open_on_full_to_tilt": "When a full-open contact closes but a tilt contact is still active, stay at full-open instead of moving to the ventilation position."
         },
         "sections": {
           "presence": {
@@ -114,6 +138,7 @@
           "brightness_sensor": "Brightness sensor",
           "brightness_open_above": "Open when brightness above",
           "brightness_close_below": "Close when brightness below",
+          "brightness_sun_operator": "Brightness / sun elevation logic",
           "sun_elevation_open": "Minimum sun elevation for opening",
           "sun_elevation_close": "Maximum sun elevation for closing",
           "shading_azimuth_start": "Shading azimuth start",
@@ -235,7 +260,17 @@
           "open_tilt_position": "Open tilt position (%)",
           "close_tilt_position": "Close tilt position (%)",
           "ventilate_tilt_position": "Ventilation tilt position (%)",
-          "shading_tilt_position": "Shading tilt position (%)"
+          "shading_tilt_position": "Shading tilt position (%)",
+          "shading_tilt_position_0": "Shading tilt – below elev. 1 (%)",
+          "shading_tilt_position_1": "Shading tilt – above elev. 1 (%)",
+          "shading_tilt_position_2": "Shading tilt – above elev. 2 (%)",
+          "shading_tilt_position_3": "Shading tilt – above elev. 3 (%)",
+          "shading_tilt_elevation_1": "Elevation threshold 1 (°)",
+          "shading_tilt_elevation_2": "Elevation threshold 2 (°)",
+          "shading_tilt_elevation_3": "Elevation threshold 3 (°)",
+          "drive_time": "Drive time (seconds)",
+          "cover_tilt_wait_mode": "Tilt wait mode",
+          "cover_tilt_wait_timeout": "Tilt wait timeout (seconds)"
         },
         "data_description": {
           "position_source": "Choose where the current cover position is read from. Use the standard current_position attribute, a position attribute, or a separate sensor.",
@@ -249,7 +284,17 @@
           "open_tilt_position": "Tilt target after opening.",
           "close_tilt_position": "Tilt target after closing.",
           "ventilate_tilt_position": "Tilt target during ventilation.",
-          "shading_tilt_position": "Tilt target during sun shading."
+          "shading_tilt_position": "Tilt target during sun shading.",
+          "shading_tilt_position_0": "Tilt position used when sun elevation is below threshold 1.",
+          "shading_tilt_position_1": "Tilt position used when sun elevation is at or above threshold 1 but below threshold 2.",
+          "shading_tilt_position_2": "Tilt position used when sun elevation is at or above threshold 2 but below threshold 3.",
+          "shading_tilt_position_3": "Tilt position used when sun elevation is at or above threshold 3.",
+          "shading_tilt_elevation_1": "Sun elevation above which tilt position 1 is used instead of position 0.",
+          "shading_tilt_elevation_2": "Sun elevation above which tilt position 2 is used instead of position 1.",
+          "shading_tilt_elevation_3": "Sun elevation above which tilt position 3 is used instead of position 2.",
+          "drive_time": "Seconds after a command during which state changes are not treated as manual overrides.",
+          "cover_tilt_wait_mode": "How to wait before sending the tilt command after a position move. Fixed delay uses the drive time; wait idle waits until the cover stops moving.",
+          "cover_tilt_wait_timeout": "Maximum seconds to wait for the cover to become idle before sending the tilt command."
         }
       },
       "time_control": {
@@ -297,7 +342,9 @@
           "ventilation_use_after_shading": "Use ventilation after shading",
           "lockout_tilt_close": "Block close when tilt contact active",
           "lockout_tilt_shading_start": "Block shading start when tilt contact active",
-          "lockout_tilt_shading_end": "Block shading end when tilt contact active"
+          "lockout_tilt_shading_end": "Block shading end when tilt contact active",
+          "ventilation_start_no_delay": "Start ventilation immediately (no delay)",
+          "ventilation_keep_open_on_full_to_tilt": "Keep full-open when switching from full to tilt"
         },
         "data_description": {
           "contact_trigger_delay": "How long a contact change must remain stable before the cover reacts.",
@@ -307,7 +354,9 @@
           "ventilation_use_after_shading": "After shading ends, use the ventilation position if a tilt contact is still active.",
           "lockout_tilt_close": "Prevent full closing while a tilt contact is active.",
           "lockout_tilt_shading_start": "Prevent shading from starting while a tilt contact is active.",
-          "lockout_tilt_shading_end": "Prevent shading from ending while a tilt contact is active."
+          "lockout_tilt_shading_end": "Prevent shading from ending while a tilt contact is active.",
+          "ventilation_start_no_delay": "Skip the trigger and status delay when a window contact opens.",
+          "ventilation_keep_open_on_full_to_tilt": "When a full-open contact closes but a tilt contact is still active, stay at full-open instead of moving to the ventilation position."
         }
       },
       "brightness": {
@@ -318,14 +367,16 @@
           "brightness_open_above": "Open when brightness above",
           "brightness_close_below": "Close when brightness below",
           "brightness_hysteresis": "Brightness hysteresis",
-          "brightness_time_duration": "Brightness duration"
+          "brightness_time_duration": "Brightness duration",
+          "brightness_sun_operator": "Brightness / sun elevation logic"
         },
         "data_description": {
           "brightness_sensor": "Illuminance sensor used for brightness conditions.",
           "brightness_open_above": "Opening is allowed when brightness rises above this value plus hysteresis.",
           "brightness_close_below": "Closing is allowed when brightness drops below this value minus hysteresis.",
           "brightness_hysteresis": "Buffer around thresholds to prevent rapid toggling.",
-          "brightness_time_duration": "Brightness must stay above or below the threshold for this many seconds."
+          "brightness_time_duration": "Brightness must stay above or below the threshold for this many seconds.",
+          "brightness_sun_operator": "Whether brightness and sun elevation must both be met (AND) or either one is sufficient (OR)."
         }
       },
       "sun_elevation": {
@@ -359,7 +410,8 @@
           "prevent_opening_after_ventilation_end": "Do not open after ventilation ends",
           "prevent_opening_multiple_times": "Prevent opening multiple times per day",
           "prevent_closing_multiple_times": "Prevent closing multiple times per day",
-          "prevent_shading_multiple_times": "Prevent shading multiple times per day"
+          "prevent_shading_multiple_times": "Prevent shading multiple times per day",
+          "prevent_default_cover_actions": "Prevent default cover actions (Shelly/Homematic)"
         },
         "data_description": {
           "prevent_higher_position_closing": "Do not raise the cover before evening closing.",
@@ -369,7 +421,8 @@
           "prevent_opening_after_ventilation_end": "Do not automatically open after ventilation ends.",
           "prevent_opening_multiple_times": "Run automatic opening at most once per day.",
           "prevent_closing_multiple_times": "Run automatic closing at most once per day.",
-          "prevent_shading_multiple_times": "Start shading at most once per day."
+          "prevent_shading_multiple_times": "Start shading at most once per day.",
+          "prevent_default_cover_actions": "Suppress the standard cover service calls. Use for custom hardware like Shelly or Homematic that controls the cover through other means."
         }
       },
       "shading": {
