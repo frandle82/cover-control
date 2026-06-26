@@ -14,6 +14,8 @@ from homeassistant.helpers import selector
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    BRIGHTNESS_SUN_OPERATOR_AND,
+    BRIGHTNESS_SUN_OPERATOR_OR,
     CONF_AUTO_BRIGHTNESS,
     CONF_AUTO_DOWN,
     CONF_AUTO_SHADING,
@@ -30,6 +32,7 @@ from .const import (
     CONF_ADDITIONAL_CONDITION_VENTILATE,
     CONF_ADDITIONAL_CONDITION_VENTILATE_END,
     CONF_ADDITIONAL_CONDITIONS_ENABLED,
+    CONF_BRIGHTNESS_SUN_OPERATOR,
     CONF_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_COLD_PROTECTION_THRESHOLD,
     CONF_CALENDAR_CLOSE_TITLE,
@@ -44,11 +47,14 @@ from .const import (
     CONF_CONTACT_TRIGGER_DELAY,
     CONF_CLOSE_POSITION,
     CONF_CLOSE_TILT_POSITION,
+    CONF_COVER_TILT_WAIT_MODE,
+    CONF_COVER_TILT_WAIT_TIMEOUT,
     CONF_CUSTOM_POSITION_SENSOR,
     CONF_COVERS,
     CONF_COVER_TYPE,
     CONF_COVER_TYPE_AWNING,
     CONF_COVER_TYPE_BLIND,
+    CONF_DRIVE_TIME,
     CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON,
     CONF_ENABLE_RECALIBRATE_BUTTON,
     CONF_MANUAL_CONTROL,
@@ -72,6 +78,7 @@ from .const import (
     CONF_POSITION_SOURCE_CUSTOM_SENSOR,
     CONF_POSITION_SOURCE_POSITION_ATTR,
     CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
+    CONF_PREVENT_DEFAULT_COVER_ACTIONS,
     CONF_PREVENT_HIGHER_POSITION_CLOSING,
     CONF_PREVENT_LOWERING_WHEN_CLOSING_IF_SHADED,
     CONF_PREVENT_OPENING_AFTER_SHADING_END,
@@ -87,14 +94,37 @@ from .const import (
     CONF_RESIDENT_ALLOW_OPEN,
     CONF_RESIDENT_ALLOW_VENTILATION,
     CONF_SHADING_FORECAST_SENSOR,
+    CONF_SHADING_FORECAST_TEMP,
+    CONF_SHADING_FORECAST_TEMP_HYSTERESIS,
+    CONF_SHADING_FORECAST_TEMP_SENSOR,
     CONF_SHADING_FORECAST_TYPE,
     CONF_SHADING_WEATHER_CONDITIONS,
+    CONF_SHADING_BRIGHTNESS_HYSTERESIS,
     CONF_SHADING_BRIGHTNESS_END,
+    CONF_SHADING_BRIGHTNESS_SENSOR,
     CONF_SHADING_BRIGHTNESS_START,
+    CONF_SHADING_CONDITIONS_END_AND,
+    CONF_SHADING_CONDITIONS_END_OR,
+    CONF_SHADING_CONDITIONS_START_AND,
+    CONF_SHADING_CONDITIONS_START_OR,
+    CONF_SHADING_CONFIG,
     CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
     CONF_SHADING_END_MAX_DURATION,
+    CONF_SHADING_MIN_TEMPERATURE_1,
+    CONF_SHADING_MIN_TEMPERATURE_2,
     CONF_SHADING_POSITION,
+    CONF_SHADING_TEMPERATURE_HYSTERESIS_1,
+    CONF_SHADING_TEMPERATURE_HYSTERESIS_2,
+    CONF_SHADING_TEMPERATURE_SENSOR_1,
+    CONF_SHADING_TEMPERATURE_SENSOR_2,
+    CONF_SHADING_TILT_ELEVATION_1,
+    CONF_SHADING_TILT_ELEVATION_2,
+    CONF_SHADING_TILT_ELEVATION_3,
     CONF_SHADING_TILT_POSITION,
+    CONF_SHADING_TILT_POSITION_0,
+    CONF_SHADING_TILT_POSITION_1,
+    CONF_SHADING_TILT_POSITION_2,
+    CONF_SHADING_TILT_POSITION_3,
     CONF_SHADING_START_MAX_DURATION,
     CONF_SHADING_WAITINGTIME_END,
     CONF_SHADING_WAITINGTIME_START,
@@ -124,6 +154,8 @@ from .const import (
     CONF_TIME_UP_LATE_WORKDAY,
     CONF_VENTILATION_ALLOW_HIGHER_POSITION,
     CONF_VENTILATION_DELAY_AFTER_CLOSE,
+    CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT,
+    CONF_VENTILATION_START_NO_DELAY,
     CONF_VENTILATION_USE_AFTER_SHADING,
     CONF_VENTILATE_POSITION,
     CONF_VENTILATE_TILT_POSITION,
@@ -140,6 +172,9 @@ from .const import (
     CONF_USE_SHADING_FORECAST_SENSOR,
     CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
     CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+    COVER_TILT_WAIT_FIXED_DELAY,
+    COVER_TILT_WAIT_IDLE,
+    DEFAULT_BRIGHTNESS_SUN_OPERATOR,
     DEFAULT_CONTACT_SETTINGS,
     DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_BEHAVIOR_SETTINGS,
@@ -149,6 +184,9 @@ from .const import (
     DEFAULT_BRIGHTNESS_OPEN,
     DEFAULT_BRIGHTNESS_TIME_DURATION,
     DEFAULT_COLD_PROTECTION_THRESHOLD,
+    DEFAULT_COVER_TILT_WAIT_MODE,
+    DEFAULT_COVER_TILT_WAIT_TIMEOUT,
+    DEFAULT_DRIVE_TIME,
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
     DEFAULT_MANUAL_OVERRIDE_FLAGS,
     DEFAULT_MANUAL_OVERRIDE_RESET_TIME,
@@ -158,12 +196,30 @@ from .const import (
     DEFAULT_SHADING_AZIMUTH_END,
     DEFAULT_SHADING_AZIMUTH_START,
     DEFAULT_SHADING_BRIGHTNESS_END,
+    DEFAULT_SHADING_BRIGHTNESS_HYSTERESIS,
     DEFAULT_SHADING_BRIGHTNESS_START,
+    DEFAULT_SHADING_CONDITION_SETTINGS,
+    DEFAULT_SHADING_CONDITIONS_END_AND,
+    DEFAULT_SHADING_CONDITIONS_END_OR,
+    DEFAULT_SHADING_CONDITIONS_START_AND,
+    DEFAULT_SHADING_CONDITIONS_START_OR,
     DEFAULT_SHADING_END_MAX_DURATION,
     DEFAULT_SHADING_FORECAST_TYPE,
+    DEFAULT_SHADING_FORECAST_TEMP_HYSTERESIS,
     DEFAULT_SHADING_ELEVATION_MAX,
     DEFAULT_SHADING_ELEVATION_MIN,
+    DEFAULT_SHADING_MIN_TEMPERATURE_1,
+    DEFAULT_SHADING_MIN_TEMPERATURE_2,
     DEFAULT_SHADING_START_MAX_DURATION,
+    DEFAULT_SHADING_TEMPERATURE_HYSTERESIS_1,
+    DEFAULT_SHADING_TEMPERATURE_HYSTERESIS_2,
+    DEFAULT_SHADING_TILT_ELEVATION_1,
+    DEFAULT_SHADING_TILT_ELEVATION_2,
+    DEFAULT_SHADING_TILT_ELEVATION_3,
+    DEFAULT_SHADING_TILT_POSITION_0,
+    DEFAULT_SHADING_TILT_POSITION_1,
+    DEFAULT_SHADING_TILT_POSITION_2,
+    DEFAULT_SHADING_TILT_POSITION_3,
     DEFAULT_SHADING_TIMING_SETTINGS,
     DEFAULT_SHADING_WAITINGTIME_END,
     DEFAULT_SHADING_WAITINGTIME_START,
@@ -183,7 +239,15 @@ from .const import (
     MANUAL_OVERRIDE_RESET_NONE,
     MANUAL_OVERRIDE_RESET_TIME,
     MANUAL_OVERRIDE_RESET_TIMEOUT,
-
+    SHADING_CONDITION_AZIMUTH,
+    SHADING_CONDITION_BRIGHTNESS,
+    SHADING_CONDITION_ELEVATION,
+    SHADING_CONDITION_FORECAST_TEMP,
+    SHADING_CONDITION_FORECAST_WEATHER,
+    SHADING_CONDITION_TEMP_1,
+    SHADING_CONDITION_TEMP_2,
+    SHADING_CONFIG_COMPARE_FORECAST_SENSOR2,
+    SHADING_CONFIG_TEMP_INDEPENDENT,
 )
 
 
@@ -200,9 +264,12 @@ def _with_config_defaults(config: dict) -> dict:
         **DEFAULT_BEHAVIOR_SETTINGS,
         **DEFAULT_BUTTON_SETTINGS,
         **DEFAULT_SHADING_TIMING_SETTINGS,
+        **{key: list(value) if isinstance(value, list) else value for key, value in DEFAULT_SHADING_CONDITION_SETTINGS.items()},
         CONF_SUN_ELEVATION_MODE: DEFAULT_SUN_ELEVATION_MODE,
         CONF_SUN_ELEVATION_OPEN_OFFSET: DEFAULT_SUN_ELEVATION_OPEN_OFFSET,
         CONF_SUN_ELEVATION_CLOSE_OFFSET: DEFAULT_SUN_ELEVATION_CLOSE_OFFSET,
+        CONF_TEMPERATURE_THRESHOLD: DEFAULT_TEMPERATURE_THRESHOLD,
+        CONF_TEMPERATURE_FORECAST_THRESHOLD: DEFAULT_TEMPERATURE_FORECAST_THRESHOLD,
         **config,
     }
 
@@ -224,10 +291,14 @@ CLEARABLE_ENTITY_SELECTOR_KEYS = {
     CONF_CALENDAR_ENTITY,
     CONF_RESIDENT_SENSOR,
     CONF_BRIGHTNESS_SENSOR,
+    CONF_SHADING_BRIGHTNESS_SENSOR,
     CONF_TEMPERATURE_SENSOR_INDOOR,
     CONF_TEMPERATURE_SENSOR_OUTDOOR,
+    CONF_SHADING_TEMPERATURE_SENSOR_1,
+    CONF_SHADING_TEMPERATURE_SENSOR_2,
     CONF_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_SHADING_FORECAST_SENSOR,
+    CONF_SHADING_FORECAST_TEMP_SENSOR,
     CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
     CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
     CONF_CUSTOM_POSITION_SENSOR,
@@ -274,6 +345,28 @@ def _time_default(value, fallback: str | None = None):
     return vol.UNDEFINED
 
 
+SHADING_CONDITION_OPTIONS = [
+    {"value": SHADING_CONDITION_AZIMUTH, "label": "Sun azimuth"},
+    {"value": SHADING_CONDITION_ELEVATION, "label": "Sun elevation"},
+    {"value": SHADING_CONDITION_BRIGHTNESS, "label": "Brightness"},
+    {"value": SHADING_CONDITION_TEMP_1, "label": "Temperature sensor 1"},
+    {"value": SHADING_CONDITION_TEMP_2, "label": "Temperature sensor 2"},
+    {"value": SHADING_CONDITION_FORECAST_TEMP, "label": "Forecast temperature"},
+    {"value": SHADING_CONDITION_FORECAST_WEATHER, "label": "Forecast weather"},
+]
+
+SHADING_CONFIG_OPTIONS = [
+    {
+        "value": SHADING_CONFIG_TEMP_INDEPENDENT,
+        "label": "Allow forecast temperature to start shading independently",
+    },
+    {
+        "value": SHADING_CONFIG_COMPARE_FORECAST_SENSOR2,
+        "label": "Compare forecast threshold with temperature sensor 2",
+    },
+]
+
+
 POSITION_FIELD_LIMITS = {
     CONF_OPEN_POSITION: 100,
     CONF_CLOSE_POSITION: 100,
@@ -284,6 +377,17 @@ POSITION_FIELD_LIMITS = {
     CONF_CLOSE_TILT_POSITION: 100,
     CONF_VENTILATE_TILT_POSITION: 100,
     CONF_SHADING_TILT_POSITION: 100,
+    CONF_SHADING_TILT_POSITION_0: 100,
+    CONF_SHADING_TILT_POSITION_1: 100,
+    CONF_SHADING_TILT_POSITION_2: 100,
+    CONF_SHADING_TILT_POSITION_3: 100,
+}
+
+_EXTRA_POSITION_DEFAULTS: dict[str, int] = {
+    CONF_SHADING_TILT_POSITION_0: DEFAULT_SHADING_TILT_POSITION_0,
+    CONF_SHADING_TILT_POSITION_1: DEFAULT_SHADING_TILT_POSITION_1,
+    CONF_SHADING_TILT_POSITION_2: DEFAULT_SHADING_TILT_POSITION_2,
+    CONF_SHADING_TILT_POSITION_3: DEFAULT_SHADING_TILT_POSITION_3,
 }
 
 
@@ -298,12 +402,14 @@ def _normalize_position_value(key: str, value: Any) -> int:
     try:
         parsed = int(float(str(value).replace(",", ".")))
     except (TypeError, ValueError):
-        parsed = int(DEFAULT_POSITION_SETTINGS[key])
+        fallback = DEFAULT_POSITION_SETTINGS.get(key, _EXTRA_POSITION_DEFAULTS.get(key, 0))
+        parsed = int(fallback)
     return max(0, min(max_value, parsed))
 
 
 def _position_default(config: dict[str, Any], key: str) -> str:
-    return str(_normalize_position_value(key, config.get(key, DEFAULT_POSITION_SETTINGS[key])))
+    fallback = DEFAULT_POSITION_SETTINGS.get(key, _EXTRA_POSITION_DEFAULTS.get(key, 0))
+    return str(_normalize_position_value(key, config.get(key, fallback)))
 
 
 def _normalize_position_fields(data: dict[str, Any]) -> dict[str, Any]:
@@ -643,6 +749,54 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_SHADING_TILT_POSITION,
                         default=_position_default(self._data, CONF_SHADING_TILT_POSITION),
                     ): _position_number_selector(),
+                    vol.Required(
+                        CONF_SHADING_TILT_POSITION_0,
+                        default=_position_default(self._data, CONF_SHADING_TILT_POSITION_0),
+                    ): _position_number_selector(),
+                    vol.Required(
+                        CONF_SHADING_TILT_POSITION_1,
+                        default=_position_default(self._data, CONF_SHADING_TILT_POSITION_1),
+                    ): _position_number_selector(),
+                    vol.Required(
+                        CONF_SHADING_TILT_POSITION_2,
+                        default=_position_default(self._data, CONF_SHADING_TILT_POSITION_2),
+                    ): _position_number_selector(),
+                    vol.Required(
+                        CONF_SHADING_TILT_POSITION_3,
+                        default=_position_default(self._data, CONF_SHADING_TILT_POSITION_3),
+                    ): _position_number_selector(),
+                    vol.Optional(
+                        CONF_SHADING_TILT_ELEVATION_1,
+                        default=self._data.get(CONF_SHADING_TILT_ELEVATION_1, DEFAULT_SHADING_TILT_ELEVATION_1),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_SHADING_TILT_ELEVATION_2,
+                        default=self._data.get(CONF_SHADING_TILT_ELEVATION_2, DEFAULT_SHADING_TILT_ELEVATION_2),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_SHADING_TILT_ELEVATION_3,
+                        default=self._data.get(CONF_SHADING_TILT_ELEVATION_3, DEFAULT_SHADING_TILT_ELEVATION_3),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_DRIVE_TIME,
+                        default=self._data.get(CONF_DRIVE_TIME, DEFAULT_DRIVE_TIME),
+                    ): vol.Coerce(int),
+                    vol.Optional(
+                        CONF_COVER_TILT_WAIT_MODE,
+                        default=self._data.get(CONF_COVER_TILT_WAIT_MODE, DEFAULT_COVER_TILT_WAIT_MODE),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                {"value": COVER_TILT_WAIT_FIXED_DELAY, "label": "Fixed delay"},
+                                {"value": COVER_TILT_WAIT_IDLE, "label": "Wait until idle"},
+                            ],
+                            mode=selector.SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_COVER_TILT_WAIT_TIMEOUT,
+                        default=self._data.get(CONF_COVER_TILT_WAIT_TIMEOUT, DEFAULT_COVER_TILT_WAIT_TIMEOUT),
+                    ): vol.Coerce(int),
                 }
             ),
             {"collapsed": True},
@@ -726,6 +880,24 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                 )
                             ),
                         ): bool,
+                        vol.Optional(
+                            CONF_VENTILATION_START_NO_DELAY,
+                            default=bool(
+                                self._data.get(
+                                    CONF_VENTILATION_START_NO_DELAY,
+                                    DEFAULT_CONTACT_SETTINGS[CONF_VENTILATION_START_NO_DELAY],
+                                )
+                            ),
+                        ): bool,
+                        vol.Optional(
+                            CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT,
+                            default=bool(
+                                self._data.get(
+                                    CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT,
+                                    DEFAULT_CONTACT_SETTINGS[CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT],
+                                )
+                            ),
+                        ): bool,
                     }
                 ),
                 {"collapsed": True},
@@ -753,6 +925,18 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     {
                         vol.Optional(CONF_BRIGHTNESS_OPEN_ABOVE, default=DEFAULT_BRIGHTNESS_OPEN): vol.Coerce(float),
                         vol.Optional(CONF_BRIGHTNESS_CLOSE_BELOW, default=DEFAULT_BRIGHTNESS_CLOSE): vol.Coerce(float),
+                        vol.Optional(
+                            CONF_BRIGHTNESS_SUN_OPERATOR,
+                            default=self._data.get(CONF_BRIGHTNESS_SUN_OPERATOR, DEFAULT_BRIGHTNESS_SUN_OPERATOR),
+                        ): selector.SelectSelector(
+                            selector.SelectSelectorConfig(
+                                options=[
+                                    {"value": BRIGHTNESS_SUN_OPERATOR_OR, "label": "OR — brightness or sun elevation triggers"},
+                                    {"value": BRIGHTNESS_SUN_OPERATOR_AND, "label": "AND — both brightness and sun elevation must trigger"},
+                                ],
+                                mode=selector.SelectSelectorMode.DROPDOWN,
+                            )
+                        ),
                     }
                 ),
                 {"collapsed": False},
@@ -775,8 +959,111 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         vol.Optional(CONF_SUN_AZIMUTH_END, default=DEFAULT_SHADING_AZIMUTH_END): vol.Coerce(float),
                         vol.Optional(CONF_SUN_ELEVATION_MIN, default=DEFAULT_SHADING_ELEVATION_MIN): vol.Coerce(float),
                         vol.Optional(CONF_SUN_ELEVATION_MAX, default=DEFAULT_SHADING_ELEVATION_MAX): vol.Coerce(float),
+                        vol.Optional(
+                            CONF_SHADING_CONDITIONS_START_AND,
+                            default=DEFAULT_SHADING_CONDITIONS_START_AND,
+                        ): selector.SelectSelector(
+                            selector.SelectSelectorConfig(
+                                options=SHADING_CONDITION_OPTIONS,
+                                multiple=True,
+                            )
+                        ),
+                        vol.Optional(
+                            CONF_SHADING_CONDITIONS_START_OR,
+                            default=DEFAULT_SHADING_CONDITIONS_START_OR,
+                        ): selector.SelectSelector(
+                            selector.SelectSelectorConfig(
+                                options=SHADING_CONDITION_OPTIONS,
+                                multiple=True,
+                            )
+                        ),
+                        vol.Optional(
+                            CONF_SHADING_CONDITIONS_END_AND,
+                            default=DEFAULT_SHADING_CONDITIONS_END_AND,
+                        ): selector.SelectSelector(
+                            selector.SelectSelectorConfig(
+                                options=SHADING_CONDITION_OPTIONS,
+                                multiple=True,
+                            )
+                        ),
+                        vol.Optional(
+                            CONF_SHADING_CONDITIONS_END_OR,
+                            default=DEFAULT_SHADING_CONDITIONS_END_OR,
+                        ): selector.SelectSelector(
+                            selector.SelectSelectorConfig(
+                                options=SHADING_CONDITION_OPTIONS,
+                                multiple=True,
+                            )
+                        ),
+                        vol.Optional(
+                            CONF_SHADING_BRIGHTNESS_SENSOR,
+                            default=_selector_default(
+                                self._data.get(
+                                    CONF_SHADING_BRIGHTNESS_SENSOR,
+                                    self._data.get(CONF_BRIGHTNESS_SENSOR),
+                                )
+                            ),
+                        ): selector.EntitySelector(
+                            selector.EntitySelectorConfig(
+                                domain=["sensor"], device_class=["illuminance"]
+                            )
+                        ),
                         vol.Optional(CONF_SHADING_BRIGHTNESS_START, default=DEFAULT_SHADING_BRIGHTNESS_START): vol.Coerce(float),
                         vol.Optional(CONF_SHADING_BRIGHTNESS_END, default=DEFAULT_SHADING_BRIGHTNESS_END): vol.Coerce(float),
+                        vol.Optional(
+                            CONF_SHADING_BRIGHTNESS_HYSTERESIS,
+                            default=DEFAULT_SHADING_BRIGHTNESS_HYSTERESIS,
+                        ): vol.Coerce(float),
+                        vol.Optional(
+                            CONF_SHADING_TEMPERATURE_SENSOR_1,
+                            default=_selector_default(
+                                self._data.get(
+                                    CONF_SHADING_TEMPERATURE_SENSOR_1,
+                                    self._data.get(CONF_TEMPERATURE_SENSOR_INDOOR),
+                                )
+                            ),
+                        ): selector.EntitySelector(
+                            selector.EntitySelectorConfig(domain=["sensor"])
+                        ),
+                        vol.Optional(
+                            CONF_SHADING_MIN_TEMPERATURE_1,
+                            default=self._data.get(
+                                CONF_SHADING_MIN_TEMPERATURE_1,
+                                self._data.get(
+                                    CONF_TEMPERATURE_THRESHOLD,
+                                    DEFAULT_SHADING_MIN_TEMPERATURE_1,
+                                ),
+                            ),
+                        ): vol.Coerce(float),
+                        vol.Optional(
+                            CONF_SHADING_TEMPERATURE_HYSTERESIS_1,
+                            default=DEFAULT_SHADING_TEMPERATURE_HYSTERESIS_1,
+                        ): vol.Coerce(float),
+                        vol.Optional(
+                            CONF_SHADING_TEMPERATURE_SENSOR_2,
+                            default=_selector_default(
+                                self._data.get(
+                                    CONF_SHADING_TEMPERATURE_SENSOR_2,
+                                    self._data.get(CONF_TEMPERATURE_SENSOR_OUTDOOR),
+                                )
+                            ),
+                        ): selector.EntitySelector(
+                            selector.EntitySelectorConfig(domain=["sensor"])
+                        ),
+                        vol.Optional(
+                            CONF_SHADING_MIN_TEMPERATURE_2,
+                            default=self._data.get(
+                                CONF_SHADING_MIN_TEMPERATURE_2,
+                                self._data.get(
+                                    CONF_TEMPERATURE_THRESHOLD,
+                                    DEFAULT_SHADING_MIN_TEMPERATURE_2,
+                                ),
+                            ),
+                        ): vol.Coerce(float),
+                        vol.Optional(
+                            CONF_SHADING_TEMPERATURE_HYSTERESIS_2,
+                            default=DEFAULT_SHADING_TEMPERATURE_HYSTERESIS_2,
+                        ): vol.Coerce(float),
                         vol.Optional(CONF_SHADING_WAITINGTIME_START, default=DEFAULT_SHADING_WAITINGTIME_START): vol.Coerce(int),
                         vol.Optional(CONF_SHADING_WAITINGTIME_END, default=DEFAULT_SHADING_WAITINGTIME_END): vol.Coerce(int),
                         vol.Optional(CONF_SHADING_START_MAX_DURATION, default=DEFAULT_SHADING_START_MAX_DURATION): vol.Coerce(int),
@@ -785,6 +1072,27 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         vol.Optional(CONF_SHADING_FORECAST_SENSOR): selector.EntitySelector(
                             selector.EntitySelectorConfig(domain=["sensor", "weather"])
                         ),
+                        vol.Optional(
+                            CONF_SHADING_FORECAST_TEMP_SENSOR,
+                            default=_selector_default(
+                                self._data.get(CONF_SHADING_FORECAST_TEMP_SENSOR)
+                            ),
+                        ): selector.EntitySelector(
+                            selector.EntitySelectorConfig(domain=["sensor"])
+                        ),
+                        vol.Optional(
+                            CONF_SHADING_FORECAST_TEMP,
+                            default=self._data.get(
+                                CONF_SHADING_FORECAST_TEMP,
+                                self._data.get(CONF_TEMPERATURE_FORECAST_THRESHOLD),
+                            ),
+                        ): selector.NumberSelector(
+                            selector.NumberSelectorConfig(mode=selector.NumberSelectorMode.BOX)
+                        ),
+                        vol.Optional(
+                            CONF_SHADING_FORECAST_TEMP_HYSTERESIS,
+                            default=DEFAULT_SHADING_FORECAST_TEMP_HYSTERESIS,
+                        ): vol.Coerce(float),
                         vol.Optional(
                             CONF_SHADING_FORECAST_TYPE,
                             default=DEFAULT_SHADING_FORECAST_TYPE,
@@ -819,6 +1127,12 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                     "windy",
                                     "windy-variant",
                                 ],
+                                multiple=True,
+                            )
+                        ),
+                        vol.Optional(CONF_SHADING_CONFIG, default=[]): selector.SelectSelector(
+                            selector.SelectSelectorConfig(
+                                options=SHADING_CONFIG_OPTIONS,
                                 multiple=True,
                             )
                         ),
@@ -1236,6 +1550,54 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                 CONF_SHADING_TILT_POSITION,
                 default=_position_default(self._options, CONF_SHADING_TILT_POSITION),
             ): _position_number_selector(),
+            vol.Required(
+                CONF_SHADING_TILT_POSITION_0,
+                default=_position_default(self._options, CONF_SHADING_TILT_POSITION_0),
+            ): _position_number_selector(),
+            vol.Required(
+                CONF_SHADING_TILT_POSITION_1,
+                default=_position_default(self._options, CONF_SHADING_TILT_POSITION_1),
+            ): _position_number_selector(),
+            vol.Required(
+                CONF_SHADING_TILT_POSITION_2,
+                default=_position_default(self._options, CONF_SHADING_TILT_POSITION_2),
+            ): _position_number_selector(),
+            vol.Required(
+                CONF_SHADING_TILT_POSITION_3,
+                default=_position_default(self._options, CONF_SHADING_TILT_POSITION_3),
+            ): _position_number_selector(),
+            vol.Optional(
+                CONF_SHADING_TILT_ELEVATION_1,
+                default=self._options.get(CONF_SHADING_TILT_ELEVATION_1, DEFAULT_SHADING_TILT_ELEVATION_1),
+            ): vol.Coerce(float),
+            vol.Optional(
+                CONF_SHADING_TILT_ELEVATION_2,
+                default=self._options.get(CONF_SHADING_TILT_ELEVATION_2, DEFAULT_SHADING_TILT_ELEVATION_2),
+            ): vol.Coerce(float),
+            vol.Optional(
+                CONF_SHADING_TILT_ELEVATION_3,
+                default=self._options.get(CONF_SHADING_TILT_ELEVATION_3, DEFAULT_SHADING_TILT_ELEVATION_3),
+            ): vol.Coerce(float),
+            vol.Optional(
+                CONF_DRIVE_TIME,
+                default=self._options.get(CONF_DRIVE_TIME, DEFAULT_DRIVE_TIME),
+            ): vol.Coerce(int),
+            vol.Optional(
+                CONF_COVER_TILT_WAIT_MODE,
+                default=self._options.get(CONF_COVER_TILT_WAIT_MODE, DEFAULT_COVER_TILT_WAIT_MODE),
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        {"value": COVER_TILT_WAIT_FIXED_DELAY, "label": "Fixed delay"},
+                        {"value": COVER_TILT_WAIT_IDLE, "label": "Wait until idle"},
+                    ],
+                    mode=selector.SelectSelectorMode.DROPDOWN,
+                )
+            ),
+            vol.Optional(
+                CONF_COVER_TILT_WAIT_TIMEOUT,
+                default=self._options.get(CONF_COVER_TILT_WAIT_TIMEOUT, DEFAULT_COVER_TILT_WAIT_TIMEOUT),
+            ): vol.Coerce(int),
         }
         return self.async_show_form(step_id="positions", data_schema=vol.Schema(schema))
 
@@ -1337,6 +1699,15 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
             vol.Optional(
                 CONF_PREVENT_SHADING_MULTIPLE_TIMES,
                 default=bool(self._options.get(CONF_PREVENT_SHADING_MULTIPLE_TIMES, False)),
+            ): bool,
+            vol.Optional(
+                CONF_PREVENT_DEFAULT_COVER_ACTIONS,
+                default=bool(
+                    self._options.get(
+                        CONF_PREVENT_DEFAULT_COVER_ACTIONS,
+                        DEFAULT_BEHAVIOR_SETTINGS.get(CONF_PREVENT_DEFAULT_COVER_ACTIONS, False),
+                    )
+                ),
             ): bool,
         }
         return self.async_show_form(step_id="behavior", data_schema=vol.Schema(schema))
@@ -1610,6 +1981,14 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                     CONF_LOCKOUT_TILT_SHADING_END,
                     default=bool(self._options.get(CONF_LOCKOUT_TILT_SHADING_END, DEFAULT_CONTACT_SETTINGS[CONF_LOCKOUT_TILT_SHADING_END])),
                 ): bool,
+                vol.Optional(
+                    CONF_VENTILATION_START_NO_DELAY,
+                    default=bool(self._options.get(CONF_VENTILATION_START_NO_DELAY, DEFAULT_CONTACT_SETTINGS[CONF_VENTILATION_START_NO_DELAY])),
+                ): bool,
+                vol.Optional(
+                    CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT,
+                    default=bool(self._options.get(CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT, DEFAULT_CONTACT_SETTINGS[CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT])),
+                ): bool,
             }
         )
         return self.async_show_form(step_id="contact_sensors", data_schema=vol.Schema(schema))
@@ -1651,6 +2030,18 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                         CONF_BRIGHTNESS_TIME_DURATION,
                         default=self._options.get(CONF_BRIGHTNESS_TIME_DURATION, DEFAULT_BRIGHTNESS_TIME_DURATION),
                     ): vol.Coerce(int),
+                    vol.Optional(
+                        CONF_BRIGHTNESS_SUN_OPERATOR,
+                        default=self._options.get(CONF_BRIGHTNESS_SUN_OPERATOR, DEFAULT_BRIGHTNESS_SUN_OPERATOR),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                {"value": BRIGHTNESS_SUN_OPERATOR_OR, "label": "OR — brightness or sun elevation triggers"},
+                                {"value": BRIGHTNESS_SUN_OPERATOR_AND, "label": "AND — both brightness and sun elevation must trigger"},
+                            ],
+                            mode=selector.SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
                 }
             )
 
@@ -1745,8 +2136,126 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                     vol.Optional(CONF_SUN_AZIMUTH_END, default=self._options.get(CONF_SUN_AZIMUTH_END, DEFAULT_SHADING_AZIMUTH_END)): vol.Coerce(float),
                     vol.Optional(CONF_SUN_ELEVATION_MIN, default=self._options.get(CONF_SUN_ELEVATION_MIN, DEFAULT_SHADING_ELEVATION_MIN)): vol.Coerce(float),
                     vol.Optional(CONF_SUN_ELEVATION_MAX, default=self._options.get(CONF_SUN_ELEVATION_MAX, DEFAULT_SHADING_ELEVATION_MAX)): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_SHADING_CONDITIONS_START_AND,
+                        default=self._options.get(
+                            CONF_SHADING_CONDITIONS_START_AND,
+                            DEFAULT_SHADING_CONDITIONS_START_AND,
+                        ),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=SHADING_CONDITION_OPTIONS,
+                            multiple=True,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_SHADING_CONDITIONS_START_OR,
+                        default=self._options.get(
+                            CONF_SHADING_CONDITIONS_START_OR,
+                            DEFAULT_SHADING_CONDITIONS_START_OR,
+                        ),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=SHADING_CONDITION_OPTIONS,
+                            multiple=True,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_SHADING_CONDITIONS_END_AND,
+                        default=self._options.get(
+                            CONF_SHADING_CONDITIONS_END_AND,
+                            DEFAULT_SHADING_CONDITIONS_END_AND,
+                        ),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=SHADING_CONDITION_OPTIONS,
+                            multiple=True,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_SHADING_CONDITIONS_END_OR,
+                        default=self._options.get(
+                            CONF_SHADING_CONDITIONS_END_OR,
+                            DEFAULT_SHADING_CONDITIONS_END_OR,
+                        ),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=SHADING_CONDITION_OPTIONS,
+                            multiple=True,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_SHADING_BRIGHTNESS_SENSOR,
+                        default=self._options.get(
+                            CONF_SHADING_BRIGHTNESS_SENSOR,
+                            self._optional_default(CONF_BRIGHTNESS_SENSOR),
+                        ),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            domain=["sensor"], device_class=["illuminance"]
+                        )
+                    ),
                     vol.Optional(CONF_SHADING_BRIGHTNESS_START, default=self._options.get(CONF_SHADING_BRIGHTNESS_START, DEFAULT_SHADING_BRIGHTNESS_START)): vol.Coerce(float),
                     vol.Optional(CONF_SHADING_BRIGHTNESS_END, default=self._options.get(CONF_SHADING_BRIGHTNESS_END, DEFAULT_SHADING_BRIGHTNESS_END)): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_SHADING_BRIGHTNESS_HYSTERESIS,
+                        default=self._options.get(
+                            CONF_SHADING_BRIGHTNESS_HYSTERESIS,
+                            DEFAULT_SHADING_BRIGHTNESS_HYSTERESIS,
+                        ),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_SHADING_TEMPERATURE_SENSOR_1,
+                        default=self._options.get(
+                            CONF_SHADING_TEMPERATURE_SENSOR_1,
+                            self._optional_default(CONF_TEMPERATURE_SENSOR_INDOOR),
+                        ),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor"])
+                    ),
+                    vol.Optional(
+                        CONF_SHADING_MIN_TEMPERATURE_1,
+                        default=self._options.get(
+                            CONF_SHADING_MIN_TEMPERATURE_1,
+                            self._options.get(
+                                CONF_TEMPERATURE_THRESHOLD,
+                                DEFAULT_SHADING_MIN_TEMPERATURE_1,
+                            ),
+                        ),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_SHADING_TEMPERATURE_HYSTERESIS_1,
+                        default=self._options.get(
+                            CONF_SHADING_TEMPERATURE_HYSTERESIS_1,
+                            DEFAULT_SHADING_TEMPERATURE_HYSTERESIS_1,
+                        ),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_SHADING_TEMPERATURE_SENSOR_2,
+                        default=self._options.get(
+                            CONF_SHADING_TEMPERATURE_SENSOR_2,
+                            self._optional_default(CONF_TEMPERATURE_SENSOR_OUTDOOR),
+                        ),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor"])
+                    ),
+                    vol.Optional(
+                        CONF_SHADING_MIN_TEMPERATURE_2,
+                        default=self._options.get(
+                            CONF_SHADING_MIN_TEMPERATURE_2,
+                            self._options.get(
+                                CONF_TEMPERATURE_THRESHOLD,
+                                DEFAULT_SHADING_MIN_TEMPERATURE_2,
+                            ),
+                        ),
+                    ): vol.Coerce(float),
+                    vol.Optional(
+                        CONF_SHADING_TEMPERATURE_HYSTERESIS_2,
+                        default=self._options.get(
+                            CONF_SHADING_TEMPERATURE_HYSTERESIS_2,
+                            DEFAULT_SHADING_TEMPERATURE_HYSTERESIS_2,
+                        ),
+                    ): vol.Coerce(float),
                     vol.Optional(
                         CONF_SHADING_WAITINGTIME_START,
                         default=self._options.get(CONF_SHADING_WAITINGTIME_START, DEFAULT_SHADING_WAITINGTIME_START),
@@ -1779,6 +2288,28 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                         selector.EntitySelectorConfig(domain=["sensor", "weather"])
                     ),
                     vol.Optional(
+                        CONF_SHADING_FORECAST_TEMP_SENSOR,
+                        default=self._optional_default(CONF_SHADING_FORECAST_TEMP_SENSOR),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor"])
+                    ),
+                    vol.Optional(
+                        CONF_SHADING_FORECAST_TEMP,
+                        default=self._options.get(
+                            CONF_SHADING_FORECAST_TEMP,
+                            self._options.get(CONF_TEMPERATURE_FORECAST_THRESHOLD),
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(mode=selector.NumberSelectorMode.BOX)
+                    ),
+                    vol.Optional(
+                        CONF_SHADING_FORECAST_TEMP_HYSTERESIS,
+                        default=self._options.get(
+                            CONF_SHADING_FORECAST_TEMP_HYSTERESIS,
+                            DEFAULT_SHADING_FORECAST_TEMP_HYSTERESIS,
+                        ),
+                    ): vol.Coerce(float),
+                    vol.Optional(
                         CONF_SHADING_FORECAST_TYPE,
                         default=self._options.get(CONF_SHADING_FORECAST_TYPE, DEFAULT_SHADING_FORECAST_TYPE),
                     ): selector.SelectSelector(
@@ -1800,6 +2331,15 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                                 "partlycloudy", "pouring", "rainy", "snowy", "snowy-rainy", "sunny", "windy",
                                 "windy-variant", "exceptional",
                             ],
+                            multiple=True,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_SHADING_CONFIG,
+                        default=self._options.get(CONF_SHADING_CONFIG, []),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=SHADING_CONFIG_OPTIONS,
                             multiple=True,
                         )
                     ),
