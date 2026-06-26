@@ -28,6 +28,7 @@ from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
 
 from .const import (
+    BRIGHTNESS_SUN_OPERATOR_AND,
     CONF_AUTO_BRIGHTNESS,
     CONF_AUTO_BRIGHTNESS_ENTITY,
     CONF_AUTO_DOWN,
@@ -54,18 +55,22 @@ from .const import (
     CONF_BRIGHTNESS_HYSTERESIS,
     CONF_BRIGHTNESS_OPEN_ABOVE,
     CONF_BRIGHTNESS_SENSOR,
+    CONF_BRIGHTNESS_SUN_OPERATOR,
     CONF_BRIGHTNESS_TIME_DURATION,
     CONF_CALENDAR_CLOSE_TITLE,
     CONF_CALENDAR_ENTITY,
     CONF_CALENDAR_OPEN_TITLE,
     CONF_CLOSE_POSITION,
     CONF_CLOSE_TILT_POSITION,
+    CONF_COVER_TILT_WAIT_MODE,
+    CONF_COVER_TILT_WAIT_TIMEOUT,
     CONF_CUSTOM_POSITION_SENSOR,
     CONF_COVERS,
     CONF_CONTACT_STATUS_DELAY,
     CONF_CONTACT_TRIGGER_DELAY,
     CONF_COVER_TYPE,
     CONF_COVER_TYPE_AWNING,
+    CONF_DRIVE_TIME,
     CONF_LOCKOUT_TILT_CLOSE,
     CONF_LOCKOUT_TILT_SHADING_END,
     CONF_LOCKOUT_TILT_SHADING_START,
@@ -85,6 +90,7 @@ from .const import (
     CONF_POSITION_SOURCE_CUSTOM_SENSOR,
     CONF_POSITION_SOURCE_POSITION_ATTR,
     CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
+    CONF_PREVENT_DEFAULT_COVER_ACTIONS,
     CONF_PREVENT_HIGHER_POSITION_CLOSING,
     CONF_PREVENT_LOWERING_WHEN_CLOSING_IF_SHADED,
     CONF_PREVENT_OPENING_AFTER_SHADING_END,
@@ -100,15 +106,38 @@ from .const import (
     CONF_RESIDENT_ALLOW_OPEN,
     CONF_RESIDENT_ALLOW_VENTILATION,
     CONF_SHADING_FORECAST_SENSOR,
+    CONF_SHADING_FORECAST_TEMP,
+    CONF_SHADING_FORECAST_TEMP_HYSTERESIS,
+    CONF_SHADING_FORECAST_TEMP_SENSOR,
     CONF_SHADING_FORECAST_TYPE,
     CONF_SHADING_WEATHER_CONDITIONS,
+    CONF_SHADING_BRIGHTNESS_HYSTERESIS,
     CONF_SHADING_BRIGHTNESS_END,
+    CONF_SHADING_BRIGHTNESS_SENSOR,
     CONF_SHADING_BRIGHTNESS_START,
+    CONF_SHADING_CONDITIONS_END_AND,
+    CONF_SHADING_CONDITIONS_END_OR,
+    CONF_SHADING_CONDITIONS_START_AND,
+    CONF_SHADING_CONDITIONS_START_OR,
+    CONF_SHADING_CONFIG,
     CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
     CONF_SHADING_END_MAX_DURATION,
+    CONF_SHADING_MIN_TEMPERATURE_1,
+    CONF_SHADING_MIN_TEMPERATURE_2,
     CONF_SHADING_POSITION,
     CONF_SHADING_START_MAX_DURATION,
+    CONF_SHADING_TEMPERATURE_HYSTERESIS_1,
+    CONF_SHADING_TEMPERATURE_HYSTERESIS_2,
+    CONF_SHADING_TEMPERATURE_SENSOR_1,
+    CONF_SHADING_TEMPERATURE_SENSOR_2,
+    CONF_SHADING_TILT_ELEVATION_1,
+    CONF_SHADING_TILT_ELEVATION_2,
+    CONF_SHADING_TILT_ELEVATION_3,
     CONF_SHADING_TILT_POSITION,
+    CONF_SHADING_TILT_POSITION_0,
+    CONF_SHADING_TILT_POSITION_1,
+    CONF_SHADING_TILT_POSITION_2,
+    CONF_SHADING_TILT_POSITION_3,
     CONF_SHADING_WAITINGTIME_END,
     CONF_SHADING_WAITINGTIME_START,
     CONF_SUN_AZIMUTH_END,
@@ -135,6 +164,8 @@ from .const import (
     CONF_TIME_UP_LATE_WORKDAY,
     CONF_VENTILATION_ALLOW_HIGHER_POSITION,
     CONF_VENTILATION_DELAY_AFTER_CLOSE,
+    CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT,
+    CONF_VENTILATION_START_NO_DELAY,
     CONF_VENTILATION_USE_AFTER_SHADING,
     CONF_VENTILATE_POSITION,
     CONF_VENTILATE_TILT_POSITION,
@@ -142,12 +173,17 @@ from .const import (
     CONF_WINDOW_SENSOR_TILT,
     CONF_WORKDAY_SENSOR,
     CONF_WORKDAY_TOMORROW_SENSOR,
+    COVER_TILT_WAIT_IDLE,
     DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_BEHAVIOR_SETTINGS,
     DEFAULT_BRIGHTNESS_CLOSE,
     DEFAULT_BRIGHTNESS_HYSTERESIS,
     DEFAULT_BRIGHTNESS_OPEN,
+    DEFAULT_BRIGHTNESS_SUN_OPERATOR,
     DEFAULT_BRIGHTNESS_TIME_DURATION,
+    DEFAULT_COVER_TILT_WAIT_MODE,
+    DEFAULT_COVER_TILT_WAIT_TIMEOUT,
+    DEFAULT_DRIVE_TIME,
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
     DEFAULT_MANUAL_OVERRIDE_FLAGS,
     DEFAULT_MANUAL_OVERRIDE_RESET_TIME,
@@ -157,6 +193,13 @@ from .const import (
     DEFAULT_TIME_SETTINGS,
     DEFAULT_OPEN_POSITION,
     DEFAULT_OPEN_TILT_POSITION,
+    DEFAULT_SHADING_TILT_ELEVATION_1,
+    DEFAULT_SHADING_TILT_ELEVATION_2,
+    DEFAULT_SHADING_TILT_ELEVATION_3,
+    DEFAULT_SHADING_TILT_POSITION_0,
+    DEFAULT_SHADING_TILT_POSITION_1,
+    DEFAULT_SHADING_TILT_POSITION_2,
+    DEFAULT_SHADING_TILT_POSITION_3,
     DEFAULT_TOLERANCE,
     DEFAULT_VENTILATE_POSITION,
     DEFAULT_VENTILATE_TILT_POSITION,
@@ -165,19 +208,40 @@ from .const import (
     DEFAULT_CLOSE_POSITION,
     DEFAULT_CLOSE_TILT_POSITION,
     DEFAULT_SHADING_BRIGHTNESS_END,
+    DEFAULT_SHADING_BRIGHTNESS_HYSTERESIS,
     DEFAULT_SHADING_BRIGHTNESS_START,
+    DEFAULT_SHADING_CONDITIONS_END_AND,
+    DEFAULT_SHADING_CONDITIONS_END_OR,
+    DEFAULT_SHADING_CONDITIONS_START_AND,
+    DEFAULT_SHADING_CONDITIONS_START_OR,
     DEFAULT_SHADING_FORECAST_TYPE,
+    DEFAULT_SHADING_FORECAST_TEMP_HYSTERESIS,
+    DEFAULT_SHADING_MIN_TEMPERATURE_1,
+    DEFAULT_SHADING_MIN_TEMPERATURE_2,
     DEFAULT_SHADING_TIMING_SETTINGS,
+    DEFAULT_SHADING_TEMPERATURE_HYSTERESIS_1,
+    DEFAULT_SHADING_TEMPERATURE_HYSTERESIS_2,
     DEFAULT_SUN_ELEVATION_MODE,
     DEFAULT_SUN_ELEVATION_OPEN,
     DEFAULT_SUN_ELEVATION_CLOSE,
     DEFAULT_SUN_TIME_DURATION,
+    DEFAULT_TEMPERATURE_FORECAST_THRESHOLD,
+    DEFAULT_TEMPERATURE_THRESHOLD,
     DOMAIN,
     SIGNAL_STATE_UPDATED,
     MANUAL_OVERRIDE_RESET_NONE,
     MANUAL_OVERRIDE_RESET_TIME,
     MANUAL_OVERRIDE_RESET_TIMEOUT,
     EVENT_COVER_CONTROL,
+    SHADING_CONDITION_AZIMUTH,
+    SHADING_CONDITION_BRIGHTNESS,
+    SHADING_CONDITION_ELEVATION,
+    SHADING_CONDITION_FORECAST_TEMP,
+    SHADING_CONDITION_FORECAST_WEATHER,
+    SHADING_CONDITION_TEMP_1,
+    SHADING_CONDITION_TEMP_2,
+    SHADING_CONFIG_COMPARE_FORECAST_SENSOR2,
+    SHADING_CONFIG_TEMP_INDEPENDENT,
 )
 
 IDLE_REASON = "idle"
@@ -517,34 +581,35 @@ class ControllerManager:
         return False
 
     def state_snapshot(
-        self, cover: str
-        ) -> tuple[
-            float | None,
-            str | None,
-            datetime | None,
-            bool,
-            datetime | None,
-            datetime | None,
-            float | None,
-            bool,
-            bool,
-            bool,
-        ] | None:
-            controller = self.controllers.get(cover)
-            if not controller:
-                return (
-                    False,
-                    IDLE_REASON,
-                    None,
-                    None,
-                    False,
-                    None,
-                    None,
-                    False,
-                    False,
-                    False,
-                )
-            return controller.state_snapshot()
+        self,
+        cover: str,
+    ) -> tuple[
+        float | None,
+        str | None,
+        datetime | None,
+        bool,
+        datetime | None,
+        datetime | None,
+        float | None,
+        bool,
+        bool,
+        bool,
+    ] | None:
+        controller = self.controllers.get(cover)
+        if not controller:
+            return (
+                None,
+                IDLE_REASON,
+                None,
+                False,
+                None,
+                None,
+                None,
+                False,
+                False,
+                False,
+            )
+        return controller.state_snapshot()
 
 class CoverController:
     """Translate blueprint-style parameters into runtime cover control."""
@@ -572,8 +637,10 @@ class CoverController:
         self._last_position: float | None = None
         self._pre_ventilation_position: float | None = None
         self._last_command_at: datetime | None = None
+        self._ignore_service_call_until: datetime | None = None
         self._manual_expire_unsub: CALLBACK_TYPE | None = None
         self._last_command_context_id: str | None = None
+        self._shading_forecast_cache: dict[str, object] | None = None
         self._reason: str | None = None
         self._next_open: datetime | None = None
         self._next_close: datetime | None = None
@@ -828,12 +895,16 @@ class CoverController:
             self._last_position = self._current_position()
         sensor_entities = {
             self.config.get(CONF_BRIGHTNESS_SENSOR),
+            self.config.get(CONF_SHADING_BRIGHTNESS_SENSOR),
             self.config.get(CONF_WORKDAY_SENSOR),
             self.config.get(CONF_WORKDAY_TOMORROW_SENSOR),
             self.config.get(CONF_TEMPERATURE_SENSOR_INDOOR),
             self.config.get(CONF_TEMPERATURE_SENSOR_OUTDOOR),
+            self.config.get(CONF_SHADING_TEMPERATURE_SENSOR_1),
+            self.config.get(CONF_SHADING_TEMPERATURE_SENSOR_2),
             self.config.get(CONF_RESIDENT_SENSOR),
             self.config.get(CONF_SHADING_FORECAST_SENSOR),
+            self.config.get(CONF_SHADING_FORECAST_TEMP_SENSOR),
             self.config.get(CONF_CALENDAR_ENTITY),
             self.config.get(CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR),
             self.config.get(CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR),
@@ -924,8 +995,15 @@ class CoverController:
             if self._target is None and current is not None:
                 self._target = current
             moving_toward_target = False
-            if (
+            drive_window = timedelta(
+                seconds=self._duration_value(CONF_DRIVE_TIME, DEFAULT_DRIVE_TIME)
+            )
+            command_still_active = (
                 self._last_command_at is not None
+                and dt_util.utcnow() - self._last_command_at <= drive_window
+            )
+            if (
+                command_still_active
                 and previous_position is not None
                 and current is not None
                 and self._target is not None
@@ -939,7 +1017,7 @@ class CoverController:
                     and abs(current - self._target) <= tolerance
                 )
                 expected_command_move = (
-                    self._last_command_at is not None
+                    command_still_active
                     and (moving_toward_target or target_reached)
                 )
                 deviation_from_target = (
@@ -960,6 +1038,21 @@ class CoverController:
                         scope_all=True, reason="manual_override"
                     )
             self._last_position = current if current is not None else previous_position
+        if entity_id in self._contact_entities():
+            new_state = event.data.get("new_state")
+            contact_now_active = new_state is not None and new_state.state in ("on", "true", "1")
+            no_delay_on_start = bool(
+                self.config.get(CONF_VENTILATION_START_NO_DELAY, False)
+            ) and contact_now_active
+            delay = 0 if no_delay_on_start else (
+                self._contact_trigger_delay() + self._contact_status_delay()
+            )
+            if delay > 0:
+                self.hass.async_create_task(
+                    self._delayed_evaluate("contact", delay)
+                )
+                return
+            trigger = "contact"
         self.hass.async_create_task(self._evaluate(trigger))
 
     def _is_position_state_event(self, entity_id: str | None) -> bool:
@@ -999,6 +1092,13 @@ class CoverController:
         if self.cover not in entity_ids:
             return
 
+        now = dt_util.utcnow()
+        if (
+            self._ignore_service_call_until is not None
+            and now <= self._ignore_service_call_until
+        ):
+            return
+
         if event.context and event.context.id == self._last_command_context_id:
             return
 
@@ -1026,6 +1126,10 @@ class CoverController:
     @callback
     def _handle_interval(self, now: datetime) -> None:
         self.hass.async_create_task(self._evaluate("time"))
+
+    async def _delayed_evaluate(self, trigger: str, delay: int) -> None:
+        await asyncio.sleep(delay)
+        await self._evaluate(trigger)
 
     def _manual_detection_enabled(self) -> bool:
         if self._manual_active:
@@ -1270,7 +1374,7 @@ class CoverController:
         await self._command_position(float(target), reason=reason)
         tilt_position = self._tilt_position_value(reason)
         if tilt_position is not None:
-            await self._command_tilt_position(float(tilt_position), reason=reason)
+            await self._send_tilt_after_position(float(tilt_position), reason=reason)
         self._target = float(target)
         self._reason = reason
         self._record_action_status(reason, float(target))
@@ -1288,7 +1392,7 @@ class CoverController:
             await self._command_position(float(target), reason="ventilation_start")
             tilt_position = self._tilt_position_value("ventilation_start")
             if tilt_position is not None:
-                await self._command_tilt_position(
+                await self._send_tilt_after_position(
                     float(tilt_position), reason="ventilation_start"
                 )
             self._target = float(target)
@@ -1307,7 +1411,7 @@ class CoverController:
             await self._command_position(float(target), reason=reason)
             tilt_position = self._tilt_position_value(reason)
             if tilt_position is not None:
-                await self._command_tilt_position(float(tilt_position), reason=reason)
+                await self._send_tilt_after_position(float(tilt_position), reason=reason)
             self._target = float(target)
             self._reason = reason
             self._pre_ventilation_position = None
@@ -1330,7 +1434,7 @@ class CoverController:
             await self._command_position(float(target), reason="manual_shading")
             tilt_position = self._tilt_position_value("manual_shading")
             if tilt_position is not None:
-                await self._command_tilt_position(
+                await self._send_tilt_after_position(
                     float(tilt_position), reason="manual_shading"
                 )
             self._target = float(target)
@@ -1346,7 +1450,7 @@ class CoverController:
             await self._command_position(float(target), reason=reason)
             tilt_position = self._tilt_position_value(reason)
             if tilt_position is not None:
-                await self._command_tilt_position(float(tilt_position), reason=reason)
+                await self._send_tilt_after_position(float(tilt_position), reason=reason)
             self._target = float(target)
             self._reason = reason
             self._record_action_status(reason, float(target))
@@ -1562,21 +1666,6 @@ class CoverController:
             )
         )
 
-        if resident_sleeping and resident_close_enabled:
-            if self._manual_blocks_action("close"):
-                self._refresh_next_events(now)
-                self._publish_state()
-                return
-            close_target = self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION)
-            current_position = self._current_position()
-            if not self._position_matches(close_target, current_position):
-                await self._set_position(close_target, "resident_asleep")
-                return
-            if not (resident_allow_open or resident_allow_shading or resident_allow_ventilation):
-                self._refresh_next_events(now)
-                self._publish_state()
-                return
-
         resident_blocks_open = resident_sleeping and not resident_allow_open
         resident_blocks_ventilation = resident_sleeping and not resident_allow_ventilation
         resident_blocks_shading = resident_sleeping and not resident_allow_shading
@@ -1640,8 +1729,12 @@ class CoverController:
             sun_elevation, brightness
         )
 
-        if auto_ventilate and full_contact_active and ventilation_condition and not resident_blocks_ventilation:
-            if not self._manual_blocks_action("ventilation"):
+        if auto_ventilate and full_contact_active:
+            if (
+                ventilation_condition
+                and not resident_blocks_ventilation
+                and not self._manual_blocks_action("ventilation")
+            ):
                 self._remember_pre_ventilation_position()
                 await self._set_position(
                     self._position_value(
@@ -1649,41 +1742,69 @@ class CoverController:
                     ),
                     "ventilation_full",
                 )
+            else:
+                self._reason = "ventilation_full"
+                self._set_ventilation_status(False, True)
+                self.persist_status()
+                self._publish_state()
             return
 
         current_position = self._current_position()
 
         if auto_ventilate and tilt_contact_active and ventilation_condition and not resident_blocks_ventilation:
             if not self._manual_blocks_action("ventilation"):
-                self._remember_pre_ventilation_position()
-                target = self._position_value(
-                    CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION
-                )
-                allow_higher = bool(
-                    self.config.get(CONF_VENTILATION_ALLOW_HIGHER_POSITION, False)
-                )
-                close_position = self._position_value(
-                    CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION
-                )
-                ready = (
-                    allow_higher
-                    or current_position is None
-                    or self._position_is_below(current_position, target)
-                    or self._position_matches(target, current_position)
-                    or self._position_matches(close_position, current_position)
-                )
-                if ready:
-                    if (
-                        current_position is None
-                        or not self._position_matches(target, current_position)
-                    ):
-                        await self._set_position(target, "ventilation")
-                    else:
-                        self._reason = "ventilation"
-                        self._set_ventilation_status(True, False)
-                        self.persist_status()
-                        self._publish_state()
+                keep_open = bool(
+                    self.config.get(CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT, False)
+                ) and self._reason in {"ventilation_full"}
+                if keep_open:
+                    self._reason = "ventilation_full"
+                    self._set_ventilation_status(False, True)
+                    self.persist_status()
+                    self._publish_state()
+                else:
+                    self._remember_pre_ventilation_position()
+                    target = self._position_value(
+                        CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION
+                    )
+                    allow_higher = bool(
+                        self.config.get(CONF_VENTILATION_ALLOW_HIGHER_POSITION, False)
+                    )
+                    close_position = self._position_value(
+                        CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION
+                    )
+                    ready = (
+                        allow_higher
+                        or current_position is None
+                        or self._position_is_below(current_position, target)
+                        or self._position_matches(target, current_position)
+                        or self._position_matches(close_position, current_position)
+                    )
+                    if ready:
+                        if (
+                            current_position is None
+                            or not self._position_matches(target, current_position)
+                        ):
+                            await self._set_position(target, "ventilation")
+                        else:
+                            self._reason = "ventilation"
+                            self._set_ventilation_status(True, False)
+                            self.persist_status()
+                            self._publish_state()
             return
+
+        if resident_sleeping and resident_close_enabled:
+            if self._manual_blocks_action("close") or tilt_lock_close:
+                self._refresh_next_events(now)
+                self._publish_state()
+                return
+            close_target = self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION)
+            if not self._position_matches(close_target, current_position):
+                await self._set_position(close_target, "resident_asleep")
+                return
+            if not (resident_allow_open or resident_allow_shading or resident_allow_ventilation):
+                self._refresh_next_events(now)
+                self._publish_state()
+                return
 
 
         post_ventilation = (
@@ -1700,6 +1821,14 @@ class CoverController:
             self._publish_state()
             return
 
+        shading_holds_cover = (
+            self._auto_enabled(CONF_AUTO_SHADING)
+            and (
+                self._status_active("shading")
+                or self._reason in {"shading", "manual_shading"}
+            )
+        )
+
         if (
             self._auto_enabled(CONF_AUTO_SHADING)
             and not self._manual_blocks_action("shading")
@@ -1709,11 +1838,17 @@ class CoverController:
                 "shading",
                 "manual_shading",
             }
-            shading_allowed = self._shading_conditions(
+            await self._async_update_shading_forecast()
+            shading_conditions_met, shading_temp_independent = self._shading_start_conditions(
+                sun_azimuth, sun_elevation, brightness
+            )
+            shading_end_conditions_met = self._shading_end_conditions(
                 sun_azimuth, sun_elevation, brightness
             )
             shading_allowed = (
-                shading_allowed and shading_condition and is_shading_allowed_window
+                (shading_conditions_met or shading_temp_independent)
+                and shading_condition
+                and is_shading_allowed_window
             )
             if tilt_contact_active:
                 shading_allowed = shading_allowed and shading_tilt_condition
@@ -1740,7 +1875,21 @@ class CoverController:
                     started_ts = max(0, pending_ts - waiting)
                     if started_ts and now.timestamp() - started_ts > max_duration:
                         self._clear_shading_pending("start")
-            if shading_active and not shading_allowed:
+            if shading_active and shading_allowed:
+                shading_target = self._position_value(
+                    CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION
+                )
+                if not self._position_matches(shading_target, current_position):
+                    await self._set_position(shading_target, "shading")
+                    return
+                shading_end_conditions_met = False
+            if (
+                shading_active
+                and not shading_end_conditions_met
+                and self._shading_pending_active("end")
+            ):
+                self._clear_shading_pending("end")
+            if shading_active and shading_end_conditions_met:
                 if not shading_end_condition:
                     self._publish_state()
                     return
@@ -1796,9 +1945,32 @@ class CoverController:
                     return
                 if self._shading_pending_active("end"):
                     self._clear_shading_pending("end")
+                ventilate_position = self._position_value(
+                    CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION
+                )
+                current_below_ventilate = self._position_is_below(
+                    current_position, ventilate_position
+                )
+                if (
+                    auto_ventilate
+                    and current_below_ventilate
+                    and (
+                        full_contact_active
+                        or (tilt_contact_active and tilt_lock_shading_end)
+                    )
+                ):
+                    if self._reason in {"shading", "manual_shading"}:
+                        self._reason = None
+                    self._set_status_bucket("shading", False)
+                    self._clear_shading_pending(persist=False)
+                    self.persist_status()
+                    self._publish_state()
+                    return
                 if (
                     auto_ventilate
                     and ventilation_condition
+                    and tilt_contact_active
+                    and not full_contact_active
                     and (
                         tilt_lock_shading_end
                         or self.config.get(CONF_VENTILATION_USE_AFTER_SHADING)
@@ -1875,10 +2047,20 @@ class CoverController:
                     return
                 if self._shading_pending_active("start"):
                     self._clear_shading_pending("start")
-                await self._set_position(
-                    self._position_value(CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION),
-                    "shading",
+                shading_target = self._position_value(
+                    CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION
                 )
+                if (
+                    current_position is None
+                    or self._position_is_above(current_position, shading_target)
+                    or self._position_matches(shading_target, current_position)
+                ):
+                    await self._set_position(shading_target, "shading")
+                else:
+                    self._reason = "shading"
+                    self._set_status_bucket("shading", True)
+                    self.persist_status()
+                    self._publish_state()
                 return
 
         close_events: list[tuple[datetime, str, float | None]] = []
@@ -1985,6 +2167,7 @@ class CoverController:
             open_condition
             and not resident_blocks_open
             and not self._manual_blocks_action("open")
+            and not shading_holds_cover
             and not open_status_satisfied
             and not self._action_already_done_today(
                 "open", CONF_PREVENT_OPENING_MULTIPLE_TIMES
@@ -2082,8 +2265,6 @@ class CoverController:
             self.config.get(CONF_SUN_ELEVATION_MODE, DEFAULT_SUN_ELEVATION_MODE)
             or DEFAULT_SUN_ELEVATION_MODE
         ).lower()
-        if mode == "hybid":
-            mode = "hybrid"
 
         if kind == "open":
             fixed_key = CONF_SUN_ELEVATION_OPEN
@@ -2182,23 +2363,40 @@ class CoverController:
             ),
         )
 
+    def _brightness_sun_operator_is_and(self) -> bool:
+        return (
+            str(
+                self.config.get(CONF_BRIGHTNESS_SUN_OPERATOR, DEFAULT_BRIGHTNESS_SUN_OPERATOR)
+                or DEFAULT_BRIGHTNESS_SUN_OPERATOR
+            ).lower()
+            == BRIGHTNESS_SUN_OPERATOR_AND
+        )
+
     def _environment_allows_opening(
         self, sun_elevation: float | None, brightness: float | None
     ) -> bool:
-        return self._brightness_allows_open(brightness) and self._sun_allows_open(
-            sun_elevation
-        )
+        use_brightness = self._auto_enabled(CONF_AUTO_BRIGHTNESS)
+        use_sun = self._auto_enabled(CONF_AUTO_SUN)
+        if not use_brightness and not use_sun:
+            return True
+        brightness_ok = not use_brightness or self._brightness_allows_open(brightness)
+        sun_ok = not use_sun or self._sun_allows_open(sun_elevation)
+        if use_brightness and use_sun and self._brightness_sun_operator_is_and():
+            return brightness_ok and sun_ok
+        return brightness_ok or sun_ok
 
     def _environment_allows_closing(
         self, sun_elevation: float | None, brightness: float | None
     ) -> bool:
-        return (
-            self._auto_enabled(CONF_AUTO_BRIGHTNESS)
-            and self._brightness_allows_close(brightness)
-        ) or (
-            self._auto_enabled(CONF_AUTO_SUN)
-            and self._sun_allows_close(sun_elevation)
-        )
+        use_brightness = self._auto_enabled(CONF_AUTO_BRIGHTNESS)
+        use_sun = self._auto_enabled(CONF_AUTO_SUN)
+        if not use_brightness and not use_sun:
+            return False
+        brightness_ok = use_brightness and self._brightness_allows_close(brightness)
+        sun_ok = use_sun and self._sun_allows_close(sun_elevation)
+        if use_brightness and use_sun and self._brightness_sun_operator_is_and():
+            return brightness_ok and sun_ok
+        return brightness_ok or sun_ok
 
     def _number_value(self, key: str, default: float) -> float:
         value = _coerce_float(self.config.get(key, default))
@@ -2274,114 +2472,341 @@ class CoverController:
         last_date = self._last_action_dates.get(action)
         return last_date == dt_util.as_local(dt_util.utcnow()).date()
 
-    def _shading_conditions(
-        self, sun_azimuth: float | None, sun_elevation: float | None, brightness: float | None
-    ) -> bool:
-        if sun_azimuth is None or sun_elevation is None:
-            return False
-        if brightness is None:
-            return False
-        if not self._weather_allows_shading():
-            return False
-        az_start = self._number_value(CONF_SUN_AZIMUTH_START, 90)
-        az_end = self._number_value(CONF_SUN_AZIMUTH_END, 270)
-        el_min = self._number_value(CONF_SUN_ELEVATION_MIN, 10)
-        el_max = self._number_value(CONF_SUN_ELEVATION_MAX, 70)
+    def _shading_config_list(self, key: str, default: list[str]) -> list[str]:
+        value = self.config.get(key, default)
+        if isinstance(value, str):
+            return [value]
+        if isinstance(value, list | tuple | set):
+            return [str(item) for item in value if item]
+        return list(default)
+
+    def _shading_brightness_value(self, fallback: float | None) -> float | None:
+        sensor = self.config.get(CONF_SHADING_BRIGHTNESS_SENSOR) or self.config.get(
+            CONF_BRIGHTNESS_SENSOR
+        )
+        if not sensor:
+            return fallback
+        return _float_state(self.hass, sensor)
+
+    async def _async_update_shading_forecast(self) -> None:
+        forecast_entity = self.config.get(CONF_SHADING_FORECAST_SENSOR)
+        forecast_type = self.config.get(
+            CONF_SHADING_FORECAST_TYPE, DEFAULT_SHADING_FORECAST_TYPE
+        )
+        self._shading_forecast_cache = None
+        if not forecast_entity or forecast_type in (None, "weather_attributes"):
+            return
+
+        state = self.hass.states.get(forecast_entity)
+        if state is None or not state.entity_id.startswith("weather."):
+            return
+
+        try:
+            response = await self.hass.services.async_call(
+                "weather",
+                "get_forecasts",
+                {"entity_id": forecast_entity, "type": forecast_type},
+                blocking=True,
+                return_response=True,
+            )
+        except Exception as err:  # noqa: BLE001 - HA service availability varies by version.
+            _LOGGER.debug(
+                "Cover Control could not fetch %s forecast for %s: %s",
+                forecast_type,
+                forecast_entity,
+                err,
+            )
+            return
+
+        payload = response.get(forecast_entity) if isinstance(response, dict) else None
+        forecast = payload.get("forecast") if isinstance(payload, dict) else None
+        if isinstance(forecast, list):
+            self._shading_forecast_cache = {
+                "entity_id": forecast_entity,
+                "forecast": forecast,
+            }
+
+    def _cached_shading_forecast(self, forecast_entity: str) -> list | None:
+        cache = self._shading_forecast_cache
+        if not isinstance(cache, dict) or cache.get("entity_id") != forecast_entity:
+            return None
+        forecast = cache.get("forecast")
+        return forecast if isinstance(forecast, list) else None
+
+    def _shading_forecast_temperature(self) -> float | None:
+        temp_sensor = self.config.get(CONF_SHADING_FORECAST_TEMP_SENSOR)
+        if temp_sensor:
+            value = _float_state(self.hass, temp_sensor)
+            if value is not None:
+                return value
+
+        forecast_entity = self.config.get(CONF_SHADING_FORECAST_SENSOR)
+        if not forecast_entity:
+            return None
+        state = self.hass.states.get(forecast_entity)
+        if state is None:
+            return None
+
+        if state.entity_id.startswith("sensor."):
+            return _coerce_float(state.state)
+
+        if not state.entity_id.startswith("weather."):
+            return None
+
+        forecast_type = self.config.get(
+            CONF_SHADING_FORECAST_TYPE, DEFAULT_SHADING_FORECAST_TYPE
+        )
+        if forecast_type in (None, "weather_attributes"):
+            for key in ("temperature", "templow"):
+                value = _coerce_float(state.attributes.get(key))
+                if value is not None:
+                    return value
+
+        forecast = self._cached_shading_forecast(forecast_entity)
+        if forecast is None:
+            forecast = state.attributes.get("forecast")
+        if not isinstance(forecast, list) or not forecast:
+            return None
+        first = forecast[0] or {}
+        for key in ("temperature", "templow"):
+            value = _coerce_float(first.get(key))
+            if value is not None:
+                return value
+        return None
+
+    def _shading_forecast_weather_condition(self) -> str | None:
+        forecast_entity = self.config.get(CONF_SHADING_FORECAST_SENSOR)
+        if not forecast_entity:
+            return None
+        state = self.hass.states.get(forecast_entity)
+        if state is None or not state.entity_id.startswith("weather."):
+            return None
+
+        forecast_type = self.config.get(
+            CONF_SHADING_FORECAST_TYPE, DEFAULT_SHADING_FORECAST_TYPE
+        )
+        if forecast_type in (None, "weather_attributes"):
+            return state.state if state.state not in (STATE_UNKNOWN, STATE_UNAVAILABLE) else None
+
+        forecast = self._cached_shading_forecast(forecast_entity)
+        if forecast is None:
+            forecast = state.attributes.get("forecast")
+        if isinstance(forecast, list) and forecast:
+            value = (forecast[0] or {}).get("condition")
+            if isinstance(value, str) and value:
+                return value
+        return None
+
+    def _shading_condition_state(
+        self,
+        sun_azimuth: float | None,
+        sun_elevation: float | None,
+        brightness: float | None,
+    ) -> dict[str, dict[str, bool] | bool]:
+        az_start = self._number_value(CONF_SUN_AZIMUTH_START, 95)
+        az_end = self._number_value(CONF_SUN_AZIMUTH_END, 265)
+        el_min = self._number_value(CONF_SUN_ELEVATION_MIN, 25)
+        el_max = self._number_value(CONF_SUN_ELEVATION_MAX, 90)
+        shading_brightness = self._shading_brightness_value(brightness)
+        brightness_sensor = self.config.get(CONF_SHADING_BRIGHTNESS_SENSOR) or self.config.get(
+            CONF_BRIGHTNESS_SENSOR
+        )
         bright_start = self._number_value(
             CONF_SHADING_BRIGHTNESS_START, DEFAULT_SHADING_BRIGHTNESS_START
         )
         bright_end = self._number_value(
             CONF_SHADING_BRIGHTNESS_END, DEFAULT_SHADING_BRIGHTNESS_END
         )
-        if not (az_start <= sun_azimuth <= az_end and el_min <= sun_elevation <= el_max):
-            return False
-        shading_active = self._status_active("shading") or self._reason in {
-            "shading",
-            "manual_shading",
-        }
-        brightness_limit = bright_end if shading_active else bright_start
-        if brightness < brightness_limit:
-            return False
-        temp_ok = self._temperature_allows_shading()
-        return temp_ok or (shading_active and brightness >= bright_end) or brightness >= bright_start
-
-    def _temperature_allows_shading(self) -> bool:
-        indoor = _float_state(self.hass, self.config.get(CONF_TEMPERATURE_SENSOR_INDOOR))
-        outdoor = _float_state(self.hass, self.config.get(CONF_TEMPERATURE_SENSOR_OUTDOOR))
-        threshold = float(self.config.get(CONF_TEMPERATURE_THRESHOLD))
-        forecast_threshold = self.config.get(CONF_TEMPERATURE_FORECAST_THRESHOLD)
-        forecast_hot = False
-        try:
-            forecast_limit = float(forecast_threshold)
-        except (TypeError, ValueError):
-            forecast_limit = None
-
-        forecast_sensor = self.config.get(CONF_SHADING_FORECAST_SENSOR)
-        forecast_temp: float | None = None
-        if forecast_sensor:
-            state = self.hass.states.get(forecast_sensor)
-            if state is not None:
-                # Sensor case: state value contains temperature
-                if state.entity_id.startswith("sensor."):
-                    try:
-                        forecast_temp = float(state.state)
-                    except (TypeError, ValueError):
-                        forecast_temp = None
-                # Weather case: use first forecast item temperature/templow
-                if state.entity_id.startswith("weather."):
-                    forecast = state.attributes.get("forecast")
-                    if isinstance(forecast, list) and forecast:
-                        first = forecast[0] or {}
-                        for key in ("temperature", "templow"):
-                            value = first.get(key)
-                            if value is None:
-                                continue
-                            try:
-                                forecast_temp = float(value)
-                            except (TypeError, ValueError):
-                                forecast_temp = None
-                            else:
-                                break
-
-        if forecast_limit is not None and forecast_temp is not None:
-            forecast_hot = forecast_temp >= forecast_limit
-        elif forecast_limit is not None:
-            forecast_hot = forecast_limit > 0
-        if indoor is not None and indoor >= threshold:
-            return True
-        if outdoor is not None and outdoor >= threshold:
-            return True
-        return forecast_hot
-
-    def _weather_allows_shading(self) -> bool:
-        weather_entity = self.config.get(CONF_SHADING_FORECAST_SENSOR)
-        conditions: list[str] = self.config.get(CONF_SHADING_WEATHER_CONDITIONS) or []
-        if not weather_entity or not conditions:
-            return True
-
-        state = self.hass.states.get(weather_entity)
-        if state is None:
-            return False
-
-        if state.entity_id.split(".")[0] != "weather":
-            return False
-
-        forecast_type = self.config.get(
-            CONF_SHADING_FORECAST_TYPE, DEFAULT_SHADING_FORECAST_TYPE
+        bright_hysteresis = self._number_value(
+            CONF_SHADING_BRIGHTNESS_HYSTERESIS, DEFAULT_SHADING_BRIGHTNESS_HYSTERESIS
         )
-        condition_value: str | None = None
 
-        if forecast_type == "weather_attributes" or forecast_type is None:
-            condition_value = state.state
-        else:
-            forecast = state.attributes.get("forecast")
-            if isinstance(forecast, list) and forecast:
-                entry = forecast[0] or {}
-                value = entry.get("condition")
-                if isinstance(value, str):
-                    condition_value = value
+        temp1_sensor = self.config.get(CONF_SHADING_TEMPERATURE_SENSOR_1) or self.config.get(
+            CONF_TEMPERATURE_SENSOR_INDOOR
+        )
+        temp2_sensor = self.config.get(CONF_SHADING_TEMPERATURE_SENSOR_2) or self.config.get(
+            CONF_TEMPERATURE_SENSOR_OUTDOOR
+        )
+        temp1 = _float_state(self.hass, temp1_sensor)
+        temp2 = _float_state(self.hass, temp2_sensor)
+        temp1_min = _coerce_float(
+            self.config.get(
+                CONF_SHADING_MIN_TEMPERATURE_1,
+                self.config.get(CONF_TEMPERATURE_THRESHOLD, DEFAULT_SHADING_MIN_TEMPERATURE_1),
+            )
+        )
+        temp2_min = _coerce_float(
+            self.config.get(
+                CONF_SHADING_MIN_TEMPERATURE_2,
+                self.config.get(CONF_TEMPERATURE_THRESHOLD, DEFAULT_SHADING_MIN_TEMPERATURE_2),
+            )
+        )
+        if temp1_min is None:
+            temp1_min = DEFAULT_SHADING_MIN_TEMPERATURE_1
+        if temp2_min is None:
+            temp2_min = DEFAULT_SHADING_MIN_TEMPERATURE_2
+        temp1_hysteresis = self._number_value(
+            CONF_SHADING_TEMPERATURE_HYSTERESIS_1,
+            DEFAULT_SHADING_TEMPERATURE_HYSTERESIS_1,
+        )
+        temp2_hysteresis = self._number_value(
+            CONF_SHADING_TEMPERATURE_HYSTERESIS_2,
+            DEFAULT_SHADING_TEMPERATURE_HYSTERESIS_2,
+        )
 
-        return condition_value in conditions
+        forecast_temp_limit = _coerce_float(
+            self.config.get(
+                CONF_SHADING_FORECAST_TEMP,
+                self.config.get(CONF_TEMPERATURE_FORECAST_THRESHOLD),
+            )
+        )
+        forecast_temp_hysteresis = self._number_value(
+            CONF_SHADING_FORECAST_TEMP_HYSTERESIS,
+            DEFAULT_SHADING_FORECAST_TEMP_HYSTERESIS,
+        )
+        forecast_temp = self._shading_forecast_temperature()
+        config_flags = self._shading_config_list(CONF_SHADING_CONFIG, [])
+        compare_forecast_with_sensor2 = (
+            SHADING_CONFIG_COMPARE_FORECAST_SENSOR2 in config_flags
+        )
+        forecast_compare_value = temp2 if compare_forecast_with_sensor2 else forecast_temp
+
+        weather_conditions = self._shading_config_list(
+            CONF_SHADING_WEATHER_CONDITIONS, []
+        )
+        direct_forecast_temp_sensor = bool(self.config.get(CONF_SHADING_FORECAST_TEMP_SENSOR))
+        forecast_weather = self._shading_forecast_weather_condition()
+
+        configured = {
+            SHADING_CONDITION_AZIMUTH: sun_azimuth is not None,
+            SHADING_CONDITION_ELEVATION: sun_elevation is not None,
+            SHADING_CONDITION_BRIGHTNESS: bool(brightness_sensor),
+            SHADING_CONDITION_TEMP_1: bool(temp1_sensor),
+            SHADING_CONDITION_TEMP_2: bool(temp2_sensor),
+            SHADING_CONDITION_FORECAST_TEMP: forecast_temp_limit is not None,
+            SHADING_CONDITION_FORECAST_WEATHER: bool(weather_conditions),
+        }
+        start_valid = {
+            SHADING_CONDITION_AZIMUTH: (
+                sun_azimuth is not None and az_start < sun_azimuth < az_end
+            ),
+            SHADING_CONDITION_ELEVATION: (
+                sun_elevation is not None and el_min < sun_elevation < el_max
+            ),
+            SHADING_CONDITION_BRIGHTNESS: (
+                shading_brightness is not None
+                and shading_brightness > bright_start + bright_hysteresis
+            ),
+            SHADING_CONDITION_TEMP_1: (
+                temp1 is not None and temp1 > temp1_min + temp1_hysteresis
+            ),
+            SHADING_CONDITION_TEMP_2: (
+                temp2 is not None and temp2 > temp2_min + temp2_hysteresis
+            ),
+            SHADING_CONDITION_FORECAST_TEMP: (
+                forecast_temp_limit is not None
+                and forecast_compare_value is not None
+                and forecast_compare_value > forecast_temp_limit + forecast_temp_hysteresis
+            ),
+            SHADING_CONDITION_FORECAST_WEATHER: (
+                direct_forecast_temp_sensor
+                or not weather_conditions
+                or forecast_weather in weather_conditions
+            ),
+        }
+        end_invalid = {
+            SHADING_CONDITION_AZIMUTH: (
+                sun_azimuth is not None and (sun_azimuth <= az_start or sun_azimuth >= az_end)
+            ),
+            SHADING_CONDITION_ELEVATION: (
+                sun_elevation is not None and (sun_elevation <= el_min or sun_elevation >= el_max)
+            ),
+            SHADING_CONDITION_BRIGHTNESS: (
+                shading_brightness is not None
+                and shading_brightness < bright_end - bright_hysteresis
+            ),
+            SHADING_CONDITION_TEMP_1: (
+                temp1 is not None and temp1 < temp1_min - temp1_hysteresis
+            ),
+            SHADING_CONDITION_TEMP_2: (
+                temp2 is not None and temp2 < temp2_min - temp2_hysteresis
+            ),
+            SHADING_CONDITION_FORECAST_TEMP: (
+                forecast_temp_limit is not None
+                and forecast_compare_value is not None
+                and forecast_compare_value < forecast_temp_limit - forecast_temp_hysteresis
+            ),
+            SHADING_CONDITION_FORECAST_WEATHER: (
+                bool(weather_conditions)
+                and not direct_forecast_temp_sensor
+                and forecast_weather not in weather_conditions
+            ),
+        }
+        return {
+            "configured": configured,
+            "start_valid": start_valid,
+            "end_invalid": end_invalid,
+            "forecast_temp_valid": start_valid[SHADING_CONDITION_FORECAST_TEMP],
+        }
+
+    def _shading_start_conditions(
+        self, sun_azimuth: float | None, sun_elevation: float | None, brightness: float | None
+    ) -> tuple[bool, bool]:
+        state = self._shading_condition_state(sun_azimuth, sun_elevation, brightness)
+        configured = state["configured"]
+        start_valid = state["start_valid"]
+        assert isinstance(configured, dict)
+        assert isinstance(start_valid, dict)
+
+        start_and = self._shading_config_list(
+            CONF_SHADING_CONDITIONS_START_AND, DEFAULT_SHADING_CONDITIONS_START_AND
+        )
+        start_or = self._shading_config_list(
+            CONF_SHADING_CONDITIONS_START_OR, DEFAULT_SHADING_CONDITIONS_START_OR
+        )
+        and_result = all(
+            start_valid.get(condition, False)
+            for condition in start_and
+            if configured.get(condition, False)
+        )
+        or_result = not start_or or any(
+            configured.get(condition, False) and start_valid.get(condition, False)
+            for condition in start_or
+        )
+        forecast_temp_valid = bool(state["forecast_temp_valid"])
+        temp_independent = (
+            SHADING_CONFIG_TEMP_INDEPENDENT
+            in self._shading_config_list(CONF_SHADING_CONFIG, [])
+            and forecast_temp_valid
+        )
+        return and_result and or_result, temp_independent
+
+    def _shading_end_conditions(
+        self, sun_azimuth: float | None, sun_elevation: float | None, brightness: float | None
+    ) -> bool:
+        state = self._shading_condition_state(sun_azimuth, sun_elevation, brightness)
+        configured = state["configured"]
+        end_invalid = state["end_invalid"]
+        assert isinstance(configured, dict)
+        assert isinstance(end_invalid, dict)
+
+        end_and = self._shading_config_list(
+            CONF_SHADING_CONDITIONS_END_AND, DEFAULT_SHADING_CONDITIONS_END_AND
+        )
+        end_or = self._shading_config_list(
+            CONF_SHADING_CONDITIONS_END_OR, DEFAULT_SHADING_CONDITIONS_END_OR
+        )
+        configured_end_and = [
+            condition for condition in end_and if configured.get(condition, False)
+        ]
+        and_result = bool(configured_end_and) and all(
+            end_invalid.get(condition, False) for condition in configured_end_and
+        )
+        or_result = any(
+            configured.get(condition, False) and end_invalid.get(condition, False)
+            for condition in end_or
+        )
+        return and_result or or_result
 
     def _is_workday(self) -> bool:
         workday_entity = self.config.get(CONF_WORKDAY_SENSOR)
@@ -2406,12 +2831,22 @@ class CoverController:
         else:
             last_changed = now
 
-        trigger_delay = max(0, int(self.config.get(CONF_CONTACT_TRIGGER_DELAY, 0) or 0))
-        status_delay = max(0, int(self.config.get(CONF_CONTACT_STATUS_DELAY, 0) or 0))
-        required_seconds = max(trigger_delay, status_delay)
+        required_seconds = self._contact_trigger_delay()
         if required_seconds and (now - last_changed) < timedelta(seconds=required_seconds):
             return False
         return True
+
+    def _contact_trigger_delay(self) -> int:
+        return self._duration_value(
+            CONF_CONTACT_TRIGGER_DELAY,
+            int(DEFAULT_CONTACT_SETTINGS[CONF_CONTACT_TRIGGER_DELAY]),
+        )
+
+    def _contact_status_delay(self) -> int:
+        return self._duration_value(
+            CONF_CONTACT_STATUS_DELAY,
+            int(DEFAULT_CONTACT_SETTINGS[CONF_CONTACT_STATUS_DELAY]),
+        )
 
     def _contacts_active(self, entity_ids: list[str], now: datetime) -> bool:
         return any(self._single_contact_active(entity_id, now) for entity_id in entity_ids)
@@ -2893,7 +3328,7 @@ class CoverController:
             return
         await self._command_position(float(position), reason=reason)
         if tilt_position is not None:
-            await self._command_tilt_position(float(tilt_position), reason=reason)
+            await self._send_tilt_after_position(float(tilt_position), reason=reason)
         self._target = float(position)
         self._reason = reason
         self._record_action_status(reason, float(position))
@@ -2937,6 +3372,25 @@ class CoverController:
         except (TypeError, ValueError):
             return None
 
+    async def _send_tilt_after_position(
+        self, tilt_position: float, *, reason: str | None = None
+    ) -> None:
+        wait_mode = str(
+            self.config.get(CONF_COVER_TILT_WAIT_MODE, DEFAULT_COVER_TILT_WAIT_MODE)
+            or DEFAULT_COVER_TILT_WAIT_MODE
+        ).lower()
+        if wait_mode == COVER_TILT_WAIT_IDLE:
+            timeout = self._duration_value(
+                CONF_COVER_TILT_WAIT_TIMEOUT, DEFAULT_COVER_TILT_WAIT_TIMEOUT
+            )
+            end = dt_util.utcnow() + timedelta(seconds=timeout)
+            while dt_util.utcnow() < end:
+                state = self.hass.states.get(self.cover)
+                if state is not None and state.state in ("open", "closed"):
+                    break
+                await asyncio.sleep(0.5)
+        await self._command_tilt_position(tilt_position, reason=reason)
+
     def _tilt_position_value(self, reason: str | None) -> float | None:
         if not reason:
             return None
@@ -2962,10 +3416,28 @@ class CoverController:
             and "end_open" not in reason
             and "end_close" not in reason
         ):
-            return self._position_value(
-                CONF_SHADING_TILT_POSITION, DEFAULT_SHADING_TILT_POSITION
-            )
+            return self._shading_tilt_for_elevation()
         return None
+
+    def _shading_tilt_for_elevation(self) -> float | None:
+        sun_state = self.hass.states.get("sun.sun")
+        elevation = _coerce_float(sun_state and sun_state.attributes.get("elevation"))
+        el1 = self._number_value(CONF_SHADING_TILT_ELEVATION_1, DEFAULT_SHADING_TILT_ELEVATION_1)
+        el2 = self._number_value(CONF_SHADING_TILT_ELEVATION_2, DEFAULT_SHADING_TILT_ELEVATION_2)
+        el3 = self._number_value(CONF_SHADING_TILT_ELEVATION_3, DEFAULT_SHADING_TILT_ELEVATION_3)
+        pos0 = self._number_value(CONF_SHADING_TILT_POSITION_0, DEFAULT_SHADING_TILT_POSITION_0)
+        pos1 = self._number_value(CONF_SHADING_TILT_POSITION_1, DEFAULT_SHADING_TILT_POSITION_1)
+        pos2 = self._number_value(CONF_SHADING_TILT_POSITION_2, DEFAULT_SHADING_TILT_POSITION_2)
+        pos3 = self._number_value(CONF_SHADING_TILT_POSITION_3, DEFAULT_SHADING_TILT_POSITION_3)
+        if elevation is None:
+            return pos0
+        if elevation >= el3:
+            return pos3
+        if elevation >= el2:
+            return pos2
+        if elevation >= el1:
+            return pos1
+        return pos0
 
     def _full_open_sensors(self) -> list[str]:
         mapping = self.config.get(CONF_WINDOW_SENSOR_FULL) or {}
@@ -3013,8 +3485,6 @@ class CoverController:
             self.config.get(CONF_SUN_ELEVATION_MODE, DEFAULT_SUN_ELEVATION_MODE)
             or DEFAULT_SUN_ELEVATION_MODE
         ).lower()
-        if mode == "hybid":
-            mode = "hybrid"
 
         sun_open_target = (
             self._next_sun_time_for_elevation(
@@ -3287,6 +3757,9 @@ class CoverController:
             return
         self._last_command_context_id = ctx.id
         self._last_command_at = dt_util.utcnow()
+        self._ignore_service_call_until = self._last_command_at + timedelta(
+            seconds=self._duration_value(CONF_DRIVE_TIME, DEFAULT_DRIVE_TIME)
+        )
         _LOGGER.info(
             "Cover Control issuing open command for %s (reason=%s)",
             self.cover,
@@ -3327,6 +3800,9 @@ class CoverController:
         ctx = Context()
         self._last_command_context_id = ctx.id
         self._last_command_at = dt_util.utcnow()
+        self._ignore_service_call_until = self._last_command_at + timedelta(
+            seconds=self._duration_value(CONF_DRIVE_TIME, DEFAULT_DRIVE_TIME)
+        )
         message_reason = reason or self._reason
         service: str = "set_cover_position"
         service_data = {"entity_id": self.cover, "position": self._target}
@@ -3357,9 +3833,10 @@ class CoverController:
                 "target_position": self._target,
             },
         )
-        await self.hass.services.async_call(
-            "cover", service, service_data, blocking=True, context=ctx
-        )
+        if not self._config_bool(CONF_PREVENT_DEFAULT_COVER_ACTIONS):
+            await self.hass.services.async_call(
+                "cover", service, service_data, blocking=True, context=ctx
+            )
 
     async def _command_tilt_position(
         self, tilt_position: float, *, reason: str | None = None
@@ -3378,6 +3855,9 @@ class CoverController:
         ctx = Context()
         self._last_command_context_id = ctx.id
         self._last_command_at = dt_util.utcnow()
+        self._ignore_service_call_until = self._last_command_at + timedelta(
+            seconds=self._duration_value(CONF_DRIVE_TIME, DEFAULT_DRIVE_TIME)
+        )
         self._fire_event(
             "command",
             {
@@ -3386,13 +3866,14 @@ class CoverController:
                 "target_tilt_position": float(tilt_position),
             },
         )
-        await self.hass.services.async_call(
-            "cover",
-            "set_cover_tilt_position",
-            {"entity_id": self.cover, "tilt_position": float(tilt_position)},
-            blocking=True,
-            context=ctx,
-        )
+        if not self._config_bool(CONF_PREVENT_DEFAULT_COVER_ACTIONS):
+            await self.hass.services.async_call(
+                "cover",
+                "set_cover_tilt_position",
+                {"entity_id": self.cover, "tilt_position": float(tilt_position)},
+                blocking=True,
+                context=ctx,
+            )
 
     async def _wait_for_position(
         self, target: float, tolerance: float, timeout: int = 30
