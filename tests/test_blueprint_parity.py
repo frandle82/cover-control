@@ -3,19 +3,24 @@
 from __future__ import annotations
 
 from types import SimpleNamespace
-from unittest.mock import AsyncMock
+from unittest.mock import AsyncMock, Mock
 
 import pytest
 import voluptuous as vol
 
+from homeassistant.util import dt as dt_util
+
 from custom_components.cover_control.config_flow import _normalize_position_value
 from custom_components.cover_control.const import (
+    CONF_AUTO_VENTILATE,
+    CONF_DRIVE_TIME,
     CONF_LOCKOUT_POSITION,
     CONF_OPEN_POSITION,
     CONF_POSITION_TOLERANCE,
     CONF_SHADING_POSITION,
     CONF_SHADING_POSITION_ALT,
     CONF_SHADING_POSITION_ALT_ENTITY,
+    CONF_WINDOW_SENSOR_TILT,
 )
 from custom_components.cover_control.controller import CoverController
 
@@ -31,7 +36,9 @@ class _States:
 def _controller(config: dict, states: dict[str, SimpleNamespace]) -> CoverController:
     controller = object.__new__(CoverController)
     controller.config = config
-    controller.hass = SimpleNamespace(states=_States(states))
+    controller.hass = SimpleNamespace(states=_States(states), data={})
+    controller.entry = SimpleNamespace(entry_id="test-entry")
+    controller._auto_entity_map = {}
     return controller
 
 
@@ -97,3 +104,83 @@ async def test_tilt_before_position_aligns_with_travel(
     controller._command_tilt_position.assert_awaited_once_with(
         float(expected_tilt), reason="shading_tilt_alignment"
     )
+
+
+def test_startup_position_sync_preserves_persisted_target() -> None:
+    """Entity startup state must not overwrite the target loaded from storage."""
+
+    cover_state = SimpleNamespace(
+        state="open",
+        attributes={"current_position": 80},
+    )
+    controller = _controller({}, {"cover.test": cover_state})
+    controller.cover = "cover.test"
+    controller._target = 25
+    controller._last_position = None
+    controller._status = {"target": 25}
+
+    controller._sync_position_reference_from_entity()
+
+    assert controller._target == 25
+    assert controller._status["target"] == 25
+    assert controller._last_position == 80
+
+
+def test_unavailable_contact_blocks_decisions() -> None:
+    """Ventilation must not end while a configured contact is unavailable."""
+
+    window = SimpleNamespace(state="unavailable", attributes={})
+    controller = _controller(
+        {
+            CONF_AUTO_VENTILATE: True,
+            CONF_WINDOW_SENSOR_TILT: {
+                "cover.test": ["binary_sensor.window"],
+            },
+        },
+        {"binary_sensor.window": window},
+    )
+    controller.cover = "cover.test"
+
+    assert controller._unavailable_decision_entities() == {
+        "binary_sensor.window"
+    }
+
+    window.state = "off"
+    assert controller._unavailable_decision_entities() == set()
+
+
+def test_internal_position_feedback_is_not_manual_override() -> None:
+    """Noisy feedback during an integration drive remains an internal move."""
+
+    cover_state = SimpleNamespace(
+        state="closing",
+        attributes={"current_position": 40},
+    )
+    controller = _controller(
+        {
+            CONF_DRIVE_TIME: 90,
+            CONF_POSITION_TOLERANCE: 0,
+        },
+        {"cover.test": cover_state},
+    )
+    controller.cover = "cover.test"
+    controller._manual_until = None
+    controller._manual_active = False
+    controller._manual_expire_unsub = None
+    controller._last_position = 50
+    controller._target = 80
+    controller._last_command_at = dt_util.utcnow()
+    controller._activate_manual_override = Mock()
+    controller.async_request_evaluate = Mock()
+
+    event = SimpleNamespace(
+        data={
+            "entity_id": "cover.test",
+            "old_state": None,
+            "new_state": cover_state,
+        }
+    )
+    controller._handle_state_event(event)
+
+    controller._activate_manual_override.assert_not_called()
+    assert controller._last_position == 40
