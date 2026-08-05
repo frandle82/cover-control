@@ -763,6 +763,7 @@ class CoverController:
         self._condition_since: dict[str, datetime] = {}
         self._last_action_dates: dict[str, datetime.date] = {}
         self._cover_unavailable_logged = False
+        self._unavailable_dependencies: set[str] = set()
         self._hydrate_persistent_status()
         self._auto_entity_map = {
             CONF_AUTO_UP: CONF_AUTO_UP_ENTITY,
@@ -1019,12 +1020,15 @@ class CoverController:
         self._publish_state()
 
     def _sync_position_reference_from_entity(self) -> None:
+        """Seed missing runtime position data without replacing persisted intent."""
+
         current_position = self._current_position()
         if current_position is None:
             return
-        self._target = current_position
         self._last_position = current_position
-        self._status["target"] = current_position
+        if self._target is None:
+            self._target = current_position
+            self._status["target"] = current_position
 
     async def async_setup(self) -> None:
         registry = er.async_get(self.hass)
@@ -1040,31 +1044,8 @@ class CoverController:
             self._target = self._current_position()
         if self._last_position is None:
             self._last_position = self._current_position()
-        sensor_entities = {
-            self.config.get(CONF_BRIGHTNESS_SENSOR),
-            self.config.get(CONF_SHADING_BRIGHTNESS_SENSOR),
-            self.config.get(CONF_WORKDAY_SENSOR),
-            self.config.get(CONF_WORKDAY_TOMORROW_SENSOR),
-            self.config.get(CONF_TEMPERATURE_SENSOR_INDOOR),
-            self.config.get(CONF_TEMPERATURE_SENSOR_OUTDOOR),
-            self.config.get(CONF_SHADING_TEMPERATURE_SENSOR_1),
-            self.config.get(CONF_SHADING_TEMPERATURE_SENSOR_2),
-            self.config.get(CONF_RESIDENT_SENSOR),
-            self.config.get(CONF_SHADING_FORECAST_SENSOR),
-            self.config.get(CONF_SHADING_FORECAST_TEMP_SENSOR),
-            self.config.get(CONF_SHADING_POSITION_ALT_ENTITY),
-            self.config.get(CONF_CALENDAR_ENTITY),
-            self.config.get(CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR),
-            self.config.get(CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR),
-            self.config.get(CONF_CUSTOM_POSITION_SENSOR),
-            self.cover,
-        }
-        sensor_entities.update(self._contact_entities())
-        sensor_entities.update(
-            entity
-            for entity in (self.config.get(entity_key) for entity_key in self._auto_entity_map.values())
-            if entity
-        )
+        sensor_entities = self._decision_entities()
+        sensor_entities.add(self.cover)
         for entity_id in sensor_entities:
             if not entity_id:
                 continue
@@ -1144,7 +1125,6 @@ class CoverController:
                 return
             if self._target is None and current is not None:
                 self._target = current
-            moving_toward_target = False
             drive_window = timedelta(
                 seconds=(
                     self._duration_value(CONF_DRIVE_TIME, DEFAULT_DRIVE_TIME) + 60
@@ -1154,15 +1134,6 @@ class CoverController:
                 self._last_command_at is not None
                 and dt_util.utcnow() - self._last_command_at <= drive_window
             )
-            if (
-                command_still_active
-                and previous_position is not None
-                and current is not None
-                and self._target is not None
-            ):
-                prev_delta = abs(previous_position - self._target)
-                curr_delta = abs(current - self._target)
-                moving_toward_target = curr_delta <= prev_delta + tolerance
             if current is not None and self._manual_detection_enabled():
                 position_changed = (
                     previous_position is not None
@@ -1172,15 +1143,11 @@ class CoverController:
                     self._target is not None
                     and abs(current - self._target) <= tolerance
                 )
-                expected_command_move = (
-                    command_still_active
-                    and (moving_toward_target or target_reached)
-                )
+                expected_command_move = command_still_active
                 deviation_from_target = (
                     position_changed
                     and self._target is not None
                     and abs(current - self._target) > tolerance
-                    and not moving_toward_target
                 )
                 unexplained_move = (
                     self._target is None
@@ -1724,6 +1691,26 @@ class CoverController:
             self._refresh_next_events(now)
             self._publish_state()
             return
+
+        unavailable_dependencies = self._unavailable_decision_entities()
+        if unavailable_dependencies:
+            if unavailable_dependencies != self._unavailable_dependencies:
+                _LOGGER.info(
+                    "Cover Control waiting for dependencies before evaluating %s: %s",
+                    self.cover,
+                    ", ".join(sorted(unavailable_dependencies)),
+                )
+            self._unavailable_dependencies = unavailable_dependencies
+            self._refresh_next_events(now)
+            self._publish_state()
+            return
+        if self._unavailable_dependencies:
+            _LOGGER.info(
+                "Cover Control dependencies available again for %s: %s",
+                self.cover,
+                ", ".join(sorted(self._unavailable_dependencies)),
+            )
+            self._unavailable_dependencies = set()
 
         brightness = _float_state(self.hass, self.config.get(CONF_BRIGHTNESS_SENSOR))
         sun_state = self.hass.states.get("sun.sun")
@@ -3763,6 +3750,101 @@ class CoverController:
             if sensor not in sensors:
                 sensors.append(sensor)
         return sensors
+
+    def _decision_entities(self) -> set[str]:
+        """Return configured entities whose state can change a movement decision."""
+
+        entities: set[str] = set()
+        auto_time = self._auto_enabled(CONF_AUTO_TIME)
+        auto_brightness = self._auto_enabled(CONF_AUTO_BRIGHTNESS)
+        auto_sun = self._auto_enabled(CONF_AUTO_SUN)
+        auto_shading = self._auto_enabled(CONF_AUTO_SHADING)
+        auto_ventilate = self._auto_enabled(CONF_AUTO_VENTILATE)
+
+        keys: list[str] = []
+        if auto_time:
+            keys.extend(
+                [
+                    CONF_WORKDAY_SENSOR,
+                    CONF_WORKDAY_TOMORROW_SENSOR,
+                    CONF_CALENDAR_ENTITY,
+                ]
+            )
+        if auto_brightness:
+            keys.append(CONF_BRIGHTNESS_SENSOR)
+        if auto_sun:
+            keys.extend(
+                [
+                    CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
+                    CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+                ]
+            )
+        if auto_shading:
+            keys.extend(
+                [
+                    CONF_SHADING_BRIGHTNESS_SENSOR,
+                    CONF_SHADING_TEMPERATURE_SENSOR_1,
+                    CONF_SHADING_TEMPERATURE_SENSOR_2,
+                    CONF_SHADING_FORECAST_SENSOR,
+                    CONF_SHADING_FORECAST_TEMP_SENSOR,
+                    CONF_SHADING_POSITION_ALT_ENTITY,
+                ]
+            )
+        if self._auto_enabled(CONF_RESIDENT_STATUS):
+            keys.append(CONF_RESIDENT_SENSOR)
+        if (
+            self.config.get(CONF_POSITION_SOURCE)
+            == CONF_POSITION_SOURCE_CUSTOM_SENSOR
+        ):
+            keys.append(CONF_CUSTOM_POSITION_SENSOR)
+
+        for key in keys:
+            entity_id = self.config.get(key)
+            if isinstance(entity_id, str) and entity_id:
+                entities.add(entity_id)
+        if auto_sun or auto_shading:
+            entities.add("sun.sun")
+        if auto_ventilate:
+            entities.update(self._contact_entities())
+
+        entities.update(
+            entity_id
+            for entity_id in (
+                self.config.get(entity_key)
+                for entity_key in self._auto_entity_map.values()
+            )
+            if isinstance(entity_id, str) and entity_id
+        )
+        if self.config.get(
+            CONF_ADDITIONAL_CONDITIONS_ENABLED,
+            DEFAULT_AUTOMATION_FLAGS.get(CONF_ADDITIONAL_CONDITIONS_ENABLED, False),
+        ):
+            for key in (
+                CONF_ADDITIONAL_CONDITION_GLOBAL,
+                CONF_ADDITIONAL_CONDITION_OPEN,
+                CONF_ADDITIONAL_CONDITION_CLOSE,
+                CONF_ADDITIONAL_CONDITION_VENTILATE,
+                CONF_ADDITIONAL_CONDITION_VENTILATE_END,
+                CONF_ADDITIONAL_CONDITION_SHADING,
+                CONF_ADDITIONAL_CONDITION_SHADING_TILT,
+                CONF_ADDITIONAL_CONDITION_SHADING_END,
+            ):
+                entity_id = self.config.get(key)
+                if isinstance(entity_id, str) and entity_id:
+                    entities.add(entity_id)
+        return entities
+
+    def _unavailable_decision_entities(self) -> set[str]:
+        """Return required decision inputs which do not have a usable state."""
+
+        return {
+            entity_id
+            for entity_id in self._decision_entities()
+            if (
+                (state := self.hass.states.get(entity_id)) is None
+                or state.state in {STATE_UNAVAILABLE, STATE_UNKNOWN}
+            )
+        }
 
     def _refresh_next_events(self, now: datetime) -> None:
 
