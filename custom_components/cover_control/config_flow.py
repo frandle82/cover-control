@@ -406,12 +406,17 @@ def _position_number_selector() -> selector.TextSelector:
     )
 
 
-def _normalize_position_value(key: str, value: Any) -> int:
+def _normalize_position_value(key: str, value: Any) -> int | None:
     max_value = POSITION_FIELD_LIMITS[key]
+    optional_positions = {CONF_LOCKOUT_POSITION, CONF_SHADING_POSITION_ALT}
+    if key in optional_positions and value in (None, "", vol.UNDEFINED):
+        return None
     try:
         parsed = int(float(str(value).replace(",", ".")))
     except (TypeError, ValueError):
         fallback = DEFAULT_POSITION_SETTINGS.get(key, _EXTRA_POSITION_DEFAULTS.get(key, 0))
+        if key in optional_positions and fallback is None:
+            return None
         parsed = int(fallback)
     return max(0, min(max_value, parsed))
 
