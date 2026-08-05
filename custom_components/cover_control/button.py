@@ -29,13 +29,10 @@ async def async_setup_entry(
 
     merged = {**DEFAULT_BUTTON_SETTINGS, **entry.data, **entry.options}
     desired: dict[str, type[_BaseCoverControlButton]] = {}
-    manual_control_enabled = bool(
-        merged.get(CONF_MANUAL_CONTROL)
-        or merged.get(CONF_ENABLE_RECALIBRATE_BUTTON)
-        or merged.get(CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON)
-    )
-    if manual_control_enabled:
+    manual_control_enabled = bool(merged.get(CONF_MANUAL_CONTROL))
+    if manual_control_enabled or bool(merged.get(CONF_ENABLE_RECALIBRATE_BUTTON)):
         desired["recalibrate"] = RecalibrateButton
+    if manual_control_enabled or bool(merged.get(CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON)):
         desired["clear_manual_override"] = ClearManualOverrideButton
 
     desired_unique_ids = {f"{entry.entry_id}-{key}" for key in desired}
