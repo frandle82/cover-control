@@ -4035,7 +4035,10 @@ class CoverController:
         if self._reason not in {"ventilation", "ventilation_full"}:
             return False
         if self._reason == "ventilation_full":
-            vent_target = self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)
+            open_position = self._position_value(
+                CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION
+            )
+            vent_target = self._position_value(CONF_LOCKOUT_POSITION, open_position)
         else:
             vent_target = self._position_value(
                 CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION
