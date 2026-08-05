@@ -85,7 +85,10 @@
               "ventilate_position": "Ventilation position (%)",
               "shading_position": "Shading position (%)",
               "cover_type": "Cover type",
-              "position_tolerance": "Position tolerance (%)"
+              "position_tolerance": "Position tolerance (%)",
+              "lockout_position": "Full ventilation position (%)",
+              "shading_position_alt": "Alternate shading position (%)",
+              "shading_position_alt_entity": "Alternate shading position trigger"
             },
             "data_description": {
               "position_source": "Choose where the current cover position is read from. Use the standard current_position attribute, a position attribute, or a separate sensor.",
@@ -95,7 +98,11 @@
               "ventilate_position": "Target position for tilted windows. Not used for awnings.",
               "shading_position": "Target position for sun shading.",
               "position_tolerance": "Absolute tolerance used when comparing the current position with a target.",
-              "cover_type": "Blinds use 0 as closed and 100 as open. Awnings commonly use the opposite direction."
+              "cover_type": "Blinds use 0 as closed and 100 as open. Awnings commonly use the opposite direction.",
+              "lockout_position": "Optional target for a fully opened window; uses the normal open position when empty.",
+              "shading_position_alt": "Optional second shading target used while the gating entity is on.",
+              "shading_position_alt_entity": "Binary sensor or input boolean that selects the alternate shading target while on.",
+              "cover_tilt_wait_mode": "How tilt commands are sequenced. Fixed delay preserves the standard behavior; wait idle waits for movement to stop; tilt first aligns slats before moving and sends the final tilt after the cover becomes idle."
             }
           },
           "contacts": {
@@ -110,7 +117,8 @@
               "ventilation_use_after_shading": "Use ventilation after shading",
               "lockout_tilt_close": "Block close when tilt contact active",
               "lockout_tilt_shading_start": "Block shading start when tilt contact active",
-              "lockout_tilt_shading_end": "Block shading end when tilt contact active"
+              "lockout_tilt_shading_end": "Block shading end when tilt contact active",
+              "shading_over_ventilation": "Prioritize shading over tilt ventilation"
             },
             "data_description": {
               "ventilation_start_no_delay": "Skip the trigger and status delay when a window contact opens.",
@@ -122,7 +130,8 @@
               "ventilation_use_after_shading": "After shading ends, use the ventilation position if a tilt contact is still active.",
               "lockout_tilt_close": "Prevent full closing while a tilt contact is active.",
               "lockout_tilt_shading_start": "Prevent shading from starting while a tilt contact is active.",
-              "lockout_tilt_shading_end": "Prevent shading from ending while a tilt contact is active."
+              "lockout_tilt_shading_end": "Prevent shading from ending while a tilt contact is active.",
+              "shading_over_ventilation": "Allow sun shading to move below the ventilation floor while a window is tilted."
             }
           },
           "tilt_positions": {
@@ -352,7 +361,10 @@
           "shading_tilt_elevation_3": "Elevation threshold 3 (°)",
           "drive_time": "Drive time (seconds)",
           "cover_tilt_wait_mode": "Tilt wait mode",
-          "cover_tilt_wait_timeout": "Tilt wait timeout (seconds)"
+          "cover_tilt_wait_timeout": "Tilt wait timeout (seconds)",
+          "lockout_position": "Full ventilation position (%)",
+          "shading_position_alt": "Alternate shading position (%)",
+          "shading_position_alt_entity": "Alternate shading position trigger"
         },
         "data_description": {
           "position_source": "Choose where the current cover position is read from. Use the standard current_position attribute, a position attribute, or a separate sensor.",
@@ -375,8 +387,11 @@
           "shading_tilt_elevation_2": "Sun elevation above which tilt position 2 is used instead of position 1.",
           "shading_tilt_elevation_3": "Sun elevation above which tilt position 3 is used instead of position 2.",
           "drive_time": "Seconds after a command during which state changes are not treated as manual overrides.",
-          "cover_tilt_wait_mode": "How to wait before sending the tilt command after a position move. Fixed delay uses the drive time; wait idle waits until the cover stops moving.",
-          "cover_tilt_wait_timeout": "Maximum seconds to wait for the cover to become idle before sending the tilt command."
+          "cover_tilt_wait_mode": "How tilt commands are sequenced. Fixed delay preserves the standard behavior; wait idle waits for movement to stop; tilt first aligns slats before moving and sends the final tilt after the cover becomes idle.",
+          "cover_tilt_wait_timeout": "Maximum seconds to wait for the cover to become idle before sending the tilt command.",
+          "lockout_position": "Optional target for a fully opened window; uses the normal open position when empty.",
+          "shading_position_alt": "Optional second shading target used while the gating entity is on.",
+          "shading_position_alt_entity": "Binary sensor or input boolean that selects the alternate shading target while on."
         }
       },
       "time_control": {
@@ -426,7 +441,8 @@
           "lockout_tilt_shading_start": "Block shading start when tilt contact active",
           "lockout_tilt_shading_end": "Block shading end when tilt contact active",
           "ventilation_start_no_delay": "Start ventilation immediately (no delay)",
-          "ventilation_keep_open_on_full_to_tilt": "Keep full-open when switching from full to tilt"
+          "ventilation_keep_open_on_full_to_tilt": "Keep full-open when switching from full to tilt",
+          "shading_over_ventilation": "Prioritize shading over tilt ventilation"
         },
         "data_description": {
           "contact_trigger_delay": "How long a contact change must remain stable before the cover reacts.",
@@ -438,7 +454,8 @@
           "lockout_tilt_shading_start": "Prevent shading from starting while a tilt contact is active.",
           "lockout_tilt_shading_end": "Prevent shading from ending while a tilt contact is active.",
           "ventilation_start_no_delay": "Skip the trigger and status delay when a window contact opens.",
-          "ventilation_keep_open_on_full_to_tilt": "When a full-open contact closes but a tilt contact is still active, stay at full-open instead of moving to the ventilation position."
+          "ventilation_keep_open_on_full_to_tilt": "When a full-open contact closes but a tilt contact is still active, stay at full-open instead of moving to the ventilation position.",
+          "shading_over_ventilation": "Allow sun shading to move below the ventilation floor while a window is tilted."
         }
       },
       "brightness": {
