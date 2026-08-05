@@ -1,7 +1,12 @@
 # Cover Control for Home Assistant
 
+[![Release](https://img.shields.io/github/v/release/frandle82/cover-control?include_prereleases&sort=semver&color=E8920C)](https://github.com/TheDave94/pollenwatch/releases)
+[![Validate](https://github.com/frandle82/cover-control/actions/workflows/validate.yml/badge.svg)](https://github.com/frandle82/cover-control/actions/workflows/validate.yml)
+[![Lint & Test](https://github.com/frandle82/cover-control/actions/workflows/lint.yml/badge.svg)](https://github.com/frandle82/cover-control/actions/workflows/lint.yml)
+[![hacs](https://img.shields.io/badge/HACS-Custom-41BDF5.svg)](https://hacs.xyz/)
+[![License: MIT](https://img.shields.io/badge/License-MIT-2A3540.svg)](LICENSE)
 
-<img src="../custom_components/cover_control/icons/icon.png" width="120">
+![Cover Control — Control Cover in Home Assistant](custom_components/brand/icon.png)
 
 Cover Control is a Home Assistant custom integration that automates blinds and shutters with fine-grained safety, shading and ventilation logic. It is based on the original Cover Control Automation (CCA) blueprint, bringing those inputs into a
 guided configuration flow and adding per-cover controllers that react to sensor changes and time-based triggers.
@@ -52,7 +57,7 @@ guided configuration flow and adding per-cover controllers that react to sensor 
 - **Cover switches**: Per-cover automation toggles (state only, no extra attributes).
 - **Datapoint sensors**: Per-cover sensors reporting target position, reason, manual override window, and next
   open/close times.
-  
+
 ## Troubleshooting
 - Ensure all referenced entities (covers, binary sensors) exist and are available; invalid entities will be flagged during configuration.
 - If actions do not trigger, check that the relevant condition sensors are **on** (true) and that manual overrides or
