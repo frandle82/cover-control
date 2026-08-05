@@ -1,2 +1,0 @@
-homeassistant==2023.7.3
-pytest-homeassistant-custom-component==0.13.45
