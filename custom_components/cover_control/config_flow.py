@@ -98,6 +98,7 @@ from .const import (
     CONF_SHADING_FORECAST_TEMP_HYSTERESIS,
     CONF_SHADING_FORECAST_TEMP_SENSOR,
     CONF_SHADING_FORECAST_TYPE,
+    CONF_SHADING_INDEPENDENT_TEMP,
     CONF_SHADING_WEATHER_CONDITIONS,
     CONF_SHADING_BRIGHTNESS_HYSTERESIS,
     CONF_SHADING_BRIGHTNESS_END,
@@ -206,6 +207,7 @@ from .const import (
     DEFAULT_SHADING_END_MAX_DURATION,
     DEFAULT_SHADING_FORECAST_TYPE,
     DEFAULT_SHADING_FORECAST_TEMP_HYSTERESIS,
+    DEFAULT_SHADING_INDEPENDENT_TEMP,
     DEFAULT_SHADING_ELEVATION_MAX,
     DEFAULT_SHADING_ELEVATION_MIN,
     DEFAULT_SHADING_MIN_TEMPERATURE_1,
@@ -1134,6 +1136,21 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             selector.SelectSelectorConfig(
                                 options=SHADING_CONFIG_OPTIONS,
                                 multiple=True,
+                            )
+                        ),
+                        vol.Optional(
+                            CONF_SHADING_INDEPENDENT_TEMP,
+                            default=self._data.get(
+                                CONF_SHADING_INDEPENDENT_TEMP,
+                                DEFAULT_SHADING_INDEPENDENT_TEMP,
+                            ),
+                        ): selector.NumberSelector(
+                            selector.NumberSelectorConfig(
+                                min=0,
+                                max=50,
+                                step=0.5,
+                                unit_of_measurement="°C",
+                                mode=selector.NumberSelectorMode.SLIDER,
                             )
                         ),
                     }
@@ -2341,6 +2358,21 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                         selector.SelectSelectorConfig(
                             options=SHADING_CONFIG_OPTIONS,
                             multiple=True,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_SHADING_INDEPENDENT_TEMP,
+                        default=self._options.get(
+                            CONF_SHADING_INDEPENDENT_TEMP,
+                            DEFAULT_SHADING_INDEPENDENT_TEMP,
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=50,
+                            step=0.5,
+                            unit_of_measurement="°C",
+                            mode=selector.NumberSelectorMode.SLIDER,
                         )
                     ),
                 }
