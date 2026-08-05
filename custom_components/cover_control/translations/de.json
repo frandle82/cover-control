@@ -94,7 +94,10 @@
               "ventilate_position": "Lüftungsposition (%)",
               "shading_position": "Beschattungsposition (%)",
               "cover_type": "Cover-Typ",
-              "position_tolerance": "Positionstoleranz (%)"
+              "position_tolerance": "Positionstoleranz (%)",
+              "lockout_position": "Vollöffnungsposition (%)",
+              "shading_position_alt": "Alternative Beschattungsposition (%)",
+              "shading_position_alt_entity": "Auslöser für alternative Beschattungsposition"
             },
             "data_description": {
               "position_source": "Legt fest, woher die aktuelle Cover-Position gelesen wird: aus dem Standardattribut current_position, aus dem Attribut position oder aus einem separaten Sensor.",
@@ -104,7 +107,11 @@
               "ventilate_position": "Zielposition bei gekipptem Fenster. Für Markisen nicht relevant.",
               "shading_position": "Zielposition für die Beschattung.",
               "position_tolerance": "Absolute Toleranz beim Vergleich der aktuellen Position mit der Zielposition.",
-              "cover_type": "Rollläden verwenden meist 0 als geschlossen und 100 als offen. Markisen arbeiten häufig umgekehrt."
+              "cover_type": "Rollläden verwenden meist 0 als geschlossen und 100 als offen. Markisen arbeiten häufig umgekehrt.",
+              "lockout_position": "Optionale Zielposition bei vollständig geöffnetem Fenster; leer verwendet die normale Öffnungsposition.",
+              "shading_position_alt": "Optionales zweites Beschattungsziel, solange die zugehörige Entität eingeschaltet ist.",
+              "shading_position_alt_entity": "Binärsensor oder Eingabe-Helfer, der im eingeschalteten Zustand das alternative Beschattungsziel auswählt.",
+              "cover_tilt_wait_mode": "Legt die Reihenfolge der Lamellenbefehle fest. Feste Verzögerung behält das Standardverhalten bei; Warten bis inaktiv wartet auf den Stillstand; Lamellen zuerst richtet sie vor der Fahrt aus und sendet das endgültige Ziel nach dem Stillstand."
             }
           },
           "contacts": {
@@ -119,7 +126,8 @@
               "ventilation_use_after_shading": "Lüftung nach Beschattung verwenden",
               "lockout_tilt_close": "Schließen bei Kippkontakt sperren",
               "lockout_tilt_shading_start": "Beschattung-Start bei Kippkontakt sperren",
-              "lockout_tilt_shading_end": "Beschattung-Ende bei Kippkontakt sperren"
+              "lockout_tilt_shading_end": "Beschattung-Ende bei Kippkontakt sperren",
+              "shading_over_ventilation": "Beschattung vor Kipplüftung priorisieren"
             },
             "data_description": {
               "ventilation_start_no_delay": "Trigger- und Statusverzögerung beim Öffnen eines Fensterkontakts überspringen.",
@@ -131,7 +139,8 @@
               "ventilation_use_after_shading": "Nach Beschattungsende die Lüftungsposition nutzen, wenn ein Kippkontakt noch aktiv ist.",
               "lockout_tilt_close": "Vollständiges Schließen verhindern, solange ein Kippkontakt aktiv ist.",
               "lockout_tilt_shading_start": "Beschattungsstart verhindern, solange ein Kippkontakt aktiv ist.",
-              "lockout_tilt_shading_end": "Beschattungsende verhindern, solange ein Kippkontakt aktiv ist."
+              "lockout_tilt_shading_end": "Beschattungsende verhindern, solange ein Kippkontakt aktiv ist.",
+              "shading_over_ventilation": "Erlaubt der Beschattung, bei gekipptem Fenster unter die Lüftungsposition zu fahren."
             }
           },
           "tilt_positions": {
@@ -361,7 +370,10 @@
           "shading_tilt_elevation_3": "Sonnenhöhe Schwelle 3 (°)",
           "drive_time": "Fahrzeit (Sekunden)",
           "cover_tilt_wait_mode": "Lamellen-Wartemodus",
-          "cover_tilt_wait_timeout": "Lamellen-Warte-Timeout (Sekunden)"
+          "cover_tilt_wait_timeout": "Lamellen-Warte-Timeout (Sekunden)",
+          "lockout_position": "Vollöffnungsposition (%)",
+          "shading_position_alt": "Alternative Beschattungsposition (%)",
+          "shading_position_alt_entity": "Auslöser für alternative Beschattungsposition"
         },
         "data_description": {
           "position_source": "Legt fest, woher die aktuelle Cover-Position gelesen wird: aus dem Standardattribut current_position, aus dem Attribut position oder aus einem separaten Sensor.",
@@ -384,8 +396,11 @@
           "shading_tilt_elevation_2": "Sonnenhöhe, ab der Lamellenposition 2 statt 1 verwendet wird.",
           "shading_tilt_elevation_3": "Sonnenhöhe, ab der Lamellenposition 3 statt 2 verwendet wird.",
           "drive_time": "Zeitfenster in Sekunden nach einem Befehl, innerhalb dem Zustandsänderungen nicht als manueller Eingriff gewertet werden.",
-          "cover_tilt_wait_mode": "Wartemodus nach einer Positionsfahrt vor dem Lamellen-Befehl. Feste Verzögerung nutzt die Fahrzeit; Warten bis inaktiv wartet auf den Stillstand.",
-          "cover_tilt_wait_timeout": "Maximale Wartezeit in Sekunden bis das Cover inaktiv wird, bevor der Lamellen-Befehl gesendet wird."
+          "cover_tilt_wait_mode": "Legt die Reihenfolge der Lamellenbefehle fest. Feste Verzögerung behält das Standardverhalten bei; Warten bis inaktiv wartet auf den Stillstand; Lamellen zuerst richtet sie vor der Fahrt aus und sendet das endgültige Ziel nach dem Stillstand.",
+          "cover_tilt_wait_timeout": "Maximale Wartezeit in Sekunden bis das Cover inaktiv wird, bevor der Lamellen-Befehl gesendet wird.",
+          "lockout_position": "Optionale Zielposition bei vollständig geöffnetem Fenster; leer verwendet die normale Öffnungsposition.",
+          "shading_position_alt": "Optionales zweites Beschattungsziel, solange die zugehörige Entität eingeschaltet ist.",
+          "shading_position_alt_entity": "Binärsensor oder Eingabe-Helfer, der im eingeschalteten Zustand das alternative Beschattungsziel auswählt."
         }
       },
       "time_control": {
@@ -435,7 +450,8 @@
           "lockout_tilt_shading_start": "Beschattung-Start bei Kippkontakt sperren",
           "lockout_tilt_shading_end": "Beschattung-Ende bei Kippkontakt sperren",
           "ventilation_start_no_delay": "Lüftung sofort starten (ohne Verzögerung)",
-          "ventilation_keep_open_on_full_to_tilt": "Voll-offen halten beim Wechsel von voll auf Kipp"
+          "ventilation_keep_open_on_full_to_tilt": "Voll-offen halten beim Wechsel von voll auf Kipp",
+          "shading_over_ventilation": "Beschattung vor Kipplüftung priorisieren"
         },
         "data_description": {
           "contact_trigger_delay": "So lange muss eine Kontaktänderung stabil bleiben, bevor das Cover reagiert.",
@@ -447,7 +463,8 @@
           "lockout_tilt_shading_start": "Beschattungsstart verhindern, solange ein Kippkontakt aktiv ist.",
           "lockout_tilt_shading_end": "Beschattungsende verhindern, solange ein Kippkontakt aktiv ist.",
           "ventilation_start_no_delay": "Trigger- und Statusverzögerung beim Öffnen eines Fensterkontakts überspringen.",
-          "ventilation_keep_open_on_full_to_tilt": "Wenn ein Voll-Kontakt schließt, aber ein Kippkontakt noch aktiv ist, in der Voll-Position bleiben statt in die Lüftungsposition zu fahren."
+          "ventilation_keep_open_on_full_to_tilt": "Wenn ein Voll-Kontakt schließt, aber ein Kippkontakt noch aktiv ist, in der Voll-Position bleiben statt in die Lüftungsposition zu fahren.",
+          "shading_over_ventilation": "Erlaubt der Beschattung, bei gekipptem Fenster unter die Lüftungsposition zu fahren."
         }
       },
       "brightness": {
