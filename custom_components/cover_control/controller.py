@@ -929,7 +929,7 @@ class CoverController:
     ) -> tuple[float | None, str]:
         if background.get("shading") and allow_shading:
             return (
-                self._position_value(CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION),
+                self._effective_shading_position(),
                 "ventilation_end_shading",
             )
         if background.get("close"):
@@ -1473,7 +1473,7 @@ class CoverController:
         self.persist_status()
         self._schedule_manual_expiry()
         self.hass.async_create_task(
-            self._set_position(self.config.get(CONF_SHADING_POSITION), "manual_shading")
+            self._set_position(self._effective_shading_position(), "manual_shading")
         )
 
     async def recalibrate(self, full_open: float | None) -> None:
@@ -1585,7 +1585,7 @@ class CoverController:
         self._activate_manual_override(scope_all=True, reason="manual_shading")
         if action == "activate":
             self._remember_force_background()
-            target = self._position_value(CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION)
+            target = self._effective_shading_position()
             if target is None:
                 return
             await self._command_position(float(target), reason="manual_shading")
@@ -2066,9 +2066,7 @@ class CoverController:
                     if started_ts and now.timestamp() - started_ts > max_duration:
                         self._clear_shading_pending("start")
             if shading_active and shading_allowed:
-                shading_target = self._position_value(
-                    CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION
-                )
+                shading_target = self._effective_shading_position()
                 if not self._position_matches(shading_target, current_position):
                     await self._set_position(shading_target, "shading")
                     return
@@ -2217,9 +2215,7 @@ class CoverController:
                     return
                 if self._shading_pending_active("start"):
                     self._clear_shading_pending("start")
-                shading_target = self._position_value(
-                    CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION
-                )
+                shading_target = self._effective_shading_position()
                 if (
                     current_position is None
                     or self._position_is_above(current_position, shading_target)
@@ -2621,9 +2617,7 @@ class CoverController:
 
     def _close_position_protected(self, current: float | None) -> bool:
         close_position = self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION)
-        shading_position = self._position_value(
-            CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION
-        )
+        shading_position = self._effective_shading_position()
         if (
             self._config_bool(CONF_PREVENT_HIGHER_POSITION_CLOSING)
             and self._position_is_below(current, close_position)
@@ -3377,6 +3371,18 @@ class CoverController:
         local_now = dt_util.as_local(now)
         return bool(open_dt and close_dt and open_dt <= local_now <= close_dt)
 
+    def _effective_shading_position(self) -> float | None:
+        """Return the alternate shading target while its gating entity is active."""
+
+        default = self._position_value(
+            CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION
+        )
+        entity_id = self.config.get(CONF_SHADING_POSITION_ALT_ENTITY)
+        entity_state = self.hass.states.get(entity_id) if entity_id else None
+        if entity_state is not None and entity_state.state in {STATE_ON, "true", "1"}:
+            return self._position_value(CONF_SHADING_POSITION_ALT, default)
+        return default
+
     def _position_value(self, key: str, default: float) -> float | None:
         raw_value = self.config.get(key, default)
         try:
@@ -4022,7 +4028,7 @@ class CoverController:
             return False
         if self._reason not in {"shading", "manual_shading"}:
             return False
-        shading_target = self._position_value(CONF_SHADING_POSITION, DEFAULT_SHADING_POSITION)
+        shading_target = self._effective_shading_position()
         return self._position_matches(shading_target, current_position)
 
     def _ventilation_is_active(self, current_position: float | None) -> bool:
