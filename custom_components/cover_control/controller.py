@@ -6,7 +6,7 @@ import logging
 import re
 from inspect import isawaitable
 from datetime import datetime, timedelta, time
-from typing import Callable
+from typing import Awaitable, Callable
 
 from astral import LocationInfo
 from astral.sun import SunDirection, time_at_elevation
@@ -109,6 +109,7 @@ from .const import (
     CONF_SHADING_FORECAST_TEMP,
     CONF_SHADING_FORECAST_TEMP_HYSTERESIS,
     CONF_SHADING_FORECAST_TEMP_SENSOR,
+    CONF_SHADING_INDEPENDENT_TEMP,
     CONF_SHADING_FORECAST_TYPE,
     CONF_SHADING_WEATHER_CONDITIONS,
     CONF_SHADING_BRIGHTNESS_HYSTERESIS,
@@ -216,6 +217,7 @@ from .const import (
     DEFAULT_SHADING_CONDITIONS_START_OR,
     DEFAULT_SHADING_FORECAST_TYPE,
     DEFAULT_SHADING_FORECAST_TEMP_HYSTERESIS,
+    DEFAULT_SHADING_INDEPENDENT_TEMP,
     DEFAULT_SHADING_MIN_TEMPERATURE_1,
     DEFAULT_SHADING_MIN_TEMPERATURE_2,
     DEFAULT_SHADING_TIMING_SETTINGS,
@@ -247,6 +249,19 @@ from .const import (
 IDLE_REASON = "idle"
 STORAGE_VERSION = 1
 _LOGGER = logging.getLogger(__name__)
+
+_TRIGGER_PRIORITY = {
+    "state": 0,
+    "time": 1,
+    "startup": 2,
+    "config": 3,
+    "runtime_toggle": 3,
+    "contact": 4,
+    "manual_expired": 5,
+    "manual_service": 6,
+    "resident_asleep": 7,
+    "resident_woke": 7,
+}
 
 _FIRST_NUMBER_RE = re.compile(r"[-+]?\d+(?:[.,]\d+)?")
 
@@ -431,6 +446,10 @@ class ControllerManager:
         self._runtime_toggles: dict[str, bool] = {}
         self._store: Store | None = None
         self._stored_state: dict = {"covers": {}}
+        self._pending_evaluations: dict[str, str] = {}
+        self._evaluation_task: asyncio.Task | None = None
+        self._evaluation_lock = asyncio.Lock()
+        self._group_command_lock = asyncio.Lock()
 
     async def async_setup(self) -> None:
         self._store = Store(
@@ -462,11 +481,17 @@ class ControllerManager:
                 data,
                 self._stored_state["covers"].get(cover),
                 self._store_cover_status,
+                self._request_evaluate,
+                self._async_set_group_position,
             )
-            await controller.async_setup()
             self.controllers[cover] = controller
+            await controller.async_setup()
 
     async def async_unload(self) -> None:
+        if self._evaluation_task is not None:
+            self._evaluation_task.cancel()
+            self._evaluation_task = None
+        self._pending_evaluations.clear()
         for controller in self.controllers.values():
             controller.persist_status()
             await controller.async_unload()
@@ -479,6 +504,84 @@ class ControllerManager:
         self._stored_state.setdefault("covers", {})[cover] = status
         if self._store:
             self._store.async_delay_save(lambda: self._stored_state, 1)
+
+    @callback
+    def _request_evaluate(self, controller: CoverController, trigger: str) -> None:
+        """Batch room evaluations so shared triggers move covers together."""
+
+        if controller.cover not in self.controllers:
+            return
+        previous_trigger = self._pending_evaluations.get(controller.cover)
+        if previous_trigger is None or _TRIGGER_PRIORITY.get(
+            trigger, 0
+        ) >= _TRIGGER_PRIORITY.get(previous_trigger, 0):
+            self._pending_evaluations[controller.cover] = trigger
+        if self._evaluation_task is None or self._evaluation_task.done():
+            self._evaluation_task = self.hass.async_create_task(
+                self._async_flush_evaluations()
+            )
+
+    async def _async_flush_evaluations(self) -> None:
+        """Evaluate all pending room covers from the same state snapshot."""
+
+        await asyncio.sleep(0.05)
+        try:
+            while self._pending_evaluations:
+                pending = self._pending_evaluations
+                self._pending_evaluations = {}
+                async with self._evaluation_lock:
+                    for cover, trigger in pending.items():
+                        controller = self.controllers.get(cover)
+                        if controller is not None:
+                            await controller._evaluate(trigger)
+                await asyncio.sleep(0)
+        finally:
+            self._evaluation_task = None
+            if self._pending_evaluations:
+                self._evaluation_task = self.hass.async_create_task(
+                    self._async_flush_evaluations()
+                )
+
+    async def _async_set_group_position(
+        self, source: CoverController, position: float, reason: str
+    ) -> None:
+        """Apply non-ventilation room movements consistently to all covers."""
+
+        if "ventilation" in reason or reason.startswith("manual_"):
+            await source._set_position_local(position, reason)
+            return
+
+        action = (
+            "close"
+            if "close" in reason or reason == "resident_asleep"
+            else "shading"
+            if "shading" in reason and "end_open" not in reason
+            else "open"
+        )
+        now = dt_util.utcnow()
+        async with self._group_command_lock:
+            eligible = [
+                controller
+                for controller in self.controllers.values()
+                if not controller._manual_blocks_action(action)
+            ]
+            independent = [
+                controller
+                for controller in eligible
+                if controller is not source
+                and controller._ventilation_requires_independent_control(now)
+            ]
+            for controller in independent:
+                controller._record_group_background(reason)
+            recipients = [
+                controller for controller in eligible if controller not in independent
+            ]
+            await asyncio.gather(
+                *(
+                    controller._set_position_local(position, reason)
+                    for controller in recipients
+                )
+            )
 
     @callback
     def async_update_options(self) -> None:
@@ -622,12 +725,19 @@ class CoverController:
         config: ConfigType,
         persisted_status: object = None,
         persist_callback: Callable[[str, dict], None] | None = None,
+        evaluate_callback: Callable[[CoverController, str], None] | None = None,
+        group_position_callback: Callable[
+            [CoverController, float, str], Awaitable[None]
+        ]
+        | None = None,
     ) -> None:
         self.hass = hass
         self.entry = entry
         self.cover = cover
         self.config = config
         self._persist_callback = persist_callback
+        self._evaluate_callback = evaluate_callback
+        self._group_position_callback = group_position_callback
         self._status = _normalize_cover_status(persisted_status)
         self._unsubs: list[CALLBACK_TYPE] = []
         self._manual_until: datetime | None = None
@@ -871,6 +981,38 @@ class CoverController:
         self._status["reason"] = self._reason
         self.persist_status()
 
+    def _record_group_background(self, reason: str) -> None:
+        """Update the shared room target without interrupting local ventilation."""
+
+        ts = _ts_now()
+        today = dt_util.as_local(dt_util.utcnow()).date()
+        background = self._status.setdefault("ventilation", {}).setdefault(
+            "background", {"open": False, "close": False, "shading": False}
+        )
+
+        if "close" in reason or reason == "resident_asleep":
+            self._last_action_dates["close"] = today
+            self._set_status_bucket("open", False, ts)
+            self._set_status_bucket("close", True, ts)
+            self._set_status_bucket("shading", False, ts)
+            background.update({"open": False, "close": True, "shading": False})
+        elif "shading" in reason and "end_open" not in reason:
+            self._last_action_dates["shading"] = today
+            self._set_status_bucket("open", True, ts)
+            self._set_status_bucket("close", False, ts)
+            self._set_status_bucket("shading", True, ts)
+            background.update({"open": True, "close": False, "shading": True})
+        else:
+            self._last_action_dates["open"] = today
+            self._set_status_bucket("open", True, ts)
+            self._set_status_bucket("close", False, ts)
+            self._set_status_bucket("shading", False, ts)
+            background.update({"open": True, "close": False, "shading": False})
+
+        self._clear_shading_pending(persist=False)
+        self.persist_status()
+        self._publish_state()
+
     def _sync_position_reference_from_entity(self) -> None:
         current_position = self._current_position()
         if current_position is None:
@@ -927,7 +1069,7 @@ class CoverController:
         self._schedule_manual_expiry()
         self.persist_status()
         self._publish_state()
-        self.hass.async_create_task(self._evaluate("startup"))
+        self.async_request_evaluate("startup")
 
 
     async def async_unload(self) -> None:
@@ -940,7 +1082,6 @@ class CoverController:
         self.config = new_config
         self._clear_manual_expiry()
         self._hydrate_persistent_status()
-        self._sync_position_reference_from_entity()
         if self._target is None:
             self._target = self._current_position()
         if self._last_position is None:
@@ -949,13 +1090,16 @@ class CoverController:
         self._refresh_next_events(now)
         self._schedule_manual_expiry()
         self.persist_status()
-        self.hass.async_create_task(self._evaluate("config"))
+        self.async_request_evaluate("config")
         self._publish_state()
 
     @callback
     def async_request_evaluate(self, trigger: str = "runtime_toggle") -> None:
         """Request re-evaluation after runtime-only toggle changes."""
 
+        if self._evaluate_callback is not None:
+            self._evaluate_callback(self, trigger)
+            return
         self.hass.async_create_task(self._evaluate(trigger))
 
     @callback
@@ -990,13 +1134,15 @@ class CoverController:
                 self._status["target"] = current
                 self._last_position = current
                 self.persist_status()
-                self.hass.async_create_task(self._evaluate(trigger))
+                self.async_request_evaluate(trigger)
                 return
             if self._target is None and current is not None:
                 self._target = current
             moving_toward_target = False
             drive_window = timedelta(
-                seconds=self._duration_value(CONF_DRIVE_TIME, DEFAULT_DRIVE_TIME)
+                seconds=(
+                    self._duration_value(CONF_DRIVE_TIME, DEFAULT_DRIVE_TIME) + 60
+                )
             )
             command_still_active = (
                 self._last_command_at is not None
@@ -1012,6 +1158,10 @@ class CoverController:
                 curr_delta = abs(current - self._target)
                 moving_toward_target = curr_delta <= prev_delta + tolerance
             if current is not None and self._manual_detection_enabled():
+                position_changed = (
+                    previous_position is not None
+                    and abs(current - previous_position) > tolerance
+                )
                 target_reached = (
                     self._target is not None
                     and abs(current - self._target) <= tolerance
@@ -1021,7 +1171,8 @@ class CoverController:
                     and (moving_toward_target or target_reached)
                 )
                 deviation_from_target = (
-                    self._target is not None
+                    position_changed
+                    and self._target is not None
                     and abs(current - self._target) > tolerance
                     and not moving_toward_target
                 )
@@ -1053,7 +1204,7 @@ class CoverController:
                 )
                 return
             trigger = "contact"
-        self.hass.async_create_task(self._evaluate(trigger))
+        self.async_request_evaluate(trigger)
 
     def _is_position_state_event(self, entity_id: str | None) -> bool:
         if entity_id == self.cover:
@@ -1121,15 +1272,15 @@ class CoverController:
             self._status["target"] = position
 
         self._activate_manual_override(scope_all=True, reason="manual_override")
-        self.hass.async_create_task(self._evaluate("manual_service"))
+        self.async_request_evaluate("manual_service")
 
     @callback
     def _handle_interval(self, now: datetime) -> None:
-        self.hass.async_create_task(self._evaluate("time"))
+        self.async_request_evaluate("time")
 
     async def _delayed_evaluate(self, trigger: str, delay: int) -> None:
         await asyncio.sleep(delay)
-        await self._evaluate(trigger)
+        self.async_request_evaluate(trigger)
 
     def _manual_detection_enabled(self) -> bool:
         if self._manual_active:
@@ -1519,7 +1670,7 @@ class CoverController:
         now = dt_util.utcnow()
         self._refresh_next_events(now)
         self._publish_state()
-        self.hass.async_create_task(self._evaluate("manual_expired"))
+        self.async_request_evaluate("manual_expired")
     async def _evaluate(self, trigger: str) -> None:
         now = dt_util.utcnow()
         self._expire_manual_override(now)
@@ -1857,7 +2008,10 @@ class CoverController:
             if shading_allowed:
                 if self._shading_pending_active("end"):
                     self._clear_shading_pending("end")
-            elif self._shading_pending_active("start"):
+            elif (
+                self._shading_pending_active("start")
+                and self._shading_pending_due("start", now)
+            ):
                 max_duration = self._duration_value(
                     CONF_SHADING_START_MAX_DURATION,
                     DEFAULT_SHADING_TIMING_SETTINGS[CONF_SHADING_START_MAX_DURATION],
@@ -1883,13 +2037,16 @@ class CoverController:
                     await self._set_position(shading_target, "shading")
                     return
                 shading_end_conditions_met = False
+            shading_end_warranted = (
+                shading_end_conditions_met and is_shading_allowed_window
+            )
             if (
                 shading_active
-                and not shading_end_conditions_met
+                and not shading_end_warranted
                 and self._shading_pending_active("end")
             ):
                 self._clear_shading_pending("end")
-            if shading_active and shading_end_conditions_met:
+            if shading_active and shading_end_warranted:
                 if not shading_end_condition:
                     self._publish_state()
                     return
@@ -1935,7 +2092,7 @@ class CoverController:
                             and el_min <= sun_elevation <= el_max
                         )
                     if sun_out_of_range:
-                        waiting_end = min(waiting_end, 5)
+                        waiting_end = 20
                 if waiting_end > 0 and not self._shading_pending_due("end", now):
                     if not self._shading_pending_active("end"):
                         self._set_shading_pending(
@@ -1983,35 +2140,12 @@ class CoverController:
                         "shading_end_ventilation",
                     )
                     return
-                if (
-                    self._auto_enabled(CONF_AUTO_DOWN)
-                    and self._sun_allows_close(sun_elevation)
-                    and self._brightness_allows_close(brightness)
-                ):
-                    if (
-                        close_condition
-                        and not self._manual_blocks_action("close")
-                        and not tilt_lock_close
-                    ):
-                        await self._set_position(
-                            self._position_value(
-                                CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION
-                            ),
-                            "shading_end_close",
-                        )
-                        return
-                if (
-                    not self._config_bool(CONF_PREVENT_OPENING_AFTER_SHADING_END)
-                    and self._auto_enabled(CONF_AUTO_UP)
-                    and self._sun_allows_open(sun_elevation)
-                    and self._brightness_allows_open(brightness)
-                ):
-                    if open_condition and not self._manual_blocks_action("open"):
-                        await self._set_position(
-                            self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
-                            "shading_end_open",
-                        )
-                        return
+                if not self._config_bool(CONF_PREVENT_OPENING_AFTER_SHADING_END):
+                    await self._set_position(
+                        self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+                        "shading_end_open",
+                    )
+                    return
                 if self._config_bool(CONF_PREVENT_OPENING_AFTER_SHADING_END):
                     open_tilt = self._position_value(
                         CONF_OPEN_TILT_POSITION, DEFAULT_OPEN_TILT_POSITION
@@ -2054,6 +2188,7 @@ class CoverController:
                     current_position is None
                     or self._position_is_above(current_position, shading_target)
                     or self._position_matches(shading_target, current_position)
+                    or self._status_active("open")
                 ):
                     await self._set_position(shading_target, "shading")
                 else:
@@ -2602,7 +2737,7 @@ class CoverController:
         sun_azimuth: float | None,
         sun_elevation: float | None,
         brightness: float | None,
-    ) -> dict[str, dict[str, bool] | bool]:
+    ) -> dict[str, object]:
         az_start = self._number_value(CONF_SUN_AZIMUTH_START, 95)
         az_end = self._number_value(CONF_SUN_AZIMUTH_END, 265)
         el_min = self._number_value(CONF_SUN_ELEVATION_MIN, 25)
@@ -2669,7 +2804,21 @@ class CoverController:
         compare_forecast_with_sensor2 = (
             SHADING_CONFIG_COMPARE_FORECAST_SENSOR2 in config_flags
         )
-        forecast_compare_value = temp2 if compare_forecast_with_sensor2 else forecast_temp
+        forecast_temp_start_valid = (
+            forecast_temp_limit is not None
+            and (
+                (
+                    forecast_temp is not None
+                    and forecast_temp
+                    > forecast_temp_limit + forecast_temp_hysteresis
+                )
+                or (
+                    compare_forecast_with_sensor2
+                    and temp2 is not None
+                    and temp2 > forecast_temp_limit + forecast_temp_hysteresis
+                )
+            )
+        )
 
         weather_conditions = self._shading_config_list(
             CONF_SHADING_WEATHER_CONDITIONS, []
@@ -2703,11 +2852,7 @@ class CoverController:
             SHADING_CONDITION_TEMP_2: (
                 temp2 is not None and temp2 > temp2_min + temp2_hysteresis
             ),
-            SHADING_CONDITION_FORECAST_TEMP: (
-                forecast_temp_limit is not None
-                and forecast_compare_value is not None
-                and forecast_compare_value > forecast_temp_limit + forecast_temp_hysteresis
-            ),
+            SHADING_CONDITION_FORECAST_TEMP: forecast_temp_start_valid,
             SHADING_CONDITION_FORECAST_WEATHER: (
                 direct_forecast_temp_sensor
                 or not weather_conditions
@@ -2733,8 +2878,8 @@ class CoverController:
             ),
             SHADING_CONDITION_FORECAST_TEMP: (
                 forecast_temp_limit is not None
-                and forecast_compare_value is not None
-                and forecast_compare_value < forecast_temp_limit - forecast_temp_hysteresis
+                and forecast_temp is not None
+                and forecast_temp < forecast_temp_limit - forecast_temp_hysteresis
             ),
             SHADING_CONDITION_FORECAST_WEATHER: (
                 bool(weather_conditions)
@@ -2747,6 +2892,10 @@ class CoverController:
             "start_valid": start_valid,
             "end_invalid": end_invalid,
             "forecast_temp_valid": start_valid[SHADING_CONDITION_FORECAST_TEMP],
+            "forecast_temp": forecast_temp,
+            "temperature_2": temp2,
+            "compare_forecast_with_sensor2": compare_forecast_with_sensor2,
+            "forecast_temp_hysteresis": forecast_temp_hysteresis,
         }
 
     def _shading_start_conditions(
@@ -2773,12 +2922,32 @@ class CoverController:
             configured.get(condition, False) and start_valid.get(condition, False)
             for condition in start_or
         )
-        forecast_temp_valid = bool(state["forecast_temp_valid"])
-        temp_independent = (
-            SHADING_CONFIG_TEMP_INDEPENDENT
-            in self._shading_config_list(CONF_SHADING_CONFIG, [])
-            and forecast_temp_valid
-        )
+        config_flags = self._shading_config_list(CONF_SHADING_CONFIG, [])
+        temp_independent = False
+        if SHADING_CONFIG_TEMP_INDEPENDENT in config_flags:
+            independent_limit = _coerce_float(
+                self.config.get(CONF_SHADING_INDEPENDENT_TEMP, DEFAULT_SHADING_INDEPENDENT_TEMP)
+            )
+            if independent_limit is None:
+                independent_limit = DEFAULT_SHADING_INDEPENDENT_TEMP
+            forecast_temp = _coerce_float(state["forecast_temp"])
+            temperature_2 = _coerce_float(state["temperature_2"])
+            forecast_temp_hysteresis = _coerce_float(
+                state["forecast_temp_hysteresis"]
+            )
+            if forecast_temp_hysteresis is None:
+                forecast_temp_hysteresis = DEFAULT_SHADING_FORECAST_TEMP_HYSTERESIS
+            temp_independent = (
+                (
+                    forecast_temp is not None
+                    and forecast_temp > independent_limit + forecast_temp_hysteresis
+                )
+                or (
+                    bool(state["compare_forecast_with_sensor2"])
+                    and temperature_2 is not None
+                    and temperature_2 > independent_limit + forecast_temp_hysteresis
+                )
+            )
         return and_result and or_result, temp_independent
 
     def _shading_end_conditions(
@@ -2877,6 +3046,27 @@ class CoverController:
             if (now - last_changed) < timedelta(seconds=delay_after_close):
                 return True
         return False
+
+    def _ventilation_requires_independent_control(self, now: datetime) -> bool:
+        """Return whether this cover must stay outside coordinated room movement."""
+
+        if self._is_awning() or not self._auto_enabled(CONF_AUTO_VENTILATE):
+            return False
+        if self._ventilation_status_active() or self._reason in {
+            "ventilation",
+            "ventilation_full",
+            "shading_end_ventilation",
+        }:
+            return True
+        if any(
+            (state := self.hass.states.get(entity_id)) is not None
+            and state.state in {STATE_ON, "true", "1"}
+            for entity_id in self._contact_entities()
+        ):
+            return True
+        return self._contacts_active(self._full_open_sensors(), now) or self._tilt_contact_active(
+            now
+        )
 
 
     def _is_resident_sleeping(self) -> bool:
@@ -3312,26 +3502,52 @@ class CoverController:
     async def _set_position(self, position: float | None, reason: str) -> None:
         if position is None:
             return
+        if self._group_position_callback is not None:
+            await self._group_position_callback(self, float(position), reason)
+            return
+        await self._set_position_local(float(position), reason)
+
+    async def _set_position_local(self, position: float, reason: str) -> None:
+        """Move only this cover after room-level coordination is resolved."""
+
         tilt_position = self._tilt_position_value(reason)
         tolerance = float(
             self._position_value(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE)
         )
         current = self._current_position()
-        if current is not None and abs(current - float(position)) <= tolerance:
+        target = position
+        command_in_flight = (
+            self._last_command_at is not None
+            and self._target is not None
+            and abs(self._target - target) <= tolerance
+            and dt_util.utcnow() - self._last_command_at
+            <= timedelta(
+                seconds=self._duration_value(CONF_DRIVE_TIME, DEFAULT_DRIVE_TIME)
+            )
+        )
+        if (
+            command_in_flight
+            and current is not None
+            and abs(current - target) > tolerance
+        ):
+            self._reason = reason
+            self._publish_state()
+            return
+        if current is not None and abs(current - target) <= tolerance:
             if tilt_position is not None:
                 await self._command_tilt_position(float(tilt_position), reason=reason)
             if self._reason is None:
                 self._reason = reason
-            self._target = float(position)
-            self._record_action_status(reason, float(position))
+            self._target = target
+            self._record_action_status(reason, target)
             self._publish_state()
             return
-        await self._command_position(float(position), reason=reason)
+        await self._command_position(target, reason=reason)
         if tilt_position is not None:
             await self._send_tilt_after_position(float(tilt_position), reason=reason)
-        self._target = float(position)
+        self._target = target
         self._reason = reason
-        self._record_action_status(reason, float(position))
+        self._record_action_status(reason, target)
         self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
 
