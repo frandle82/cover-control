@@ -1139,10 +1139,6 @@ class CoverController:
                     previous_position is not None
                     and abs(current - previous_position) > tolerance
                 )
-                target_reached = (
-                    self._target is not None
-                    and abs(current - self._target) <= tolerance
-                )
                 expected_command_move = command_still_active
                 deviation_from_target = (
                     position_changed
