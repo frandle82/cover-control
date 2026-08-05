@@ -58,6 +58,7 @@ from .const import (
     CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON,
     CONF_ENABLE_RECALIBRATE_BUTTON,
     CONF_MANUAL_CONTROL,
+    CONF_LOCKOUT_POSITION,
     CONF_LOCKOUT_TILT_CLOSE,
     CONF_LOCKOUT_TILT_SHADING_END,
     CONF_LOCKOUT_TILT_SHADING_START,
@@ -114,6 +115,8 @@ from .const import (
     CONF_SHADING_MIN_TEMPERATURE_1,
     CONF_SHADING_MIN_TEMPERATURE_2,
     CONF_SHADING_POSITION,
+    CONF_SHADING_POSITION_ALT,
+    CONF_SHADING_POSITION_ALT_ENTITY,
     CONF_SHADING_TEMPERATURE_HYSTERESIS_1,
     CONF_SHADING_TEMPERATURE_HYSTERESIS_2,
     CONF_SHADING_TEMPERATURE_SENSOR_1,
@@ -156,6 +159,7 @@ from .const import (
     CONF_VENTILATION_ALLOW_HIGHER_POSITION,
     CONF_VENTILATION_DELAY_AFTER_CLOSE,
     CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT,
+    CONF_SHADING_OVER_VENTILATION,
     CONF_VENTILATION_START_NO_DELAY,
     CONF_VENTILATION_USE_AFTER_SHADING,
     CONF_VENTILATE_POSITION,
@@ -173,6 +177,7 @@ from .const import (
     CONF_USE_SHADING_FORECAST_SENSOR,
     CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
     CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+    COVER_TILT_WAIT_BEFORE_POSITION,
     COVER_TILT_WAIT_FIXED_DELAY,
     COVER_TILT_WAIT_IDLE,
     DEFAULT_BRIGHTNESS_SUN_OPERATOR,
@@ -373,7 +378,9 @@ POSITION_FIELD_LIMITS = {
     CONF_OPEN_POSITION: 100,
     CONF_CLOSE_POSITION: 100,
     CONF_VENTILATE_POSITION: 100,
+    CONF_LOCKOUT_POSITION: 100,
     CONF_SHADING_POSITION: 100,
+    CONF_SHADING_POSITION_ALT: 100,
     CONF_POSITION_TOLERANCE: 20,
     CONF_OPEN_TILT_POSITION: 100,
     CONF_CLOSE_TILT_POSITION: 100,
@@ -399,12 +406,17 @@ def _position_number_selector() -> selector.TextSelector:
     )
 
 
-def _normalize_position_value(key: str, value: Any) -> int:
+def _normalize_position_value(key: str, value: Any) -> int | None:
     max_value = POSITION_FIELD_LIMITS[key]
+    optional_positions = {CONF_LOCKOUT_POSITION, CONF_SHADING_POSITION_ALT}
+    if key in optional_positions and value in (None, "", vol.UNDEFINED):
+        return None
     try:
         parsed = int(float(str(value).replace(",", ".")))
     except (TypeError, ValueError):
         fallback = DEFAULT_POSITION_SETTINGS.get(key, _EXTRA_POSITION_DEFAULTS.get(key, 0))
+        if key in optional_positions and fallback is None:
+            return None
         parsed = int(fallback)
     return max(0, min(max_value, parsed))
 
@@ -720,10 +732,24 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_VENTILATE_POSITION,
                         default=_position_default(self._data, CONF_VENTILATE_POSITION),
                     ): _position_number_selector(),
+                    vol.Optional(
+                        CONF_LOCKOUT_POSITION,
+                        default=_selector_default(self._data.get(CONF_LOCKOUT_POSITION)),
+                    ): _position_number_selector(),
                     vol.Required(
                         CONF_SHADING_POSITION,
                         default=_position_default(self._data, CONF_SHADING_POSITION),
                     ): _position_number_selector(),
+                    vol.Optional(
+                        CONF_SHADING_POSITION_ALT,
+                        default=_selector_default(self._data.get(CONF_SHADING_POSITION_ALT)),
+                    ): _position_number_selector(),
+                    vol.Optional(
+                        CONF_SHADING_POSITION_ALT_ENTITY,
+                        default=_selector_default(self._data.get(CONF_SHADING_POSITION_ALT_ENTITY)),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["binary_sensor", "input_boolean"])
+                    ),
                     vol.Required(
                         CONF_POSITION_TOLERANCE,
                         default=_position_default(self._data, CONF_POSITION_TOLERANCE),
@@ -791,6 +817,10 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                             options=[
                                 {"value": COVER_TILT_WAIT_FIXED_DELAY, "label": "Fixed delay"},
                                 {"value": COVER_TILT_WAIT_IDLE, "label": "Wait until idle"},
+                                {
+                                    "value": COVER_TILT_WAIT_BEFORE_POSITION,
+                                    "label": "Tilt first, then position",
+                                },
                             ],
                             mode=selector.SelectSelectorMode.DROPDOWN,
                         )
@@ -897,6 +927,15 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                                 self._data.get(
                                     CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT,
                                     DEFAULT_CONTACT_SETTINGS[CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT],
+                                )
+                            ),
+                        ): bool,
+                        vol.Optional(
+                            CONF_SHADING_OVER_VENTILATION,
+                            default=bool(
+                                self._data.get(
+                                    CONF_SHADING_OVER_VENTILATION,
+                                    DEFAULT_CONTACT_SETTINGS[CONF_SHADING_OVER_VENTILATION],
                                 )
                             ),
                         ): bool,
@@ -1283,6 +1322,9 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
         CONF_ADDITIONAL_CONDITION_SHADING_TILT,
         CONF_ADDITIONAL_CONDITION_SHADING_END,
         CONF_CALENDAR_ENTITY,
+        CONF_LOCKOUT_POSITION,
+        CONF_SHADING_POSITION_ALT,
+        CONF_SHADING_POSITION_ALT_ENTITY,
     }
 
     def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
@@ -1543,10 +1585,24 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                 CONF_VENTILATE_POSITION,
                 default=_position_default(self._options, CONF_VENTILATE_POSITION),
             ): _position_number_selector(),
+            vol.Optional(
+                CONF_LOCKOUT_POSITION,
+                default=self._optional_default(CONF_LOCKOUT_POSITION),
+            ): _position_number_selector(),
             vol.Required(
                 CONF_SHADING_POSITION,
                 default=_position_default(self._options, CONF_SHADING_POSITION),
             ): _position_number_selector(),
+            vol.Optional(
+                CONF_SHADING_POSITION_ALT,
+                default=self._optional_default(CONF_SHADING_POSITION_ALT),
+            ): _position_number_selector(),
+            vol.Optional(
+                CONF_SHADING_POSITION_ALT_ENTITY,
+                default=self._optional_default(CONF_SHADING_POSITION_ALT_ENTITY),
+            ): selector.EntitySelector(
+                selector.EntitySelectorConfig(domain=["binary_sensor", "input_boolean"])
+            ),
             vol.Required(
                 CONF_POSITION_TOLERANCE,
                 default=_position_default(self._options, CONF_POSITION_TOLERANCE),
@@ -1607,6 +1663,10 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                     options=[
                         {"value": COVER_TILT_WAIT_FIXED_DELAY, "label": "Fixed delay"},
                         {"value": COVER_TILT_WAIT_IDLE, "label": "Wait until idle"},
+                        {
+                            "value": COVER_TILT_WAIT_BEFORE_POSITION,
+                            "label": "Tilt first, then position",
+                        },
                     ],
                     mode=selector.SelectSelectorMode.DROPDOWN,
                 )
@@ -2005,6 +2065,10 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                 vol.Optional(
                     CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT,
                     default=bool(self._options.get(CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT, DEFAULT_CONTACT_SETTINGS[CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT])),
+                ): bool,
+                vol.Optional(
+                    CONF_SHADING_OVER_VENTILATION,
+                    default=bool(self._options.get(CONF_SHADING_OVER_VENTILATION, DEFAULT_CONTACT_SETTINGS[CONF_SHADING_OVER_VENTILATION])),
                 ): bool,
             }
         )
