@@ -71,6 +71,7 @@ from .const import (
     CONF_COVER_TYPE,
     CONF_COVER_TYPE_AWNING,
     CONF_DRIVE_TIME,
+    CONF_LOCKOUT_POSITION,
     CONF_LOCKOUT_TILT_CLOSE,
     CONF_LOCKOUT_TILT_SHADING_END,
     CONF_LOCKOUT_TILT_SHADING_START,
@@ -126,6 +127,8 @@ from .const import (
     CONF_SHADING_MIN_TEMPERATURE_1,
     CONF_SHADING_MIN_TEMPERATURE_2,
     CONF_SHADING_POSITION,
+    CONF_SHADING_POSITION_ALT,
+    CONF_SHADING_POSITION_ALT_ENTITY,
     CONF_SHADING_START_MAX_DURATION,
     CONF_SHADING_TEMPERATURE_HYSTERESIS_1,
     CONF_SHADING_TEMPERATURE_HYSTERESIS_2,
@@ -166,6 +169,7 @@ from .const import (
     CONF_VENTILATION_ALLOW_HIGHER_POSITION,
     CONF_VENTILATION_DELAY_AFTER_CLOSE,
     CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT,
+    CONF_SHADING_OVER_VENTILATION,
     CONF_VENTILATION_START_NO_DELAY,
     CONF_VENTILATION_USE_AFTER_SHADING,
     CONF_VENTILATE_POSITION,
@@ -174,6 +178,7 @@ from .const import (
     CONF_WINDOW_SENSOR_TILT,
     CONF_WORKDAY_SENSOR,
     CONF_WORKDAY_TOMORROW_SENSOR,
+    COVER_TILT_WAIT_BEFORE_POSITION,
     COVER_TILT_WAIT_IDLE,
     DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_BEHAVIOR_SETTINGS,
@@ -1047,6 +1052,7 @@ class CoverController:
             self.config.get(CONF_RESIDENT_SENSOR),
             self.config.get(CONF_SHADING_FORECAST_SENSOR),
             self.config.get(CONF_SHADING_FORECAST_TEMP_SENSOR),
+            self.config.get(CONF_SHADING_POSITION_ALT_ENTITY),
             self.config.get(CONF_CALENDAR_ENTITY),
             self.config.get(CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR),
             self.config.get(CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR),
@@ -1887,10 +1893,11 @@ class CoverController:
                 and not self._manual_blocks_action("ventilation")
             ):
                 self._remember_pre_ventilation_position()
+                open_position = self._position_value(
+                    CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION
+                )
                 await self._set_position(
-                    self._position_value(
-                        CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION
-                    ),
+                    self._position_value(CONF_LOCKOUT_POSITION, open_position),
                     "ventilation_full",
                 )
             else:
@@ -1902,7 +1909,36 @@ class CoverController:
 
         current_position = self._current_position()
 
-        if auto_ventilate and tilt_contact_active and ventilation_condition and not resident_blocks_ventilation:
+        shading_over_ventilation_active = False
+        if (
+            auto_ventilate
+            and tilt_contact_active
+            and self._config_bool(CONF_SHADING_OVER_VENTILATION)
+            and self._auto_enabled(CONF_AUTO_SHADING)
+            and not self._manual_blocks_action("shading")
+            and not resident_blocks_shading
+            and not tilt_lock_shading_start
+        ):
+            await self._async_update_shading_forecast()
+            shading_conditions_met, shading_temp_independent = (
+                self._shading_start_conditions(
+                    sun_azimuth, sun_elevation, brightness
+                )
+            )
+            shading_over_ventilation_active = (
+                (shading_conditions_met or shading_temp_independent)
+                and shading_condition
+                and shading_tilt_condition
+                and is_shading_allowed_window
+            )
+
+        if (
+            auto_ventilate
+            and tilt_contact_active
+            and ventilation_condition
+            and not resident_blocks_ventilation
+            and not shading_over_ventilation_active
+        ):
             if not self._manual_blocks_action("ventilation"):
                 keep_open = bool(
                     self.config.get(CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT, False)
@@ -3542,6 +3578,18 @@ class CoverController:
             self._record_action_status(reason, target)
             self._publish_state()
             return
+        if (
+            tilt_position is not None
+            and str(
+                self.config.get(
+                    CONF_COVER_TILT_WAIT_MODE, DEFAULT_COVER_TILT_WAIT_MODE
+                )
+                or DEFAULT_COVER_TILT_WAIT_MODE
+            ).lower()
+            == COVER_TILT_WAIT_BEFORE_POSITION
+            and current is not None
+        ):
+            await self._align_tilt_before_position(current, target, reason)
         await self._command_position(target, reason=reason)
         if tilt_position is not None:
             await self._send_tilt_after_position(float(tilt_position), reason=reason)
@@ -3588,6 +3636,33 @@ class CoverController:
         except (TypeError, ValueError):
             return None
 
+    async def _align_tilt_before_position(
+        self, current: float, target: float, reason: str
+    ) -> None:
+        """Align slats with the travel direction for tilt-restoring motors."""
+
+        state = self.hass.states.get(self.cover)
+        if state is None or state.attributes.get("current_tilt_position") is None:
+            return
+        if current >= 99.5:
+            ctx = Context()
+            self._last_command_context_id = ctx.id
+            self._last_command_at = dt_util.utcnow()
+            if not self._config_bool(CONF_PREVENT_DEFAULT_COVER_ACTIONS):
+                await self.hass.services.async_call(
+                    "cover",
+                    "close_cover",
+                    {"entity_id": self.cover},
+                    blocking=True,
+                    context=ctx,
+                )
+            await asyncio.sleep(1)
+            return
+        preliminary_tilt = 0.0 if target < current else 100.0
+        await self._command_tilt_position(
+            preliminary_tilt, reason=f"{reason}_tilt_alignment"
+        )
+
     async def _send_tilt_after_position(
         self, tilt_position: float, *, reason: str | None = None
     ) -> None:
@@ -3595,7 +3670,10 @@ class CoverController:
             self.config.get(CONF_COVER_TILT_WAIT_MODE, DEFAULT_COVER_TILT_WAIT_MODE)
             or DEFAULT_COVER_TILT_WAIT_MODE
         ).lower()
-        if wait_mode == COVER_TILT_WAIT_IDLE:
+        if wait_mode in {
+            COVER_TILT_WAIT_IDLE,
+            COVER_TILT_WAIT_BEFORE_POSITION,
+        }:
             timeout = self._duration_value(
                 CONF_COVER_TILT_WAIT_TIMEOUT, DEFAULT_COVER_TILT_WAIT_TIMEOUT
             )
