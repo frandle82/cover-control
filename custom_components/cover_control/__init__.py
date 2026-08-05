@@ -48,9 +48,6 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def _handle_options_update(hass: HomeAssistant, entry: ConfigEntry) -> None:
-    """Apply updated options by reloading entry platforms."""
+    """Apply updated options through one clean entry reload."""
 
-    manager: ControllerManager | None = hass.data.get(DOMAIN, {}).get(entry.entry_id)
-    if manager:
-        manager.async_update_options()
     await hass.config_entries.async_reload(entry.entry_id)
