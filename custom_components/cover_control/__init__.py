@@ -1,13 +1,25 @@
 """Set up the Cover Control integration."""
+
 from __future__ import annotations
 
-from homeassistant.config_entries import ConfigEntry
+from typing import TYPE_CHECKING
+
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN, PLATFORMS
-from .controller import ControllerManager
+
+if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+
+
+def _load_controller_manager():
+    """Import the runtime outside Home Assistant's event loop."""
+
+    from .controller import ControllerManager
+
+    return ControllerManager
 
 
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
@@ -20,6 +32,8 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Load a config entry."""
 
+    controller_manager = await hass.async_add_executor_job(_load_controller_manager)
+
     registry = er.async_get(hass)
     for entity_entry in list(registry.entities.values()):
         if entity_entry.config_entry_id != entry.entry_id:
@@ -27,7 +41,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if entity_entry.domain in {"number", "text", "time"}:
             registry.async_remove(entity_entry.entity_id)
 
-    manager = ControllerManager(hass, entry)
+    manager = controller_manager(hass, entry)
     await manager.async_setup()
     hass.data[DOMAIN][entry.entry_id] = manager
 
@@ -39,9 +53,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Unload a config entry."""
 
-    manager: ControllerManager | None = hass.data.get(DOMAIN, {}).pop(
-        entry.entry_id, None
-    )
+    manager = hass.data.get(DOMAIN, {}).pop(entry.entry_id, None)
     if manager:
         await manager.async_unload()
     return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)

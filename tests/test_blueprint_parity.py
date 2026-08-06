@@ -7,7 +7,6 @@ from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 import voluptuous as vol
-
 from homeassistant.util import dt as dt_util
 
 from custom_components.cover_control.config_flow import _normalize_position_value
@@ -86,7 +85,9 @@ def test_full_ventilation_status_uses_lockout_position() -> None:
 
 
 @pytest.mark.asyncio
-@pytest.mark.parametrize(("current", "target", "expected_tilt"), [(50, 20, 0), (50, 80, 100)])
+@pytest.mark.parametrize(
+    ("current", "target", "expected_tilt"), [(50, 20, 0), (50, 80, 100)]
+)
 async def test_tilt_before_position_aligns_with_travel(
     current: float, target: float, expected_tilt: float
 ) -> None:
@@ -142,9 +143,7 @@ def test_unavailable_contact_blocks_decisions() -> None:
     )
     controller.cover = "cover.test"
 
-    assert controller._unavailable_decision_entities() == {
-        "binary_sensor.window"
-    }
+    assert controller._unavailable_decision_entities() == {"binary_sensor.window"}
 
     window.state = "off"
     assert controller._unavailable_decision_entities() == set()
@@ -205,11 +204,11 @@ async def test_additional_condition_uses_current_condition_api() -> None:
 
     with (
         patch(
-            "custom_components.cover_control.controller.condition.async_validate_condition_config",
+            "homeassistant.helpers.condition.async_validate_condition_config",
             new=AsyncMock(return_value=condition_config),
         ) as validate,
         patch(
-            "custom_components.cover_control.controller.condition.async_from_config",
+            "homeassistant.helpers.condition.async_from_config",
             new=AsyncMock(return_value=checker),
         ) as create,
     ):
@@ -236,11 +235,11 @@ async def test_additional_condition_keeps_legacy_condition_compatibility() -> No
 
     with (
         patch(
-            "custom_components.cover_control.controller.condition.async_validate_condition_config",
+            "homeassistant.helpers.condition.async_validate_condition_config",
             new=AsyncMock(return_value=condition_config),
         ),
         patch(
-            "custom_components.cover_control.controller.condition.async_from_config",
+            "homeassistant.helpers.condition.async_from_config",
             new=AsyncMock(return_value=legacy_checker),
         ),
     ):
