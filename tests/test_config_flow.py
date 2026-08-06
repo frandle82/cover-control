@@ -11,7 +11,14 @@ from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import selector
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
-from custom_components.cover_control.const import CONF_COVERS, DEFAULT_NAME, DOMAIN
+from custom_components.cover_control.const import (
+    CONF_AUTO_SHADING,
+    CONF_AUTO_VENTILATE,
+    CONF_COVERS,
+    CONF_ROOM,
+    DEFAULT_NAME,
+    DOMAIN,
+)
 
 REQUIRES_NEW_HA = (
     not hasattr(selector, "ConditionSelector")
@@ -31,7 +38,15 @@ async def test_user_flow_can_be_completed_without_errors(hass):
 
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
-        {CONF_NAME: "Test", CONF_COVERS: ["cover.test_cover"]},
+        {
+            CONF_NAME: "Test",
+            CONF_ROOM: "living-room",
+            CONF_COVERS: ["cover.test_cover"],
+            "automation_features": {
+                CONF_AUTO_VENTILATE: True,
+                CONF_AUTO_SHADING: True,
+            },
+        },
     )
     assert result["type"] is FlowResultType.FORM
     assert result["step_id"] == "windows"
@@ -61,8 +76,38 @@ async def test_options_flow_loads_for_existing_entry(hass):
     entry.add_to_hass(hass)
 
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "init"
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "menu"
 
-    result = await hass.config_entries.options.async_configure(result["flow_id"], {})
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "finish"}
+    )
     assert result["type"] is FlowResultType.CREATE_ENTRY
+
+
+async def test_entry_setup_and_unload_on_home_assistant_2026_8(hass):
+    """The integration loads and unloads through the current config entry API."""
+
+    hass.states.async_set(
+        "cover.test_cover",
+        "open",
+        {"current_position": 100},
+    )
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Test",
+        data={
+            CONF_NAME: "Test",
+            CONF_ROOM: "living-room",
+            CONF_COVERS: ["cover.test_cover"],
+        },
+    )
+    entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is config_entries.ConfigEntryState.LOADED
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    await hass.async_block_till_done()
+    assert entry.state is config_entries.ConfigEntryState.NOT_LOADED

@@ -4,8 +4,8 @@ from __future__ import annotations
 import asyncio
 import logging
 import re
-from inspect import isawaitable
 from datetime import datetime, timedelta, time
+from inspect import isawaitable
 from typing import Awaitable, Callable
 
 from astral import LocationInfo
@@ -232,8 +232,6 @@ from .const import (
     DEFAULT_SUN_ELEVATION_OPEN,
     DEFAULT_SUN_ELEVATION_CLOSE,
     DEFAULT_SUN_TIME_DURATION,
-    DEFAULT_TEMPERATURE_FORECAST_THRESHOLD,
-    DEFAULT_TEMPERATURE_THRESHOLD,
     DOMAIN,
     SIGNAL_STATE_UPDATED,
     MANUAL_OVERRIDE_RESET_NONE,
@@ -3427,11 +3425,19 @@ class CoverController:
             validated_config = await condition.async_validate_condition_config(
                 self.hass, normalized_config
             )
-            check = await condition.async_from_config(self.hass, validated_config)
-            result = check(self.hass)
-            if isawaitable(result):
-                result = await result
-            return bool(result)
+            checker = await condition.async_from_config(self.hass, validated_config)
+            async_check = getattr(checker, "async_check", None)
+            if async_check is None:
+                # Home Assistant before the condition checker API returned a
+                # callable instead. Keep supporting the HACS minimum version.
+                result = checker(self.hass)
+                if isawaitable(result):
+                    result = await result
+                return bool(result)
+            try:
+                return bool(async_check())
+            finally:
+                checker.async_unload()
         except ConditionError as err:  # pragma: no cover - defensive for invalid config
             _LOGGER.error(
                 "Invalid additional condition '%s': %s (config=%s)",
