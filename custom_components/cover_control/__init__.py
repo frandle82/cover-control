@@ -32,7 +32,9 @@ async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
 async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Load a config entry."""
 
-    controller_manager = await hass.async_add_executor_job(_load_controller_manager)
+    controller_manager = await hass.async_add_import_executor_job(
+        _load_controller_manager
+    )
 
     registry = er.async_get(hass)
     for entity_entry in list(registry.entities.values()):

@@ -105,6 +105,8 @@ async def test_entry_setup_and_unload_on_home_assistant_2026_8(hass):
     entry.add_to_hass(hass)
 
     assert await hass.config_entries.async_setup(entry.entry_id)
+    manager = hass.data[DOMAIN][entry.entry_id]
+    assert manager._evaluation_task in entry._background_tasks
     await hass.async_block_till_done()
     assert entry.state is config_entries.ConfigEntryState.LOADED
 

@@ -119,9 +119,17 @@ class ControllerManager:
         ) >= _TRIGGER_PRIORITY.get(previous_trigger, 0):
             self._pending_evaluations[controller.cover] = trigger
         if self._evaluation_task is None or self._evaluation_task.done():
-            self._evaluation_task = self.hass.async_create_task(
-                self._async_flush_evaluations()
-            )
+            self._start_evaluation_task()
+
+    @callback
+    def _start_evaluation_task(self) -> None:
+        """Start evaluation without holding up Home Assistant startup."""
+
+        self._evaluation_task = self.entry.async_create_background_task(
+            self.hass,
+            self._async_flush_evaluations(),
+            "cover control evaluation",
+        )
 
     async def _async_flush_evaluations(self) -> None:
         """Evaluate all pending room covers from the same state snapshot."""
@@ -140,9 +148,7 @@ class ControllerManager:
         finally:
             self._evaluation_task = None
             if self._pending_evaluations:
-                self._evaluation_task = self.hass.async_create_task(
-                    self._async_flush_evaluations()
-                )
+                self._start_evaluation_task()
 
     async def _async_set_group_position(
         self, source: CoverController, position: float, reason: str
