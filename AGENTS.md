@@ -42,8 +42,8 @@ are unavailable, report that limitation explicitly.
   `.release-please-manifest.json`, and the `version` field in
   `custom_components/cover_control/manifest.json`. Do not bump these manually.
 - Do not create release tags or GitHub releases manually. Merging the Release
-  Please PR publishes the release; `.github/workflows/release-build.yml` then
-  attaches `cover_control.zip` for HACS.
+  Please PR publishes the release and attaches `cover_control.zip` for HACS in
+  the same workflow. `.github/workflows/release-build.yml` is only the manual
+  repair path for an existing release.
 - A failed asset build can be repaired with the workflow's manual dispatch and
   the already-published tag.
-
