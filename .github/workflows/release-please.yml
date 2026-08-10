@@ -1,15 +1,10 @@
 name: Release Please
 
-# Release Please maintains a release PR from Conventional Commit titles. The
-# GitHub App token is intentional: events created by GITHUB_TOKEN do not start
-# the release-build workflow or required checks on the release PR.
-#
-# One-time setup:
-# 1. Create and install a GitHub App for this repository with Contents,
-#    Pull requests, and Actions set to read/write.
-# 2. Store its client ID as RELEASE_APP_CLIENT_ID.
-# 3. Store its private key as RELEASE_APP_PRIVATE_KEY.
-# Until both secrets exist this workflow exits successfully without changes.
+# Release Please maintains a release PR from Conventional Commit titles. This
+# workflow intentionally uses only GITHUB_TOKEN: no App, PAT, private key, or
+# repository secret is required. Events created by GITHUB_TOKEN do not start
+# other workflows, so the HACS archive is built and uploaded in this same run
+# immediately after Release Please publishes a release.
 
 on:
   push:
@@ -24,31 +19,46 @@ jobs:
   release-please:
     runs-on: ubuntu-latest
     steps:
-      - name: Check for App credentials
-        id: creds
-        env:
-          CLIENT_ID: ${{ secrets.RELEASE_APP_CLIENT_ID }}
-          PRIVATE_KEY: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-        run: |
-          if [ -z "$CLIENT_ID" ] || [ -z "$PRIVATE_KEY" ]; then
-            echo "have=false" >> "$GITHUB_OUTPUT"
-            echo "::notice::Release App credentials are not configured; skipping."
-          else
-            echo "have=true" >> "$GITHUB_OUTPUT"
-          fi
-
-      - name: Mint release-bot token
-        if: steps.creds.outputs.have == 'true'
-        id: app-token
-        uses: actions/create-github-app-token@bcd2ba49218906704ab6c1aa796996da409d3eb1 # v3.2.0
-        with:
-          client-id: ${{ secrets.RELEASE_APP_CLIENT_ID }}
-          private-key: ${{ secrets.RELEASE_APP_PRIVATE_KEY }}
-
       - name: Release Please
-        if: steps.creds.outputs.have == 'true'
+        id: release
         uses: googleapis/release-please-action@45996ed1f6d02564a971a2fa1b5860e934307cf7 # v5.0.0
         with:
-          token: ${{ steps.app-token.outputs.token }}
+          token: ${{ secrets.GITHUB_TOKEN }}
           config-file: release-please-config.json
           manifest-file: .release-please-manifest.json
+
+      - name: Checkout released version
+        if: steps.release.outputs.release_created == 'true'
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.release.outputs.tag_name }}
+          fetch-depth: 0
+
+      - name: Set up Python
+        if: steps.release.outputs.release_created == 'true'
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Verify released version
+        if: steps.release.outputs.release_created == 'true'
+        env:
+          GITHUB_REF_TYPE: tag
+          GITHUB_REF_NAME: ${{ steps.release.outputs.tag_name }}
+        run: python scripts/verify_release.py
+
+      - name: Build HACS archive
+        if: steps.release.outputs.release_created == 'true'
+        run: python scripts/build_release.py
+
+      - name: Verify HACS archive
+        if: steps.release.outputs.release_created == 'true'
+        run: python scripts/verify_release.py --archive --skip-tag
+
+      - name: Upload HACS archive
+        if: steps.release.outputs.release_created == 'true'
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.release.outputs.tag_name }}
+          REPOSITORY: ${{ github.repository }}
+        run: gh release upload "$RELEASE_TAG" cover_control.zip --clobber -R "$REPOSITORY"

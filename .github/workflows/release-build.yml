@@ -1,8 +1,6 @@
 name: Release Build
 
 on:
-  release:
-    types: [published]
   workflow_dispatch:
     inputs:
       tag:
@@ -20,17 +18,10 @@ jobs:
       - name: Determine ref and tag
         id: ref
         env:
-          EVENT_NAME: ${{ github.event_name }}
-          DISPATCH_TAG: ${{ inputs.tag }}
-          RELEASE_TAG: ${{ github.event.release.tag_name }}
+          RELEASE_TAG: ${{ inputs.tag }}
         run: |
-          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
-            echo "tag=$DISPATCH_TAG" >> "$GITHUB_OUTPUT"
-            echo "ref=$DISPATCH_TAG" >> "$GITHUB_OUTPUT"
-          else
-            echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
-            echo "ref=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
-          fi
+          echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          echo "ref=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
 
       - name: Checkout release
         uses: actions/checkout@v6
