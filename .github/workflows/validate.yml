@@ -1,0 +1,50 @@
+name: Validate
+
+on:
+  push:
+    branches: [main]
+  pull_request:
+    branches: [main]
+  schedule:
+    - cron: '0 0 * * 1'
+  workflow_dispatch:
+
+jobs:
+  hacs:
+    name: HACS Validation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: hacs/action@main
+        with:
+          category: integration
+
+  tests:
+    name: Tests (Home Assistant 2026.8)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Install test dependencies
+        run: pip install pytest-homeassistant-custom-component==0.13.355
+      - name: Run tests
+        run: python -m pytest -q --asyncio-mode=auto
+      - name: Compile Python files
+        run: python -m compileall -q custom_components tests
+
+  release-bundle:
+    name: Release bundle
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v6
+      - uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+      - name: Verify source versions
+        run: python scripts/verify_release.py --skip-tag
+      - name: Build and verify archive
+        run: |
+          python scripts/build_release.py
+          python scripts/verify_release.py --archive --skip-tag

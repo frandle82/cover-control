@@ -1,6 +1,9 @@
 {
   "name": "Cover Control",
   "render_readme": true,
+  "zip_release": true,
+  "filename": "cover_control.zip",
+  "hide_default_branch": true,
   "homeassistant": "2024.10.0",
   "content_in_root": false,
   "country": ["DE", "US"],

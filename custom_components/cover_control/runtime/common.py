@@ -21,6 +21,7 @@ _TRIGGER_PRIORITY = {
     "runtime_toggle": 3,
     "contact": 4,
     "manual_expired": 5,
+    "manual_cleared": 6,
     "manual_service": 6,
     "resident_asleep": 7,
     "resident_woke": 7,

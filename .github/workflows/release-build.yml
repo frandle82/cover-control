@@ -1,0 +1,68 @@
+name: Release Build
+
+on:
+  release:
+    types: [published]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: 'Published release tag to rebuild (for example 0.7.5)'
+        required: true
+
+permissions:
+  contents: write
+
+jobs:
+  build:
+    name: Build and attach HACS archive
+    runs-on: ubuntu-latest
+    steps:
+      - name: Determine ref and tag
+        id: ref
+        env:
+          EVENT_NAME: ${{ github.event_name }}
+          DISPATCH_TAG: ${{ inputs.tag }}
+          RELEASE_TAG: ${{ github.event.release.tag_name }}
+        run: |
+          if [ "$EVENT_NAME" = "workflow_dispatch" ]; then
+            echo "tag=$DISPATCH_TAG" >> "$GITHUB_OUTPUT"
+            echo "ref=$DISPATCH_TAG" >> "$GITHUB_OUTPUT"
+          else
+            echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+            echo "ref=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
+          fi
+
+      - name: Checkout release
+        uses: actions/checkout@v6
+        with:
+          ref: ${{ steps.ref.outputs.ref }}
+          fetch-depth: 0
+
+      - name: Ensure release commit is on main
+        run: |
+          git fetch origin main
+          git merge-base --is-ancestor HEAD origin/main
+
+      - name: Set up Python
+        uses: actions/setup-python@v6
+        with:
+          python-version: '3.14'
+
+      - name: Verify version
+        env:
+          GITHUB_REF_TYPE: tag
+          GITHUB_REF_NAME: ${{ steps.ref.outputs.tag }}
+        run: python scripts/verify_release.py
+
+      - name: Build HACS archive
+        run: python scripts/build_release.py
+
+      - name: Verify HACS archive
+        run: python scripts/verify_release.py --archive --skip-tag
+
+      - name: Upload release asset
+        env:
+          GH_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          RELEASE_TAG: ${{ steps.ref.outputs.tag }}
+          REPOSITORY: ${{ github.repository }}
+        run: gh release upload "$RELEASE_TAG" cover_control.zip --clobber -R "$REPOSITORY"

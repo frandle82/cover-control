@@ -390,6 +390,7 @@ class EventsMixin:
         self.persist_status()
         self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
+        self.async_request_evaluate("manual_cleared")
 
     def _remember_pre_ventilation_position(self) -> None:
         """Remember current position before switching into ventilation mode."""

@@ -186,6 +186,31 @@ def test_internal_position_feedback_is_not_manual_override() -> None:
     assert controller._last_position == 40
 
 
+def test_clearing_manual_override_requests_immediate_evaluation() -> None:
+    """Clearing an override immediately resumes automatic cover control."""
+
+    controller = _controller({}, {})
+    controller._manual_until = dt_util.utcnow()
+    controller._manual_active = True
+    controller._manual_scope_all = True
+    controller._manual_expire_unsub = None
+    controller._reason = "manual_override"
+    controller._status = {
+        "manual": {"active": True, "scope_all": True, "until": "later"}
+    }
+    controller.persist_status = Mock()
+    controller._refresh_next_events = Mock()
+    controller._publish_state = Mock()
+    controller.async_request_evaluate = Mock()
+
+    controller.clear_manual_override()
+
+    assert not controller._manual_active
+    assert not controller._manual_scope_all
+    assert controller._manual_until is None
+    controller.async_request_evaluate.assert_called_once_with("manual_cleared")
+
+
 @pytest.mark.asyncio
 async def test_additional_condition_uses_current_condition_api() -> None:
     """Condition checkers use async_check and are unloaded after evaluation."""
