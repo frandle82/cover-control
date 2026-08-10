@@ -1,11 +1,15 @@
 {
   "domain": "cover_control",
   "name": "Cover Control",
-  "version": "0.7.4",
+  "version": "0.7.5",
   "documentation": "https://github.com/frandle82/cover-control",
   "issue_tracker": "https://github.com/frandle82/cover-control/issues",
-  "codeowners": ["@frandle82"],
+  "codeowners": [
+    "@frandle82"
+  ],
   "config_flow": true,
-  "after_dependencies": ["sun"],
+  "after_dependencies": [
+    "sun"
+  ],
   "iot_class": "local_polling"
 }
