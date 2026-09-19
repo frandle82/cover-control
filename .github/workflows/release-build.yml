@@ -23,6 +23,20 @@ jobs:
           echo "tag=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
           echo "ref=$RELEASE_TAG" >> "$GITHUB_OUTPUT"
 
+      - name: Ensure release is published
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TAG: ${{ steps.ref.outputs.tag }}
+        run: |
+          if ! is_draft=$(gh release view "$RELEASE_TAG" --json isDraft --jq '.isDraft'); then
+            echo "Published release $RELEASE_TAG does not exist."
+            exit 1
+          fi
+          if [ "$is_draft" != "false" ]; then
+            echo "Release $RELEASE_TAG is still a draft."
+            exit 1
+          fi
+
       - name: Checkout release
         uses: actions/checkout@v6
         with:

@@ -7,26 +7,28 @@ import argparse
 import json
 import os
 from pathlib import Path
+import re
 from zipfile import BadZipFile, ZipFile
 
 ROOT = Path(__file__).resolve().parents[1]
 MANIFEST = ROOT / "custom_components" / "cover_control" / "manifest.json"
-VERSION_FILE = ROOT / "version.txt"
 ARCHIVE = ROOT / "cover_control.zip"
+VERSION_PATTERN = re.compile(
+    r"^(?:0|[1-9]\d*)\."
+    r"(?:0|[1-9]\d*)\."
+    r"(?:0|[1-9]\d*)"
+    r"(?:-[0-9A-Za-z-]+(?:\.[0-9A-Za-z-]+)*)?$"
+)
 
 
 def version() -> str:
-    """Return and validate the source-controlled release version."""
+    """Return and validate the integration manifest version."""
 
     manifest_version = json.loads(MANIFEST.read_text(encoding="utf-8")).get("version")
-    file_version = VERSION_FILE.read_text(encoding="utf-8").strip()
-    if not isinstance(manifest_version, str) or not manifest_version:
+    if not isinstance(manifest_version, str) or not VERSION_PATTERN.fullmatch(
+        manifest_version
+    ):
         raise SystemExit("manifest.json version is missing or invalid")
-    if file_version != manifest_version:
-        raise SystemExit(
-            f"Version mismatch: version.txt={file_version}, "
-            f"manifest.json={manifest_version}"
-        )
     return manifest_version
 
 
@@ -63,7 +65,7 @@ def verify_archive(expected_version: str) -> None:
         raise SystemExit(f"Invalid release archive: {error}") from error
 
     if archived_manifest.get("version") != expected_version:
-        raise SystemExit("Archive manifest version does not match version.txt")
+        raise SystemExit("Archive manifest version does not match source manifest")
 
 
 def main() -> None:

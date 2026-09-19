@@ -1,0 +1,65 @@
+name: "Draft Release"
+
+on:
+  push:
+    branches:
+      - "main"
+  pull_request_target:
+    types:
+      - opened
+      - reopened
+      - synchronize
+      - edited
+
+permissions:
+  contents: read
+
+jobs:
+  update_release_draft:
+    if: github.event_name == 'push'
+    runs-on: ubuntu-latest
+    concurrency:
+      group: release
+      cancel-in-progress: false
+    permissions:
+      contents: write
+      pull-requests: read
+    steps:
+      - uses: release-drafter/release-drafter@v7
+        with:
+          config-name: release-drafter.yml
+
+  auto_label:
+    if: github.event_name == 'pull_request_target'
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+      issues: write
+      pull-requests: write
+    steps:
+      - name: "Ensure release labels exist"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          REPOSITORY: ${{ github.repository }}
+        run: |
+          gh label create breaking --color B60205 --description "Breaking change" --force --repo "$REPOSITORY"
+          gh label create feature --color 1D76DB --description "New feature" --force --repo "$REPOSITORY"
+          gh label create fix --color D73A4A --description "Bug fix" --force --repo "$REPOSITORY"
+          gh label create documentation --color 0075CA --description "Documentation" --force --repo "$REPOSITORY"
+          gh label create refactor --color FBCA04 --description "Code refactoring" --force --repo "$REPOSITORY"
+          gh label create tests --color 5319E7 --description "Tests" --force --repo "$REPOSITORY"
+          gh label create ci --color 0E8A16 --description "CI or build tooling" --force --repo "$REPOSITORY"
+          gh label create chore --color C5DEF5 --description "Maintenance" --force --repo "$REPOSITORY"
+          gh label create dependencies --color 0366D6 --description "Dependencies" --force --repo "$REPOSITORY"
+          gh label create major --color B60205 --description "Major version" --force --repo "$REPOSITORY"
+          gh label create minor --color 1D76DB --description "Minor version" --force --repo "$REPOSITORY"
+          gh label create patch --color FBCA04 --description "Patch version" --force --repo "$REPOSITORY"
+          gh label create enhancement --color A2EEEF --description "Enhancement" --force --repo "$REPOSITORY"
+          gh label create hotfix --color B60205 --description "Urgent bug fix" --force --repo "$REPOSITORY"
+          gh label create bug --color D73A4A --description "Bug" --force --repo "$REPOSITORY"
+          gh label create maintenance --color C5DEF5 --description "Maintenance" --force --repo "$REPOSITORY"
+          gh label create skip-changelog --color EDEDED --description "Exclude from release notes" --force --repo "$REPOSITORY"
+
+      - uses: release-drafter/release-drafter/autolabeler@v7
+        with:
+          config-name: release-drafter.yml

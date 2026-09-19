@@ -1,0 +1,141 @@
+name: "Create Release"
+
+on:
+  workflow_dispatch:
+    inputs:
+      version:
+        description: "Semantic version without a leading v (for example 0.8.0 or 1.0.0-rc.1)"
+        required: true
+        type: string
+      release_type:
+        description: "Release state"
+        required: true
+        default: draft
+        type: choice
+        options:
+          - draft
+          - prerelease
+          - release
+
+permissions:
+  contents: write
+  pull-requests: read
+
+concurrency:
+  group: release
+  cancel-in-progress: false
+
+jobs:
+  release:
+    name: "Create ${{ inputs.release_type }} ${{ inputs.version }}"
+    runs-on: ubuntu-latest
+    steps:
+      - name: "Require main branch"
+        env:
+          WORKFLOW_REF: ${{ github.ref }}
+        run: |
+          if [ "$WORKFLOW_REF" != "refs/heads/main" ]; then
+            echo "Releases must be dispatched from main, got $WORKFLOW_REF."
+            exit 1
+          fi
+
+      - name: "Checkout main"
+        uses: actions/checkout@v7
+        with:
+          ref: main
+          fetch-depth: 0
+
+      - name: "Set up Python"
+        uses: actions/setup-python@v7
+        with:
+          python-version: "3.14"
+
+      - name: "Validate release request"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TYPE: ${{ inputs.release_type }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          python3 scripts/set_version.py "$VERSION" --release-type "$RELEASE_TYPE" --check
+
+          if git rev-parse --verify --quiet "refs/tags/$VERSION" >/dev/null; then
+            echo "Tag $VERSION already exists."
+            exit 1
+          fi
+
+          if is_draft=$(gh release view "$VERSION" --json isDraft --jq '.isDraft' 2>/dev/null); then
+            if [ "$is_draft" != "true" ]; then
+              echo "Release $VERSION has already been published."
+              exit 1
+            fi
+            echo "Existing draft $VERSION will be updated."
+          fi
+
+      - name: "Update integration version"
+        env:
+          RELEASE_TYPE: ${{ inputs.release_type }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          python3 scripts/set_version.py "$VERSION" --release-type "$RELEASE_TYPE"
+          python3 scripts/verify_release.py --skip-tag
+
+      - name: "Commit integration version"
+        id: version
+        env:
+          VERSION: ${{ inputs.version }}
+        run: |
+          if ! git diff --quiet -- custom_components/cover_control/manifest.json; then
+            git config user.name "github-actions[bot]"
+            git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+            git add custom_components/cover_control/manifest.json
+            git commit -m "chore(release): $VERSION"
+            git push origin HEAD:main
+          fi
+
+          echo "sha=$(git rev-parse HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: "Build and verify HACS archive"
+        run: |
+          python3 scripts/build_release.py
+          python3 scripts/verify_release.py --archive --skip-tag
+
+      - name: "Create or update draft release"
+        id: release
+        uses: release-drafter/release-drafter@v7
+        with:
+          config-name: release-drafter.yml
+          name: ${{ inputs.version }}
+          tag: ${{ inputs.version }}
+          version: ${{ inputs.version }}
+          commitish: ${{ steps.version.outputs.sha }}
+          publish: false
+          prerelease: false
+          latest: false
+
+      - name: "Attach HACS archive"
+        env:
+          GH_TOKEN: ${{ github.token }}
+          VERSION: ${{ inputs.version }}
+        run: gh release upload "$VERSION" cover_control.zip --clobber
+
+      - name: "Publish release"
+        if: inputs.release_type != 'draft'
+        env:
+          GH_TOKEN: ${{ github.token }}
+          RELEASE_TYPE: ${{ inputs.release_type }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          if [ "$RELEASE_TYPE" = "prerelease" ]; then
+            gh release edit "$VERSION" --draft=false --prerelease --latest=false
+          else
+            gh release edit "$VERSION" --draft=false --prerelease=false --latest
+          fi
+
+      - name: "Write summary"
+        env:
+          RELEASE_TYPE: ${{ inputs.release_type }}
+          RELEASE_URL: ${{ steps.release.outputs.html_url }}
+          VERSION: ${{ inputs.version }}
+        run: |
+          echo "## $VERSION" >> "$GITHUB_STEP_SUMMARY"
+          echo "Created **$RELEASE_TYPE**: $RELEASE_URL" >> "$GITHUB_STEP_SUMMARY"
