@@ -400,9 +400,16 @@ _EXTRA_POSITION_DEFAULTS: dict[str, int] = {
 }
 
 
-def _position_number_selector() -> selector.TextSelector:
-    return selector.TextSelector(
-        selector.TextSelectorConfig(type=selector.TextSelectorType.NUMBER)
+def _position_number_selector(
+    key: str = CONF_OPEN_POSITION,
+) -> selector.NumberSelector:
+    return selector.NumberSelector(
+        selector.NumberSelectorConfig(
+            min=0,
+            max=POSITION_FIELD_LIMITS[key],
+            step=1,
+            mode=selector.NumberSelectorMode.BOX,
+        )
     )
 
 
@@ -421,9 +428,9 @@ def _normalize_position_value(key: str, value: Any) -> int | None:
     return max(0, min(max_value, parsed))
 
 
-def _position_default(config: dict[str, Any], key: str) -> str:
+def _position_default(config: dict[str, Any], key: str) -> int | None:
     fallback = DEFAULT_POSITION_SETTINGS.get(key, _EXTRA_POSITION_DEFAULTS.get(key, 0))
-    return str(_normalize_position_value(key, config.get(key, fallback)))
+    return _normalize_position_value(key, config.get(key, fallback))
 
 
 def _normalize_position_fields(data: dict[str, Any]) -> dict[str, Any]:
@@ -753,7 +760,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(
                         CONF_POSITION_TOLERANCE,
                         default=_position_default(self._data, CONF_POSITION_TOLERANCE),
-                    ): _position_number_selector(),
+                    ): _position_number_selector(CONF_POSITION_TOLERANCE),
                 }
             ),
             {"collapsed": False},
@@ -1606,7 +1613,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
             vol.Required(
                 CONF_POSITION_TOLERANCE,
                 default=_position_default(self._options, CONF_POSITION_TOLERANCE),
-            ): _position_number_selector(),
+            ): _position_number_selector(CONF_POSITION_TOLERANCE),
             vol.Required(
                 CONF_OPEN_TILT_POSITION,
                 default=_position_default(self._options, CONF_OPEN_TILT_POSITION),

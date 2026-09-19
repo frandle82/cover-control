@@ -20,6 +20,7 @@ from custom_components.cover_control.const import (
     CONF_AUTO_SHADING,
     CONF_AUTO_VENTILATE,
     CONF_COVERS,
+    CONF_LOCKOUT_POSITION,
     CONF_ROOM,
     DEFAULT_NAME,
     DOMAIN,
@@ -121,8 +122,8 @@ async def test_user_flow_exposes_nested_defaults_to_frontend(hass):
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert result["step_id"] == "schedule"
     schedule_data = _frontend_initial_data(result["data_schema"])
-    assert schedule_data["positions"]["open_position"] == "100"
-    assert schedule_data["tilt_positions"]["open_tilt_position"] == "50"
+    assert schedule_data["positions"]["open_position"] == 100
+    assert schedule_data["tilt_positions"]["open_tilt_position"] == 50
 
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], schedule_data
@@ -163,6 +164,42 @@ async def test_options_flow_loads_for_existing_entry(hass):
         result["flow_id"], {"next_step_id": "finish"}
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_options_flow_accepts_numeric_full_open_position(hass):
+    """Allow an integer full-open position to be displayed and submitted."""
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title=DEFAULT_NAME,
+        data={
+            CONF_NAME: DEFAULT_NAME,
+            CONF_COVERS: ["cover.test_cover"],
+            CONF_LOCKOUT_POSITION: 85,
+        },
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "positions"}
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "positions"
+    position_data = _frontend_initial_data(result["data_schema"])
+    assert position_data[CONF_LOCKOUT_POSITION] == 85
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], position_data
+    )
+    assert result["type"] is FlowResultType.MENU
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "finish"}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["data"][CONF_LOCKOUT_POSITION] == 85
 
 
 async def test_entry_setup_and_unload_on_home_assistant_2026_9(hass):
