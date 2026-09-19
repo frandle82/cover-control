@@ -20,7 +20,7 @@ lives in `custom_components/cover_control/`; regression tests live in `tests/`.
 ## Verification
 
 Use an isolated virtual environment and install
-`pytest-homeassistant-custom-component==0.13.355`. Run:
+`pytest-homeassistant-custom-component==0.13.365`. Run:
 
 ```sh
 python -m pytest -q --asyncio-mode=auto

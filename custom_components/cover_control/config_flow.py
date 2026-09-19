@@ -464,7 +464,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     vol.Required(CONF_COVERS): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["cover"], multiple=True)
                     ),
-                    vol.Required("automation_features", default={}): section(
+                    vol.Optional("automation_features"): section(
                         vol.Schema(
                             {
                                 vol.Required(
@@ -594,13 +594,13 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ] = selector.EntitySelector(
                     selector.EntitySelectorConfig(domain=["sensor", "weather"])
                 )
-            schema[vol.Required("presence", default={})] = section(
+            schema[vol.Optional("presence")] = section(
                 vol.Schema(presence_schema),
                 {"collapsed": False},
             )
 
         if uses_time:
-            schema[vol.Required("timing", default={})] = section(
+            schema[vol.Optional("timing")] = section(
                 vol.Schema(
                     {
                         vol.Optional(
@@ -669,7 +669,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 {"collapsed": False},
             )
 
-        schema[vol.Required("positions", default={})] = section(
+        schema[vol.Optional("positions")] = section(
             vol.Schema(
                 {
                     vol.Required(
@@ -758,7 +758,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
             {"collapsed": False},
         )
-        schema[vol.Required("tilt_positions", default={})] = section(
+        schema[vol.Optional("tilt_positions")] = section(
             vol.Schema(
                 {
                     vol.Required(
@@ -835,7 +835,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
         if uses_ventilation:
-            schema[vol.Required("contacts", default={})] = section(
+            schema[vol.Optional("contacts")] = section(
                 vol.Schema(
                     {
                         vol.Optional(
@@ -961,7 +961,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         schema: dict[Any, Any] = {}
         if self._data.get(CONF_AUTO_BRIGHTNESS, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_BRIGHTNESS]):
-            schema[vol.Required("brightness_controls", default={})] = section(
+            schema[vol.Optional("brightness_controls")] = section(
                 vol.Schema(
                     {
                         vol.Optional(CONF_BRIGHTNESS_OPEN_ABOVE, default=DEFAULT_BRIGHTNESS_OPEN): vol.Coerce(float),
@@ -983,7 +983,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 {"collapsed": False},
             )
         if self._data.get(CONF_AUTO_SUN, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_SUN]):
-            schema[vol.Required("sun_controls", default={})] = section(
+            schema[vol.Optional("sun_controls")] = section(
                 vol.Schema(
                     {
                         vol.Optional(CONF_SUN_ELEVATION_OPEN, default=DEFAULT_SUN_ELEVATION_OPEN): vol.Coerce(float),
@@ -993,7 +993,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 {"collapsed": False},
             )
         if self._data.get(CONF_AUTO_SHADING, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_SHADING]):
-            schema[vol.Required("shading_controls", default={})] = section(
+            schema[vol.Optional("shading_controls")] = section(
                 vol.Schema(
                     {
                         vol.Optional(CONF_SUN_AZIMUTH_START, default=DEFAULT_SHADING_AZIMUTH_START): vol.Coerce(float),
@@ -1196,7 +1196,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 ),
                 {"collapsed": False},
             )
-        schema[vol.Required("manual_override", default={})] = section(
+        schema[vol.Optional("manual_override")] = section(
             vol.Schema(
                 {
                     vol.Optional(CONF_MANUAL_OVERRIDE_RESET_MODE, default=self._data.get(CONF_MANUAL_OVERRIDE_RESET_MODE, MANUAL_OVERRIDE_RESET_TIMEOUT)): selector.SelectSelector(

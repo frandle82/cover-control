@@ -193,12 +193,12 @@ Der Optionsdialog zeigt nur Bereiche für aktivierte Funktionen. Änderungen wer
 
 ## Entwicklung und Tests
 
-Die Tests verwenden Home Assistant 2026.8 und `pytest-homeassistant-custom-component`.
+Die Tests verwenden Home Assistant 2026.9 und `pytest-homeassistant-custom-component`.
 
 ```sh
 python -m venv .venv
 source .venv/bin/activate
-pip install pytest-homeassistant-custom-component==0.13.355
+pip install pytest-homeassistant-custom-component==0.13.365
 python -m pytest -q --asyncio-mode=auto
 python -m compileall -q custom_components tests scripts
 git diff --check
