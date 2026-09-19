@@ -32,7 +32,7 @@ jobs:
       - name: Run tests
         run: python -m pytest -q --asyncio-mode=auto
       - name: Compile Python files
-        run: python -m compileall -q custom_components tests
+        run: python -m compileall -q custom_components tests scripts
 
   release-bundle:
     name: Release bundle

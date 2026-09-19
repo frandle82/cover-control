@@ -206,11 +206,14 @@ git diff --check
 
 ## Releases
 
-Release Please erstellt aus Conventional-Commit-Titeln automatisch einen Release-PR, aktualisiert `CHANGELOG.md`, `version.txt` und `manifest.json` und veröffentlicht nach dem Merge das GitHub-Release. Anschließend baut der Release-Workflow `cover_control.zip`, prüft Version und Archivstruktur und hängt das Paket an das Release an.
+Commits und Pull-Request-Titel folgen Conventional Commits. Release Drafter ordnet Pull Requests automatisch Kategorien zu und hält einen Release-Entwurf mit semantisch aufgelöster Folgeversion aktuell.
 
-- `fix:` erzeugt eine Patch-Version.
-- `feat:` erzeugt eine Minor-Version.
-- Breaking Changes erzeugen eine Major-Version.
-- Release-Versionen und Tags werden nicht manuell angelegt.
+Ein Maintainer startet den manuellen Workflow **Create Release** auf `main` und gibt eine Version ohne führendes `v` sowie `draft`, `prerelease` oder `release` an. Der Workflow validiert die Version, aktualisiert `manifest.json`, erstellt den Commit `chore(release): <version>`, baut und prüft `cover_control.zip` und erzeugt den GitHub Release. Das Archiv wird vor einer möglichen Veröffentlichung angehängt.
+
+- `fix:` bzw. die Labels `fix`, `hotfix`, `bug` oder `patch` ergeben eine Patch-Version.
+- `feat:` bzw. `feature`, `enhancement` oder `minor` ergeben eine Minor-Version.
+- Breaking Changes bzw. `breaking` oder `major` ergeben eine Major-Version.
+- Tags werden ohne führendes `v` erstellt.
+- **Release Build** repariert ausschließlich das HACS-Archiv eines bereits veröffentlichten Releases.
 
 Weitere verbindliche Entwicklungs- und Release-Regeln stehen in [AGENTS.md](AGENTS.md).
