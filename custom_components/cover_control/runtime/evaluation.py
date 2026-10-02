@@ -144,6 +144,10 @@ class EvaluationMixin:
                 self._manual_blocks_action(action)
                 for action in ("open", "close", "ventilation", "shading")
             ):
+                self._logbook_entry(
+                    "No movement · manual override active",
+                    dedupe_key="blocked:manual_override",
+                )
                 self._refresh_next_events(now)
                 self._publish_state()
                 return
@@ -493,8 +497,32 @@ class EvaluationMixin:
             shading_end_conditions_met = self._shading_end_conditions(
                 sun_azimuth, sun_elevation, brightness
             )
+            sun_immediate_end = False
+            if bool(
+                self.config.get(CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION, False)
+            ) and sun_azimuth is not None and sun_elevation is not None:
+                az_start = self._number_value(CONF_SUN_AZIMUTH_START, 0)
+                az_end = self._number_value(CONF_SUN_AZIMUTH_END, 360)
+                el_min = self._number_value(CONF_SUN_ELEVATION_MIN, 0)
+                el_max = self._number_value(CONF_SUN_ELEVATION_MAX, 90)
+                sun_immediate_end = not (
+                    az_start <= sun_azimuth <= az_end
+                    and el_min <= sun_elevation <= el_max
+                )
+            independent_holds_end = (
+                shading_active
+                and shading_temp_independent
+                and self._shading_conditions_allow_active_state(
+                    False, True, True, sun_immediate_end
+                )
+            )
             shading_allowed = (
-                (shading_conditions_met or shading_temp_independent)
+                self._shading_conditions_allow_active_state(
+                    shading_conditions_met,
+                    shading_temp_independent,
+                    shading_active,
+                    sun_immediate_end,
+                )
                 and shading_condition
                 and is_shading_allowed_window
             )
@@ -531,17 +559,18 @@ class EvaluationMixin:
                     await self._set_position(shading_target, "shading")
                     return
                 shading_end_conditions_met = False
-            shading_end_warranted = (
+            shading_end_warranted = sun_immediate_end or (
                 shading_end_conditions_met and is_shading_allowed_window
             )
-            if (
-                shading_active
-                and not shading_end_warranted
-                and self._shading_pending_active("end")
-            ):
-                self._clear_shading_pending("end")
+            shading_end_condition_valid = (
+                shading_end_warranted
+                and shading_end_condition
+                and not independent_holds_end
+            )
+            if shading_active and not shading_end_condition_valid:
+                self._shading_end_wait_complete(now, False, 0)
             if shading_active and shading_end_warranted:
-                if not shading_end_condition:
+                if not shading_end_condition or independent_holds_end:
                     self._publish_state()
                     return
                 if self._config_bool(
@@ -573,26 +602,11 @@ class EvaluationMixin:
                         self.persist_status()
                         self._publish_state()
                         return
-                if bool(
-                    self.config.get(CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION, False)
+                if sun_immediate_end:
+                    waiting_end = 20
+                if not self._shading_end_wait_complete(
+                    now, shading_end_condition_valid, waiting_end
                 ):
-                    sun_out_of_range = False
-                    if sun_azimuth is not None and sun_elevation is not None:
-                        az_start = self._number_value(CONF_SUN_AZIMUTH_START, 0)
-                        az_end = self._number_value(CONF_SUN_AZIMUTH_END, 360)
-                        el_min = self._number_value(CONF_SUN_ELEVATION_MIN, 0)
-                        el_max = self._number_value(CONF_SUN_ELEVATION_MAX, 90)
-                        sun_out_of_range = not (
-                            az_start <= sun_azimuth <= az_end
-                            and el_min <= sun_elevation <= el_max
-                        )
-                    if sun_out_of_range:
-                        waiting_end = 20
-                if waiting_end > 0 and not self._shading_pending_due("end", now):
-                    if not self._shading_pending_active("end"):
-                        self._set_shading_pending(
-                            "end", now + timedelta(seconds=waiting_end), True
-                        )
                     self._publish_state()
                     return
                 if self._shading_pending_active("end"):
@@ -616,6 +630,7 @@ class EvaluationMixin:
                     self._set_status_bucket("shading", False)
                     self._clear_shading_pending(persist=False)
                     self.persist_status()
+                    self._logbook_entry("Sun shading ended")
                     self._publish_state()
                     return
                 if (
@@ -656,6 +671,7 @@ class EvaluationMixin:
                 self._set_status_bucket("shading", False)
                 self._clear_shading_pending("end", persist=False)
                 self.persist_status()
+                self._logbook_entry("Sun shading ended")
                 self._publish_state()
                 return
             if (
@@ -779,6 +795,7 @@ class EvaluationMixin:
                 and self._auto_enabled(CONF_AUTO_DOWN)
                 and close_due
                 and not close_events
+                and not self._manual_schedule_adopted_today("close")
                 and not self._close_position_protected(current_position)
             ):
                 close_events.append(
@@ -852,6 +869,7 @@ class EvaluationMixin:
                 and self._auto_enabled(CONF_AUTO_UP)
                 and open_due
                 and not open_events
+                and not self._manual_schedule_adopted_today("open")
             ):
                 open_events.append(
                     (
@@ -1098,5 +1116,9 @@ class EvaluationMixin:
     def _action_already_done_today(self, action: str, flag_key: str) -> bool:
         if not self._config_bool(flag_key):
             return False
-        last_date = self._last_action_dates.get(action)
-        return last_date == dt_util.as_local(dt_util.utcnow()).date()
+        return self._action_done_today(action)
+
+    def _action_done_today(self, action: str) -> bool:
+        return self._last_action_dates.get(action) == dt_util.as_local(
+            dt_util.utcnow()
+        ).date()

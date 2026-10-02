@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 from probatio import to_field_list
@@ -18,10 +19,14 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.cover_control.config_flow import INITIAL_FEATURE_KEYS
 from custom_components.cover_control.const import (
     CONF_AUTO_SHADING,
+    CONF_AUTO_TIME,
     CONF_AUTO_VENTILATE,
     CONF_COVERS,
+    CONF_ENABLE_LOGBOOK_COVER,
     CONF_LOCKOUT_POSITION,
+    CONF_MANUAL_SCHEDULE_ADOPTION,
     CONF_ROOM,
+    CONF_SHADING_INDEPENDENT_HOLDS_END,
     DEFAULT_NAME,
     DOMAIN,
 )
@@ -30,6 +35,25 @@ REQUIRES_NEW_HA = (
     not hasattr(selector, "ConditionSelector")
     or not hasattr(ServiceRegistry, "async_services_for_domain")
 )
+
+
+def test_translation_files_have_matching_structure() -> None:
+    """Keep source strings and English/German translations structurally aligned."""
+
+    translation_dir = Path("custom_components/cover_control")
+    paths = [
+        translation_dir / "strings.json",
+        translation_dir / "translations/en.json",
+        translation_dir / "translations/de.json",
+    ]
+
+    def _shape(value):
+        if isinstance(value, dict):
+            return {key: _shape(child) for key, child in value.items()}
+        return None
+
+    structures = [_shape(json.loads(path.read_text())) for path in paths]
+    assert structures[0] == structures[1] == structures[2]
 
 
 def _frontend_initial_data(data_schema) -> dict:
@@ -124,6 +148,8 @@ async def test_user_flow_exposes_nested_defaults_to_frontend(hass):
     schedule_data = _frontend_initial_data(result["data_schema"])
     assert schedule_data["positions"]["open_position"] == 100
     assert schedule_data["tilt_positions"]["open_tilt_position"] == 50
+    assert schedule_data["timing"][CONF_MANUAL_SCHEDULE_ADOPTION] is False
+    assert schedule_data["behavior"][CONF_ENABLE_LOGBOOK_COVER] is False
 
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], schedule_data
@@ -133,6 +159,10 @@ async def test_user_flow_exposes_nested_defaults_to_frontend(hass):
     assert shading_data["brightness_controls"]
     assert shading_data["sun_controls"]
     assert shading_data["shading_controls"]
+    assert (
+        shading_data["shading_controls"][CONF_SHADING_INDEPENDENT_HOLDS_END]
+        is False
+    )
     assert shading_data["manual_override"]
 
     result = await hass.config_entries.flow.async_configure(
@@ -200,6 +230,40 @@ async def test_options_flow_accepts_numeric_full_open_position(hass):
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["data"][CONF_LOCKOUT_POSITION] == 85
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_options_flow_exposes_new_behavior_defaults(hass):
+    """New parity switches remain disabled for existing config entries."""
+
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title=DEFAULT_NAME,
+        data={
+            CONF_NAME: DEFAULT_NAME,
+            CONF_COVERS: ["cover.test_cover"],
+            CONF_AUTO_TIME: True,
+            CONF_AUTO_SHADING: True,
+        },
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "behavior"}
+    )
+    behavior_data = _frontend_initial_data(result["data_schema"])
+    assert behavior_data[CONF_MANUAL_SCHEDULE_ADOPTION] is False
+    assert behavior_data[CONF_ENABLE_LOGBOOK_COVER] is False
+
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], behavior_data
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "shading"}
+    )
+    shading_data = _frontend_initial_data(result["data_schema"])
+    assert shading_data[CONF_SHADING_INDEPENDENT_HOLDS_END] is False
 
 
 async def test_entry_setup_and_unload_on_home_assistant_2026_9(hass):

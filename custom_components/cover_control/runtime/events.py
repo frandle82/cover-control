@@ -187,9 +187,23 @@ class EventsMixin:
                     deviation_from_target or unexplained_move
                 ) and not expected_command_move:
                     self._target = current
+                    self._manual_movement_pending = True
                     self._activate_manual_override(
                         scope_all=True, reason="manual_override"
                     )
+            if getattr(self, "_manual_movement_pending", False) and current is not None:
+                cover_state = self.hass.states.get(self.cover)
+                movement_finished = cover_state is not None and cover_state.state not in {
+                    "opening",
+                    "closing",
+                }
+                if movement_finished:
+                    action = self._manual_schedule_action_for_position(current)
+                    self._manual_movement_pending = False
+                    if action is not None:
+                        self.hass.async_create_task(
+                            self._async_adopt_manual_schedule(action, now)
+                        )
             self._last_position = current if current is not None else previous_position
         if entity_id in self._contact_entities():
             new_state = event.data.get("new_state")
@@ -277,6 +291,8 @@ class EventsMixin:
         if position is not None:
             self._target = position
             self._status["target"] = position
+        if service != "set_cover_tilt_position":
+            self._manual_movement_pending = True
 
         self._activate_manual_override(scope_all=True, reason="manual_override")
         self.async_request_evaluate("manual_service")
@@ -309,6 +325,7 @@ class EventsMixin:
         reason: str | None = None,
     ) -> None:
         now = dt_util.utcnow()
+        was_active = self._manual_active
         self._manual_active = True
         self._manual_scope_all = self._manual_scope_all or scope_all
         self._manual_until = self._manual_reset_at(now, minutes)
@@ -322,6 +339,8 @@ class EventsMixin:
         manual["until"] = self._manual_until.isoformat() if self._manual_until else None
         manual["ts"] = _ts_now()
         self.persist_status()
+        if not was_active:
+            self._logbook_entry("Manual override activated")
         self._schedule_manual_expiry()
         self._refresh_next_events(now)
         self._publish_state()
@@ -377,6 +396,7 @@ class EventsMixin:
         )
 
     def clear_manual_override(self) -> None:
+        was_active = self._manual_active
         self._manual_until = None
         self._manual_active = False
         self._manual_scope_all = False
@@ -388,6 +408,8 @@ class EventsMixin:
         manual["scope_all"] = False
         manual["until"] = None
         self.persist_status()
+        if was_active:
+            self._logbook_entry("Manual override cleared")
         self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
         self.async_request_evaluate("manual_cleared")
@@ -575,6 +597,9 @@ class EventsMixin:
             self._reason = "ventilation"
             self._set_ventilation_status(True, False)
             self.persist_status()
+            self._logbook_entry(
+                f"Force action · ventilation started at {float(target):g}%"
+            )
         elif action == "stop":
             target, reason = self._force_return_target()
             if target is None:
@@ -595,6 +620,7 @@ class EventsMixin:
             self._pre_ventilation_position = None
             self._set_ventilation_status(False, False)
             self._record_action_status(reason, float(target))
+            self._logbook_entry("Force action · ventilation stopped")
             self._clear_force_background()
             self.persist_status()
         else:
@@ -653,6 +679,7 @@ class EventsMixin:
             manual["scope_all"] = False
             manual["until"] = None
             self.persist_status()
+            self._logbook_entry("Manual override ended")
 
     def _ensure_manual_expiry_timer(self, now: datetime) -> None:
         if not self._manual_active or not self._manual_until:
@@ -696,6 +723,7 @@ class EventsMixin:
         manual["scope_all"] = False
         manual["until"] = None
         self.persist_status()
+        self._logbook_entry("Manual override ended")
         now = dt_util.utcnow()
         self._refresh_next_events(now)
         self._publish_state()

@@ -1,5 +1,14 @@
 {
   "title": "Cover Control",
+  "ui": {
+    "components": {
+      "entity": {
+        "entity-picker": {
+          "no_match": "No entities found"
+        }
+      }
+    }
+  },
   "config": {
     "step": {
       "user": {
@@ -72,7 +81,11 @@
               "time_down_late_non_workday": "Latest close time (non-workday)",
               "calendar_entity": "Calendar entity (optional)",
               "calendar_open_title": "Calendar title for opening",
-              "calendar_close_title": "Calendar title for closing"
+              "calendar_close_title": "Calendar title for closing",
+              "manual_schedule_adoption": "Adopt matching manual movements as scheduled actions"
+            },
+            "data_description": {
+              "manual_schedule_adoption": "Treat a completed manual move to the configured open or close position within its schedule window as today's completed scheduled action. This does not clear manual override."
             }
           },
           "positions": {
@@ -168,6 +181,15 @@
               "cover_tilt_wait_mode": "How to wait before sending the tilt command after a position move. Fixed delay uses the drive time; wait idle waits until the cover stops moving.",
               "cover_tilt_wait_timeout": "Maximum seconds to wait for the cover to become idle before sending the tilt command."
             }
+          },
+          "behavior": {
+            "name": "Diagnostics",
+            "data": {
+              "enable_logbook_cover": "Write important events to each cover's logbook"
+            },
+            "data_description": {
+              "enable_logbook_cover": "Log important movements, state changes, manual adoption, force actions, and deduplicated blocked decisions on the affected cover."
+            }
           }
         }
       },
@@ -239,6 +261,7 @@
               "shading_start_max_duration": "Maximum wait for shading start",
               "shading_end_max_duration": "Maximum wait for shading end",
               "shading_end_immediate_by_sun_position": "End shading quickly when sun leaves range",
+              "shading_independent_holds_end": "Keep independent temperature shading active",
               "shading_forecast_sensor": "Forecast weather sensor (optional)",
               "shading_forecast_temp_sensor": "Forecast temperature sensor",
               "shading_forecast_temp": "Forecast temperature threshold",
@@ -272,6 +295,7 @@
               "shading_start_max_duration": "Maximum time to keep a pending shading start valid.",
               "shading_end_max_duration": "Maximum time to keep a pending shading end valid.",
               "shading_end_immediate_by_sun_position": "Use a short delay when the sun leaves the configured range.",
+              "shading_independent_holds_end": "Keep active shading while the independent temperature condition remains true.",
               "shading_forecast_sensor": "Optional weather or forecast source for temperature and conditions.",
               "shading_forecast_temp_sensor": "Optional direct sensor for forecast temperature.",
               "shading_forecast_temp": "Minimum forecast temperature for forecast-based shading.",
@@ -510,7 +534,9 @@
           "prevent_opening_multiple_times": "Prevent opening multiple times per day",
           "prevent_closing_multiple_times": "Prevent closing multiple times per day",
           "prevent_shading_multiple_times": "Prevent shading multiple times per day",
-          "prevent_default_cover_actions": "Prevent default cover actions (Shelly/Homematic)"
+          "prevent_default_cover_actions": "Prevent default cover actions (Shelly/Homematic)",
+          "manual_schedule_adoption": "Adopt matching manual movements as scheduled actions",
+          "enable_logbook_cover": "Write important events to each cover's logbook"
         },
         "data_description": {
           "prevent_higher_position_closing": "Do not raise the cover before evening closing.",
@@ -521,7 +547,9 @@
           "prevent_opening_multiple_times": "Run automatic opening at most once per day.",
           "prevent_closing_multiple_times": "Run automatic closing at most once per day.",
           "prevent_shading_multiple_times": "Start shading at most once per day.",
-          "prevent_default_cover_actions": "Suppress the standard cover service calls. Use for custom hardware like Shelly or Homematic that controls the cover through other means."
+          "prevent_default_cover_actions": "Suppress the standard cover service calls. Use for custom hardware like Shelly or Homematic that controls the cover through other means.",
+          "manual_schedule_adoption": "Treat a completed manual move to the configured open or close position within its schedule window as today's completed scheduled action. This does not clear manual override.",
+          "enable_logbook_cover": "Log important movements, state changes, manual adoption, force actions, and deduplicated blocked decisions on the affected cover."
         }
       },
       "shading": {
@@ -546,11 +574,16 @@
           "shading_temperatur_sensor2": "Temperature sensor 2",
           "shading_min_temperatur2": "Minimum temperature 2",
           "shading_temperature_hysteresis2": "Temperature hysteresis 2",
+          "temperature_sensor_indoor": "Indoor temperature sensor",
+          "temperature_sensor_outdoor": "Outdoor temperature sensor",
+          "temperature_threshold": "Temperature threshold",
+          "temperature_forecast_threshold": "Forecast temperature threshold",
           "shading_waitingtime_start": "Delay before starting shading",
           "shading_waitingtime_end": "Delay before ending shading",
           "shading_start_max_duration": "Maximum wait for shading start",
           "shading_end_max_duration": "Maximum wait for shading end",
           "shading_end_immediate_by_sun_position": "End shading quickly when sun leaves range",
+          "shading_independent_holds_end": "Keep independent temperature shading active",
           "shading_forecast_sensor": "Forecast weather sensor (optional)",
           "shading_forecast_temp_sensor": "Forecast temperature sensor",
           "shading_forecast_temp": "Forecast temperature threshold",
@@ -585,6 +618,7 @@
           "shading_start_max_duration": "Maximum time to keep a pending shading start valid.",
           "shading_end_max_duration": "Maximum time to keep a pending shading end valid.",
           "shading_end_immediate_by_sun_position": "Use a short delay when the sun leaves the configured range.",
+          "shading_independent_holds_end": "Keep active shading while the independent temperature condition remains true.",
           "shading_forecast_sensor": "Optional weather or forecast source for temperature and conditions.",
           "shading_forecast_temp_sensor": "Optional direct sensor for forecast temperature.",
           "shading_forecast_temp": "Minimum forecast temperature for forecast-based shading.",

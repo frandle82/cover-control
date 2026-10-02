@@ -2,6 +2,8 @@
 
 from __future__ import annotations
 
+from datetime import datetime, timedelta
+
 from homeassistant.const import (
     STATE_UNAVAILABLE,
     STATE_UNKNOWN,
@@ -24,6 +26,7 @@ from ..const import (
     CONF_SHADING_FORECAST_TEMP_SENSOR,
     CONF_SHADING_FORECAST_TYPE,
     CONF_SHADING_INDEPENDENT_TEMP,
+    CONF_SHADING_INDEPENDENT_HOLDS_END,
     CONF_SHADING_MIN_TEMPERATURE_1,
     CONF_SHADING_MIN_TEMPERATURE_2,
     CONF_SHADING_TEMPERATURE_HYSTERESIS_1,
@@ -397,30 +400,73 @@ class ShadingMixin:
             configured.get(condition, False) and start_valid.get(condition, False)
             for condition in start_or
         )
-        config_flags = self._shading_config_list(CONF_SHADING_CONFIG, [])
-        temp_independent = False
-        if SHADING_CONFIG_TEMP_INDEPENDENT in config_flags:
-            independent_limit = _coerce_float(
-                self.config.get(
-                    CONF_SHADING_INDEPENDENT_TEMP, DEFAULT_SHADING_INDEPENDENT_TEMP
-                )
-            )
-            if independent_limit is None:
-                independent_limit = DEFAULT_SHADING_INDEPENDENT_TEMP
-            forecast_temp = _coerce_float(state["forecast_temp"])
-            temperature_2 = _coerce_float(state["temperature_2"])
-            forecast_temp_hysteresis = _coerce_float(state["forecast_temp_hysteresis"])
-            if forecast_temp_hysteresis is None:
-                forecast_temp_hysteresis = DEFAULT_SHADING_FORECAST_TEMP_HYSTERESIS
-            temp_independent = (
-                forecast_temp is not None
-                and forecast_temp > independent_limit + forecast_temp_hysteresis
-            ) or (
-                bool(state["compare_forecast_with_sensor2"])
-                and temperature_2 is not None
-                and temperature_2 > independent_limit + forecast_temp_hysteresis
-            )
+        temp_independent = self._shading_independent_temperature_condition(state)
         return and_result and or_result, temp_independent
+
+    def _shading_independent_temperature_condition(self, state: dict) -> bool:
+        """Return the shared independent-temperature start/hold condition."""
+
+        config_flags = self._shading_config_list(CONF_SHADING_CONFIG, [])
+        if SHADING_CONFIG_TEMP_INDEPENDENT not in config_flags:
+            return False
+        independent_limit = _coerce_float(
+            self.config.get(
+                CONF_SHADING_INDEPENDENT_TEMP, DEFAULT_SHADING_INDEPENDENT_TEMP
+            )
+        )
+        if independent_limit is None:
+            independent_limit = DEFAULT_SHADING_INDEPENDENT_TEMP
+        forecast_temp = _coerce_float(state["forecast_temp"])
+        temperature_2 = _coerce_float(state["temperature_2"])
+        forecast_temp_hysteresis = _coerce_float(state["forecast_temp_hysteresis"])
+        if forecast_temp_hysteresis is None:
+            forecast_temp_hysteresis = DEFAULT_SHADING_FORECAST_TEMP_HYSTERESIS
+        return (
+            forecast_temp is not None
+            and forecast_temp > independent_limit + forecast_temp_hysteresis
+        ) or (
+            bool(state["compare_forecast_with_sensor2"])
+            and temperature_2 is not None
+            and temperature_2 > independent_limit + forecast_temp_hysteresis
+        )
+
+    def _shading_conditions_allow_active_state(
+        self,
+        normal_conditions_met: bool,
+        independent_temperature_met: bool,
+        shading_active: bool,
+        immediate_sun_end: bool,
+    ) -> bool:
+        """Apply independent-temperature start and optional hold semantics."""
+
+        if shading_active and immediate_sun_end:
+            return False
+        if normal_conditions_met:
+            return True
+        if not independent_temperature_met:
+            return False
+        return not shading_active or bool(
+            self.config.get(CONF_SHADING_INDEPENDENT_HOLDS_END, False)
+        )
+
+    def _shading_end_wait_complete(
+        self, now: datetime, condition_valid: bool, waiting_seconds: int
+    ) -> bool:
+        """Track one uninterrupted shading-end waiting period."""
+
+        if not condition_valid:
+            if self._shading_pending_active("end"):
+                self._clear_shading_pending("end")
+            return False
+        if waiting_seconds <= 0:
+            return True
+        if self._shading_pending_due("end", now):
+            return True
+        if not self._shading_pending_active("end"):
+            self._set_shading_pending(
+                "end", now + timedelta(seconds=waiting_seconds), True
+            )
+        return False
 
     def _shading_end_conditions(
         self,

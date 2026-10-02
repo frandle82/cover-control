@@ -81,7 +81,11 @@
               "time_down_late_non_workday": "Späteste Schließzeit (frei)",
               "calendar_entity": "Kalender-Entität (optional)",
               "calendar_open_title": "Kalendertitel zum Öffnen",
-              "calendar_close_title": "Kalendertitel zum Schließen"
+              "calendar_close_title": "Kalendertitel zum Schließen",
+              "manual_schedule_adoption": "Passende manuelle Fahrten als Zeitaktion übernehmen"
+            },
+            "data_description": {
+              "manual_schedule_adoption": "Eine abgeschlossene manuelle Fahrt innerhalb des Zeitfensters auf die konfigurierte Öffnungs- oder Schließposition als heutige Zeitaktion übernehmen. Der manuelle Override bleibt bestehen."
             }
           },
           "positions": {
@@ -177,6 +181,15 @@
               "cover_tilt_wait_mode": "Wartemodus nach einer Positionsfahrt vor dem Lamellen-Befehl. Feste Verzögerung nutzt die Fahrzeit; Warten bis inaktiv wartet auf den Stillstand.",
               "cover_tilt_wait_timeout": "Maximale Wartezeit in Sekunden bis das Cover inaktiv wird, bevor der Lamellen-Befehl gesendet wird."
             }
+          },
+          "behavior": {
+            "name": "Diagnose",
+            "data": {
+              "enable_logbook_cover": "Wichtige Ereignisse im Logbuch jedes Covers protokollieren"
+            },
+            "data_description": {
+              "enable_logbook_cover": "Wichtige Fahrten, Zustandswechsel, manuelle Übernahmen, Force-Aktionen und deduplizierte Blockierungen am betroffenen Cover protokollieren."
+            }
           }
         }
       },
@@ -248,6 +261,7 @@
               "shading_start_max_duration": "Maximale Wartezeit für Beschattungsstart",
               "shading_end_max_duration": "Maximale Wartezeit für Beschattungsende",
               "shading_end_immediate_by_sun_position": "Beschattung schnell beenden, wenn die Sonne den Bereich verlässt",
+              "shading_independent_holds_end": "Unabhängige Temperaturbeschattung aktiv halten",
               "shading_forecast_sensor": "Vorhersage-Wettersensor (optional)",
               "shading_forecast_temp_sensor": "Vorhersage-Temperatursensor",
               "shading_forecast_temp": "Vorhersage-Temperaturschwelle",
@@ -281,6 +295,7 @@
               "shading_start_max_duration": "Maximale Gültigkeit eines wartenden Beschattungsstarts.",
               "shading_end_max_duration": "Maximale Gültigkeit eines wartenden Beschattungsendes.",
               "shading_end_immediate_by_sun_position": "Kurze Verzögerung verwenden, sobald die Sonne den Bereich verlässt.",
+              "shading_independent_holds_end": "Aktive Beschattung halten, solange die unabhängige Temperaturbedingung erfüllt ist.",
               "shading_forecast_sensor": "Optionale Wetter- oder Vorhersagequelle für Temperatur und Bedingungen.",
               "shading_forecast_temp_sensor": "Optionaler direkter Sensor für die Vorhersagetemperatur.",
               "shading_forecast_temp": "Minimale Vorhersagetemperatur für vorhersagebasierte Beschattung.",
@@ -519,7 +534,9 @@
           "prevent_opening_multiple_times": "Mehrfaches Öffnen pro Tag verhindern",
           "prevent_closing_multiple_times": "Mehrfaches Schließen pro Tag verhindern",
           "prevent_shading_multiple_times": "Mehrfache Beschattung pro Tag verhindern",
-          "prevent_default_cover_actions": "Standard-Cover-Aktionen verhindern (Shelly/Homematic)"
+          "prevent_default_cover_actions": "Standard-Cover-Aktionen verhindern (Shelly/Homematic)",
+          "manual_schedule_adoption": "Passende manuelle Fahrten als Zeitaktion übernehmen",
+          "enable_logbook_cover": "Wichtige Ereignisse im Logbuch jedes Covers protokollieren"
         },
         "data_description": {
           "prevent_higher_position_closing": "Beim abendlichen Schließen nicht erst nach oben fahren.",
@@ -530,7 +547,9 @@
           "prevent_opening_multiple_times": "Öffnen höchstens einmal pro Tag ausführen.",
           "prevent_closing_multiple_times": "Schließen höchstens einmal pro Tag ausführen.",
           "prevent_shading_multiple_times": "Beschattung höchstens einmal pro Tag starten.",
-          "prevent_default_cover_actions": "Standard-Cover-Service-Aufrufe unterdrücken. Für Spezial-Hardware wie Shelly oder Homematic, die das Cover auf anderem Weg steuert."
+          "prevent_default_cover_actions": "Standard-Cover-Service-Aufrufe unterdrücken. Für Spezial-Hardware wie Shelly oder Homematic, die das Cover auf anderem Weg steuert.",
+          "manual_schedule_adoption": "Eine abgeschlossene manuelle Fahrt innerhalb des Zeitfensters auf die konfigurierte Öffnungs- oder Schließposition als heutige Zeitaktion übernehmen. Der manuelle Override bleibt bestehen.",
+          "enable_logbook_cover": "Wichtige Fahrten, Zustandswechsel, manuelle Übernahmen, Force-Aktionen und deduplizierte Blockierungen am betroffenen Cover protokollieren."
         }
       },
       "shading": {
@@ -564,6 +583,7 @@
           "shading_start_max_duration": "Maximale Wartezeit für Beschattungsstart",
           "shading_end_max_duration": "Maximale Wartezeit für Beschattungsende",
           "shading_end_immediate_by_sun_position": "Beschattung schnell beenden, wenn die Sonne den Bereich verlässt",
+          "shading_independent_holds_end": "Unabhängige Temperaturbeschattung aktiv halten",
           "shading_forecast_sensor": "Vorhersage-Wettersensor (optional)",
           "shading_forecast_temp_sensor": "Vorhersage-Temperatursensor",
           "shading_forecast_temp": "Vorhersage-Temperaturschwelle",
@@ -598,6 +618,7 @@
           "shading_start_max_duration": "Maximale Gültigkeit eines wartenden Beschattungsstarts.",
           "shading_end_max_duration": "Maximale Gültigkeit eines wartenden Beschattungsendes.",
           "shading_end_immediate_by_sun_position": "Kurze Verzögerung verwenden, sobald die Sonne den Bereich verlässt.",
+          "shading_independent_holds_end": "Aktive Beschattung halten, solange die unabhängige Temperaturbedingung erfüllt ist.",
           "shading_forecast_sensor": "Optionale Wetter- oder Vorhersagequelle für Temperatur und Bedingungen.",
           "shading_forecast_temp_sensor": "Optionaler direkter Sensor für die Vorhersagetemperatur.",
           "shading_forecast_temp": "Minimale Vorhersagetemperatur für vorhersagebasierte Beschattung.",

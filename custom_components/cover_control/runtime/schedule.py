@@ -28,6 +28,9 @@ from ..const import (
     CONF_CALENDAR_OPEN_TITLE,
     CONF_CONTACT_STATUS_DELAY,
     CONF_CONTACT_TRIGGER_DELAY,
+    CONF_CLOSE_POSITION,
+    CONF_MANUAL_SCHEDULE_ADOPTION,
+    CONF_OPEN_POSITION,
     CONF_RESIDENT_SENSOR,
     CONF_SUN_ELEVATION_MODE,
     CONF_TIME_DOWN_EARLY_NON_WORKDAY,
@@ -42,6 +45,8 @@ from ..const import (
     CONF_WORKDAY_SENSOR,
     CONF_WORKDAY_TOMORROW_SENSOR,
     DEFAULT_CONTACT_SETTINGS,
+    DEFAULT_CLOSE_POSITION,
+    DEFAULT_OPEN_POSITION,
     DEFAULT_SUN_ELEVATION_MODE,
     DEFAULT_TIME_SETTINGS,
 )
@@ -53,6 +58,63 @@ from .common import (
 
 
 class ScheduleMixin:
+    def _manual_schedule_adopted_today(self, action: str) -> bool:
+        """Return whether adoption should suppress today's scheduled action."""
+
+        return bool(self.config.get(CONF_MANUAL_SCHEDULE_ADOPTION, False)) and bool(
+            self._action_done_today(action)
+        )
+
+    def _manual_schedule_action_for_position(
+        self, position: float | None
+    ) -> str | None:
+        """Return the scheduled action a completed manual move could adopt."""
+
+        if not self.config.get(CONF_MANUAL_SCHEDULE_ADOPTION, False):
+            return None
+        if not self._auto_enabled(CONF_AUTO_TIME):
+            return None
+        if self._auto_enabled(CONF_AUTO_UP) and self._position_matches(
+            self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION), position
+        ):
+            return "open"
+        if self._auto_enabled(CONF_AUTO_DOWN) and self._position_matches(
+            self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION), position
+        ):
+            return "close"
+        return None
+
+    async def _async_adopt_manual_schedule(
+        self, action: str, now: datetime
+    ) -> bool:
+        """Mark this cover's matching scheduled action as completed today."""
+
+        if self._manual_schedule_action_for_position(
+            self._current_position()
+        ) != action:
+            return False
+        calendar_open_window, calendar_close_window = await self._calendar_windows(now)
+        if action == "open":
+            in_window = self._within_opening_phase(now) or self._calendar_window_active(
+                calendar_open_window, now
+            )
+        else:
+            in_window = self._within_closing_phase(now) or self._calendar_window_active(
+                calendar_close_window, now
+            )
+        if not in_window:
+            return False
+        today = dt_util.as_local(now).date()
+        if self._last_action_dates.get(action) == today:
+            return True
+        self._last_action_dates[action] = today
+        self.persist_status()
+        action_label = "opening" if action == "open" else "closing"
+        self._logbook_entry(
+            f"Manual movement adopted as today's scheduled {action_label}"
+        )
+        return True
+
     def _is_workday(self) -> bool:
         workday_entity = self.config.get(CONF_WORKDAY_SENSOR)
         if not workday_entity:
