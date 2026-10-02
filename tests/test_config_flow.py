@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+from pathlib import Path
 
 import pytest
 from probatio import to_field_list
@@ -34,6 +35,25 @@ REQUIRES_NEW_HA = (
     not hasattr(selector, "ConditionSelector")
     or not hasattr(ServiceRegistry, "async_services_for_domain")
 )
+
+
+def test_translation_files_have_matching_structure() -> None:
+    """Keep source strings and English/German translations structurally aligned."""
+
+    translation_dir = Path("custom_components/cover_control")
+    paths = [
+        translation_dir / "strings.json",
+        translation_dir / "translations/en.json",
+        translation_dir / "translations/de.json",
+    ]
+
+    def _shape(value):
+        if isinstance(value, dict):
+            return {key: _shape(child) for key, child in value.items()}
+        return None
+
+    structures = [_shape(json.loads(path.read_text())) for path in paths]
+    assert structures[0] == structures[1] == structures[2]
 
 
 def _frontend_initial_data(data_schema) -> dict:

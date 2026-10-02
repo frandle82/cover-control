@@ -1,5 +1,14 @@
 {
   "title": "Cover Control",
+  "ui": {
+    "components": {
+      "entity": {
+        "entity-picker": {
+          "no_match": "No entities found"
+        }
+      }
+    }
+  },
   "config": {
     "step": {
       "user": {
@@ -565,6 +574,10 @@
           "shading_temperatur_sensor2": "Temperature sensor 2",
           "shading_min_temperatur2": "Minimum temperature 2",
           "shading_temperature_hysteresis2": "Temperature hysteresis 2",
+          "temperature_sensor_indoor": "Indoor temperature sensor",
+          "temperature_sensor_outdoor": "Outdoor temperature sensor",
+          "temperature_threshold": "Temperature threshold",
+          "temperature_forecast_threshold": "Forecast temperature threshold",
           "shading_waitingtime_start": "Delay before starting shading",
           "shading_waitingtime_end": "Delay before ending shading",
           "shading_start_max_duration": "Maximum wait for shading start",
