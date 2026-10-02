@@ -35,6 +35,7 @@ Cover Control ist eine benutzerfreundlich konfigurierbare Home-Assistant-Integra
 - Optionaler Arbeitstag-Sensor für heute und morgen.
 - Kalenderereignisse können über frei definierbare Titel das Öffnen oder Schließen auslösen.
 - Zeitsteuerung lässt sich während des Betriebs über eine eigene Schalter-Entität aktivieren oder deaktivieren.
+- Optional kann eine echte manuelle Fahrt innerhalb des passenden Zeitfensters auf die konfigurierte Öffnungs- oder Schließposition als bereits ausgeführte Tagesaktion übernommen werden (`manual_schedule_adoption`). Die Übernahme erfolgt pro Cover.
 
 ### Helligkeits- und Sonnensteuerung
 
@@ -53,10 +54,10 @@ Cover Control ist eine benutzerfreundlich konfigurierbare Home-Assistant-Integra
 - UND- und ODER-Gruppen für Start- und Endbedingungen.
 - Separate Start- und Endschwellen sowie Hysteresen für Helligkeit und Temperatur.
 - Wettervorhersage wahlweise aus Wetterattributen oder eigenen Sensoren.
-- Einstellbare Wartezeiten und maximale Wartezeiten für Start und Ende.
+- Einstellbare Wartezeiten und maximale Wartezeiten für Start und Ende. Die End-Wartezeit muss dabei kontinuierlich erfüllt sein und beginnt nach jeder Unterbrechung vollständig neu.
 - Sofortiges Beschattungsende, wenn die Sonne den konfigurierten Bereich verlässt.
 - Regeln für das Zusammenspiel mit geöffneten Fenstern, Lüftung und anschließendem Öffnen.
-- Optional temperaturunabhängige Beschattung sowie Vergleich von Vorhersage- und Messwerten.
+- Optional temperaturunabhängige Beschattung sowie Vergleich von Vorhersage- und Messwerten. Mit `shading_independent_holds_end` bleibt eine aktive Beschattung an Hitzetagen bestehen, solange dieselbe unabhängige Temperaturbedingung erfüllt ist.
 - Eigener Laufzeitschalter für die komplette Beschattungsfunktion.
 
 ### Fensterkontakte, Lüftung und Aussperrschutz
@@ -99,6 +100,14 @@ Eine Aktion wird nur ausgeführt, wenn ihre jeweilige Bedingung erfüllt ist und
 - Der Override endet wahlweise nach einer Dauer, zu einer festen Uhrzeit oder nur durch manuelles Löschen.
 - Die konfigurierte Fahrzeit verhindert, dass Rückmeldungen einer eigenen Fahrt als manueller Eingriff gewertet werden.
 - Der Button **Manuellen Override löschen** entfernt den Override für alle Cover der Instanz und wertet die Steuerung sofort neu aus. Dadurch wird die aktuell erforderliche Zielposition wieder angefahren.
+
+Schedule Adoption und Manual Override sind getrennte Mechanismen: Die Adoption markiert ausschließlich das passende geplante Tagesereignis als bereits ausgeführt. Sie hebt keinen Manual Override auf; dieselbe manuelle Fahrt kann daher zugleich den Override aktivieren und die Tagesaktion übernehmen.
+
+### Diagnose und Logbuch
+
+- `cover_control_event`, Statussensoren und Python-Logging bleiben unabhängig voneinander verfügbar.
+- Mit `enable_logbook_cover` können wichtige Fahrten, Beschattungs- und Lüftungswechsel, Manual Overrides, Schedule Adoption und Force-Aktionen direkt am betroffenen Cover protokolliert werden.
+- Wiederholte identische Blockierungsentscheidungen werden zur Laufzeit dedupliziert; ist das Home-Assistant-Logbuch nicht verfügbar, läuft die Steuerung unverändert weiter.
 
 ### Verhaltens- und Sicherheitsregeln
 
