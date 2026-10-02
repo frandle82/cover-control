@@ -86,6 +86,7 @@ CONF_SHADING_WAITINGTIME_END = "shading_waitingtime_end"
 CONF_SHADING_START_MAX_DURATION = "shading_start_max_duration"
 CONF_SHADING_END_MAX_DURATION = "shading_end_max_duration"
 CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION = "shading_end_immediate_by_sun_position"
+CONF_SHADING_INDEPENDENT_HOLDS_END = "shading_independent_holds_end"
 CONF_SHADING_TEMPERATURE_SENSOR_1 = "shading_temperatur_sensor1"
 CONF_SHADING_MIN_TEMPERATURE_1 = "shading_min_temperatur1"
 CONF_SHADING_TEMPERATURE_HYSTERESIS_1 = "shading_temperature_hysteresis1"
@@ -210,6 +211,8 @@ CONF_EXPOSE_SWITCH_SETTINGS = "expose_switch_settings"
 CONF_MANUAL_CONTROL = "manual_control_enabled"
 CONF_ENABLE_RECALIBRATE_BUTTON = "enable_recalibrate_button"
 CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON = "enable_clear_manual_override_button"
+CONF_MANUAL_SCHEDULE_ADOPTION = "manual_schedule_adoption"
+CONF_ENABLE_LOGBOOK_COVER = "enable_logbook_cover"
 
 DEFAULT_AUTOMATION_FLAGS: dict[str, bool] = {
     CONF_AUTO_UP: False,
@@ -245,6 +248,8 @@ DEFAULT_BEHAVIOR_SETTINGS: dict[str, str | bool] = {
     CONF_PREVENT_CLOSING_MULTIPLE_TIMES: False,
     CONF_PREVENT_SHADING_MULTIPLE_TIMES: False,
     CONF_PREVENT_DEFAULT_COVER_ACTIONS: False,
+    CONF_MANUAL_SCHEDULE_ADOPTION: False,
+    CONF_ENABLE_LOGBOOK_COVER: False,
 }
 
 CONF_COLD_PROTECTION_THRESHOLD = "cold_protection_temperature"
@@ -392,6 +397,7 @@ DEFAULT_SHADING_TIMING_SETTINGS: dict[str, int | bool] = {
     CONF_SHADING_START_MAX_DURATION: DEFAULT_SHADING_START_MAX_DURATION,
     CONF_SHADING_END_MAX_DURATION: DEFAULT_SHADING_END_MAX_DURATION,
     CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION: False,
+    CONF_SHADING_INDEPENDENT_HOLDS_END: False,
 }
 
 DEFAULT_SHADING_CONDITIONS_START_AND: list[str] = [

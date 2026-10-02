@@ -206,6 +206,7 @@ class StatusMixin:
     def _record_action_status(self, reason: str, position: float | None = None) -> None:
         ts = _ts_now()
         today = dt_util.as_local(dt_util.utcnow()).date()
+        self._logbook_action(reason, position)
         if reason == "ventilation_full":
             self._set_status_bucket("open", True, ts)
             self._set_status_bucket("close", False, ts)
@@ -239,6 +240,35 @@ class StatusMixin:
         self._status["target"] = position if position is not None else self._target
         self._status["reason"] = self._reason
         self.persist_status()
+
+    def _logbook_action(self, reason: str, position: float | None) -> None:
+        """Describe significant completed controller actions in the cover logbook."""
+
+        target = self._target if position is None else position
+        target_text = f"{target:g}%" if target is not None else "the target position"
+        if reason == "scheduled_open":
+            self._logbook_entry(f"Moved to {target_text} · scheduled opening")
+        elif reason == "scheduled_close":
+            self._logbook_entry(f"Moved to {target_text} · scheduled closing")
+        elif reason in {"shading", "manual_shading"}:
+            message = (
+                f"Moved to {target_text} · sun shading started"
+                if reason == "shading"
+                else f"Force action · moved to {target_text} for sun shading"
+            )
+            self._logbook_entry(message)
+        elif reason.startswith("shading_end") or reason == "manual_shading_end":
+            self._logbook_entry("Sun shading ended")
+            if reason == "shading_end_ventilation":
+                self._logbook_entry(
+                    f"Moved to {target_text} · ventilation started"
+                )
+        elif reason in {"ventilation", "ventilation_full", "ventilation_start"}:
+            self._logbook_entry(f"Moved to {target_text} · ventilation started")
+        elif reason.startswith("ventilation_end") or reason == "ventilation_stop":
+            self._logbook_entry("Ventilation ended")
+        elif reason.startswith("force_"):
+            self._logbook_entry(f"Force action · moved to {target_text}")
 
     def _record_group_background(self, reason: str) -> None:
         """Update the shared room target without interrupting local ventilation."""

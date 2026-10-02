@@ -44,6 +44,7 @@ from ..const import (
     CONF_COVER_TILT_WAIT_TIMEOUT,
     CONF_CUSTOM_POSITION_SENSOR,
     CONF_DRIVE_TIME,
+    CONF_ENABLE_LOGBOOK_COVER,
     CONF_LOCKOUT_POSITION,
     CONF_MASTER_ENABLED,
     CONF_OPEN_POSITION,
@@ -311,6 +312,38 @@ class ActuatorMixin:
             )
 
         self.hass.bus.async_fire(EVENT_COVER_CONTROL, payload)
+
+    def _logbook_entry(
+        self, message: str, *, dedupe_key: str | None = None
+    ) -> None:
+        """Write an optional cover-scoped logbook entry without affecting control."""
+
+        if not self.config.get(CONF_ENABLE_LOGBOOK_COVER, False):
+            return
+        dedupe = getattr(self, "_logbook_dedupe", None)
+        if dedupe is None:
+            dedupe = self._logbook_dedupe = set()
+        if dedupe_key is not None and dedupe_key in dedupe:
+            return
+        try:
+            logbook = import_module("homeassistant.components.logbook")
+            logbook.async_log_entry(
+                self.hass,
+                "Cover Control",
+                message,
+                DOMAIN,
+                self.cover,
+            )
+        except (ImportError, AttributeError):
+            _LOGGER.debug("Home Assistant logbook is unavailable", exc_info=True)
+            return
+        except Exception:  # pragma: no cover - optional diagnostics must be harmless
+            _LOGGER.debug("Failed to write Cover Control logbook entry", exc_info=True)
+            return
+        if dedupe_key is None:
+            dedupe.clear()
+        else:
+            dedupe.add(dedupe_key)
 
     def _cover_state_or_warn(
         self,

@@ -56,8 +56,10 @@ from .const import (
     CONF_COVER_TYPE_BLIND,
     CONF_DRIVE_TIME,
     CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON,
+    CONF_ENABLE_LOGBOOK_COVER,
     CONF_ENABLE_RECALIBRATE_BUTTON,
     CONF_MANUAL_CONTROL,
+    CONF_MANUAL_SCHEDULE_ADOPTION,
     CONF_LOCKOUT_POSITION,
     CONF_LOCKOUT_TILT_CLOSE,
     CONF_LOCKOUT_TILT_SHADING_END,
@@ -100,6 +102,7 @@ from .const import (
     CONF_SHADING_FORECAST_TEMP_SENSOR,
     CONF_SHADING_FORECAST_TYPE,
     CONF_SHADING_INDEPENDENT_TEMP,
+    CONF_SHADING_INDEPENDENT_HOLDS_END,
     CONF_SHADING_WEATHER_CONDITIONS,
     CONF_SHADING_BRIGHTNESS_HYSTERESIS,
     CONF_SHADING_BRIGHTNESS_END,
@@ -526,7 +529,14 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 _normalize_position_fields(
                     self._flatten_section_input(
                         user_input,
-                        ("presence", "timing", "positions", "tilt_positions", "contacts"),
+                        (
+                            "presence",
+                            "timing",
+                            "positions",
+                            "tilt_positions",
+                            "contacts",
+                            "behavior",
+                        ),
                     )
                 )
             )
@@ -671,6 +681,12 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         ),
                         vol.Optional(CONF_CALENDAR_OPEN_TITLE, default=""): str,
                         vol.Optional(CONF_CALENDAR_CLOSE_TITLE, default=""): str,
+                        vol.Optional(
+                            CONF_MANUAL_SCHEDULE_ADOPTION,
+                            default=bool(
+                                self._data.get(CONF_MANUAL_SCHEDULE_ADOPTION, False)
+                            ),
+                        ): bool,
                     }
                 ),
                 {"collapsed": False},
@@ -951,6 +967,18 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 {"collapsed": True},
             )
 
+        schema[vol.Optional("behavior")] = section(
+            vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_ENABLE_LOGBOOK_COVER,
+                        default=bool(self._data.get(CONF_ENABLE_LOGBOOK_COVER, False)),
+                    ): bool,
+                }
+            ),
+            {"collapsed": True},
+        )
+
         return self.async_show_form(
             step_id="schedule",
             data_schema=vol.Schema(schema),
@@ -1117,6 +1145,14 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         vol.Optional(CONF_SHADING_START_MAX_DURATION, default=DEFAULT_SHADING_START_MAX_DURATION): vol.Coerce(int),
                         vol.Optional(CONF_SHADING_END_MAX_DURATION, default=DEFAULT_SHADING_END_MAX_DURATION): vol.Coerce(int),
                         vol.Optional(CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION, default=False): bool,
+                        vol.Optional(
+                            CONF_SHADING_INDEPENDENT_HOLDS_END,
+                            default=bool(
+                                self._data.get(
+                                    CONF_SHADING_INDEPENDENT_HOLDS_END, False
+                                )
+                            ),
+                        ): bool,
                         vol.Optional(CONF_SHADING_FORECAST_SENSOR): selector.EntitySelector(
                             selector.EntitySelectorConfig(domain=["sensor", "weather"])
                         ),
@@ -1793,6 +1829,16 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                     )
                 ),
             ): bool,
+            vol.Optional(
+                CONF_MANUAL_SCHEDULE_ADOPTION,
+                default=bool(
+                    self._options.get(CONF_MANUAL_SCHEDULE_ADOPTION, False)
+                ),
+            ): bool,
+            vol.Optional(
+                CONF_ENABLE_LOGBOOK_COVER,
+                default=bool(self._options.get(CONF_ENABLE_LOGBOOK_COVER, False)),
+            ): bool,
         }
         return self.async_show_form(step_id="behavior", data_schema=vol.Schema(schema))
 
@@ -2366,6 +2412,14 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                             self._options.get(
                                 CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
                                 DEFAULT_SHADING_TIMING_SETTINGS[CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION],
+                            )
+                        ),
+                    ): bool,
+                    vol.Optional(
+                        CONF_SHADING_INDEPENDENT_HOLDS_END,
+                        default=bool(
+                            self._options.get(
+                                CONF_SHADING_INDEPENDENT_HOLDS_END, False
                             )
                         ),
                     ): bool,

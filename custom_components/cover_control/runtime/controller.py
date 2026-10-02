@@ -84,6 +84,8 @@ class CoverController(
         self._ignore_service_call_until: datetime | None = None
         self._manual_expire_unsub: CALLBACK_TYPE | None = None
         self._last_command_context_id: str | None = None
+        self._manual_movement_pending = False
+        self._logbook_dedupe: set[str] = set()
         self._shading_forecast_cache: dict[str, object] | None = None
         self._reason: str | None = None
         self._next_open: datetime | None = None
