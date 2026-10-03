@@ -18,9 +18,17 @@ from homeassistant.util import dt as dt_util
 from ..config_resolver import (
     ResolvedRoomConfig,
     entry_config_model,
+    resolve_config_model,
     resolve_entry_config,
 )
-from ..const import CONF_COVERS, CONF_RESIDENT_SENSOR, DOMAIN, SIGNAL_ENTRY_STATE_UPDATED
+from ..const import (
+    CONF_COVERS,
+    CONF_PROFILE_SELECTIONS,
+    CONF_RESIDENT_SENSOR,
+    CONF_ROOMS,
+    DOMAIN,
+    SIGNAL_ENTRY_STATE_UPDATED,
+)
 from .common import (
     _TRIGGER_PRIORITY,
     IDLE_REASON,
@@ -415,11 +423,38 @@ class ControllerManager:
             self.entry.data, self.entry.options, room_id=room_id
         )
         self._resolved_config = resolved
-        self.profile_users = {
-            (profile_type, profile_id): {room_id}
-            for profile_type, profile_id in resolved.selected_profiles.items()
-        }
+        self._index_profile_users()
         return resolved
+
+    @callback
+    def apply_config_model(
+        self, model: dict, affected_rooms: set[str] | None = None
+    ) -> set[str]:
+        """Apply a model edit only to rooms affected by the changed dependency."""
+
+        self._config_model = model
+        self._index_profile_users()
+        room_id = self.entry.entry_id
+        affected = affected_rooms or {room_id}
+        if room_id not in affected:
+            return set()
+        resolved = resolve_config_model(model, room_id)
+        self._resolved_config = resolved
+        for controller in self.controllers.values():
+            controller.update_config(resolved)
+        self._setup_shared_listener()
+        return {room_id}
+
+    def _index_profile_users(self) -> None:
+        """Build the runtime-only profile-to-room dependency index."""
+
+        users: dict[tuple[str, str], set[str]] = {}
+        for room_id, room in self._config_model.get(CONF_ROOMS, {}).items():
+            for profile_type, profile_id in room.get(
+                CONF_PROFILE_SELECTIONS, {}
+            ).items():
+                users.setdefault((profile_type, profile_id), set()).add(room_id)
+        self.profile_users = users
 
     def set_manual_override(self, cover: str, minutes: int) -> bool:
         controller = self.controllers.get(cover)
