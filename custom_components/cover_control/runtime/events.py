@@ -34,6 +34,8 @@ from ..const import (
     CONF_POSITION_SOURCE_CUSTOM_SENSOR,
     CONF_POSITION_TOLERANCE,
     CONF_RESIDENT_SENSOR,
+    CONF_SHADING_WAITINGTIME_END,
+    CONF_SHADING_WAITINGTIME_START,
     CONF_VENTILATE_POSITION,
     CONF_VENTILATION_START_NO_DELAY,
     DEFAULT_CLOSE_POSITION,
@@ -71,16 +73,7 @@ class EventsMixin:
             self._target = self._current_position()
         if self._last_position is None:
             self._last_position = self._current_position()
-        sensor_entities = self._local_decision_entities()
-        sensor_entities.add(self.cover)
-        for entity_id in sensor_entities:
-            if not entity_id:
-                continue
-            self._unsubs.append(
-                async_track_state_change_event(
-                    self.hass, [entity_id], self._handle_state_event
-                )
-            )
+        self._resubscribe_local_decision_entities()
         self._refresh_next_events(dt_util.utcnow())
         self._schedule_manual_expiry()
         self.persist_status()
@@ -91,13 +84,25 @@ class EventsMixin:
         self._clear_scheduled_event_timers()
         self._clear_runtime_condition_timers()
         self._clear_manual_expiry()
+        self._clear_local_decision_listeners()
         while self._unsubs:
             unsub = self._unsubs.pop()
             unsub()
 
     @callback
     def update_config(self, new_config: ConfigType) -> None:
+        old_config = self.config
+        pending_started: dict[str, datetime] = {}
+        for kind, due_at in getattr(self, "_shading_pending", {}).items():
+            key = (
+                CONF_SHADING_WAITINGTIME_START
+                if kind == "start"
+                else CONF_SHADING_WAITINGTIME_END
+            )
+            old_wait = max(0.0, float(old_config.get(key, 0) or 0))
+            pending_started[kind] = due_at - timedelta(seconds=old_wait)
         self.config = new_config
+        self._resubscribe_local_decision_entities()
         self._clear_runtime_condition_timers()
         self._clear_manual_expiry()
         self._hydrate_persistent_status()
@@ -106,11 +111,44 @@ class EventsMixin:
         if self._last_position is None:
             self._last_position = self._current_position()
         now = dt_util.utcnow()
+        for kind, started_at in pending_started.items():
+            key = (
+                CONF_SHADING_WAITINGTIME_START
+                if kind == "start"
+                else CONF_SHADING_WAITINGTIME_END
+            )
+            new_wait = max(0.0, float(new_config.get(key, 0) or 0))
+            due_at = started_at + timedelta(seconds=new_wait)
+            if new_wait > 0 and due_at > now:
+                self._set_shading_pending(kind, due_at, False)
         self._refresh_next_events(now)
         self._schedule_manual_expiry()
         self.persist_status()
         self.async_request_evaluate("config")
         self._publish_state()
+
+    @callback
+    def _resubscribe_local_decision_entities(self) -> None:
+        """Diff and update cover-specific state listeners."""
+
+        desired = {self.cover, *self._local_decision_entities()}
+        desired.discard("")
+        for entity_id in self._local_listener_entities - desired:
+            unsubscribe = self._local_listener_unsubs.pop(entity_id, None)
+            if unsubscribe is not None:
+                unsubscribe()
+        for entity_id in desired - self._local_listener_entities:
+            self._local_listener_unsubs[entity_id] = async_track_state_change_event(
+                self.hass, [entity_id], self._handle_state_event
+            )
+        self._local_listener_entities = desired
+
+    @callback
+    def _clear_local_decision_listeners(self) -> None:
+        for unsubscribe in self._local_listener_unsubs.values():
+            unsubscribe()
+        self._local_listener_unsubs.clear()
+        self._local_listener_entities.clear()
 
     @callback
     def async_request_evaluate(self, trigger: str = "runtime_toggle") -> None:

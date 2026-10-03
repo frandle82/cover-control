@@ -20,13 +20,18 @@ from .const import (
     SIGNAL_ENTRY_STATE_UPDATED,
 )
 from .controller import ControllerManager
+from .config_resolver import config_entry_room_id, resolve_entry_config
 
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up Cover Control sensor entities."""
-    merged = {**entry.data, **entry.options}
+    merged = resolve_entry_config(
+        entry.data,
+        entry.options,
+        room_id=config_entry_room_id(entry.data, entry.entry_id),
+    )
     resident_enabled = bool(
         merged.get(
             CONF_RESIDENT_STATUS,
@@ -196,6 +201,7 @@ class ControlStateSensor(_BaseCoverControlSensor):
         self._attr_unique_id = f"{entry.entry_id}-control_state"
         self._state: str = "idle"
         self._cover_states: dict[str, dict[str, Any]] = {}
+        self._config_diagnostics: dict[str, Any] = {}
 
     async def async_added_to_hass(self) -> None:
         self._refresh_state()
@@ -217,18 +223,24 @@ class ControlStateSensor(_BaseCoverControlSensor):
 
     @callback
     def _refresh_state(self) -> bool:
-        previous = (self._state, self._cover_states)
+        previous = (self._state, self._cover_states, self._config_diagnostics)
         manager = self._manager()
         if not manager or not manager.controllers:
             self._state = "idle"
             self._cover_states = {}
+            self._config_diagnostics = {}
         else:
             snapshot = manager.entry_snapshot()
             covers = snapshot.get("covers")
             self._cover_states = covers if isinstance(covers, dict) else {}
             state = snapshot.get("control_state")
             self._state = state if isinstance(state, str) else "idle"
-        return previous != (self._state, self._cover_states)
+            self._config_diagnostics = manager.configuration_diagnostics()
+        return previous != (
+            self._state,
+            self._cover_states,
+            self._config_diagnostics,
+        )
 
     @property
     def native_value(self) -> str:
@@ -243,6 +255,7 @@ class ControlStateSensor(_BaseCoverControlSensor):
                 for cover, state in self._cover_states.items()
                 if state.get("reason") != "idle"
             ],
+            "configuration": self._config_diagnostics,
         }
 
 

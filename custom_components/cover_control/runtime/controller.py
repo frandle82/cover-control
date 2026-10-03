@@ -76,6 +76,8 @@ class CoverController(
         self._publish_callback = publish_callback
         self._status = _normalize_cover_status(persisted_status)
         self._unsubs: list[CALLBACK_TYPE] = []
+        self._local_listener_unsubs: dict[str, CALLBACK_TYPE] = {}
+        self._local_listener_entities: set[str] = set()
         self._manual_until: datetime | None = None
         self._manual_active: bool = False
         self._manual_scope_all: bool = False

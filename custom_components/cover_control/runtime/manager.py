@@ -15,16 +15,18 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
+from ..config_resolver import (
+    ResolvedRoomConfig,
+    config_entry_room_id,
+    entry_config_model,
+    resolve_config_model,
+    resolve_entry_config,
+)
 from ..const import (
     CONF_COVERS,
+    CONF_PROFILE_SELECTIONS,
     CONF_RESIDENT_SENSOR,
-    DEFAULT_AUTOMATION_FLAGS,
-    DEFAULT_BEHAVIOR_SETTINGS,
-    DEFAULT_CONTACT_SETTINGS,
-    DEFAULT_MANUAL_OVERRIDE_FLAGS,
-    DEFAULT_POSITION_SETTINGS,
-    DEFAULT_SHADING_TIMING_SETTINGS,
-    DEFAULT_TIME_SETTINGS,
+    CONF_ROOMS,
     DOMAIN,
     SIGNAL_ENTRY_STATE_UPDATED,
 )
@@ -69,6 +71,10 @@ class ControllerManager:
         }
         self._shared_listener_unsub = None
         self._shared_entities: set[str] = set()
+        self._entity_routes: dict[str, set[str]] = {}
+        self._resolved_config: ResolvedRoomConfig | None = None
+        self._config_model: dict = {}
+        self.profile_users: dict[tuple[str, str], set[str]] = {}
 
     async def async_setup(self) -> None:
         self._store = Store(
@@ -81,17 +87,7 @@ class ControllerManager:
             self._stored_state = loaded
         self._stored_state.setdefault("covers", {})
 
-        data = {
-            **DEFAULT_POSITION_SETTINGS,
-            **DEFAULT_TIME_SETTINGS,
-            **DEFAULT_AUTOMATION_FLAGS,
-            **DEFAULT_MANUAL_OVERRIDE_FLAGS,
-            **DEFAULT_CONTACT_SETTINGS,
-            **DEFAULT_BEHAVIOR_SETTINGS,
-            **DEFAULT_SHADING_TIMING_SETTINGS,
-            **self.entry.data,
-            **self.entry.options,
-        }
+        data = self._resolve_entry_config()
         self._batch_active = True
         for cover in _unique_covers(data.get(CONF_COVERS, [])):
             controller = CoverController(
@@ -331,6 +327,33 @@ class ControllerManager:
 
         return self._entry_snapshot
 
+    def configuration_diagnostics(self) -> dict[str, object]:
+        """Return a bounded view of selected profiles and important origins."""
+
+        resolved = self._resolved_config
+        if resolved is None:
+            return {}
+        keys = (
+            "shading_position",
+            "shading_waitingtime_start",
+            "shading_waitingtime_end",
+            "temperature_threshold",
+            "manual_override_minutes",
+        )
+        return {
+            "room_id": resolved.room_id,
+            "room_name": resolved.room_name,
+            "profiles": dict(resolved.profile_names),
+            "resolved": {
+                key: {
+                    "value": resolved.get(key),
+                    "source": resolved.sources.get(key),
+                }
+                for key in keys
+                if key in resolved
+            },
+        }
+
     def _evaluation_context(self) -> dict[str, object]:
         """Capture entry-wide states once for a complete evaluation batch."""
 
@@ -359,10 +382,14 @@ class ControllerManager:
     def _handle_shared_state_event(self, event) -> None:
         entity_id = event.data.get("entity_id")
         trigger = "sun" if entity_id == "sun.sun" else "state"
-        controller = next(iter(self.controllers.values()), None)
-        if controller is not None and entity_id == controller.config.get(
-            CONF_RESIDENT_SENSOR
-        ):
+        routed_covers = self._entity_routes.get(entity_id, set())
+        routed_controllers = [
+            self.controllers[cover]
+            for cover in routed_covers
+            if cover in self.controllers
+        ]
+        controller = routed_controllers[0] if routed_controllers else None
+        if controller is not None and entity_id == controller.config.get(CONF_RESIDENT_SENSOR):
             old_state = event.data.get("old_state")
             new_state = event.data.get("new_state")
             old_value = old_state.state if old_state else None
@@ -375,21 +402,21 @@ class ControllerManager:
                 old_value
             ) and controller._resident_state_is_on(new_value):
                 trigger = "resident_asleep"
-        self.request_evaluate_all(trigger)
+        for routed_controller in routed_controllers:
+            self._request_evaluate(routed_controller, trigger)
 
     @callback
     def _setup_shared_listener(self) -> None:
-        self._clear_shared_listener()
-        self._shared_entities = (
-            set().union(
-                *(
-                    controller._shared_decision_entities()
-                    for controller in self.controllers.values()
-                )
-            )
-            if self.controllers
-            else set()
-        )
+        routes: dict[str, set[str]] = {}
+        for cover, controller in self.controllers.items():
+            for entity_id in controller._shared_decision_entities():
+                routes.setdefault(entity_id, set()).add(cover)
+        desired = set(routes)
+        self._entity_routes = routes
+        if desired == self._shared_entities:
+            return
+        self._clear_shared_listener(clear_routes=False)
+        self._shared_entities = desired
         if self._shared_entities:
             self._shared_listener_unsub = async_track_state_change_event(
                 self.hass,
@@ -398,28 +425,64 @@ class ControllerManager:
             )
 
     @callback
-    def _clear_shared_listener(self) -> None:
+    def _clear_shared_listener(self, *, clear_routes: bool = True) -> None:
         if self._shared_listener_unsub is not None:
             self._shared_listener_unsub()
             self._shared_listener_unsub = None
         self._shared_entities.clear()
+        if clear_routes:
+            self._entity_routes.clear()
 
     @callback
     def async_update_options(self) -> None:
-        new_data = {
-            **DEFAULT_POSITION_SETTINGS,
-            **DEFAULT_TIME_SETTINGS,
-            **DEFAULT_AUTOMATION_FLAGS,
-            **DEFAULT_MANUAL_OVERRIDE_FLAGS,
-            **DEFAULT_CONTACT_SETTINGS,
-            **DEFAULT_BEHAVIOR_SETTINGS,
-            **DEFAULT_SHADING_TIMING_SETTINGS,
-            **self.entry.data,
-            **self.entry.options,
-        }
+        new_data = self._resolve_entry_config()
         for controller in self.controllers.values():
             controller.update_config(new_data)
         self._setup_shared_listener()
+
+    def _resolve_entry_config(self) -> ResolvedRoomConfig:
+        """Build the entry model and expose only its resolved room to runtime."""
+
+        room_id = config_entry_room_id(self.entry.data, self.entry.entry_id)
+        self._config_model = entry_config_model(
+            self.entry.data, self.entry.options, room_id=room_id
+        )
+        resolved = resolve_entry_config(
+            self.entry.data, self.entry.options, room_id=room_id
+        )
+        self._resolved_config = resolved
+        self._index_profile_users()
+        return resolved
+
+    @callback
+    def apply_config_model(
+        self, model: dict, affected_rooms: set[str] | None = None
+    ) -> set[str]:
+        """Apply a model edit only to rooms affected by the changed dependency."""
+
+        self._config_model = model
+        self._index_profile_users()
+        room_id = config_entry_room_id(self.entry.data, self.entry.entry_id)
+        affected = affected_rooms or {room_id}
+        if room_id not in affected:
+            return set()
+        resolved = resolve_config_model(model, room_id)
+        self._resolved_config = resolved
+        for controller in self.controllers.values():
+            controller.update_config(resolved)
+        self._setup_shared_listener()
+        return {room_id}
+
+    def _index_profile_users(self) -> None:
+        """Build the runtime-only profile-to-room dependency index."""
+
+        users: dict[tuple[str, str], set[str]] = {}
+        for room_id, room in self._config_model.get(CONF_ROOMS, {}).items():
+            for profile_type, profile_id in room.get(
+                CONF_PROFILE_SELECTIONS, {}
+            ).items():
+                users.setdefault((profile_type, profile_id), set()).add(room_id)
+        self.profile_users = users
 
     def set_manual_override(self, cover: str, minutes: int) -> bool:
         controller = self.controllers.get(cover)
@@ -439,6 +502,7 @@ class ControllerManager:
         """Set runtime-only feature toggle and re-evaluate all controllers."""
 
         self._runtime_toggles[key] = bool(enabled)
+        self._setup_shared_listener()
         for controller in self.controllers.values():
             controller.async_request_evaluate("runtime_toggle")
 
@@ -448,6 +512,7 @@ class ControllerManager:
 
         if key in self._runtime_toggles:
             self._runtime_toggles.pop(key, None)
+            self._setup_shared_listener()
             for controller in self.controllers.values():
                 controller.async_request_evaluate("runtime_toggle")
 

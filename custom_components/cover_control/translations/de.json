@@ -347,6 +347,11 @@
         "description": "Bereich auswählen, Einstellungen anpassen und am Ende mit \"Speichern und schließen\" übernehmen.",
         "menu_options": {
           "general": "Allgemein",
+          "global_sources": "Globale Datenquellen",
+          "profiles": "Profile",
+          "room_profiles": "Raumprofile und Abweichungen",
+          "advanced": "Erweiterte Raumeinstellungen",
+          "diagnostics": "Konfigurationsdiagnose",
           "finish": "Speichern und schließen",
           "time_control": "Zeitsteuerung",
           "contact_sensors": "Kontaktsensoren",
@@ -359,6 +364,75 @@
           "resident": "Resident",
           "additional_conditions": "Zusatzbedingungen"
         }
+      },
+      "advanced": {
+        "title": "Erweiterte Raumeinstellungen",
+        "menu_options": {
+          "positions": "Positionen und Hardware",
+          "functions": "Funktionen",
+          "behavior": "Verhalten",
+          "time_control": "Zeitsteuerung",
+          "contact_sensors": "Kontaktsensoren",
+          "brightness": "Helligkeitsautomatik",
+          "sun_elevation": "Sonnenstandssteuerung",
+          "shading": "Beschattung",
+          "resident": "Resident",
+          "additional_conditions": "Zusatzbedingungen"
+        }
+      },
+      "global_sources": {
+        "title": "Globale Datenquellen",
+        "description": "Hier wird festgelegt, welche gemeinsamen technischen Eingänge Cover Control verwendet. Raumspezifische Ersatzquellen werden beim Raum konfiguriert.",
+        "data": {
+          "workday_sensor": "Werktagssensor",
+          "workday_tomorrow_sensor": "Werktag-morgen-Sensor",
+          "calendar_entity": "Kalender",
+          "brightness_sensor": "Außenhelligkeitssensor",
+          "shading_brightness_sensor": "Helligkeitssensor für Beschattung",
+          "temperature_sensor_outdoor": "Außentemperatursensor",
+          "shading_forecast_sensor": "Wetter-/Vorhersage-Entity",
+          "shading_forecast_temp_sensor": "Vorhersagetemperatursensor",
+          "resident_sensor": "Resident-Sensor",
+          "sun_elevation_dynamic_open_sensor": "Dynamischer Sensor für Öffnungshöhe",
+          "sun_elevation_dynamic_close_sensor": "Dynamischer Sensor für Schließhöhe"
+        }
+      },
+      "profiles": {
+        "title": "Wiederverwendbare Profile",
+        "description": "Profile beschreiben das Raumverhalten; technische Quellen und physische Raumeigenschaften bleiben getrennt.",
+        "menu_options": {
+          "time_profiles": "Zeitprofile",
+          "shading_profiles": "Beschattungsprofile",
+          "behavior_profiles": "Verhaltensprofile"
+        }
+      },
+      "time_profiles": {"title": "Zeitprofile", "data": {"profile_action": "Aktion", "profile_id": "Profil"}},
+      "shading_profiles": {"title": "Beschattungsprofile", "data": {"profile_action": "Aktion", "profile_id": "Profil"}},
+      "behavior_profiles": {"title": "Verhaltensprofile", "data": {"profile_action": "Aktion", "profile_id": "Profil"}},
+      "profile_edit": {
+        "title": "Profil bearbeiten",
+        "description": "Die Profil-ID bleibt beim Umbenennen stabil. Einstellungen werden als JSON-Objekt mit Cover-Control-Optionsschlüsseln gespeichert.",
+        "data": {"profile_name": "Anzeigename", "profile_settings_json": "Profileinstellungen (JSON)"}
+      },
+      "room_profiles": {
+        "title": "Raumprofile und Abweichungen",
+        "description": "Wiederverwendbare Profile für diesen Raum wählen. Das JSON-Objekt speichert nur bewusste Abweichungen, gruppiert nach time, shading oder behavior.",
+        "data": {
+          "time_profile": "Zeitprofil",
+          "shading_profile": "Beschattungsprofil",
+          "behavior_profile": "Verhaltensprofil",
+          "room_overrides_json": "Profilabweichungen (JSON)",
+          "brightness_sensor": "Helligkeitsquelle dieses Raums",
+          "shading_brightness_sensor": "Beschattungshelligkeit dieses Raums",
+          "temperature_sensor_outdoor": "Außentemperaturquelle dieses Raums",
+          "shading_forecast_sensor": "Wetter-/Vorhersagequelle dieses Raums",
+          "shading_forecast_temp_sensor": "Vorhersagetemperaturquelle dieses Raums",
+          "resident_sensor": "Resident-Quelle dieses Raums"
+        }
+      },
+      "diagnostics": {
+        "title": "Konfigurationsdiagnose",
+        "description": "Raum: {room}\n\nGewählte Profile: {profiles}\n\nBeispielhafte effektive Werte und Herkunft: {values}"
       },
       "positions": {
         "title": "Cover-Positionen",
@@ -710,6 +784,11 @@
           "additional_condition_shading_end": "Muss erfüllt sein, bevor Beschattung endet."
         }
       }
+    },
+    "error": {
+      "profile_required": "Für diese Aktion muss ein Profil gewählt werden.",
+      "profile_in_use": "Dieses Profil ist mindestens einem Raum zugewiesen und kann nicht gelöscht werden.",
+      "invalid_profile_settings": "Das Profil- oder Override-JSON ist ungültig oder enthält Einstellungen des falschen Profiltyps."
     }
   },
   "entity": {

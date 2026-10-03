@@ -159,7 +159,13 @@ async def async_setup_entry(
 ) -> None:
     """Register automation toggle switches."""
 
-    options_and_data = {**entry.data, **entry.options}
+    from .config_resolver import config_entry_room_id, resolve_entry_config
+
+    options_and_data = resolve_entry_config(
+        entry.data,
+        entry.options,
+        room_id=config_entry_room_id(entry.data, entry.entry_id),
+    )
 
     def _is_enabled_in_flow(key: str) -> bool:
         if key in options_and_data:
@@ -242,10 +248,14 @@ class AutomationToggleSwitch(SwitchEntity):
             runtime_value = manager.get_runtime_toggle(self._key)
             if runtime_value is not None:
                 return bool(runtime_value)
-        value = self.entry.options.get(self._key)
-        if value is None:
-            value = self.entry.data.get(self._key, DEFAULT_AUTOMATION_FLAGS.get(self._key))
-        return bool(value)
+        from .config_resolver import config_entry_room_id, resolve_entry_config
+
+        resolved = resolve_entry_config(
+            self.entry.data,
+            self.entry.options,
+            room_id=config_entry_room_id(self.entry.data, self.entry.entry_id),
+        )
+        return bool(resolved.get(self._key, DEFAULT_AUTOMATION_FLAGS.get(self._key)))
 
     @property
     def extra_state_attributes(self):
