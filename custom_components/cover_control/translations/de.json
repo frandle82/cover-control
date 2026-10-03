@@ -347,7 +347,7 @@
         "description": "Bereich auswählen, Einstellungen anpassen und am Ende mit \"Speichern und schließen\" übernehmen.",
         "menu_options": {
           "general": "Allgemein",
-          "global_sources": "Globale Datenquellen",
+          "global_settings": "Globale Einstellungen",
           "profiles": "Profile",
           "room_profiles": "Raumprofile und Abweichungen",
           "advanced": "Erweiterte Raumeinstellungen",
@@ -363,6 +363,14 @@
           "positions": "Positionen",
           "resident": "Resident",
           "additional_conditions": "Zusatzbedingungen"
+        }
+      },
+      "global_settings": {
+        "title": "Globale Einstellungen",
+        "description": "Gemeinsame technische Eingänge und Fallbackwerte bleiben getrennt.",
+        "menu_options": {
+          "global_sources": "Sensoren und Datenquellen",
+          "global_defaults": "Globale Standardwerte"
         }
       },
       "advanced": {
@@ -394,7 +402,25 @@
           "shading_forecast_temp_sensor": "Vorhersagetemperatursensor",
           "resident_sensor": "Resident-Sensor",
           "sun_elevation_dynamic_open_sensor": "Dynamischer Sensor für Öffnungshöhe",
-          "sun_elevation_dynamic_close_sensor": "Dynamischer Sensor für Schließhöhe"
+          "sun_elevation_dynamic_close_sensor": "Dynamischer Sensor für Schließhöhe",
+          "cold_protection_forecast_sensor": "Vorhersagesensor für Kälteschutz",
+          "additional_condition_global": "Globale Automatikbedingung"
+        }
+      },
+      "global_defaults": {
+        "title": "Globale Standardwerte",
+        "description": "Nur Fallbackwerte auswählen, die vor Profil- und Raumwerten gelten sollen.",
+        "data": {"configured_global_default_fields": "Konfigurierte globale Standardwerte"},
+        "sections": {
+          "positions": {"name": "Standardpositionen", "data": {
+            "open_position": "Öffnungsposition", "close_position": "Schließposition", "ventilate_position": "Lüftungsposition", "open_tilt_position": "Öffnungslamelle", "close_tilt_position": "Schließlamelle", "ventilate_tilt_position": "Lüftungslamelle", "position_tolerance": "Positionstoleranz"
+          }},
+          "manual_override": {"name": "Standard für manuelles Verhalten", "data": {
+            "manual_override_minutes": "Dauer des manuellen Overrides", "manual_schedule_adoption": "Manuelle Zeitplanübernahme"
+          }},
+          "tilt_wait": {"name": "Standard für Lamellen und Diagnose", "data": {
+            "cover_tilt_wait_mode": "Lamellen-Wartemodus", "cover_tilt_wait_timeout": "Lamellen-Timeout", "enable_logbook_cover": "Cover-Aktionen protokollieren"
+          }}
         }
       },
       "profiles": {
@@ -410,21 +436,54 @@
       "shading_profiles": {"title": "Beschattungsprofile", "data": {"profile_action": "Aktion", "profile_id": "Profil"}},
       "behavior_profiles": {"title": "Verhaltensprofile", "data": {"profile_action": "Aktion", "profile_id": "Profil"}},
       "profile_edit": {
-        "title": "Profil bearbeiten",
-        "description": "Die Profil-ID bleibt beim Umbenennen stabil. Einstellungen werden als JSON-Objekt mit Cover-Control-Optionsschlüsseln gespeichert.",
-        "data": {"profile_name": "Anzeigename", "profile_settings_json": "Profileinstellungen (JSON)"}
+        "title": "Profileinstellungen",
+        "description": "Nur ausdrücklich gespeicherte Werte auswählen. Nicht gewählte Werte erben aus der nächsten Resolver-Ebene. Nicht unterstützte bestehende Werte bleiben automatisch erhalten. Für Raumabweichungen gelten folgende geerbte Werte: {profile_values}",
+        "data": {"profile_name": "Profilname", "configured_profile_fields": "Im Profil gespeicherte Werte", "configured_override_fields": "In diesem Raum überschriebene Werte"},
+        "sections": {
+          "time_features": {"name": "Zeitfunktionen", "data": {
+            "auto_time_enabled": "Zeitautomatik", "auto_up_enabled": "Automatisches Öffnen", "auto_down_enabled": "Automatisches Schließen", "auto_sun_enabled": "Sonnenautomatik", "auto_brightness_enabled": "Helligkeitsautomatik", "use_workday_sensor": "Werktagsquelle verwenden", "use_brightness_sensor": "Helligkeitsquelle verwenden", "use_sun_elevation_dynamic_open_sensor": "Dynamische Öffnungshöhe verwenden", "use_sun_elevation_dynamic_close_sensor": "Dynamische Schließhöhe verwenden"
+          }},
+          "workday_times": {"name": "Werktagszeiten", "data": {"time_up_early_workday": "Früheste Öffnung", "time_up_late_workday": "Späteste Öffnung", "time_down_early_workday": "Früheste Schließung", "time_down_late_workday": "Späteste Schließung"}},
+          "non_workday_times": {"name": "Freie Tage", "data": {"time_up_early_non_workday": "Früheste Öffnung", "time_up_late_non_workday": "Späteste Öffnung", "time_down_early_non_workday": "Früheste Schließung", "time_down_late_non_workday": "Späteste Schließung"}},
+          "sun_settings": {"name": "Sonne", "data": {"sun_elevation_mode": "Sonnenhöhenmodus", "sun_elevation_open": "Öffnungshöhe", "sun_elevation_close": "Schließhöhe", "sun_elevation_open_offset": "Öffnungs-Offset", "sun_elevation_close_offset": "Schließ-Offset", "sun_time_duration": "Erforderliche Dauer"}},
+          "brightness_settings": {"name": "Helligkeit", "data": {"brightness_open_above": "Öffnen oberhalb", "brightness_close_below": "Schließen unterhalb", "brightness_hysteresis": "Hysterese", "brightness_time_duration": "Erforderliche Dauer", "brightness_sun_operator": "Kombination aus Helligkeit und Sonne"}},
+          "calendar_behavior": {"name": "Kalenderverhalten", "data": {"calendar_open_title": "Titel für Öffnung", "calendar_close_title": "Titel für Schließung"}},
+          "shading_targets": {"name": "Beschattungsziele", "data": {"auto_shading_enabled": "Beschattung aktiv", "shading_position": "Beschattungsposition", "shading_position_alt": "Alternative Beschattungsposition", "shading_tilt_position": "Beschattungslamelle", "shading_tilt_position_0": "Lamelle unter Höhe 1", "shading_tilt_position_1": "Lamelle über Höhe 1", "shading_tilt_position_2": "Lamelle über Höhe 2", "shading_tilt_position_3": "Lamelle über Höhe 3", "shading_tilt_elevation_1": "Höhenschwelle 1", "shading_tilt_elevation_2": "Höhenschwelle 2", "shading_tilt_elevation_3": "Höhenschwelle 3"}},
+          "shading_brightness": {"name": "Beschattungshelligkeit", "data": {"shading_brightness_start": "Starthelligkeit", "shading_brightness_end": "Endhelligkeit", "shading_sun_brightness_hysteresis": "Helligkeitshysterese"}},
+          "shading_temperature": {"name": "Beschattungstemperatur", "data": {"shading_min_temperatur1": "Mindesttemperatur 1", "shading_temperature_hysteresis1": "Temperaturhysterese 1", "shading_min_temperatur2": "Mindesttemperatur 2", "shading_temperature_hysteresis2": "Temperaturhysterese 2", "temperature_threshold": "Temperaturschwelle", "temperature_forecast_threshold": "Vorhersagetemperaturschwelle", "cold_protection_temperature": "Kälteschutztemperatur", "shading_independent_temp": "Unabhängige Temperatur", "shading_independent_holds_end": "Unabhängige Temperatur hält Beschattung"}},
+          "shading_forecast": {"name": "Wetter und Vorhersage", "data": {"use_shading_forecast_sensor": "Beschattungsvorhersage verwenden", "use_cold_protection_forecast_sensor": "Kälteschutzvorhersage verwenden", "shading_forecast_type": "Vorhersagetyp", "shading_forecast_temp": "Vorhersagetemperatur", "shading_forecast_temp_hysteresis": "Vorhersagehysterese", "shading_weather_conditions": "Erlaubte Wetterbedingungen", "shading_config": "Erweiterte Beschattungsregeln"}},
+          "shading_conditions": {"name": "Beschattungsbedingungen", "data": {"shading_conditions_start_and": "Startbedingungen — alle", "shading_conditions_start_or": "Startbedingungen — beliebige", "shading_conditions_end_and": "Endbedingungen — alle", "shading_conditions_end_or": "Endbedingungen — beliebige"}},
+          "shading_waits": {"name": "Beschattungswartezeiten", "data": {"shading_waitingtime_start": "Startwartezeit", "shading_waitingtime_end": "Endwartezeit", "shading_start_max_duration": "Maximale Startwartezeit", "shading_end_max_duration": "Maximale Endwartezeit", "shading_end_immediate_by_sun_position": "Sofort beenden, wenn Sonne Bereich verlässt"}},
+          "positions": {"name": "Positionen", "data": {"cover_type": "Cover-Typ", "open_position": "Öffnungsposition", "close_position": "Schließposition", "ventilate_position": "Lüftungsposition", "lockout_position": "Aussperrschutzposition", "open_tilt_position": "Öffnungslamelle", "close_tilt_position": "Schließlamelle", "ventilate_tilt_position": "Lüftungslamelle", "position_tolerance": "Positionstoleranz"}},
+          "manual_override": {"name": "Manueller Override", "data": {"manual_override_minutes": "Dauer", "manual_override_reset_mode": "Rücksetzmodus", "manual_override_reset_time": "Rücksetzzeit", "manual_override_block_open": "Öffnen blockieren", "manual_override_block_close": "Schließen blockieren", "manual_override_block_ventilate": "Lüftung blockieren", "manual_override_block_shading": "Beschattung blockieren", "manual_schedule_adoption": "Manuelle Zeitplanaktion übernehmen"}},
+          "ventilation": {"name": "Lüftung", "data": {"auto_ventilate_enabled": "Lüftung aktiv", "contact_trigger_delay": "Kontakt-Triggerverzögerung", "contact_status_delay": "Kontakt-Statusverzögerung", "ventilation_delay_after_close": "Verzögerung nach Schließen", "ventilation_allow_higher_position": "Höhere Position erlauben", "ventilation_use_after_shading": "Nach Beschattung lüften", "ventilation_start_no_delay": "Ohne Verzögerung starten", "ventilation_keep_open_on_full_to_tilt": "Bei Wechsel vollständig zu gekippt offen lassen", "shading_over_ventilation": "Beschattung vor Lüftung", "lockout_tilt_close": "Schließen bei Kippstellung blockieren", "lockout_tilt_shading_start": "Beschattungsstart bei Kippstellung blockieren", "lockout_tilt_shading_end": "Beschattungsende bei Kippstellung blockieren"}},
+          "resident_behavior": {"name": "Bewohnerverhalten", "data": {"resident_status_enabled": "Bewohnerverhalten aktiv", "resident_open_enabled": "Bei Ende des Bewohnerstatus öffnen", "resident_close_enabled": "Bei Beginn des Bewohnerstatus schließen", "resident_allow_shading": "Beschattung erlauben", "resident_allow_open": "Öffnen erlauben", "resident_allow_ventilation": "Lüftung erlauben"}},
+          "prevention": {"name": "Schutzregeln", "data": {"prevent_higher_position_closing": "Höhere Schließposition verhindern", "prevent_lowering_when_closing_if_shaded": "Absenken bei Beschattung verhindern", "prevent_shading_end_if_closed": "Beschattungsende bei geschlossenem Cover verhindern", "prevent_opening_after_shading_end": "Öffnen nach Beschattung verhindern", "prevent_opening_after_ventilation_end": "Öffnen nach Lüftung verhindern", "prevent_opening_multiple_times": "Mehrfaches Öffnen verhindern", "prevent_closing_multiple_times": "Mehrfaches Schließen verhindern", "prevent_shading_multiple_times": "Mehrfache Beschattung verhindern", "prevent_default_cover_actions": "Standard-Cover-Aktionen verhindern"}},
+          "tilt_wait": {"name": "Lamellen und Diagnose", "data": {"cover_tilt_wait_mode": "Lamellen-Wartemodus", "cover_tilt_wait_timeout": "Lamellen-Timeout", "enable_logbook_cover": "Cover-Aktionen protokollieren"}}
+        }
       },
       "room_profiles": {
         "title": "Raumprofile und Abweichungen",
-        "description": "Wiederverwendbare Profile für diesen Raum wählen. Das JSON-Objekt speichert nur bewusste Abweichungen, gruppiert nach time, shading oder behavior.",
+        "description": "Wiederverwendbare Profile zuweisen oder eine gezielte Abweichungsgruppe öffnen.",
+        "menu_options": {"room_assignments": "Profile zuweisen", "time_overrides": "Zeitprofil überschreiben", "shading_overrides": "Beschattungsprofil überschreiben", "behavior_overrides": "Verhaltensprofil überschreiben", "source_overrides": "Datenquellen überschreiben"}
+      },
+      "room_assignments": {
+        "title": "Raumprofile zuweisen",
+        "description": "Der Gedankenstrich bedeutet: globale und Systemstandards verwenden.",
         "data": {
           "time_profile": "Zeitprofil",
           "shading_profile": "Beschattungsprofil",
-          "behavior_profile": "Verhaltensprofil",
-          "room_overrides_json": "Profilabweichungen (JSON)",
+          "behavior_profile": "Verhaltensprofil"
+        }
+      },
+      "source_overrides": {
+        "title": "Raumspezifische Datenquellen",
+        "description": "Leere Felder übernehmen die globale Quelle.",
+        "data": {
           "brightness_sensor": "Helligkeitsquelle dieses Raums",
           "shading_brightness_sensor": "Beschattungshelligkeit dieses Raums",
           "temperature_sensor_outdoor": "Außentemperaturquelle dieses Raums",
+          "cold_protection_forecast_sensor": "Kälteschutzvorhersage dieses Raums",
           "shading_forecast_sensor": "Wetter-/Vorhersagequelle dieses Raums",
           "shading_forecast_temp_sensor": "Vorhersagetemperaturquelle dieses Raums",
           "resident_sensor": "Resident-Quelle dieses Raums"
@@ -788,8 +847,37 @@
     "error": {
       "profile_required": "Für diese Aktion muss ein Profil gewählt werden.",
       "profile_in_use": "Dieses Profil ist mindestens einem Raum zugewiesen und kann nicht gelöscht werden.",
-      "invalid_profile_settings": "Das Profil- oder Override-JSON ist ungültig oder enthält Einstellungen des falschen Profiltyps."
+      "invalid_profile_settings": "Mindestens ein Profilwert ist ungültig."
     }
+  },
+  "selector": {
+    "profile_action": {"options": {"create": "Erstellen", "edit": "Bearbeiten", "duplicate": "Duplizieren", "delete": "Löschen"}},
+    "sun_elevation_mode": {"options": {"fixed": "Fest", "dynamic": "Dynamisch"}},
+    "brightness_sun_operator": {"options": {"or": "Helligkeit oder Sonne", "and": "Helligkeit und Sonne"}},
+    "forecast_type": {"options": {"daily": "Tagesvorhersage", "hourly": "Stundenvorhersage", "weather_attributes": "Aktuelle Wetterattribute"}},
+    "manual_override_reset_mode": {"options": {"none": "Manuell zurücksetzen", "time": "Feste Uhrzeit", "timeout": "Nach Dauer"}},
+    "cover_tilt_wait_mode": {"options": {"fixed_delay": "Feste Verzögerung", "wait_idle": "Auf Stillstand warten", "tilt_before_position": "Lamelle vor Position"}},
+    "cover_type": {"options": {"blind": "Jalousie / Rollladen", "awning": "Markise / Sonnenschutz"}},
+    "shading_condition": {"options": {"cond_azimuth": "Sonnenazimut", "cond_elevation": "Sonnenhöhe", "cond_brightness": "Helligkeit", "cond_temp1": "Temperatur 1", "cond_temp2": "Temperatur 2", "cond_forecast_temp": "Vorhersagetemperatur", "cond_forecast_weather": "Wettervorhersage"}},
+    "shading_config": {"options": {"shading_temp_comparison_independent": "Unabhängiger Temperaturstart", "shading_compare_forecast_with_sensor2": "Vorhersage mit Temperatur 2 vergleichen"}},
+    "weather_condition": {"options": {"clear-night": "Klare Nacht", "clear": "Klar", "cloudy": "Bewölkt", "fog": "Nebel", "hail": "Hagel", "lightning": "Gewitter", "lightning-rainy": "Gewitter und Regen", "partlycloudy": "Teilweise bewölkt", "pouring": "Starkregen", "rainy": "Regnerisch", "snowy": "Schnee", "snowy-rainy": "Schnee und Regen", "sunny": "Sonnig", "windy": "Windig", "windy-variant": "Windig und bewölkt", "exceptional": "Außergewöhnlich"}},
+    "profile_field": {"options": {
+      "auto_brightness_enabled": "Helligkeitsautomatik", "auto_down_enabled": "Automatisches Schließen", "auto_shading_enabled": "Beschattung aktiv", "auto_sun_enabled": "Sonnenautomatik", "auto_time_enabled": "Zeitautomatik", "auto_up_enabled": "Automatisches Öffnen", "auto_ventilate_enabled": "Lüftung aktiv",
+      "brightness_close_below": "Helligkeitsschwelle zum Schließen", "brightness_hysteresis": "Helligkeitshysterese", "brightness_open_above": "Helligkeitsschwelle zum Öffnen", "brightness_sun_operator": "Kombination aus Helligkeit und Sonne", "brightness_time_duration": "Helligkeitsdauer",
+      "calendar_close_title": "Kalendertitel zum Schließen", "calendar_open_title": "Kalendertitel zum Öffnen", "cold_protection_temperature": "Kälteschutztemperatur",
+      "close_position": "Schließposition", "close_tilt_position": "Schließlamelle", "contact_status_delay": "Kontakt-Statusverzögerung", "contact_trigger_delay": "Kontakt-Triggerverzögerung", "cover_tilt_wait_mode": "Lamellen-Wartemodus", "cover_tilt_wait_timeout": "Lamellen-Timeout", "cover_type": "Cover-Typ",
+      "enable_logbook_cover": "Cover-Aktionen protokollieren", "lockout_position": "Aussperrschutzposition", "lockout_tilt_close": "Schließen bei Kippstellung blockieren", "lockout_tilt_shading_end": "Beschattungsende bei Kippstellung blockieren", "lockout_tilt_shading_start": "Beschattungsstart bei Kippstellung blockieren",
+      "manual_override_block_close": "Manueller Override blockiert Schließen", "manual_override_block_open": "Manueller Override blockiert Öffnen", "manual_override_block_shading": "Manueller Override blockiert Beschattung", "manual_override_block_ventilate": "Manueller Override blockiert Lüftung", "manual_override_minutes": "Dauer des manuellen Overrides", "manual_override_reset_mode": "Rücksetzmodus des manuellen Overrides", "manual_override_reset_time": "Rücksetzzeit des manuellen Overrides", "manual_schedule_adoption": "Manuelle Zeitplanübernahme",
+      "open_position": "Öffnungsposition", "open_tilt_position": "Öffnungslamelle", "position_tolerance": "Positionstoleranz",
+      "prevent_closing_multiple_times": "Mehrfaches Schließen verhindern", "prevent_default_cover_actions": "Standard-Cover-Aktionen verhindern", "prevent_higher_position_closing": "Höhere Schließposition verhindern", "prevent_lowering_when_closing_if_shaded": "Absenken bei Beschattung verhindern", "prevent_opening_after_shading_end": "Öffnen nach Beschattung verhindern", "prevent_opening_after_ventilation_end": "Öffnen nach Lüftung verhindern", "prevent_opening_multiple_times": "Mehrfaches Öffnen verhindern", "prevent_shading_end_if_closed": "Beschattungsende bei geschlossenem Cover verhindern", "prevent_shading_multiple_times": "Mehrfache Beschattung verhindern",
+      "resident_allow_open": "Bewohnerstatus erlaubt Öffnen", "resident_allow_shading": "Bewohnerstatus erlaubt Beschattung", "resident_allow_ventilation": "Bewohnerstatus erlaubt Lüftung", "resident_close_enabled": "Bei Bewohnerstatus schließen", "resident_open_enabled": "Nach Bewohnerstatus öffnen", "resident_status_enabled": "Bewohnerverhalten aktiv",
+      "shading_brightness_end": "Endhelligkeit der Beschattung", "shading_brightness_start": "Starthelligkeit der Beschattung", "shading_conditions_end_and": "Endbedingungen — alle", "shading_conditions_end_or": "Endbedingungen — beliebige", "shading_conditions_start_and": "Startbedingungen — alle", "shading_conditions_start_or": "Startbedingungen — beliebige", "shading_config": "Erweiterte Beschattungsregeln", "shading_end_immediate_by_sun_position": "Sofortiges Beschattungsende nach Sonne", "shading_end_max_duration": "Maximale Endwartezeit", "shading_forecast_temp": "Vorhersagetemperatur", "shading_forecast_temp_hysteresis": "Vorhersagetemperatur-Hysterese", "shading_forecast_type": "Vorhersagetyp", "shading_independent_holds_end": "Unabhängige Temperatur hält Beschattung", "shading_independent_temp": "Unabhängige Temperatur", "shading_min_temperatur1": "Mindesttemperatur 1", "shading_min_temperatur2": "Mindesttemperatur 2", "shading_position": "Beschattungsposition", "shading_position_alt": "Alternative Beschattungsposition", "shading_start_max_duration": "Maximale Startwartezeit", "shading_sun_brightness_hysteresis": "Beschattungs-Helligkeitshysterese", "shading_temperature_hysteresis1": "Temperaturhysterese 1", "shading_temperature_hysteresis2": "Temperaturhysterese 2", "shading_tilt_elevation_1": "Lamellenhöhe 1", "shading_tilt_elevation_2": "Lamellenhöhe 2", "shading_tilt_elevation_3": "Lamellenhöhe 3", "shading_tilt_position": "Beschattungslamelle", "shading_tilt_position_0": "Beschattungslamelle 0", "shading_tilt_position_1": "Beschattungslamelle 1", "shading_tilt_position_2": "Beschattungslamelle 2", "shading_tilt_position_3": "Beschattungslamelle 3", "shading_waitingtime_end": "Endwartezeit der Beschattung", "shading_waitingtime_start": "Startwartezeit der Beschattung", "shading_weather_conditions": "Erlaubte Wetterbedingungen",
+      "sun_elevation_close": "Sonnenhöhe zum Schließen", "sun_elevation_close_offset": "Offset der Schließhöhe", "sun_elevation_mode": "Sonnenhöhenmodus", "sun_elevation_open": "Sonnenhöhe zum Öffnen", "sun_elevation_open_offset": "Offset der Öffnungshöhe", "sun_time_duration": "Sonnendauer",
+      "temperature_forecast_threshold": "Vorhersagetemperaturschwelle", "temperature_threshold": "Temperaturschwelle",
+      "time_down_early_non_workday": "Früheste Schließung an freien Tagen", "time_down_early_workday": "Früheste Schließung an Werktagen", "time_down_late_non_workday": "Späteste Schließung an freien Tagen", "time_down_late_workday": "Späteste Schließung an Werktagen", "time_up_early_non_workday": "Früheste Öffnung an freien Tagen", "time_up_early_workday": "Früheste Öffnung an Werktagen", "time_up_late_non_workday": "Späteste Öffnung an freien Tagen", "time_up_late_workday": "Späteste Öffnung an Werktagen",
+      "use_brightness_sensor": "Helligkeitsquelle verwenden", "use_cold_protection_forecast_sensor": "Kälteschutzvorhersage verwenden", "use_shading_forecast_sensor": "Beschattungsvorhersage verwenden", "use_sun_elevation_dynamic_close_sensor": "Dynamische Schließhöhe verwenden", "use_sun_elevation_dynamic_open_sensor": "Dynamische Öffnungshöhe verwenden", "use_workday_sensor": "Werktagsquelle verwenden",
+      "ventilate_position": "Lüftungsposition", "ventilate_tilt_position": "Lüftungslamelle", "ventilation_allow_higher_position": "Höhere Lüftungsposition erlauben", "ventilation_delay_after_close": "Lüftungsverzögerung nach Schließen", "ventilation_keep_open_on_full_to_tilt": "Bei Wechsel vollständig zu gekippt offen lassen", "ventilation_start_no_delay": "Lüftung ohne Verzögerung starten", "ventilation_use_after_shading": "Nach Beschattung lüften", "shading_over_ventilation": "Beschattung vor Lüftung"
+    }}
   },
   "entity": {
     "sensor": {

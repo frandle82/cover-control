@@ -17,15 +17,25 @@ from homeassistant.helpers.json import json_dumps
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.cover_control.config_flow import INITIAL_FEATURE_KEYS
+from custom_components.cover_control.config_profile_schema import (
+    CONF_GLOBAL_DEFAULT_FIELDS,
+    CONF_OVERRIDE_FIELDS,
+    CONF_PROFILE_FIELDS,
+)
 from custom_components.cover_control.config_resolver import (
+    GLOBAL_SOURCE_KEYS,
+    ROOM_SOURCE_OVERRIDE_KEYS,
     config_entry_room_id,
+    entry_config_model,
     resolve_entry_config,
 )
+from custom_components.cover_control import const as c
 from custom_components.cover_control.const import (
     CONF_AUTO_SHADING,
     CONF_AUTO_TIME,
     CONF_AUTO_VENTILATE,
     CONF_BRIGHTNESS_SENSOR,
+    CONF_CONFIG_MODEL,
     CONF_COVERS,
     CONF_ENABLE_LOGBOOK_COVER,
     CONF_LOCKOUT_POSITION,
@@ -79,6 +89,46 @@ def _frontend_initial_data(data_schema) -> dict:
         return data
 
     return json.loads(json_dumps(_defaults(fields)))
+
+
+def _entry(hass, *, data: dict | None = None) -> MockConfigEntry:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Living",
+        data=data
+        or {CONF_NAME: "Living", CONF_COVERS: ["cover.living"]},
+    )
+    entry.add_to_hass(hass)
+    return entry
+
+
+async def _open_options_step(hass, entry, *steps: str):
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    for step in steps:
+        result = await hass.config_entries.options.async_configure(
+            result["flow_id"], {"next_step_id": step}
+        )
+    return result
+
+
+async def _create_profile(hass, entry, profile_type: str, data: dict):
+    result = await _open_options_step(
+        hass, entry, "profiles", f"{profile_type}_profiles"
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"profile_action": "create"}
+    )
+    assert result["step_id"] == "profile_edit"
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], data
+    )
+    assert result["step_id"] == "menu"
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "finish"}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    catalog = entry.data[CONF_CONFIG_MODEL]["profiles"][profile_type]
+    return next(reversed(catalog.values()))
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
@@ -220,13 +270,169 @@ async def test_options_menu_exposes_hierarchical_sections(hass):
 
     assert result["menu_options"] == [
         "general",
-        "global_sources",
+        "global_settings",
         "profiles",
         "room_profiles",
         "advanced",
         "diagnostics",
         "finish",
     ]
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_time_profile_can_be_created_with_native_fields(hass):
+    """U1: Persist selected time values without a JSON editor."""
+
+    entry = _entry(hass)
+    profile = await _create_profile(
+        hass,
+        entry,
+        c.PROFILE_TYPE_TIME,
+        {
+            "profile_name": "Weekday",
+            CONF_PROFILE_FIELDS: [c.CONF_AUTO_TIME, c.CONF_TIME_UP_EARLY_WORKDAY],
+            "time_features": {c.CONF_AUTO_TIME: True},
+            "workday_times": {c.CONF_TIME_UP_EARLY_WORKDAY: "06:30:00"},
+        },
+    )
+
+    assert profile["name"] == "Weekday"
+    assert profile["settings"] == {
+        c.CONF_AUTO_TIME: True,
+        c.CONF_TIME_UP_EARLY_WORKDAY: "06:30:00",
+    }
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_shading_profile_can_be_created_with_native_fields(hass):
+    """U2: Persist number, select, multi-select, and boolean shading values."""
+
+    entry = _entry(hass)
+    selected = [
+        c.CONF_SHADING_POSITION,
+        c.CONF_SHADING_FORECAST_TYPE,
+        c.CONF_SHADING_CONDITIONS_START_AND,
+        c.CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
+    ]
+    profile = await _create_profile(
+        hass,
+        entry,
+        c.PROFILE_TYPE_SHADING,
+        {
+            "profile_name": "South",
+            CONF_PROFILE_FIELDS: selected,
+            "shading_targets": {c.CONF_SHADING_POSITION: 31},
+            "shading_forecast": {c.CONF_SHADING_FORECAST_TYPE: "hourly"},
+            "shading_conditions": {
+                c.CONF_SHADING_CONDITIONS_START_AND: [
+                    c.SHADING_CONDITION_AZIMUTH,
+                    c.SHADING_CONDITION_ELEVATION,
+                ]
+            },
+            "shading_waits": {
+                c.CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION: True
+            },
+        },
+    )
+
+    assert profile["settings"] == {
+        c.CONF_SHADING_POSITION: 31,
+        c.CONF_SHADING_FORECAST_TYPE: "hourly",
+        c.CONF_SHADING_CONDITIONS_START_AND: [
+            c.SHADING_CONDITION_AZIMUTH,
+            c.SHADING_CONDITION_ELEVATION,
+        ],
+        c.CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION: True,
+    }
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_behavior_profile_can_be_created_with_native_fields(hass):
+    """U3: Persist typed behavior values without materializing fallbacks."""
+
+    entry = _entry(hass)
+    profile = await _create_profile(
+        hass,
+        entry,
+        c.PROFILE_TYPE_BEHAVIOR,
+        {
+            "profile_name": "Standard",
+            CONF_PROFILE_FIELDS: [
+                c.CONF_MANUAL_OVERRIDE_MINUTES,
+                c.CONF_MANUAL_OVERRIDE_RESET_MODE,
+                c.CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
+            ],
+            "manual_override": {
+                c.CONF_MANUAL_OVERRIDE_MINUTES: 45,
+                c.CONF_MANUAL_OVERRIDE_RESET_MODE: c.MANUAL_OVERRIDE_RESET_TIMEOUT,
+                c.CONF_MANUAL_OVERRIDE_BLOCK_SHADING: True,
+            },
+        },
+    )
+
+    assert profile["settings"] == {
+        c.CONF_MANUAL_OVERRIDE_MINUTES: 45,
+        c.CONF_MANUAL_OVERRIDE_RESET_MODE: c.MANUAL_OVERRIDE_RESET_TIMEOUT,
+        c.CONF_MANUAL_OVERRIDE_BLOCK_SHADING: True,
+    }
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_existing_profile_round_trip_is_sparse_and_keeps_stable_id(hass):
+    """U4-U7: Load old values, preserve unknown data, and remove optional values."""
+
+    entry = _entry(hass)
+    room_id = config_entry_room_id(entry.data, entry.entry_id)
+    model = entry_config_model(entry.data, {}, room_id=room_id)
+    profile_id = f"legacy-{entry.entry_id}-shading"
+    settings = model["profiles"][c.PROFILE_TYPE_SHADING][profile_id]["settings"]
+    settings.clear()
+    settings.update(
+        {
+            c.CONF_SHADING_POSITION: 30,
+            c.CONF_SHADING_WAITINGTIME_START: 300,
+            "future_profile_key": "keep-me",
+        }
+    )
+    hass.config_entries.async_update_entry(
+        entry,
+        data={c.CONF_ROOM_ID: room_id, CONF_NAME: "Living", CONF_CONFIG_MODEL: model},
+    )
+
+    result = await _open_options_step(
+        hass, entry, "profiles", "shading_profiles"
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"profile_action": "edit", "profile_id": profile_id},
+    )
+    initial = _frontend_initial_data(result["data_schema"])
+    assert initial[CONF_PROFILE_FIELDS] == sorted(
+        [c.CONF_SHADING_POSITION, c.CONF_SHADING_WAITINGTIME_START]
+    )
+    assert initial["shading_targets"][c.CONF_SHADING_POSITION] == 30
+    assert initial["shading_waits"][c.CONF_SHADING_WAITINGTIME_START] == 300
+
+    initial["profile_name"] = "South renamed"
+    initial[CONF_PROFILE_FIELDS].remove(c.CONF_SHADING_WAITINGTIME_START)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], initial
+    )
+    assert result["step_id"] == "menu"
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "finish"}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+
+    catalog = entry.data[CONF_CONFIG_MODEL]["profiles"][c.PROFILE_TYPE_SHADING]
+    assert profile_id in catalog
+    assert catalog[profile_id]["name"] == "South renamed"
+    assert catalog[profile_id]["settings"] == {
+        c.CONF_SHADING_POSITION: 30,
+        "future_profile_key": "keep-me",
+    }
+    resolved = resolve_entry_config(entry.data, {}, room_id=room_id)
+    assert resolved[c.CONF_SHADING_WAITINGTIME_START] != 300
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
@@ -274,13 +480,40 @@ async def test_room_profile_overrides_and_source_override_are_persisted(hass):
     )
     result = await hass.config_entries.options.async_configure(
         result["flow_id"],
+        {"next_step_id": "room_assignments"},
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
         {
             "time_profile": f"legacy-{entry.entry_id}-time",
             "shading_profile": f"legacy-{entry.entry_id}-shading",
             "behavior_profile": f"legacy-{entry.entry_id}-behavior",
-            "room_overrides_json": '{"shading":{"shading_position":27}}',
-            CONF_BRIGHTNESS_SENSOR: "sensor.room_brightness",
         },
+    )
+    assert result["step_id"] == "menu"
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "room_profiles"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "shading_overrides"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            "configured_override_fields": [CONF_SHADING_POSITION],
+            "shading_targets": {CONF_SHADING_POSITION: 27},
+        },
+    )
+    assert result["step_id"] == "menu"
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "room_profiles"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "source_overrides"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {CONF_BRIGHTNESS_SENSOR: "sensor.room_brightness"},
     )
     assert result["step_id"] == "menu"
     result = await hass.config_entries.options.async_configure(
@@ -297,6 +530,169 @@ async def test_room_profile_overrides_and_source_override_are_persisted(hass):
     assert resolved[CONF_BRIGHTNESS_SENSOR] == "sensor.room_brightness"
     assert resolved.sources[CONF_SHADING_POSITION] == "room_override"
     assert resolved.sources[CONF_BRIGHTNESS_SENSOR] == "room_source_override"
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_room_profile_without_override_resolves_profile_values(hass):
+    """O1: Assignment alone resolves the selected sparse profile."""
+
+    entry = _entry(hass, data={
+        CONF_NAME: "Living",
+        CONF_COVERS: ["cover.living"],
+        CONF_SHADING_POSITION: 34,
+        c.CONF_SHADING_WAITINGTIME_END: 420,
+    })
+    room_id = config_entry_room_id(entry.data, entry.entry_id)
+    resolved = resolve_entry_config(entry.data, entry.options, room_id=room_id)
+
+    assert resolved[CONF_SHADING_POSITION] == 34
+    assert resolved[c.CONF_SHADING_WAITINGTIME_END] == 420
+    room = entry_config_model(entry.data, {}, room_id=room_id)["rooms"][room_id]
+    assert room.get("overrides", {}) == {}
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_room_override_can_be_removed_without_copying_inherited_values(hass):
+    """O3-O4: Clearing selection removes only the delta."""
+
+    entry = _entry(hass)
+    room_id = config_entry_room_id(entry.data, entry.entry_id)
+    model = entry_config_model(entry.data, {}, room_id=room_id)
+    profile_id = f"legacy-{entry.entry_id}-shading"
+    model["profiles"][c.PROFILE_TYPE_SHADING][profile_id]["settings"] = {
+        CONF_SHADING_POSITION: 30,
+        c.CONF_SHADING_WAITINGTIME_END: 500,
+    }
+    model["rooms"][room_id]["overrides"] = {
+        c.PROFILE_TYPE_SHADING: {CONF_SHADING_POSITION: 27}
+    }
+    hass.config_entries.async_update_entry(
+        entry,
+        data={c.CONF_ROOM_ID: room_id, CONF_NAME: "Living", CONF_CONFIG_MODEL: model},
+    )
+
+    result = await _open_options_step(
+        hass, entry, "room_profiles", "shading_overrides"
+    )
+    initial = _frontend_initial_data(result["data_schema"])
+    assert initial[CONF_OVERRIDE_FIELDS] == [CONF_SHADING_POSITION]
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {**initial, CONF_OVERRIDE_FIELDS: []}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "finish"}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+
+    room = entry.data[CONF_CONFIG_MODEL]["rooms"][room_id]
+    assert room.get("overrides", {}).get(c.PROFILE_TYPE_SHADING) is None
+    resolved = resolve_entry_config(entry.data, {}, room_id=room_id)
+    assert resolved[CONF_SHADING_POSITION] == 30
+    assert resolved[c.CONF_SHADING_WAITINGTIME_END] == 500
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_global_sources_and_defaults_are_complete_native_forms(hass):
+    """G1/G4: All sources are reachable and global defaults resolve."""
+
+    entry = _entry(hass)
+    result = await _open_options_step(
+        hass, entry, "global_settings", "global_sources"
+    )
+    source_fields = {
+        field["name"]
+        for field in to_field_list(
+            result["data_schema"], custom_serializer=cv.custom_serializer
+        )
+    }
+    assert source_fields == GLOBAL_SOURCE_KEYS
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_BRIGHTNESS_SENSOR: "sensor.global_brightness"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "global_settings"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "global_defaults"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            CONF_GLOBAL_DEFAULT_FIELDS: [c.CONF_OPEN_POSITION],
+            "positions": {c.CONF_OPEN_POSITION: 88},
+        },
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "finish"}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+
+    model = entry.data[CONF_CONFIG_MODEL]
+    assert model["global"]["sources"] == {
+        CONF_BRIGHTNESS_SENSOR: "sensor.global_brightness"
+    }
+    assert model["global"]["defaults"] == {c.CONF_OPEN_POSITION: 88}
+    resolved = resolve_entry_config(
+        entry.data,
+        {},
+        room_id=entry.data[c.CONF_ROOM_ID],
+    )
+    assert resolved[CONF_BRIGHTNESS_SENSOR] == "sensor.global_brightness"
+    assert resolved[c.CONF_OPEN_POSITION] == 88
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_global_and_room_sources_can_be_removed_with_empty_forms(hass):
+    """G2/G3: Empty native selectors remove stored source values."""
+
+    entry = _entry(hass, data={
+        CONF_NAME: "Living",
+        CONF_COVERS: ["cover.living"],
+        CONF_BRIGHTNESS_SENSOR: "sensor.global_brightness",
+    })
+    room_id = config_entry_room_id(entry.data, entry.entry_id)
+    model = entry_config_model(entry.data, {}, room_id=room_id)
+    model["rooms"][room_id]["source_overrides"] = {
+        CONF_BRIGHTNESS_SENSOR: "sensor.room_brightness"
+    }
+    hass.config_entries.async_update_entry(
+        entry,
+        data={c.CONF_ROOM_ID: room_id, CONF_NAME: "Living", CONF_CONFIG_MODEL: model},
+    )
+    assert resolve_entry_config(entry.data, {}, room_id=room_id)[
+        CONF_BRIGHTNESS_SENSOR
+    ] == "sensor.room_brightness"
+
+    result = await _open_options_step(
+        hass, entry, "room_profiles", "source_overrides"
+    )
+    fields = {
+        field["name"]
+        for field in to_field_list(
+            result["data_schema"], custom_serializer=cv.custom_serializer
+        )
+    }
+    assert fields == ROOM_SOURCE_OVERRIDE_KEYS
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "global_settings"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "global_sources"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "finish"}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+
+    model = entry.data[CONF_CONFIG_MODEL]
+    assert model["global"]["sources"] == {}
+    assert model["rooms"][room_id]["source_overrides"] == {}
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
