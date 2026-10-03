@@ -159,22 +159,7 @@ async def async_setup_entry(
 ) -> None:
     """Register automation toggle switches."""
 
-    from .config_resolver import config_entry_room_id, resolve_entry_config
-
-    options_and_data = resolve_entry_config(
-        entry.data,
-        entry.options,
-        room_id=config_entry_room_id(entry.data, entry.entry_id),
-    )
-
-    def _is_enabled_in_flow(key: str) -> bool:
-        if key in options_and_data:
-            return bool(options_and_data.get(key))
-        return bool(DEFAULT_AUTOMATION_FLAGS.get(key, False))
-
-    enabled_keys = {
-        key for key, _translation_key in AUTOMATION_TOGGLES if _is_enabled_in_flow(key)
-    }
+    toggle_keys = {key for key, _translation_key in AUTOMATION_TOGGLES}
     registry = er.async_get(hass)
     for entity_entry in list(registry.entities.values()):
         if entity_entry.config_entry_id != entry.entry_id or entity_entry.domain != "switch":
@@ -184,7 +169,7 @@ async def async_setup_entry(
             registry.async_remove(entity_entry.entity_id)
             continue
         key = unique_id.removeprefix(f"{entry.entry_id}-")
-        if key in {CONF_AUTO_UP, CONF_AUTO_DOWN} or key not in enabled_keys:
+        if key in {CONF_AUTO_UP, CONF_AUTO_DOWN} or key not in toggle_keys:
             registry.async_remove(entity_entry.entity_id)
             continue
         if entity_entry.entity_category != EntityCategory.CONFIG:
@@ -196,7 +181,6 @@ async def async_setup_entry(
     entities: list[SwitchEntity] = [
         AutomationToggleSwitch(entry, key, translation_key)
         for key, translation_key in AUTOMATION_TOGGLES
-        if key in enabled_keys
     ]
 
     async_add_entities(entities)

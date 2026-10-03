@@ -206,4 +206,5 @@ def test_configuration_diagnostics_expose_profile_and_value_origin() -> None:
     assert diagnostics["resolved"][CONF_SHADING_WAITINGTIME_END] == {
         "value": 300,
         "source": "room_override",
+        "source_name": "Room override",
     }

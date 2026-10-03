@@ -18,9 +18,13 @@ from .config_profiles import ConfigProfileModel, ProfileError, ProfileInUseError
 from .config_profile_schema import (
     CONF_GLOBAL_DEFAULT_FIELDS,
     CONF_OVERRIDE_FIELDS,
+    CONF_PROFILE_CAPABILITIES_FIELD,
+    PROFILE_CAPABILITY_KEYS,
     build_profile_schema,
+    capability_keys,
     extract_sparse_settings,
     flatten_section_input,
+    infer_capabilities,
 )
 from .config_resolver import (
     GLOBAL_DEFAULT_KEYS,
@@ -93,6 +97,7 @@ from .const import (
     CONF_MANUAL_OVERRIDE_RESET_MODE,
     CONF_MANUAL_OVERRIDE_RESET_TIME,
     CONF_NAME,
+    CONF_PROFILE_CAPABILITIES,
     CONF_OPEN_POSITION,
     CONF_OPEN_TILT_POSITION,
     CONF_ROOM,
@@ -473,7 +478,7 @@ def _normalize_position_fields(data: dict[str, Any]) -> dict[str, Any]:
 class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the config flow."""
 
-    VERSION = 2
+    VERSION = 3
 
     def __init__(self) -> None:
         self._data: dict = {}
@@ -1410,6 +1415,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
             )
         )
         self._profile_type = PROFILE_TYPE_TIME
+        self._affected_rooms: set[str] = set()
         resolved = resolve_config_model(self._profile_model.data, self._room_id)
         self._options = self._normalize_options(
             None, base_options=dict(resolved)
@@ -1554,18 +1560,23 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
         return sanitized
 
     async def async_step_init(self, user_input=None) -> FlowResult:
+        from .hub import CoverControlHub
+
+        hub = self.hass.data.get(DOMAIN, {}).get("hub")
+        if (
+            isinstance(hub, CoverControlHub)
+            and self._room_id in hub.model.get("rooms", {})
+        ):
+            self._profile_model = ConfigProfileModel(hub.model)
+            self._refresh_resolved_options()
         return await self.async_step_menu()
 
     def _menu_options(self) -> list[str]:
-        """Return the compact hierarchy-oriented options menu."""
+        """Separate hub ownership from room execution configuration."""
 
         return [
-            "general",
-            "global_settings",
-            "profiles",
-            "room_profiles",
-            "advanced",
-            "diagnostics",
+            "hub_settings",
+            "room_settings",
             "finish",
         ]
 
@@ -1576,20 +1587,62 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
         )
 
     async def async_step_advanced(self, user_input=None) -> FlowResult:
-        """Expose existing focused pages without crowding the primary menu."""
+        """Expose only room-specific hardware and condition pages."""
 
-        options = ["positions", "functions", "behavior", "time_control"]
-        options.extend(
-            [
+        return self.async_show_menu(
+            step_id="advanced",
+            menu_options=[
+                "hardware",
                 "contact_sensors",
-                "brightness",
-                "sun_elevation",
-                "shading",
-                "resident",
+                "geometry",
                 "additional_conditions",
-            ]
+            ],
         )
-        return self.async_show_menu(step_id="advanced", menu_options=options)
+
+    async def async_step_hub_settings(self, user_input=None) -> FlowResult:
+        """Open configuration owned once by the Cover Control hub."""
+
+        return self.async_show_menu(
+            step_id="hub_settings",
+            menu_options=["global_settings", "profiles", "profile_evaluation"],
+        )
+
+    async def async_step_room_settings(self, user_input=None) -> FlowResult:
+        """Open hardware, assignments, overrides, and room diagnostics."""
+
+        return self.async_show_menu(
+            step_id="room_settings",
+            menu_options=["general", "advanced", "room_profiles", "diagnostics"],
+        )
+
+    async def async_step_profile_evaluation(self, user_input=None) -> FlowResult:
+        """Show bounded hub diagnostics with readable profile names."""
+
+        from .hub import CoverControlHub
+
+        hub = self.hass.data.get(DOMAIN, {}).get("hub")
+        if isinstance(hub, CoverControlHub):
+            diagnostics = hub.diagnostics()
+            profiles = "; ".join(
+                f"{profile['name']}: {', '.join(profile['users']) or '—'}"
+                for catalog in diagnostics["profiles"].values()
+                for profile in catalog.values()
+            ) or "—"
+            evaluation = "; ".join(
+                f"{hub.profile_name(*key.split(':', 1))}: "
+                f"{value['next_open'] or '—'} / {value['next_close'] or '—'}"
+                for key, value in diagnostics["profile_evaluation"].items()
+            ) or "—"
+        else:
+            profiles = evaluation = "—"
+        return self.async_show_form(
+            step_id="profile_evaluation",
+            data_schema=vol.Schema({}),
+            description_placeholders={
+                "profiles": profiles,
+                "evaluation": evaluation,
+            },
+        )
 
     async def async_step_global_settings(self, user_input=None) -> FlowResult:
         """Separate technical sources from global fallback values."""
@@ -1609,10 +1662,17 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                 value = user_input.get(key)
                 if value in (None, ""):
                     global_sources.pop(key, None)
+                    self._affected_rooms.update(
+                        room_id
+                        for room_id, room in self._profile_model.data["rooms"].items()
+                        if key not in room.get("source_overrides", {})
+                    )
                 else:
-                    self._profile_model.set_global_source(key, value)
+                    self._affected_rooms.update(
+                        self._profile_model.set_global_source(key, value)
+                    )
             self._refresh_resolved_options()
-            return await self.async_step_menu()
+            return await self.async_step_global_settings()
 
         schema = {}
         for key in source_keys:
@@ -1646,8 +1706,9 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                 allowed_keys=GLOBAL_DEFAULT_KEYS,
             )
             self._profile_model.data["global"]["defaults"] = updated
+            self._affected_rooms.update(self._profile_model.data["rooms"])
             self._refresh_resolved_options()
-            return await self.async_step_menu()
+            return await self.async_step_global_settings()
 
         return self.async_show_form(
             step_id="global_defaults",
@@ -1695,13 +1756,13 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
             if action == "create":
                 self._editing_profile_id = None
                 self._editing_context = "profile"
-                return await self.async_step_profile_edit()
+                return await self.async_step_profile_setup()
             if not profile_id:
                 errors["base"] = "profile_required"
             elif action == "edit":
                 self._editing_profile_id = profile_id
                 self._editing_context = "profile"
-                return await self.async_step_profile_edit()
+                return await self.async_step_profile_setup()
             elif action == "duplicate":
                 profile = catalog[profile_id]
                 self._profile_model.duplicate_profile(
@@ -1742,6 +1803,54 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
             errors=errors,
         )
 
+    async def async_step_profile_setup(self, user_input=None) -> FlowResult:
+        """Select a profile name and its user-facing capability groups."""
+
+        catalog = self._profile_model.data["profiles"][self._profile_type]
+        profile_id = getattr(self, "_editing_profile_id", None)
+        profile = catalog.get(profile_id, {})
+        existing = profile.get("settings", {})
+        capabilities = profile.get(CONF_PROFILE_CAPABILITIES)
+        if not isinstance(capabilities, list):
+            capabilities = infer_capabilities(self._profile_type, existing)
+        if user_input is not None:
+            selected = list(user_input.get(CONF_PROFILE_CAPABILITIES_FIELD, ()))
+            invalid = set(selected) - set(PROFILE_CAPABILITY_KEYS[self._profile_type])
+            if not invalid:
+                self._editing_profile_name = str(user_input["profile_name"])
+                self._editing_capabilities = selected
+                return await self.async_step_profile_edit()
+            return self.async_show_form(
+                step_id="profile_setup",
+                data_schema=self._profile_setup_schema(profile, capabilities),
+                errors={"base": "invalid_profile_settings"},
+            )
+        return self.async_show_form(
+            step_id="profile_setup",
+            data_schema=self._profile_setup_schema(profile, capabilities),
+        )
+
+    def _profile_setup_schema(
+        self, profile: dict[str, Any], capabilities: list[str]
+    ) -> vol.Schema:
+        return vol.Schema(
+            {
+                vol.Required(
+                    "profile_name", default=profile.get("name", "")
+                ): selector.TextSelector(),
+                vol.Required(
+                    CONF_PROFILE_CAPABILITIES_FIELD,
+                    default=capabilities,
+                ): selector.SelectSelector(
+                    selector.SelectSelectorConfig(
+                        options=list(PROFILE_CAPABILITY_KEYS[self._profile_type]),
+                        multiple=True,
+                        translation_key="profile_capability",
+                    )
+                ),
+            }
+        )
+
     async def async_step_profile_edit(self, user_input=None) -> FlowResult:
         """Create or edit one profile while retaining its stable identifier."""
 
@@ -1764,26 +1873,48 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
         if user_input is not None:
             try:
                 flattened = flatten_section_input(user_input)
+                capabilities = list(getattr(self, "_editing_capabilities", ()))
+                allowed_keys = capability_keys(self._profile_type, capabilities)
                 settings = extract_sparse_settings(
                     flattened,
                     self._profile_type,
                     existing,
+                    field_selection=None,
+                    allowed_keys=allowed_keys,
                 )
                 if profile_id:
-                    self._profile_model.rename_profile(
-                        self._profile_type, profile_id, user_input["profile_name"]
+                    self._affected_rooms.update(
+                        self._profile_model.rename_profile(
+                            self._profile_type,
+                            profile_id,
+                            getattr(
+                                self,
+                                "_editing_profile_name",
+                                profile.get("name", ""),
+                            ),
+                        )
                     )
-                    self._profile_model.update_profile(
-                        self._profile_type, profile_id, settings
+                    self._profile_model.set_capabilities(
+                        self._profile_type, profile_id, capabilities
+                    )
+                    self._affected_rooms.update(
+                        self._profile_model.update_profile(
+                            self._profile_type, profile_id, settings
+                        )
                     )
                 else:
                     self._profile_model.create_profile(
                         self._profile_type,
-                        user_input["profile_name"],
+                        getattr(self, "_editing_profile_name", ""),
                         settings,
+                        capabilities=capabilities,
                     )
                 self._refresh_resolved_options()
-                return await self.async_step_menu()
+                if self._profile_type == PROFILE_TYPE_TIME:
+                    return await self.async_step_time_profiles()
+                if self._profile_type == PROFILE_TYPE_SHADING:
+                    return await self.async_step_shading_profiles()
+                return await self.async_step_behavior_profiles()
             except (ValueError, ProfileError):
                 errors["base"] = "invalid_profile_settings"
 
@@ -1793,7 +1924,16 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                 self._profile_type,
                 existing,
                 self._profile_fallbacks(),
-                profile_name=profile.get("name", ""),
+                field_selection=None,
+                allowed_keys=capability_keys(
+                    self._profile_type,
+                    getattr(
+                        self,
+                        "_editing_capabilities",
+                        profile.get(CONF_PROFILE_CAPABILITIES)
+                        or infer_capabilities(self._profile_type, existing),
+                    ),
+                ),
             ),
             errors=errors,
             description_placeholders={"profile_values": "—"},
@@ -1836,7 +1976,8 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                             self._room_id, profile_type, profile_id
                         )
                 self._refresh_resolved_options()
-                return await self.async_step_menu()
+                self._affected_rooms.add(self._room_id)
+                return await self.async_step_room_profiles()
             except (ValueError, ProfileError):
                 errors["base"] = "invalid_profile_settings"
 
@@ -1906,7 +2047,8 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
             if not room_overrides.get(profile_type):
                 room_overrides.pop(profile_type, None)
             self._refresh_resolved_options()
-            return await self.async_step_menu()
+            self._affected_rooms.add(self._room_id)
+            return await self.async_step_room_profiles()
 
         profile_values = ", ".join(
             f"{key}: {inherited.get(key)!r}"
@@ -1938,7 +2080,8 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                         self._room_id, key, value
                     )
             self._refresh_resolved_options()
-            return await self.async_step_menu()
+            self._affected_rooms.add(self._room_id)
+            return await self.async_step_room_profiles()
 
         schema = {}
         for key in keys:
@@ -1971,18 +2114,42 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
         """Show selected profiles and origins for representative values."""
 
         resolved = resolve_config_model(self._profile_model.data, self._room_id)
+        profile_labels = {
+            PROFILE_TYPE_TIME: "Time",
+            PROFILE_TYPE_SHADING: "Shading",
+            PROFILE_TYPE_BEHAVIOR: "Behavior",
+        }
         profiles = ", ".join(
-            f"{kind}: {resolved.profile_names.get(kind, 'defaults')}"
+            f"{profile_labels[kind]}: {resolved.profile_names.get(kind, 'defaults')}"
             for kind in (PROFILE_TYPE_TIME, PROFILE_TYPE_SHADING, PROFILE_TYPE_BEHAVIOR)
         )
+        value_labels = {
+            CONF_SHADING_POSITION: ("Shading position", "%"),
+            CONF_SHADING_WAITINGTIME_START: ("Shading start delay", "s"),
+            CONF_SHADING_WAITINGTIME_END: ("Shading end delay", "s"),
+            CONF_TEMPERATURE_THRESHOLD: ("Temperature threshold", "°C"),
+        }
+
+        def source_label(source: str | None) -> str:
+            if source and source.startswith("profile:"):
+                profile_id = source.removeprefix("profile:")
+                for kind, selected_id in resolved.selected_profiles.items():
+                    if selected_id == profile_id:
+                        return f'profile "{resolved.profile_names.get(kind, "Unknown")}"'
+                return "profile"
+            return {
+                "system_default": "system default",
+                "global_default": "global default",
+                "room_setting": "room setting",
+                "room_override": "room override",
+                "global_source": "global source",
+                "room_source_override": "room source override",
+            }.get(source or "", "unknown")
+
         values = "; ".join(
-            f"{key}={resolved.get(key)!r} ({resolved.sources.get(key, 'unknown')})"
-            for key in (
-                CONF_SHADING_POSITION,
-                CONF_SHADING_WAITINGTIME_START,
-                CONF_SHADING_WAITINGTIME_END,
-                CONF_TEMPERATURE_THRESHOLD,
-            )
+            f"{label}: {resolved.get(key)} {unit} "
+            f"({source_label(resolved.sources.get(key))})"
+            for key, (label, unit) in value_labels.items()
         )
         return self.async_show_form(
             step_id="diagnostics",
@@ -2003,7 +2170,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
     async def async_step_general(self, user_input=None) -> FlowResult:
         if user_input is not None:
             await self._save_options(user_input)
-            return await self.async_step_menu()
+            return await self.async_step_room_settings()
 
         schema: dict = {
             vol.Optional(
@@ -2020,7 +2187,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
     async def async_step_positions(self, user_input=None) -> FlowResult:
         if user_input is not None:
             await self._save_options(user_input)
-            return await self.async_step_menu()
+            return await self.async_step_advanced()
 
         schema: dict = {
             vol.Required(
@@ -2174,6 +2341,116 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
         }
         return self.async_show_form(step_id="positions", data_schema=vol.Schema(schema))
 
+    async def async_step_hardware(self, user_input=None) -> FlowResult:
+        """Configure only room-local cover feedback and hardware properties."""
+
+        if user_input is not None:
+            await self._save_options(user_input)
+            return await self.async_step_advanced()
+        return self.async_show_form(
+            step_id="hardware",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_POSITION_SOURCE,
+                        default=self._options.get(
+                            CONF_POSITION_SOURCE,
+                            CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
+                        ),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
+                                CONF_POSITION_SOURCE_POSITION_ATTR,
+                                CONF_POSITION_SOURCE_CUSTOM_SENSOR,
+                            ],
+                            translation_key="position_source",
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_CUSTOM_POSITION_SENSOR,
+                        default=self._optional_default(CONF_CUSTOM_POSITION_SENSOR),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor"])
+                    ),
+                    vol.Optional(
+                        CONF_DRIVE_TIME,
+                        default=self._options.get(CONF_DRIVE_TIME, DEFAULT_DRIVE_TIME),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=600,
+                            step=0.1,
+                            unit_of_measurement="s",
+                            mode=selector.NumberSelectorMode.BOX,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_SHADING_POSITION_ALT_ENTITY,
+                        default=self._optional_default(
+                            CONF_SHADING_POSITION_ALT_ENTITY
+                        ),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            domain=["binary_sensor", "input_boolean"]
+                        )
+                    ),
+                }
+            ),
+        )
+
+    async def async_step_geometry(self, user_input=None) -> FlowResult:
+        """Configure window orientation and room-local environmental inputs."""
+
+        if user_input is not None:
+            await self._save_options(user_input)
+            return await self.async_step_advanced()
+        return self.async_show_form(
+            step_id="geometry",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_SUN_AZIMUTH_START,
+                        default=self._options.get(
+                            CONF_SUN_AZIMUTH_START, DEFAULT_SHADING_AZIMUTH_START
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(min=0, max=360, step=1)
+                    ),
+                    vol.Required(
+                        CONF_SUN_AZIMUTH_END,
+                        default=self._options.get(
+                            CONF_SUN_AZIMUTH_END, DEFAULT_SHADING_AZIMUTH_END
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(min=0, max=360, step=1)
+                    ),
+                    vol.Required(
+                        CONF_SUN_ELEVATION_MIN,
+                        default=self._options.get(
+                            CONF_SUN_ELEVATION_MIN, DEFAULT_SHADING_ELEVATION_MIN
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(min=-90, max=90, step=0.1)
+                    ),
+                    vol.Required(
+                        CONF_SUN_ELEVATION_MAX,
+                        default=self._options.get(
+                            CONF_SUN_ELEVATION_MAX, DEFAULT_SHADING_ELEVATION_MAX
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(min=-90, max=90, step=0.1)
+                    ),
+                    vol.Optional(
+                        CONF_TEMPERATURE_SENSOR_INDOOR,
+                        default=self._optional_default(CONF_TEMPERATURE_SENSOR_INDOOR),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor"])
+                    ),
+                }
+            ),
+        )
+
     async def async_step_functions(self, user_input=None) -> FlowResult:
         if user_input is not None:
             if CONF_AUTO_TIME in user_input:
@@ -2298,14 +2575,10 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
     async def async_step_additional_conditions(self, user_input=None) -> FlowResult:
         if user_input is not None:
             await self._save_options(user_input)
-            return await self.async_step_menu()
+            return await self.async_step_advanced()
 
         condition_selector = selector.ConditionSelector()
         schema: dict = {
-            vol.Optional(
-                CONF_ADDITIONAL_CONDITION_GLOBAL,
-                default=self._optional_default(CONF_ADDITIONAL_CONDITION_GLOBAL),
-            ): condition_selector,
             vol.Optional(
                 CONF_ADDITIONAL_CONDITION_OPEN,
                 default=self._optional_default(CONF_ADDITIONAL_CONDITION_OPEN),
@@ -2517,16 +2790,29 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
             CONF_NAME: name,
             CONF_CONFIG_MODEL: self._profile_model.data,
         }
-        self.hass.config_entries.async_update_entry(
-            self._config_entry, title=name, data=data, options={}
-        )
+        from .hub import CoverControlHub
+
+        hub = self.hass.data.get(DOMAIN, {}).get("hub")
+        if isinstance(hub, CoverControlHub):
+            hub.apply_model(
+                self._profile_model.data,
+                self._affected_rooms or {self._room_id},
+            )
+            await hub.async_persist()
+            self.hass.config_entries.async_update_entry(
+                self._config_entry, title=name
+            )
+        else:
+            self.hass.config_entries.async_update_entry(
+                self._config_entry, title=name, data=data, options={}
+            )
         return self.async_create_entry(title="", data={})
 
     async def async_step_contact_sensors(self, user_input=None) -> FlowResult:
         covers = self._options.get(CONF_COVERS, [])
         if user_input is not None:
             await self._save_options(user_input, include_contacts=True)
-            return await self.async_step_menu()
+            return await self.async_step_advanced()
 
         multi_selector = selector.EntitySelector(
             selector.EntitySelectorConfig(
@@ -3003,6 +3289,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
         self._profile_model.apply_flat_settings(
             self._room_id, {CONF_NAME: name, **clean_input}
         )
+        self._affected_rooms.add(self._room_id)
 
     def _cover_full_key(self, cover: str) -> str:
         state = self.hass.states.get(cover)

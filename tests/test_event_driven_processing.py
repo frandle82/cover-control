@@ -16,7 +16,23 @@ from custom_components.cover_control.const import (
     CONF_AUTO_SUN,
     CONF_AUTO_TIME,
     CONF_AUTO_UP,
+    CONF_NAME,
+    CONF_PROFILE_ID,
+    CONF_PROFILE_NAME,
+    CONF_PROFILE_SELECTIONS,
+    CONF_PROFILE_SETTINGS,
+    CONF_PROFILES,
+    CONF_ROOM_OVERRIDES,
+    CONF_ROOM_SETTINGS,
+    CONF_ROOMS,
+    CONF_SOURCE_OVERRIDES,
+    CONF_TIME_DOWN_EARLY_WORKDAY,
+    CONF_TIME_DOWN_LATE_WORKDAY,
+    CONF_TIME_UP_EARLY_WORKDAY,
+    CONF_TIME_UP_LATE_WORKDAY,
+    PROFILE_TYPE_TIME,
 )
+from custom_components.cover_control.config_resolver import resolve_config_model
 from custom_components.cover_control.controller import ControllerManager, CoverController
 from custom_components.cover_control.runtime.events import EventsMixin
 from custom_components.cover_control.sensor import NextOpenSensor
@@ -162,6 +178,60 @@ def test_completed_daily_action_advances_to_tomorrow() -> None:
     )
     assert controller._next_open == dt_util.as_utc(expected_local)
     assert controller._next_open.date() > now.date()
+
+
+def test_active_time_profile_provides_next_open_and_close() -> None:
+    """A time profile using the existing master toggle schedules both events."""
+
+    profile_id = "weekday-profile"
+    model = {
+        CONF_PROFILES: {
+            PROFILE_TYPE_TIME: {
+                profile_id: {
+                    CONF_PROFILE_ID: profile_id,
+                    CONF_PROFILE_NAME: "Weekday",
+                    CONF_PROFILE_SETTINGS: {
+                        CONF_AUTO_TIME: True,
+                        CONF_TIME_UP_EARLY_WORKDAY: "06:30:00",
+                        CONF_TIME_UP_LATE_WORKDAY: "07:30:00",
+                        CONF_TIME_DOWN_EARLY_WORKDAY: "20:00:00",
+                        CONF_TIME_DOWN_LATE_WORKDAY: "21:00:00",
+                    },
+                }
+            }
+        },
+        CONF_ROOMS: {
+            "living": {
+                CONF_NAME: "Living",
+                CONF_PROFILE_SELECTIONS: {PROFILE_TYPE_TIME: profile_id},
+                CONF_ROOM_SETTINGS: {},
+                CONF_SOURCE_OVERRIDES: {},
+                CONF_ROOM_OVERRIDES: {},
+            }
+        },
+    }
+    resolved = resolve_config_model(model, "living")
+    assert resolved[CONF_AUTO_UP] is True
+    assert resolved[CONF_AUTO_DOWN] is True
+
+    controller = object.__new__(CoverController)
+    controller.config = resolved
+    controller.hass = SimpleNamespace(
+        states=SimpleNamespace(get=lambda _entity_id: None),
+        config=SimpleNamespace(latitude=None, longitude=None, time_zone=None),
+    )
+    controller._auto_enabled = lambda key: bool(resolved.get(key))
+    controller._dynamic_sun_threshold = Mock(return_value=None)
+    controller._is_workday = Mock(return_value=True)
+    controller._is_workday_tomorrow = Mock(return_value=True)
+    controller._last_action_dates = {}
+    controller._reschedule_next_event_timers = Mock()
+    now = datetime(2026, 1, 15, 12, tzinfo=dt_util.UTC)
+
+    controller._refresh_next_events(now)
+
+    assert controller._next_open is not None
+    assert controller._next_close is not None
 
 
 def test_point_timer_triggers_have_deterministic_priority() -> None:

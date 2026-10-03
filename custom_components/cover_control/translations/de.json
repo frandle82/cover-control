@@ -22,7 +22,7 @@
         "sections": {
           "automation_features": {
             "name": "Automatikfunktionen",
-            "description": "Nur aktivierte Funktionen werden eingerichtet, als Schalter angezeigt und vom Controller ausgewertet.",
+            "description": "Legt fest, welche Funktionen anfangs aktiv sind. Alle fünf Raum-Funktionsschalter bleiben verfügbar.",
             "data": {
               "auto_time_enabled": "Zeitsteuerung - morgens öffnen und abends schließen",
               "auto_ventilate_enabled": "Lüftung und Sperrschutz - auf Fensterkontakte reagieren",
@@ -346,6 +346,8 @@
         "title": "Funktionsmenü",
         "description": "Bereich auswählen, Einstellungen anpassen und am Ende mit \"Speichern und schließen\" übernehmen.",
         "menu_options": {
+          "hub_settings": "Cover-Control-Hub",
+          "room_settings": "Raumkonfiguration",
           "general": "Allgemein",
           "global_settings": "Globale Einstellungen",
           "profiles": "Profile",
@@ -365,6 +367,20 @@
           "additional_conditions": "Zusatzbedingungen"
         }
       },
+      "hub_settings": {
+        "title": "Cover-Control-Hub",
+        "description": "Gemeinsame Quellen, Standardwerte, Profile und Profilauswertung einmal zentral konfigurieren.",
+        "menu_options": {"global_settings": "Globale Einstellungen", "profiles": "Profile", "profile_evaluation": "Profilauswertung"}
+      },
+      "room_settings": {
+        "title": "Raumkonfiguration",
+        "description": "Hardware, Profilzuordnung, lokale Abweichungen und Diagnose dieses Raums konfigurieren.",
+        "menu_options": {"general": "Allgemein", "advanced": "Cover und Hardware", "room_profiles": "Profile und Abweichungen", "diagnostics": "Raumdiagnose"}
+      },
+      "profile_evaluation": {
+        "title": "Profilauswertung",
+        "description": "Profile und Nutzer: {profiles}\n\nNächste Profilöffnung / Profilschließung: {evaluation}"
+      },
       "global_settings": {
         "title": "Globale Einstellungen",
         "description": "Gemeinsame technische Eingänge und Fallbackwerte bleiben getrennt.",
@@ -376,6 +392,8 @@
       "advanced": {
         "title": "Erweiterte Raumeinstellungen",
         "menu_options": {
+          "hardware": "Cover und Hardware",
+          "geometry": "Sonnenausrichtung und Raumsensor",
           "positions": "Positionen und Hardware",
           "functions": "Funktionen",
           "behavior": "Verhalten",
@@ -387,6 +405,14 @@
           "resident": "Resident",
           "additional_conditions": "Zusatzbedingungen"
         }
+      },
+      "hardware": {
+        "title": "Cover und Hardware",
+        "data": {"position_source": "Positionsquelle", "custom_position_sensor": "Eigener Positionssensor", "drive_time": "Fahrzeit", "shading_position_alt_entity": "Auswahl für alternative Position"}
+      },
+      "geometry": {
+        "title": "Sonnenausrichtung",
+        "data": {"shading_azimuth_start": "Azimut Start", "shading_azimuth_end": "Azimut Ende", "shading_elevation_min": "Minimale Sonnenhöhe", "shading_elevation_max": "Maximale Sonnenhöhe", "temperature_sensor_indoor": "Raumtemperatursensor"}
       },
       "global_sources": {
         "title": "Globale Datenquellen",
@@ -435,9 +461,14 @@
       "time_profiles": {"title": "Zeitprofile", "data": {"profile_action": "Aktion", "profile_id": "Profil"}},
       "shading_profiles": {"title": "Beschattungsprofile", "data": {"profile_action": "Aktion", "profile_id": "Profil"}},
       "behavior_profiles": {"title": "Verhaltensprofile", "data": {"profile_action": "Aktion", "profile_id": "Profil"}},
+      "profile_setup": {
+        "title": "Profilfunktionen",
+        "description": "Wähle die fachlichen Gruppen dieses Profils. Deaktivierte Gruppen werden weder gespeichert noch ausgewertet.",
+        "data": {"profile_name": "Profilname", "profile_capabilities": "Enthaltene Funktionen"}
+      },
       "profile_edit": {
         "title": "Profileinstellungen",
-        "description": "Nur ausdrücklich gespeicherte Werte auswählen. Nicht gewählte Werte erben aus der nächsten Resolver-Ebene. Nicht unterstützte bestehende Werte bleiben automatisch erhalten. Für Raumabweichungen gelten folgende geerbte Werte: {profile_values}",
+        "description": "Es werden nur Einstellungen der aktiven Profilfunktionen angezeigt. Nicht unterstützte bestehende Werte bleiben automatisch erhalten. Für Raumabweichungen gelten folgende geerbte Werte: {profile_values}",
         "data": {"profile_name": "Profilname", "configured_profile_fields": "Im Profil gespeicherte Werte", "configured_override_fields": "In diesem Raum überschriebene Werte"},
         "sections": {
           "time_features": {"name": "Zeitfunktionen", "data": {
@@ -777,7 +808,7 @@
       },
       "functions": {
         "title": "Automatikfunktionen",
-        "description": "Funktionen ein- oder ausschalten. Nur aktive Funktionen erscheinen im Menü, werden als Schalter angelegt und vom Controller berücksichtigt.",
+        "description": "Funktionen ein- oder ausschalten. Alle fünf Raum-Funktionsschalter bleiben verfügbar; nur aktive Funktionen werden vom Controller berücksichtigt.",
         "data": {
           "auto_time_enabled": "Zeitsteuerung",
           "auto_ventilate_enabled": "Lüftung und Sperrschutz",
@@ -852,6 +883,8 @@
   },
   "selector": {
     "profile_action": {"options": {"create": "Erstellen", "edit": "Bearbeiten", "duplicate": "Duplizieren", "delete": "Löschen"}},
+    "profile_capability": {"options": {"opening": "Öffnen", "closing": "Schließen", "workday": "Arbeitstag", "calendar": "Kalender", "sun": "Sonne", "brightness": "Helligkeit", "positioning": "Positionen", "temperature": "Temperatur", "forecast": "Vorhersage", "weather": "Wetter", "conditions": "Bedingungslogik", "waiting": "Wartezeiten", "tilt": "Beschattungslamellen", "independent_temperature": "Unabhängige Temperatur", "cover_positions": "Cover-Positionen", "manual_override": "Manueller Override", "ventilation": "Lüftung", "resident": "Bewohnerverhalten", "movement_protection": "Bewegungsschutz", "tilt_behavior": "Lamellenverhalten"}},
+    "position_source": {"options": {"current_position_attr": "Attribut current_position", "position_attr": "Attribut position", "custom_sensor": "Eigener Positionssensor"}},
     "sun_elevation_mode": {"options": {"fixed": "Fest", "dynamic": "Dynamisch"}},
     "brightness_sun_operator": {"options": {"or": "Helligkeit oder Sonne", "and": "Helligkeit und Sonne"}},
     "forecast_type": {"options": {"daily": "Tagesvorhersage", "hourly": "Stundenvorhersage", "weather_attributes": "Aktuelle Wetterattribute"}},
@@ -886,6 +919,12 @@
       },
       "next_close": {
         "name": "Nächste Schließung"
+      },
+      "profile_next_open": {
+        "name": "{profile} – Nächste Profilöffnung"
+      },
+      "profile_next_close": {
+        "name": "{profile} – Nächste Profilschließung"
       },
       "control_state": {
         "name": "Aktive Steuerung"

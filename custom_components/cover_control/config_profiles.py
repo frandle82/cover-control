@@ -19,6 +19,7 @@ from .const import (
     CONF_GLOBAL_SOURCES,
     CONF_NAME,
     CONF_PROFILE_ID,
+    CONF_PROFILE_CAPABILITIES,
     CONF_PROFILE_NAME,
     CONF_PROFILE_SELECTIONS,
     CONF_PROFILE_SETTINGS,
@@ -57,7 +58,16 @@ class ConfigProfileModel:
         self.data[CONF_GLOBAL].setdefault(CONF_GLOBAL_DEFAULTS, {})
         profiles = self.data.setdefault(CONF_PROFILES, {})
         for profile_type in PROFILE_TYPES:
-            profiles.setdefault(profile_type, {})
+            catalog = profiles.setdefault(profile_type, {})
+            from .config_profile_schema import infer_capabilities
+
+            for profile in catalog.values():
+                profile.setdefault(
+                    CONF_PROFILE_CAPABILITIES,
+                    infer_capabilities(
+                        profile_type, profile.get(CONF_PROFILE_SETTINGS, {})
+                    ),
+                )
         self.data.setdefault(CONF_ROOMS, {})
 
     @property
@@ -79,6 +89,7 @@ class ConfigProfileModel:
         settings: Mapping[str, Any],
         *,
         profile_id: str | None = None,
+        capabilities: list[str] | tuple[str, ...] | None = None,
     ) -> str:
         """Create a profile with a stable opaque identifier."""
 
@@ -92,6 +103,7 @@ class ConfigProfileModel:
             CONF_PROFILE_ID: new_id,
             CONF_PROFILE_NAME: name,
             CONF_PROFILE_SETTINGS: dict(settings),
+            CONF_PROFILE_CAPABILITIES: list(capabilities or ()),
         }
         return new_id
 
@@ -123,6 +135,28 @@ class ConfigProfileModel:
         self._profile(profile_type, profile_id)[CONF_PROFILE_NAME] = name
         return set(self.profile_users.get((profile_type, profile_id), set()))
 
+    def set_capabilities(
+        self, profile_type: str, profile_id: str, capabilities: list[str]
+    ) -> set[str]:
+        """Replace profile capabilities and discard disabled known values."""
+
+        from .config_profile_schema import PROFILE_CAPABILITY_KEYS, capability_keys
+
+        definitions = PROFILE_CAPABILITY_KEYS[profile_type]
+        invalid = set(capabilities) - set(definitions)
+        if invalid:
+            raise ProfileError("Unsupported capabilities: " + ", ".join(sorted(invalid)))
+        profile = self._profile(profile_type, profile_id)
+        allowed = capability_keys(profile_type, capabilities)
+        settings = profile.setdefault(CONF_PROFILE_SETTINGS, {})
+        profile[CONF_PROFILE_SETTINGS] = {
+            key: value
+            for key, value in settings.items()
+            if key in allowed or key not in PROFILE_KEYS[profile_type]
+        }
+        profile[CONF_PROFILE_CAPABILITIES] = list(capabilities)
+        return set(self.profile_users.get((profile_type, profile_id), set()))
+
     def duplicate_profile(
         self, profile_type: str, profile_id: str, name: str
     ) -> str:
@@ -136,9 +170,11 @@ class ConfigProfileModel:
             if key in PROFILE_KEYS[profile_type]
         }
         profile_id_new = self.create_profile(profile_type, name, known)
-        self.data[CONF_PROFILES][profile_type][profile_id_new][
-            CONF_PROFILE_SETTINGS
-        ] = deepcopy(settings)
+        duplicate = self.data[CONF_PROFILES][profile_type][profile_id_new]
+        duplicate[CONF_PROFILE_SETTINGS] = deepcopy(settings)
+        duplicate[CONF_PROFILE_CAPABILITIES] = list(
+            profile.get(CONF_PROFILE_CAPABILITIES, ())
+        )
         return profile_id_new
 
     def delete_profile(self, profile_type: str, profile_id: str) -> None:
