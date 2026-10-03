@@ -25,12 +25,14 @@ from custom_components.cover_control.const import (
     CONF_AUTO_SHADING,
     CONF_AUTO_TIME,
     CONF_AUTO_VENTILATE,
+    CONF_BRIGHTNESS_SENSOR,
     CONF_COVERS,
     CONF_ENABLE_LOGBOOK_COVER,
     CONF_LOCKOUT_POSITION,
     CONF_MANUAL_SCHEDULE_ADOPTION,
     CONF_ROOM,
     CONF_SHADING_INDEPENDENT_HOLDS_END,
+    CONF_SHADING_POSITION,
     DEFAULT_NAME,
     DOMAIN,
 )
@@ -206,6 +208,98 @@ async def test_options_flow_loads_for_existing_entry(hass):
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_options_menu_exposes_hierarchical_sections(hass):
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Living",
+        data={CONF_NAME: "Living", CONF_COVERS: ["cover.living"]},
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+
+    assert result["menu_options"] == [
+        "general",
+        "global_sources",
+        "profiles",
+        "room_profiles",
+        "advanced",
+        "diagnostics",
+        "finish",
+    ]
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_profile_delete_is_blocked_while_room_uses_it(hass):
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Living",
+        data={CONF_NAME: "Living", CONF_COVERS: ["cover.living"]},
+    )
+    entry.add_to_hass(hass)
+    profile_id = f"legacy-{entry.entry_id}-shading"
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "profiles"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "shading_profiles"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {"profile_action": "delete", "profile_id": profile_id},
+    )
+
+    assert result["type"] is FlowResultType.FORM
+    assert result["errors"] == {"base": "profile_in_use"}
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_room_profile_overrides_and_source_override_are_persisted(hass):
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Living",
+        data={
+            CONF_NAME: "Living",
+            CONF_COVERS: ["cover.living"],
+            CONF_BRIGHTNESS_SENSOR: "sensor.global_brightness",
+        },
+    )
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "room_profiles"}
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"],
+        {
+            "time_profile": f"legacy-{entry.entry_id}-time",
+            "shading_profile": f"legacy-{entry.entry_id}-shading",
+            "behavior_profile": f"legacy-{entry.entry_id}-behavior",
+            "room_overrides_json": '{"shading":{"shading_position":27}}',
+            CONF_BRIGHTNESS_SENSOR: "sensor.room_brightness",
+        },
+    )
+    assert result["step_id"] == "menu"
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "finish"}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+
+    resolved = resolve_entry_config(
+        entry.data,
+        entry.options,
+        room_id=config_entry_room_id(entry.data, entry.entry_id),
+    )
+    assert resolved[CONF_SHADING_POSITION] == 27
+    assert resolved[CONF_BRIGHTNESS_SENSOR] == "sensor.room_brightness"
+    assert resolved.sources[CONF_SHADING_POSITION] == "room_override"
+    assert resolved.sources[CONF_BRIGHTNESS_SENSOR] == "room_source_override"
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
 async def test_options_flow_accepts_numeric_full_open_position(hass):
     """Allow an integer full-open position to be displayed and submitted."""
     entry = MockConfigEntry(
@@ -220,6 +314,9 @@ async def test_options_flow_accepts_numeric_full_open_position(hass):
     entry.add_to_hass(hass)
 
     result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "advanced"}
+    )
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {"next_step_id": "positions"}
     )
@@ -238,7 +335,12 @@ async def test_options_flow_accepts_numeric_full_open_position(hass):
         result["flow_id"], {"next_step_id": "finish"}
     )
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["data"][CONF_LOCKOUT_POSITION] == 85
+    resolved = resolve_entry_config(
+        entry.data,
+        entry.options,
+        room_id=config_entry_room_id(entry.data, entry.entry_id),
+    )
+    assert resolved[CONF_LOCKOUT_POSITION] == 85
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
@@ -259,6 +361,9 @@ async def test_options_flow_exposes_new_behavior_defaults(hass):
 
     result = await hass.config_entries.options.async_init(entry.entry_id)
     result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "advanced"}
+    )
+    result = await hass.config_entries.options.async_configure(
         result["flow_id"], {"next_step_id": "behavior"}
     )
     behavior_data = _frontend_initial_data(result["data_schema"])
@@ -267,6 +372,9 @@ async def test_options_flow_exposes_new_behavior_defaults(hass):
 
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], behavior_data
+    )
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "advanced"}
     )
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {"next_step_id": "shading"}

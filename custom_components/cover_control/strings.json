@@ -347,6 +347,11 @@
         "description": "Select a section, adjust settings, then apply them with \"Save and close\".",
         "menu_options": {
           "general": "General configuration",
+          "global_sources": "Global data sources",
+          "profiles": "Profiles",
+          "room_profiles": "Room profiles and overrides",
+          "advanced": "Advanced room settings",
+          "diagnostics": "Configuration diagnostics",
           "finish": "Save and close",
           "time_control": "Time control",
           "contact_sensors": "Contact sensors",
@@ -359,6 +364,75 @@
           "resident": "Resident",
           "additional_conditions": "Additional conditions"
         }
+      },
+      "advanced": {
+        "title": "Advanced room settings",
+        "menu_options": {
+          "positions": "Positions and hardware",
+          "functions": "Feature toggles",
+          "behavior": "Behavior",
+          "time_control": "Time control",
+          "contact_sensors": "Contact sensors",
+          "brightness": "Brightness control",
+          "sun_elevation": "Sun elevation control",
+          "shading": "Shading control",
+          "resident": "Resident",
+          "additional_conditions": "Additional conditions"
+        }
+      },
+      "global_sources": {
+        "title": "Global data sources",
+        "description": "Choose which shared technical inputs Cover Control uses. Room-specific replacements are configured with the room.",
+        "data": {
+          "workday_sensor": "Workday sensor",
+          "workday_tomorrow_sensor": "Workday tomorrow sensor",
+          "calendar_entity": "Calendar",
+          "brightness_sensor": "Outdoor brightness sensor",
+          "shading_brightness_sensor": "Shading brightness sensor",
+          "temperature_sensor_outdoor": "Outdoor temperature sensor",
+          "shading_forecast_sensor": "Weather / forecast entity",
+          "shading_forecast_temp_sensor": "Forecast temperature sensor",
+          "resident_sensor": "Resident sensor",
+          "sun_elevation_dynamic_open_sensor": "Dynamic opening elevation sensor",
+          "sun_elevation_dynamic_close_sensor": "Dynamic closing elevation sensor"
+        }
+      },
+      "profiles": {
+        "title": "Reusable profiles",
+        "description": "Profiles define how rooms behave; technical sources and physical room properties stay separate.",
+        "menu_options": {
+          "time_profiles": "Time profiles",
+          "shading_profiles": "Shading profiles",
+          "behavior_profiles": "Behavior profiles"
+        }
+      },
+      "time_profiles": {"title": "Time profiles", "data": {"profile_action": "Action", "profile_id": "Profile"}},
+      "shading_profiles": {"title": "Shading profiles", "data": {"profile_action": "Action", "profile_id": "Profile"}},
+      "behavior_profiles": {"title": "Behavior profiles", "data": {"profile_action": "Action", "profile_id": "Profile"}},
+      "profile_edit": {
+        "title": "Edit profile",
+        "description": "The profile ID remains stable when the display name changes. Settings are stored as a JSON object using Cover Control option keys.",
+        "data": {"profile_name": "Display name", "profile_settings_json": "Profile settings (JSON)"}
+      },
+      "room_profiles": {
+        "title": "Room profiles and overrides",
+        "description": "Select reusable profiles for this room. The JSON object stores only deliberate deviations, grouped by time, shading, or behavior.",
+        "data": {
+          "time_profile": "Time profile",
+          "shading_profile": "Shading profile",
+          "behavior_profile": "Behavior profile",
+          "room_overrides_json": "Profile overrides (JSON)",
+          "brightness_sensor": "Room brightness source",
+          "shading_brightness_sensor": "Room shading brightness source",
+          "temperature_sensor_outdoor": "Room outdoor temperature source",
+          "shading_forecast_sensor": "Room weather / forecast source",
+          "shading_forecast_temp_sensor": "Room forecast temperature source",
+          "resident_sensor": "Room resident source"
+        }
+      },
+      "diagnostics": {
+        "title": "Configuration diagnostics",
+        "description": "Room: {room}\n\nSelected profiles: {profiles}\n\nRepresentative effective values and origins: {values}"
       },
       "positions": {
         "title": "Cover positions",
@@ -710,6 +784,11 @@
           "additional_condition_shading_end": "Must pass before shading can end."
         }
       }
+    },
+    "error": {
+      "profile_required": "Select a profile for this action.",
+      "profile_in_use": "This profile is assigned to at least one room and cannot be deleted.",
+      "invalid_profile_settings": "The profile or override JSON is invalid, or contains settings that do not belong to this profile type."
     }
   },
   "entity": {

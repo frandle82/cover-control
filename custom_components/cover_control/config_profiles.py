@@ -24,6 +24,7 @@ from .const import (
     CONF_PROFILE_SETTINGS,
     CONF_PROFILES,
     CONF_ROOM_OVERRIDES,
+    CONF_ROOM_SETTINGS,
     CONF_ROOMS,
     CONF_SOURCE_OVERRIDES,
     PROFILE_TYPES,
@@ -194,6 +195,37 @@ class ConfigProfileModel:
         if key not in ROOM_SOURCE_OVERRIDE_KEYS:
             raise ProfileError(f"Unsupported room source override: {key}")
         self._room(room_id).setdefault(CONF_SOURCE_OVERRIDES, {})[key] = value
+
+    def apply_flat_settings(self, room_id: str, values: Mapping[str, Any]) -> None:
+        """Route existing options pages back into their canonical model layers."""
+
+        room = self._room(room_id)
+        selections = room.setdefault(CONF_PROFILE_SELECTIONS, {})
+        room_settings = room.setdefault(CONF_ROOM_SETTINGS, {})
+        for key, value in values.items():
+            if key in GLOBAL_SOURCE_KEYS:
+                self.data[CONF_GLOBAL][CONF_GLOBAL_SOURCES][key] = value
+                continue
+            profile_type = next(
+                (kind for kind, keys in PROFILE_KEYS.items() if key in keys),
+                None,
+            )
+            if profile_type is None:
+                room_settings[key] = value
+                continue
+            profile_id = selections.get(profile_type)
+            if not profile_id:
+                profile_id = self.create_profile(
+                    profile_type,
+                    f"{room.get(CONF_NAME, room_id)} (room profile)",
+                    {},
+                )
+                selections[profile_type] = profile_id
+            self._profile(profile_type, profile_id).setdefault(
+                CONF_PROFILE_SETTINGS, {}
+            )[key] = value
+        if CONF_NAME in values:
+            room[CONF_NAME] = str(values[CONF_NAME])
 
     def _room(self, room_id: str) -> dict[str, Any]:
         try:
