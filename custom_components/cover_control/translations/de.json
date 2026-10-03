@@ -392,6 +392,8 @@
       "advanced": {
         "title": "Erweiterte Raumeinstellungen",
         "menu_options": {
+          "hardware": "Cover und Hardware",
+          "geometry": "Sonnenausrichtung und Raumsensor",
           "positions": "Positionen und Hardware",
           "functions": "Funktionen",
           "behavior": "Verhalten",
@@ -403,6 +405,14 @@
           "resident": "Resident",
           "additional_conditions": "Zusatzbedingungen"
         }
+      },
+      "hardware": {
+        "title": "Cover und Hardware",
+        "data": {"position_source": "Positionsquelle", "custom_position_sensor": "Eigener Positionssensor", "drive_time": "Fahrzeit", "shading_position_alt_entity": "Auswahl für alternative Position"}
+      },
+      "geometry": {
+        "title": "Sonnenausrichtung",
+        "data": {"shading_azimuth_start": "Azimut Start", "shading_azimuth_end": "Azimut Ende", "shading_elevation_min": "Minimale Sonnenhöhe", "shading_elevation_max": "Maximale Sonnenhöhe", "temperature_sensor_indoor": "Raumtemperatursensor"}
       },
       "global_sources": {
         "title": "Globale Datenquellen",
@@ -874,6 +884,7 @@
   "selector": {
     "profile_action": {"options": {"create": "Erstellen", "edit": "Bearbeiten", "duplicate": "Duplizieren", "delete": "Löschen"}},
     "profile_capability": {"options": {"opening": "Öffnen", "closing": "Schließen", "workday": "Arbeitstag", "calendar": "Kalender", "sun": "Sonne", "brightness": "Helligkeit", "positioning": "Positionen", "temperature": "Temperatur", "forecast": "Vorhersage", "weather": "Wetter", "conditions": "Bedingungslogik", "waiting": "Wartezeiten", "tilt": "Beschattungslamellen", "independent_temperature": "Unabhängige Temperatur", "cover_positions": "Cover-Positionen", "manual_override": "Manueller Override", "ventilation": "Lüftung", "resident": "Bewohnerverhalten", "movement_protection": "Bewegungsschutz", "tilt_behavior": "Lamellenverhalten"}},
+    "position_source": {"options": {"current_position_attr": "Attribut current_position", "position_attr": "Attribut position", "custom_sensor": "Eigener Positionssensor"}},
     "sun_elevation_mode": {"options": {"fixed": "Fest", "dynamic": "Dynamisch"}},
     "brightness_sun_operator": {"options": {"or": "Helligkeit oder Sonne", "and": "Helligkeit und Sonne"}},
     "forecast_type": {"options": {"daily": "Tagesvorhersage", "hourly": "Stundenvorhersage", "weather_attributes": "Aktuelle Wetterattribute"}},

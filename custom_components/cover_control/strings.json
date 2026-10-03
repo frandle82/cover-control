@@ -392,6 +392,8 @@
       "advanced": {
         "title": "Advanced room settings",
         "menu_options": {
+          "hardware": "Cover and hardware",
+          "geometry": "Sun orientation and room sensor",
           "positions": "Positions and hardware",
           "functions": "Feature toggles",
           "behavior": "Behavior",
@@ -403,6 +405,14 @@
           "resident": "Resident",
           "additional_conditions": "Additional conditions"
         }
+      },
+      "hardware": {
+        "title": "Cover and hardware",
+        "data": {"position_source": "Position source", "custom_position_sensor": "Custom position sensor", "drive_time": "Drive time", "shading_position_alt_entity": "Alternate-position selector"}
+      },
+      "geometry": {
+        "title": "Sun orientation",
+        "data": {"shading_azimuth_start": "Azimuth start", "shading_azimuth_end": "Azimuth end", "shading_elevation_min": "Minimum elevation", "shading_elevation_max": "Maximum elevation", "temperature_sensor_indoor": "Room temperature sensor"}
       },
       "global_sources": {
         "title": "Global data sources",
@@ -920,6 +930,7 @@
   "selector": {
     "profile_action": {"options": {"create": "Create", "edit": "Edit", "duplicate": "Duplicate", "delete": "Delete"}},
     "profile_capability": {"options": {"opening": "Opening", "closing": "Closing", "workday": "Workday", "calendar": "Calendar", "sun": "Sun", "brightness": "Brightness", "positioning": "Positions", "temperature": "Temperature", "forecast": "Forecast", "weather": "Weather", "conditions": "Condition logic", "waiting": "Waiting times", "tilt": "Shading tilt", "independent_temperature": "Independent temperature", "cover_positions": "Cover positions", "manual_override": "Manual override", "ventilation": "Ventilation", "resident": "Resident behavior", "movement_protection": "Movement protection", "tilt_behavior": "Tilt behavior"}},
+    "position_source": {"options": {"current_position_attr": "current_position attribute", "position_attr": "position attribute", "custom_sensor": "Custom position sensor"}},
     "sun_elevation_mode": {"options": {"fixed": "Fixed", "dynamic": "Dynamic"}},
     "brightness_sun_operator": {"options": {"or": "Brightness or sun", "and": "Brightness and sun"}},
     "forecast_type": {"options": {"daily": "Daily forecast", "hourly": "Hourly forecast", "weather_attributes": "Current weather attributes"}},

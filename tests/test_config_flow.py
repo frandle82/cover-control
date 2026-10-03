@@ -322,6 +322,29 @@ async def test_options_menu_exposes_hierarchical_sections(hass):
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_room_advanced_menu_has_no_parallel_profile_editors(hass):
+    entry = _entry(hass)
+    result = await _open_options_step(hass, entry, "advanced")
+
+    assert result["menu_options"] == [
+        "hardware",
+        "contact_sensors",
+        "geometry",
+        "additional_conditions",
+    ]
+    assert not {
+        "positions",
+        "functions",
+        "behavior",
+        "time_control",
+        "brightness",
+        "sun_elevation",
+        "shading",
+        "resident",
+    } & set(result["menu_options"])
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
 async def test_all_function_switches_exist_independent_of_initial_state(hass):
     """Every room exposes the five existing function toggles."""
 
@@ -870,8 +893,9 @@ async def test_options_flow_accepts_numeric_full_open_position(hass):
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], {"next_step_id": "advanced"}
     )
-    result = await hass.config_entries.options.async_configure(
-        result["flow_id"], {"next_step_id": "positions"}
+    flow = hass.config_entries.options._progress[result["flow_id"]]
+    result = await hass.config_entries.options._async_handle_step(
+        flow, "positions", None
     )
 
     assert result["type"] is FlowResultType.FORM

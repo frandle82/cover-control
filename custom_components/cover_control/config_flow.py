@@ -1591,8 +1591,9 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
         return self.async_show_menu(
             step_id="advanced",
             menu_options=[
-                "positions",
+                "hardware",
                 "contact_sensors",
+                "geometry",
                 "additional_conditions",
             ],
         )
@@ -2320,6 +2321,116 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
         }
         return self.async_show_form(step_id="positions", data_schema=vol.Schema(schema))
 
+    async def async_step_hardware(self, user_input=None) -> FlowResult:
+        """Configure only room-local cover feedback and hardware properties."""
+
+        if user_input is not None:
+            await self._save_options(user_input)
+            return await self.async_step_advanced()
+        return self.async_show_form(
+            step_id="hardware",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_POSITION_SOURCE,
+                        default=self._options.get(
+                            CONF_POSITION_SOURCE,
+                            CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
+                        ),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
+                                CONF_POSITION_SOURCE_POSITION_ATTR,
+                                CONF_POSITION_SOURCE_CUSTOM_SENSOR,
+                            ],
+                            translation_key="position_source",
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_CUSTOM_POSITION_SENSOR,
+                        default=self._optional_default(CONF_CUSTOM_POSITION_SENSOR),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor"])
+                    ),
+                    vol.Optional(
+                        CONF_DRIVE_TIME,
+                        default=self._options.get(CONF_DRIVE_TIME, DEFAULT_DRIVE_TIME),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=600,
+                            step=0.1,
+                            unit_of_measurement="s",
+                            mode=selector.NumberSelectorMode.BOX,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_SHADING_POSITION_ALT_ENTITY,
+                        default=self._optional_default(
+                            CONF_SHADING_POSITION_ALT_ENTITY
+                        ),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            domain=["binary_sensor", "input_boolean"]
+                        )
+                    ),
+                }
+            ),
+        )
+
+    async def async_step_geometry(self, user_input=None) -> FlowResult:
+        """Configure window orientation and room-local environmental inputs."""
+
+        if user_input is not None:
+            await self._save_options(user_input)
+            return await self.async_step_advanced()
+        return self.async_show_form(
+            step_id="geometry",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(
+                        CONF_SUN_AZIMUTH_START,
+                        default=self._options.get(
+                            CONF_SUN_AZIMUTH_START, DEFAULT_SHADING_AZIMUTH_START
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(min=0, max=360, step=1)
+                    ),
+                    vol.Required(
+                        CONF_SUN_AZIMUTH_END,
+                        default=self._options.get(
+                            CONF_SUN_AZIMUTH_END, DEFAULT_SHADING_AZIMUTH_END
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(min=0, max=360, step=1)
+                    ),
+                    vol.Required(
+                        CONF_SUN_ELEVATION_MIN,
+                        default=self._options.get(
+                            CONF_SUN_ELEVATION_MIN, DEFAULT_SHADING_ELEVATION_MIN
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(min=-90, max=90, step=0.1)
+                    ),
+                    vol.Required(
+                        CONF_SUN_ELEVATION_MAX,
+                        default=self._options.get(
+                            CONF_SUN_ELEVATION_MAX, DEFAULT_SHADING_ELEVATION_MAX
+                        ),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(min=-90, max=90, step=0.1)
+                    ),
+                    vol.Optional(
+                        CONF_TEMPERATURE_SENSOR_INDOOR,
+                        default=self._optional_default(CONF_TEMPERATURE_SENSOR_INDOOR),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor"])
+                    ),
+                }
+            ),
+        )
+
     async def async_step_functions(self, user_input=None) -> FlowResult:
         if user_input is not None:
             if CONF_AUTO_TIME in user_input:
@@ -2448,10 +2559,6 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
 
         condition_selector = selector.ConditionSelector()
         schema: dict = {
-            vol.Optional(
-                CONF_ADDITIONAL_CONDITION_GLOBAL,
-                default=self._optional_default(CONF_ADDITIONAL_CONDITION_GLOBAL),
-            ): condition_selector,
             vol.Optional(
                 CONF_ADDITIONAL_CONDITION_OPEN,
                 default=self._optional_default(CONF_ADDITIONAL_CONDITION_OPEN),
