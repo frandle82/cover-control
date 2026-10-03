@@ -563,10 +563,6 @@ class EventsMixin:
 
     @callback
     def _schedule_shading_timer(self, kind: str, due_at: datetime) -> None:
-        existing_due = self._shading_pending.get(kind)
-        existing_unsub = self._shading_timer_unsubs.get(kind)
-        if existing_due == due_at and existing_unsub is not None:
-            return
         self._cancel_shading_timer(kind)
 
         @callback

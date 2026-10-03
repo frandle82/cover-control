@@ -116,6 +116,12 @@ class StatusMixin:
             self._shading_pending.pop(kind, None)
             self._cancel_shading_timer(kind)
             return
+        if (
+            self._shading_pending.get(kind) == due_at
+            and kind in self._shading_timer_unsubs
+        ):
+            return
+        self._cancel_shading_timer(kind)
         self._shading_pending[kind] = due_at
         self._schedule_shading_timer(kind, due_at)
 

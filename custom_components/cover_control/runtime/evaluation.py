@@ -1077,7 +1077,9 @@ class EvaluationMixin:
             self._condition_since.pop(key, None)
             self._cancel_condition_timer(key)
             return True
-        now = dt_util.utcnow()
+        context = getattr(self, "_evaluation_context", None)
+        context_now = context.get("now") if context is not None else None
+        now = context_now if isinstance(context_now, datetime) else dt_util.utcnow()
         start = self._condition_since.get(key)
         if start is None:
             start = now

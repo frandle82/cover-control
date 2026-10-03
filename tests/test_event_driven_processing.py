@@ -177,6 +177,7 @@ def test_shading_pending_timer_cancels_and_restarts() -> None:
     now = dt_util.utcnow()
     first_due = now + timedelta(minutes=5)
     second_due = now + timedelta(minutes=10)
+    third_due = now + timedelta(minutes=15)
     callbacks = []
     unsubs = []
 
@@ -192,12 +193,14 @@ def test_shading_pending_timer_cancels_and_restarts() -> None:
     ):
         controller._set_shading_pending("start", first_due, False)
         assert controller._shading_pending_active("start")
-        controller._clear_shading_pending("start")
+        controller._set_shading_pending("start", second_due, False)
         unsubs[0].assert_called_once_with()
+        controller._clear_shading_pending("start")
+        unsubs[1].assert_called_once_with()
         assert not controller._shading_pending_active("start")
 
-        controller._set_shading_pending("start", second_due, False)
-        callbacks[1][0](second_due)
+        controller._set_shading_pending("start", third_due, False)
+        callbacks[2][0](third_due)
 
     controller.async_request_evaluate.assert_called_once_with("shading_start_timer")
 
