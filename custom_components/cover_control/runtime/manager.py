@@ -327,6 +327,33 @@ class ControllerManager:
 
         return self._entry_snapshot
 
+    def configuration_diagnostics(self) -> dict[str, object]:
+        """Return a bounded view of selected profiles and important origins."""
+
+        resolved = self._resolved_config
+        if resolved is None:
+            return {}
+        keys = (
+            "shading_position",
+            "shading_waitingtime_start",
+            "shading_waitingtime_end",
+            "temperature_threshold",
+            "manual_override_minutes",
+        )
+        return {
+            "room_id": resolved.room_id,
+            "room_name": resolved.room_name,
+            "profiles": dict(resolved.profile_names),
+            "resolved": {
+                key: {
+                    "value": resolved.get(key),
+                    "source": resolved.sources.get(key),
+                }
+                for key in keys
+                if key in resolved
+            },
+        }
+
     def _evaluation_context(self) -> dict[str, object]:
         """Capture entry-wide states once for a complete evaluation batch."""
 

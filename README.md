@@ -187,9 +187,60 @@ Veröffentlichte Versionen werden als `cover_control.zip` bereitgestellt und von
 2. Nach **Cover Control** suchen.
 3. Namen, Raum und die gemeinsam zu steuernden Cover auswählen.
 4. Die benötigten Automatikfunktionen aktivieren.
-5. Über **Konfigurieren** die eingeblendeten Funktionsbereiche einrichten.
+5. Über **Konfigurieren** globale Quellen, Profile und Raumeinstellungen verwalten.
 
-Der Optionsdialog zeigt nur Bereiche für aktivierte Funktionen. Änderungen werden durch ein sauberes Neuladen des Konfigurationseintrags übernommen.
+### Globale Datenquellen
+
+Globale Quellen beschreiben die technische Umgebung des Hauses. Dazu gehören
+beispielsweise Außenhelligkeit und -temperatur, Wetter/Vorhersage, Arbeitstag,
+Kalender, Bewohnerstatus und dynamische Sonnenhöhen. Diese Entity-IDs werden
+einmal zentral gehalten und nicht in fachliche Profile kopiert. Ein Raum kann
+für ausgewählte Quellen, etwa die Helligkeit eines Wintergartens, eine eigene
+Quelle wählen.
+
+### Profile
+
+Cover Control kennt genau drei wiederverwendbare Profiltypen:
+
+- **Zeitprofile** bündeln Öffnungs-/Schließfenster, Arbeits- und freie Tage,
+  Helligkeits- und Sonnenzeitbedingungen.
+- **Beschattungsprofile** bündeln Schwellen, Hysteresen, Wartezeiten,
+  Beschattungspositionen und fachliche Wetterregeln.
+- **Verhaltensprofile** bündeln wiederverwendbare Regeln für manuellen
+  Override, Lüftung, Bewohnerstatus, Positionen und Fahrverhalten.
+
+Profile besitzen eine stabile interne ID und einen frei änderbaren Anzeigenamen.
+Ein Raum speichert nur die Profilreferenz. Profile erben nicht voneinander, und
+ein noch verwendetes Profil kann nicht gelöscht werden.
+
+### Räume und Abweichungen
+
+Physische Eigenschaften bleiben am Raum: Cover, Fensterkontakte, eigener
+Positionssensor, Raumtemperatur, Azimut/Sonnengeometrie und Zuordnungen je
+Cover. Unter **Raumprofile und Abweichungen** werden die drei Profile gewählt.
+Abweichungen speichern nur den veränderten Wert, zum Beispiel:
+
+```json
+{"shading": {"shading_position": 25}}
+```
+
+Alle übrigen Werte folgen weiterhin dem Profil. Wird eine Abweichung entfernt,
+gilt sofort wieder der Profilwert. Die Diagnose zeigt für wichtige effektive
+Werte zusätzlich deren Herkunft (Systemstandard, globaler Standard, Profil,
+Raumwert oder Raumabweichung).
+
+### Migration
+
+Bestehende flache Konfigurationen werden automatisch und verlustfrei in ein
+stabiles Raum-Modell mit je einem Legacy-Zeit-, Beschattungs- und
+Verhaltensprofil überführt. Mehrere Cover und ihre individuellen Kontakte
+bleiben erhalten. Die Migration ist idempotent; Profile können danach bewusst
+zusammengeführt oder neu zugewiesen werden.
+
+Der kompakte Optionsdialog trennt gemeinsame Quellen, fachliche Profile und
+physische Raumeinstellungen. Selten benötigte Detailseiten liegen unter
+**Erweiterte Raumeinstellungen**. Änderungen werden durch ein sauberes
+Neuladen des Konfigurationseintrags übernommen.
 
 ## Fehlersuche
 

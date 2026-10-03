@@ -26,6 +26,7 @@ from custom_components.cover_control.const import (
 )
 from custom_components.cover_control.runtime.controller import CoverController
 from custom_components.cover_control.runtime.manager import ControllerManager
+from custom_components.cover_control.config_resolver import resolve_config_model
 
 
 def _model() -> ConfigProfileModel:
@@ -127,8 +128,6 @@ def test_room_source_override_changes_only_its_effective_route() -> None:
         "living", CONF_BRIGHTNESS_SENSOR, "sensor.living_brightness"
     )
 
-    from custom_components.cover_control.config_resolver import resolve_config_model
-
     living = resolve_config_model(model.data, "living")
     office = resolve_config_model(model.data, "office")
     assert living[CONF_BRIGHTNESS_SENSOR] == "sensor.living_brightness"
@@ -155,3 +154,28 @@ def test_config_update_clears_pending_timers_before_rescheduling() -> None:
     controller._clear_runtime_condition_timers.assert_called_once_with()
     controller._refresh_next_events.assert_called_once()
     controller.async_request_evaluate.assert_called_once_with("config")
+
+
+def test_configuration_diagnostics_expose_profile_and_value_origin() -> None:
+    model = _model()
+    model.create_profile(
+        PROFILE_TYPE_SHADING,
+        "South standard",
+        {CONF_SHADING_WAITINGTIME_END: 600},
+        profile_id="south",
+    )
+    model.assign_profile("living", PROFILE_TYPE_SHADING, "south")
+    model.set_override(
+        "living", PROFILE_TYPE_SHADING, CONF_SHADING_WAITINGTIME_END, 300
+    )
+    manager = object.__new__(ControllerManager)
+    manager._resolved_config = resolve_config_model(model.data, "living")
+
+    diagnostics = manager.configuration_diagnostics()
+
+    assert diagnostics["room_name"] == "Living"
+    assert diagnostics["profiles"][PROFILE_TYPE_SHADING] == "South standard"
+    assert diagnostics["resolved"][CONF_SHADING_WAITINGTIME_END] == {
+        "value": 300,
+        "source": "room_override",
+    }
