@@ -17,6 +17,7 @@ from custom_components.cover_control.const import (
     CONF_AUTO_UP,
 )
 from custom_components.cover_control.controller import ControllerManager, CoverController
+from custom_components.cover_control.sensor import NextOpenSensor
 
 
 def test_state_snapshot_is_read_only() -> None:
@@ -271,6 +272,8 @@ async def test_trigger_sets_and_context_are_shared_across_batch() -> None:
     manager._evaluation_lock = asyncio.Lock()
     manager._evaluation_task = Mock()
     manager._start_evaluation_task = Mock()
+    manager._batch_group_actions = set()
+    manager._pending_state_controllers = set()
     contexts = []
 
     def _controller(cover):
@@ -304,3 +307,103 @@ async def test_trigger_sets_and_context_are_shared_across_batch() -> None:
         frozenset({"state", "resident_woke"}),
     )
     assert contexts[1][1:] == ("sun", frozenset({"sun"}))
+
+
+@pytest.mark.asyncio
+async def test_group_action_is_deduplicated_within_batch() -> None:
+    """Equivalent group decisions result in one room-wide command."""
+
+    manager = object.__new__(ControllerManager)
+    manager._batch_active = True
+    manager._batch_group_actions = set()
+    manager._group_command_lock = asyncio.Lock()
+    controllers = []
+    for cover in ("cover.first", "cover.second", "cover.third"):
+        controller = Mock()
+        controller.cover = cover
+        controller._manual_blocks_action.return_value = False
+        controller._ventilation_requires_independent_control.return_value = False
+        controller._set_position_local = AsyncMock()
+        controllers.append(controller)
+    manager.controllers = {controller.cover: controller for controller in controllers}
+
+    await manager._async_set_group_position(controllers[0], 30, "shading")
+    await manager._async_set_group_position(controllers[1], 30, "shading")
+
+    for controller in controllers:
+        controller._set_position_local.assert_awaited_once_with(30, "shading")
+
+
+def test_entry_snapshot_reads_each_controller_once() -> None:
+    """Sensors reuse one prepared snapshot instead of walking controllers again."""
+
+    now = dt_util.utcnow()
+    first = Mock()
+    first.config = {}
+    first.state_snapshot.return_value = (
+        30,
+        "shading",
+        None,
+        False,
+        now + timedelta(hours=1),
+        now + timedelta(hours=8),
+        30,
+        True,
+        True,
+        False,
+    )
+    first._resident_state_is_on.return_value = False
+    second = Mock()
+    second.config = {}
+    second.state_snapshot.return_value = (
+        100,
+        "idle",
+        None,
+        False,
+        now + timedelta(hours=2),
+        now + timedelta(hours=7),
+        100,
+        True,
+        False,
+        False,
+    )
+    manager = object.__new__(ControllerManager)
+    manager.controllers = {"cover.first": first, "cover.second": second}
+    manager.hass = SimpleNamespace(states=SimpleNamespace(get=Mock(return_value=None)))
+
+    manager._rebuild_entry_snapshot()
+    initial = manager.entry_snapshot()
+    assert manager.entry_snapshot() is initial
+    assert manager.entry_snapshot() is initial
+    first.state_snapshot.assert_called_once_with()
+    second.state_snapshot.assert_called_once_with()
+    assert initial["next_open"] == (now + timedelta(hours=1), "cover.first")
+    assert initial["control_state"] == "shading"
+
+
+def test_sensor_writes_only_when_visible_entry_state_changes() -> None:
+    """An unchanged dispatcher signal must not create another HA state write."""
+
+    due = dt_util.utcnow() + timedelta(hours=1)
+    snapshot = {
+        "covers": {"cover.first": {}},
+        "next_open": (due, "cover.first"),
+    }
+    manager = Mock()
+    manager.controllers = {"cover.first": Mock()}
+    manager.entry_snapshot.side_effect = lambda: snapshot
+    entry = SimpleNamespace(entry_id="entry", data={}, options={}, title="Entry")
+    sensor = NextOpenSensor(SimpleNamespace(data={}), entry)
+    sensor._manager = Mock(return_value=manager)
+    sensor.async_write_ha_state = Mock()
+    sensor._refresh_from_manager()
+
+    sensor._async_handle_state_update("entry")
+    sensor.async_write_ha_state.assert_not_called()
+
+    snapshot = {
+        "covers": {"cover.first": {}},
+        "next_open": (due + timedelta(hours=1), "cover.first"),
+    }
+    sensor._async_handle_state_update("entry")
+    sensor.async_write_ha_state.assert_called_once_with()

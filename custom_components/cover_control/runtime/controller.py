@@ -64,6 +64,7 @@ class CoverController(
             [CoverController, float, str], Awaitable[None]
         ]
         | None = None,
+        publish_callback: Callable[[CoverController], None] | None = None,
     ) -> None:
         self.hass = hass
         self.entry = entry
@@ -72,6 +73,7 @@ class CoverController(
         self._persist_callback = persist_callback
         self._evaluate_callback = evaluate_callback
         self._group_position_callback = group_position_callback
+        self._publish_callback = publish_callback
         self._status = _normalize_cover_status(persisted_status)
         self._unsubs: list[CALLBACK_TYPE] = []
         self._manual_until: datetime | None = None

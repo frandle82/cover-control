@@ -716,6 +716,14 @@ class ActuatorMixin:
         }
 
     def _publish_state(self) -> None:
+        if getattr(self, "_publish_callback", None) is not None:
+            self._publish_callback(self)
+            return
+        self._dispatch_state()
+
+    def _dispatch_state(self) -> None:
+        """Send the stable legacy per-cover runtime signal."""
+
         current_position = self._current_position()
         shading_enabled = self._auto_enabled(CONF_AUTO_SHADING)
         shading_active = self._shading_is_active(current_position, shading_enabled)
