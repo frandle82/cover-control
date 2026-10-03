@@ -548,6 +548,18 @@ class ScheduleMixin:
         next_down_early, next_down_late = self._window_points(
             down_early_time, down_late_time, now
         )
+        action_dates = getattr(self, "_last_action_dates", {})
+        today = dt_util.as_local(now).date()
+        if action_dates.get("open") == today:
+            tomorrow_workday = self._is_workday_tomorrow()
+            up_early_time, up_late_time = self._time_bounds(tomorrow_workday, True)
+            next_up_early, next_up_late = self._window_points_for_date(
+                up_early_time, up_late_time, now, 1
+            )
+        if action_dates.get("close") == today:
+            next_down_early, next_down_late = self._window_points_for_date(
+                down_early_time, down_late_time, now, 1
+            )
 
         def _clamp_candidate(
             candidate: datetime | None,
@@ -717,6 +729,29 @@ class ScheduleMixin:
         elif not late_local and early_local and local_now > early_local:
             early_local = datetime.combine(today + timedelta(days=1), early, tzinfo)
 
+        return (
+            dt_util.as_utc(early_local) if early_local else None,
+            dt_util.as_utc(late_local) if late_local else None,
+        )
+
+    def _window_points_for_date(
+        self,
+        early: time | None,
+        late: time | None,
+        now: datetime,
+        day_offset: int,
+    ) -> tuple[datetime | None, datetime | None]:
+        """Return fixed bounds for a future local calendar date."""
+
+        local_now = dt_util.as_local(now)
+        target_date = local_now.date() + timedelta(days=day_offset)
+        tzinfo = local_now.tzinfo
+        early_local = (
+            datetime.combine(target_date, early, tzinfo) if early is not None else None
+        )
+        late_local = (
+            datetime.combine(target_date, late, tzinfo) if late is not None else None
+        )
         return (
             dt_util.as_utc(early_local) if early_local else None,
             dt_util.as_utc(late_local) if late_local else None,

@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import timedelta
+from datetime import datetime, time, timedelta
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -124,6 +124,45 @@ def test_next_sun_event_does_not_follow_now() -> None:
     assert controller._next_open == next_rising
     assert controller._next_open != now
     controller._reschedule_next_event_timers.assert_called_once_with(now)
+
+
+def test_completed_daily_action_advances_to_tomorrow() -> None:
+    """A completed opening exposes the next day's stable schedule window."""
+
+    controller = object.__new__(CoverController)
+    now = dt_util.utcnow()
+    controller.hass = SimpleNamespace(
+        states=SimpleNamespace(get=lambda _entity_id: None),
+        config=SimpleNamespace(latitude=None, longitude=None, time_zone=None),
+    )
+    controller.config = {}
+    controller._auto_enabled = lambda key: key in {CONF_AUTO_TIME, CONF_AUTO_UP}
+    controller._dynamic_sun_threshold = Mock(return_value=None)
+    controller._is_workday = Mock(return_value=True)
+    controller._is_workday_tomorrow = Mock(return_value=False)
+    controller._time_bounds = Mock(return_value=(time(7), time(8)))
+    controller._last_action_dates = {"open": dt_util.as_local(now).date()}
+    controller._reschedule_next_event_timers = Mock()
+
+    controller._refresh_next_events(now)
+
+    local_now = dt_util.as_local(now)
+    expected_local = datetime.combine(
+        local_now.date() + timedelta(days=1), time(7), local_now.tzinfo
+    )
+    assert controller._next_open == dt_util.as_utc(expected_local)
+    assert controller._next_open.date() > now.date()
+
+
+def test_point_timer_triggers_have_deterministic_priority() -> None:
+    """Precise timer causes outrank generic state changes in a coalesced batch."""
+
+    assert ControllerManager._trigger_priority("scheduled_open") > (
+        ControllerManager._trigger_priority("state")
+    )
+    assert ControllerManager._trigger_priority("condition_timer:sun_open") > (
+        ControllerManager._trigger_priority("state")
+    )
 
 
 def test_shading_pending_timer_cancels_and_restarts() -> None:

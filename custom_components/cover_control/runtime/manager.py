@@ -166,10 +166,7 @@ class ControllerManager:
                         for cover, triggers in pending.items():
                             controller = self.controllers.get(cover)
                             if controller is not None:
-                                trigger = max(
-                                    triggers,
-                                    key=lambda item: _TRIGGER_PRIORITY.get(item, 0),
-                                )
+                                trigger = max(triggers, key=self._trigger_priority)
                                 controller._evaluation_context = context
                                 try:
                                     await controller._evaluate(
@@ -345,6 +342,12 @@ class ControllerManager:
             },
         }
 
+    @staticmethod
+    def _trigger_priority(trigger: str) -> int:
+        if trigger.startswith(("condition_timer:", "calendar_boundary:")):
+            return 1
+        return _TRIGGER_PRIORITY.get(trigger, 0)
+
     @callback
     def request_evaluate_all(self, trigger: str) -> None:
         """Queue every cover in this entry for the same shared cause."""
@@ -377,9 +380,16 @@ class ControllerManager:
     @callback
     def _setup_shared_listener(self) -> None:
         self._clear_shared_listener()
-        self._shared_entities = set().union(
-            *(controller._shared_decision_entities() for controller in self.controllers.values())
-        ) if self.controllers else set()
+        self._shared_entities = (
+            set().union(
+                *(
+                    controller._shared_decision_entities()
+                    for controller in self.controllers.values()
+                )
+            )
+            if self.controllers
+            else set()
+        )
         if self._shared_entities:
             self._shared_listener_unsub = async_track_state_change_event(
                 self.hass,
