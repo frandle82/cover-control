@@ -17,6 +17,10 @@ from homeassistant.helpers.json import json_dumps
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.cover_control.config_flow import INITIAL_FEATURE_KEYS
+from custom_components.cover_control.config_resolver import (
+    config_entry_room_id,
+    resolve_entry_config,
+)
 from custom_components.cover_control.const import (
     CONF_AUTO_SHADING,
     CONF_AUTO_TIME,
@@ -111,7 +115,12 @@ async def test_user_flow_can_be_completed_without_errors(hass):
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == "Test"
-    assert result["data"][CONF_COVERS] == ["cover.test_cover"]
+    resolved = resolve_entry_config(
+        result["data"],
+        {},
+        room_id=config_entry_room_id(result["data"], "new-entry"),
+    )
+    assert resolved[CONF_COVERS] == ["cover.test_cover"]
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")

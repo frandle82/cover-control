@@ -448,7 +448,7 @@ def _normalize_position_fields(data: dict[str, Any]) -> dict[str, Any]:
 class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the config flow."""
 
-    VERSION = 1
+    VERSION = 2
 
     def __init__(self) -> None:
         self._data: dict = {}
@@ -1279,7 +1279,9 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             if self._data.get(key) in (None, "", vol.UNDEFINED):
                 self._data.pop(key, None)
         name = str(self._data.get(CONF_NAME, DEFAULT_NAME)).strip() or DEFAULT_NAME
-        data = _with_config_defaults(self._data)
+        from .config_resolver import persisted_entry_data
+
+        data = persisted_entry_data(_with_config_defaults(self._data))
         return self.async_create_entry(title=name, data=data)
 
     def _cover_full_key(self, cover: str) -> str:

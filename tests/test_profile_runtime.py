@@ -65,7 +65,7 @@ def _model() -> ConfigProfileModel:
 
 def _manager() -> ControllerManager:
     manager = object.__new__(ControllerManager)
-    manager.entry = SimpleNamespace(entry_id="living")
+    manager.entry = SimpleNamespace(entry_id="living", data={})
     manager.controllers = {"cover.living": Mock()}
     manager._config_model = {}
     manager._resolved_config = None

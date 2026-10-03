@@ -20,6 +20,7 @@ from .const import (
     DOMAIN,
 )
 from .controller import ControllerManager
+from .config_resolver import config_entry_room_id, resolve_entry_config
 
 
 async def async_setup_entry(
@@ -27,7 +28,14 @@ async def async_setup_entry(
 ) -> None:
     """Set up optional Cover Control button entities."""
 
-    merged = {**DEFAULT_BUTTON_SETTINGS, **entry.data, **entry.options}
+    merged = {
+        **DEFAULT_BUTTON_SETTINGS,
+        **resolve_entry_config(
+            entry.data,
+            entry.options,
+            room_id=config_entry_room_id(entry.data, entry.entry_id),
+        ),
+    }
     desired: dict[str, type[_BaseCoverControlButton]] = {}
     manual_control_enabled = bool(merged.get(CONF_MANUAL_CONTROL))
     if manual_control_enabled or bool(merged.get(CONF_ENABLE_RECALIBRATE_BUTTON)):
@@ -88,10 +96,14 @@ class RecalibrateButton(_BaseCoverControlButton):
     async def async_press(self) -> None:
         manager = self._manager()
         if manager:
-            full_open = self.entry.options.get(
-                CONF_FULL_OPEN_POSITION,
-                self.entry.data.get(CONF_FULL_OPEN_POSITION, DEFAULT_OPEN_POSITION),
+            resolved = resolve_entry_config(
+                self.entry.data,
+                self.entry.options,
+                room_id=config_entry_room_id(
+                    self.entry.data, self.entry.entry_id
+                ),
             )
+            full_open = resolved.get(CONF_FULL_OPEN_POSITION, DEFAULT_OPEN_POSITION)
             await manager.recalibrate_all(full_open)
 
 

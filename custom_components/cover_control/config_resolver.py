@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from typing import Any
+from uuid import uuid4
 
 from .const import *  # noqa: F403
 
@@ -358,6 +359,27 @@ def entry_config_model(
     if all(key in combined for key in (CONF_GLOBAL, CONF_PROFILES, CONF_ROOMS)):
         return {key: combined[key] for key in combined if key != CONF_CONFIG_MODEL}
     return normalize_legacy_config(data, options, room_id=room_id)
+
+
+def config_entry_room_id(data: Mapping[str, Any], fallback: str) -> str:
+    """Return the stable persisted room ID for a config entry."""
+
+    room_id = data.get(CONF_ROOM_ID)
+    return str(room_id) if room_id else fallback
+
+
+def persisted_entry_data(
+    flat: Mapping[str, Any], *, room_id: str | None = None
+) -> dict[str, Any]:
+    """Wrap flat flow output in the canonical persisted configuration model."""
+
+    stable_room_id = room_id or f"room-{uuid4().hex}"
+    model = normalize_legacy_config(flat, {}, room_id=stable_room_id)
+    return {
+        CONF_ROOM_ID: stable_room_id,
+        CONF_NAME: flat.get(CONF_NAME, DEFAULT_NAME),
+        CONF_CONFIG_MODEL: model,
+    }
 
 
 def resolve_entry_config(

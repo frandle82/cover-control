@@ -20,13 +20,18 @@ from .const import (
     SIGNAL_ENTRY_STATE_UPDATED,
 )
 from .controller import ControllerManager
+from .config_resolver import config_entry_room_id, resolve_entry_config
 
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up Cover Control sensor entities."""
-    merged = {**entry.data, **entry.options}
+    merged = resolve_entry_config(
+        entry.data,
+        entry.options,
+        room_id=config_entry_room_id(entry.data, entry.entry_id),
+    )
     resident_enabled = bool(
         merged.get(
             CONF_RESIDENT_STATUS,

@@ -9,6 +9,7 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.typing import ConfigType
 
 from .const import DOMAIN, PLATFORMS
+from .config_migration import migrate_entry_payload
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -49,6 +50,20 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
     entry.async_on_unload(entry.add_update_listener(_handle_options_update))
+    return True
+
+
+async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
+    """Migrate flat version-1 entries to the hierarchical version-2 model."""
+
+    if entry.version >= 2:
+        return True
+    data, options = migrate_entry_payload(
+        entry.data, entry.options, entry_id=entry.entry_id
+    )
+    hass.config_entries.async_update_entry(
+        entry, data=data, options=options, version=2
+    )
     return True
 
 

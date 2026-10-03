@@ -17,6 +17,7 @@ from homeassistant.util import dt as dt_util
 
 from ..config_resolver import (
     ResolvedRoomConfig,
+    config_entry_room_id,
     entry_config_model,
     resolve_config_model,
     resolve_entry_config,
@@ -415,7 +416,7 @@ class ControllerManager:
     def _resolve_entry_config(self) -> ResolvedRoomConfig:
         """Build the entry model and expose only its resolved room to runtime."""
 
-        room_id = self.entry.entry_id
+        room_id = config_entry_room_id(self.entry.data, self.entry.entry_id)
         self._config_model = entry_config_model(
             self.entry.data, self.entry.options, room_id=room_id
         )
@@ -434,7 +435,7 @@ class ControllerManager:
 
         self._config_model = model
         self._index_profile_users()
-        room_id = self.entry.entry_id
+        room_id = config_entry_room_id(self.entry.data, self.entry.entry_id)
         affected = affected_rooms or {room_id}
         if room_id not in affected:
             return set()
