@@ -71,16 +71,7 @@ class EventsMixin:
             self._target = self._current_position()
         if self._last_position is None:
             self._last_position = self._current_position()
-        sensor_entities = self._local_decision_entities()
-        sensor_entities.add(self.cover)
-        for entity_id in sensor_entities:
-            if not entity_id:
-                continue
-            self._unsubs.append(
-                async_track_state_change_event(
-                    self.hass, [entity_id], self._handle_state_event
-                )
-            )
+        self._resubscribe_local_decision_entities()
         self._refresh_next_events(dt_util.utcnow())
         self._schedule_manual_expiry()
         self.persist_status()
@@ -91,6 +82,7 @@ class EventsMixin:
         self._clear_scheduled_event_timers()
         self._clear_runtime_condition_timers()
         self._clear_manual_expiry()
+        self._clear_local_decision_listeners()
         while self._unsubs:
             unsub = self._unsubs.pop()
             unsub()
@@ -98,6 +90,7 @@ class EventsMixin:
     @callback
     def update_config(self, new_config: ConfigType) -> None:
         self.config = new_config
+        self._resubscribe_local_decision_entities()
         self._clear_runtime_condition_timers()
         self._clear_manual_expiry()
         self._hydrate_persistent_status()
@@ -111,6 +104,29 @@ class EventsMixin:
         self.persist_status()
         self.async_request_evaluate("config")
         self._publish_state()
+
+    @callback
+    def _resubscribe_local_decision_entities(self) -> None:
+        """Diff and update cover-specific state listeners."""
+
+        desired = {self.cover, *self._local_decision_entities()}
+        desired.discard("")
+        for entity_id in self._local_listener_entities - desired:
+            unsubscribe = self._local_listener_unsubs.pop(entity_id, None)
+            if unsubscribe is not None:
+                unsubscribe()
+        for entity_id in desired - self._local_listener_entities:
+            self._local_listener_unsubs[entity_id] = async_track_state_change_event(
+                self.hass, [entity_id], self._handle_state_event
+            )
+        self._local_listener_entities = desired
+
+    @callback
+    def _clear_local_decision_listeners(self) -> None:
+        for unsubscribe in self._local_listener_unsubs.values():
+            unsubscribe()
+        self._local_listener_unsubs.clear()
+        self._local_listener_entities.clear()
 
     @callback
     def async_request_evaluate(self, trigger: str = "runtime_toggle") -> None:

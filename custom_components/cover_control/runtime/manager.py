@@ -69,6 +69,7 @@ class ControllerManager:
         }
         self._shared_listener_unsub = None
         self._shared_entities: set[str] = set()
+        self._entity_routes: dict[str, set[str]] = {}
 
     async def async_setup(self) -> None:
         self._store = Store(
@@ -359,10 +360,14 @@ class ControllerManager:
     def _handle_shared_state_event(self, event) -> None:
         entity_id = event.data.get("entity_id")
         trigger = "sun" if entity_id == "sun.sun" else "state"
-        controller = next(iter(self.controllers.values()), None)
-        if controller is not None and entity_id == controller.config.get(
-            CONF_RESIDENT_SENSOR
-        ):
+        routed_covers = self._entity_routes.get(entity_id, set())
+        routed_controllers = [
+            self.controllers[cover]
+            for cover in routed_covers
+            if cover in self.controllers
+        ]
+        controller = routed_controllers[0] if routed_controllers else None
+        if controller is not None and entity_id == controller.config.get(CONF_RESIDENT_SENSOR):
             old_state = event.data.get("old_state")
             new_state = event.data.get("new_state")
             old_value = old_state.state if old_state else None
@@ -375,21 +380,21 @@ class ControllerManager:
                 old_value
             ) and controller._resident_state_is_on(new_value):
                 trigger = "resident_asleep"
-        self.request_evaluate_all(trigger)
+        for routed_controller in routed_controllers:
+            self._request_evaluate(routed_controller, trigger)
 
     @callback
     def _setup_shared_listener(self) -> None:
-        self._clear_shared_listener()
-        self._shared_entities = (
-            set().union(
-                *(
-                    controller._shared_decision_entities()
-                    for controller in self.controllers.values()
-                )
-            )
-            if self.controllers
-            else set()
-        )
+        routes: dict[str, set[str]] = {}
+        for cover, controller in self.controllers.items():
+            for entity_id in controller._shared_decision_entities():
+                routes.setdefault(entity_id, set()).add(cover)
+        desired = set(routes)
+        self._entity_routes = routes
+        if desired == self._shared_entities:
+            return
+        self._clear_shared_listener(clear_routes=False)
+        self._shared_entities = desired
         if self._shared_entities:
             self._shared_listener_unsub = async_track_state_change_event(
                 self.hass,
@@ -398,11 +403,13 @@ class ControllerManager:
             )
 
     @callback
-    def _clear_shared_listener(self) -> None:
+    def _clear_shared_listener(self, *, clear_routes: bool = True) -> None:
         if self._shared_listener_unsub is not None:
             self._shared_listener_unsub()
             self._shared_listener_unsub = None
         self._shared_entities.clear()
+        if clear_routes:
+            self._entity_routes.clear()
 
     @callback
     def async_update_options(self) -> None:
@@ -439,6 +446,7 @@ class ControllerManager:
         """Set runtime-only feature toggle and re-evaluate all controllers."""
 
         self._runtime_toggles[key] = bool(enabled)
+        self._setup_shared_listener()
         for controller in self.controllers.values():
             controller.async_request_evaluate("runtime_toggle")
 
@@ -448,6 +456,7 @@ class ControllerManager:
 
         if key in self._runtime_toggles:
             self._runtime_toggles.pop(key, None)
+            self._setup_shared_listener()
             for controller in self.controllers.values():
                 controller.async_request_evaluate("runtime_toggle")
 

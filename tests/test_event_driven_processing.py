@@ -310,12 +310,14 @@ def test_shared_sun_event_queues_all_controllers_together() -> None:
 
     manager = object.__new__(ControllerManager)
     manager.controllers = {"cover.first": Mock(), "cover.second": Mock()}
-    manager.request_evaluate_all = Mock()
+    manager._entity_routes = {"sun.sun": {"cover.first", "cover.second"}}
+    manager._request_evaluate = Mock()
     event = SimpleNamespace(data={"entity_id": "sun.sun"})
 
     manager._handle_shared_state_event(event)
 
-    manager.request_evaluate_all.assert_called_once_with("sun")
+    assert manager._request_evaluate.call_count == 2
+    assert {call.args[1] for call in manager._request_evaluate.call_args_list} == {"sun"}
 
 
 @pytest.mark.asyncio
