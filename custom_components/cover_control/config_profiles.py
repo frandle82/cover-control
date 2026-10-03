@@ -103,8 +103,15 @@ class ConfigProfileModel:
     ) -> set[str]:
         """Replace profile settings and return only affected rooms."""
 
-        self._validate_settings(profile_type, settings)
         profile = self._profile(profile_type, profile_id)
+        existing = profile.get(CONF_PROFILE_SETTINGS, {})
+        unknown = set(settings) - PROFILE_KEYS[profile_type]
+        new_unknown = unknown - set(existing)
+        if new_unknown:
+            raise ProfileError(
+                f"Unknown settings cannot be added to {profile_type}: "
+                + ", ".join(sorted(new_unknown))
+            )
         profile[CONF_PROFILE_SETTINGS] = dict(settings)
         return set(self.profile_users.get((profile_type, profile_id), set()))
 
@@ -122,9 +129,17 @@ class ConfigProfileModel:
         """Copy profile settings into a new independently identified profile."""
 
         profile = self._profile(profile_type, profile_id)
-        return self.create_profile(
-            profile_type, name, profile.get(CONF_PROFILE_SETTINGS, {})
-        )
+        settings = profile.get(CONF_PROFILE_SETTINGS, {})
+        known = {
+            key: value
+            for key, value in settings.items()
+            if key in PROFILE_KEYS[profile_type]
+        }
+        profile_id_new = self.create_profile(profile_type, name, known)
+        self.data[CONF_PROFILES][profile_type][profile_id_new][
+            CONF_PROFILE_SETTINGS
+        ] = deepcopy(settings)
+        return profile_id_new
 
     def delete_profile(self, profile_type: str, profile_id: str) -> None:
         """Delete an unused profile, blocking dangling room references."""

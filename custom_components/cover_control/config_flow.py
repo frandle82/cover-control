@@ -2,9 +2,9 @@
 from __future__ import annotations
 
 import logging
-import json
 from datetime import date, datetime, time, timedelta
 from collections import OrderedDict
+from copy import deepcopy
 from typing import Any
 
 import voluptuous as vol
@@ -15,10 +15,22 @@ from homeassistant.helpers import selector
 from homeassistant.util import dt as dt_util
 
 from .config_profiles import ConfigProfileModel, ProfileError, ProfileInUseError
+from .config_profile_schema import (
+    CONF_GLOBAL_DEFAULT_FIELDS,
+    CONF_OVERRIDE_FIELDS,
+    build_profile_schema,
+    extract_sparse_settings,
+    flatten_section_input,
+)
 from .config_resolver import (
+    GLOBAL_DEFAULT_KEYS,
+    GLOBAL_SOURCE_KEYS,
+    PROFILE_KEYS,
+    ROOM_SOURCE_OVERRIDE_KEYS,
     config_entry_room_id,
     entry_config_model,
     resolve_config_model,
+    system_defaults,
 )
 
 from .const import (
@@ -1549,7 +1561,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
 
         return [
             "general",
-            "global_sources",
+            "global_settings",
             "profiles",
             "room_profiles",
             "advanced",
@@ -1579,43 +1591,73 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
         )
         return self.async_show_menu(step_id="advanced", menu_options=options)
 
+    async def async_step_global_settings(self, user_input=None) -> FlowResult:
+        """Separate technical sources from global fallback values."""
+
+        return self.async_show_menu(
+            step_id="global_settings",
+            menu_options=["global_sources", "global_defaults"],
+        )
+
     async def async_step_global_sources(self, user_input=None) -> FlowResult:
         """Configure shared technical inputs separately from behavior profiles."""
 
-        source_keys = (
-            CONF_WORKDAY_SENSOR,
-            CONF_WORKDAY_TOMORROW_SENSOR,
-            CONF_CALENDAR_ENTITY,
-            CONF_BRIGHTNESS_SENSOR,
-            CONF_SHADING_BRIGHTNESS_SENSOR,
-            CONF_TEMPERATURE_SENSOR_OUTDOOR,
-            CONF_SHADING_FORECAST_SENSOR,
-            CONF_SHADING_FORECAST_TEMP_SENSOR,
-            CONF_RESIDENT_SENSOR,
-            CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
-            CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
-        )
+        source_keys = sorted(GLOBAL_SOURCE_KEYS)
+        global_sources = self._profile_model.data["global"]["sources"]
         if user_input is not None:
-            cleaned = self._clean_user_input(user_input)
             for key in source_keys:
-                value = cleaned.get(key)
+                value = user_input.get(key)
                 if value in (None, ""):
-                    self._profile_model.data["global"]["sources"].pop(
-                        key, None
-                    )
+                    global_sources.pop(key, None)
                 else:
                     self._profile_model.set_global_source(key, value)
             self._refresh_resolved_options()
             return await self.async_step_menu()
 
-        schema = {
-            vol.Optional(
-                key, default=self._optional_default(key)
-            ): selector.EntitySelector(selector.EntitySelectorConfig())
-            for key in source_keys
-        }
+        schema = {}
+        for key in source_keys:
+            current = _selector_default(global_sources.get(key))
+            description = (
+                {"suggested_value": current}
+                if current is not vol.UNDEFINED
+                else None
+            )
+            marker = vol.Optional(key, description=description)
+            schema[marker] = (
+                selector.ConditionSelector()
+                if key == CONF_ADDITIONAL_CONDITION_GLOBAL
+                else selector.EntitySelector(selector.EntitySelectorConfig())
+            )
         return self.async_show_form(
             step_id="global_sources", data_schema=vol.Schema(schema)
+        )
+
+    async def async_step_global_defaults(self, user_input=None) -> FlowResult:
+        """Edit sparse global fallback values through native fields."""
+
+        defaults = self._profile_model.data["global"]["defaults"]
+        if user_input is not None:
+            flattened = flatten_section_input(user_input)
+            updated = extract_sparse_settings(
+                flattened,
+                PROFILE_TYPE_BEHAVIOR,
+                defaults,
+                field_selection=CONF_GLOBAL_DEFAULT_FIELDS,
+                allowed_keys=GLOBAL_DEFAULT_KEYS,
+            )
+            self._profile_model.data["global"]["defaults"] = updated
+            self._refresh_resolved_options()
+            return await self.async_step_menu()
+
+        return self.async_show_form(
+            step_id="global_defaults",
+            data_schema=build_profile_schema(
+                PROFILE_TYPE_BEHAVIOR,
+                defaults,
+                system_defaults(),
+                field_selection=CONF_GLOBAL_DEFAULT_FIELDS,
+                allowed_keys=GLOBAL_DEFAULT_KEYS,
+            ),
         )
 
     async def async_step_profiles(self, user_input=None) -> FlowResult:
@@ -1652,18 +1694,20 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
             profile_id = user_input.get("profile_id")
             if action == "create":
                 self._editing_profile_id = None
+                self._editing_context = "profile"
                 return await self.async_step_profile_edit()
             if not profile_id:
                 errors["base"] = "profile_required"
             elif action == "edit":
                 self._editing_profile_id = profile_id
+                self._editing_context = "profile"
                 return await self.async_step_profile_edit()
             elif action == "duplicate":
                 profile = catalog[profile_id]
                 self._profile_model.duplicate_profile(
                     self._profile_type,
                     profile_id,
-                    f"{profile['name']} (copy)",
+                    profile["name"],
                 )
                 return await self.async_step_menu()
             elif action == "delete":
@@ -1683,7 +1727,8 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
         schema: dict = {
             vol.Required("profile_action", default="edit"): selector.SelectSelector(
                 selector.SelectSelectorConfig(
-                    options=["create", "edit", "duplicate", "delete"]
+                    options=["create", "edit", "duplicate", "delete"],
+                    translation_key="profile_action",
                 )
             )
         }
@@ -1700,15 +1745,30 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
     async def async_step_profile_edit(self, user_input=None) -> FlowResult:
         """Create or edit one profile while retaining its stable identifier."""
 
+        context = getattr(self, "_editing_context", "profile")
+        if context != "profile":
+            return await self._async_room_override_form(user_input)
+
         catalog = self._profile_model.data["profiles"][self._profile_type]
         profile_id = getattr(self, "_editing_profile_id", None)
         profile = catalog.get(profile_id, {})
+        existing = profile.get("settings", {})
+        unknown_keys = sorted(set(existing) - PROFILE_KEYS[self._profile_type])
+        if unknown_keys:
+            LOGGER.warning(
+                "Profile %s contains unsupported settings that will be preserved: %s",
+                profile_id,
+                ", ".join(unknown_keys),
+            )
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
-                settings = json.loads(user_input["profile_settings_json"] or "{}")
-                if not isinstance(settings, dict):
-                    raise ValueError
+                flattened = flatten_section_input(user_input)
+                settings = extract_sparse_settings(
+                    flattened,
+                    self._profile_type,
+                    existing,
+                )
                 if profile_id:
                     self._profile_model.rename_profile(
                         self._profile_type, profile_id, user_input["profile_name"]
@@ -1724,43 +1784,40 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                     )
                 self._refresh_resolved_options()
                 return await self.async_step_menu()
-            except (ValueError, json.JSONDecodeError, ProfileError):
+            except (ValueError, ProfileError):
                 errors["base"] = "invalid_profile_settings"
 
         return self.async_show_form(
             step_id="profile_edit",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        "profile_name", default=profile.get("name", "")
-                    ): str,
-                    vol.Required(
-                        "profile_settings_json",
-                        default=json.dumps(
-                            profile.get("settings", {}),
-                            ensure_ascii=False,
-                            sort_keys=True,
-                        ),
-                    ): str,
-                }
+            data_schema=build_profile_schema(
+                self._profile_type,
+                existing,
+                self._profile_fallbacks(),
+                profile_name=profile.get("name", ""),
             ),
             errors=errors,
+            description_placeholders={"profile_values": "—"},
         )
 
     async def async_step_room_profiles(self, user_input=None) -> FlowResult:
-        """Assign profiles and sparse overrides to the current room."""
+        """Open profile assignments and progressive room override groups."""
+
+        return self.async_show_menu(
+            step_id="room_profiles",
+            menu_options=[
+                "room_assignments",
+                "time_overrides",
+                "shading_overrides",
+                "behavior_overrides",
+                "source_overrides",
+            ],
+        )
+
+    async def async_step_room_assignments(self, user_input=None) -> FlowResult:
+        """Assign reusable profiles without copying their settings."""
 
         room = self._profile_model.data["rooms"][self._room_id]
         selections = room.get("profiles", {})
-        source_overrides = room.get("source_overrides", {})
-        override_source_keys = (
-            CONF_BRIGHTNESS_SENSOR,
-            CONF_SHADING_BRIGHTNESS_SENSOR,
-            CONF_TEMPERATURE_SENSOR_OUTDOOR,
-            CONF_SHADING_FORECAST_SENSOR,
-            CONF_SHADING_FORECAST_TEMP_SENSOR,
-            CONF_RESIDENT_SENSOR,
-        )
         errors: dict[str, str] = {}
         if user_input is not None:
             try:
@@ -1778,27 +1835,9 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                         self._profile_model.assign_profile(
                             self._room_id, profile_type, profile_id
                         )
-                overrides = json.loads(user_input.get("room_overrides_json") or "{}")
-                if not isinstance(overrides, dict):
-                    raise ValueError
-                room["overrides"] = {}
-                for profile_type, values in overrides.items():
-                    if not isinstance(values, dict):
-                        raise ValueError
-                    for key, value in values.items():
-                        self._profile_model.set_override(
-                            self._room_id, profile_type, key, value
-                        )
-                room["source_overrides"] = {}
-                for key in override_source_keys:
-                    value = user_input.get(key)
-                    if value not in (None, ""):
-                        self._profile_model.set_source_override(
-                            self._room_id, key, value
-                        )
                 self._refresh_resolved_options()
                 return await self.async_step_menu()
-            except (ValueError, json.JSONDecodeError, ProfileError):
+            except (ValueError, ProfileError):
                 errors["base"] = "invalid_profile_settings"
 
         schema: dict = {}
@@ -1808,7 +1847,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
             PROFILE_TYPE_BEHAVIOR,
         ):
             catalog = self._profile_model.data["profiles"][profile_type]
-            options = [{"value": "__none__", "label": "Use defaults"}]
+            options = [{"value": "__none__", "label": "—"}]
             options.extend(
                 {"value": profile_id, "label": profile["name"]}
                 for profile_id, profile in catalog.items()
@@ -1821,28 +1860,112 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
             ] = selector.SelectSelector(
                 selector.SelectSelectorConfig(options=options)
             )
-        schema[
-            vol.Required(
-                "room_overrides_json",
-                default=json.dumps(
-                    room.get("overrides", {}),
-                    ensure_ascii=False,
-                    sort_keys=True,
-                ),
-            )
-        ] = str
-        for key in override_source_keys:
-            schema[
-                vol.Optional(
-                    key,
-                    default=_selector_default(source_overrides.get(key)),
-                )
-            ] = selector.EntitySelector(selector.EntitySelectorConfig())
         return self.async_show_form(
-            step_id="room_profiles",
+            step_id="room_assignments",
             data_schema=vol.Schema(schema),
             errors=errors,
         )
+
+    async def async_step_time_overrides(self, user_input=None) -> FlowResult:
+        self._editing_context = ("override", PROFILE_TYPE_TIME)
+        return await self.async_step_profile_edit(user_input)
+
+    async def async_step_shading_overrides(self, user_input=None) -> FlowResult:
+        self._editing_context = ("override", PROFILE_TYPE_SHADING)
+        return await self.async_step_profile_edit(user_input)
+
+    async def async_step_behavior_overrides(self, user_input=None) -> FlowResult:
+        self._editing_context = ("override", PROFILE_TYPE_BEHAVIOR)
+        return await self.async_step_profile_edit(user_input)
+
+    async def _async_room_override_form(self, user_input: dict | None) -> FlowResult:
+        _context, profile_type = self._editing_context
+        room = self._profile_model.data["rooms"][self._room_id]
+        room_overrides = room.setdefault("overrides", {})
+        existing = room_overrides.get(profile_type, {})
+        inherited = self._resolved_without_room_override(profile_type)
+        if user_input is not None:
+            flattened = flatten_section_input(user_input)
+            submitted = extract_sparse_settings(
+                flattened,
+                profile_type,
+                existing,
+                field_selection=CONF_OVERRIDE_FIELDS,
+            )
+            unknown = {
+                key: value
+                for key, value in existing.items()
+                if key not in PROFILE_KEYS[profile_type]
+            }
+            room_overrides[profile_type] = unknown
+            for key, value in submitted.items():
+                if key in PROFILE_KEYS[profile_type]:
+                    self._profile_model.set_override(
+                        self._room_id, profile_type, key, value
+                    )
+            if not room_overrides.get(profile_type):
+                room_overrides.pop(profile_type, None)
+            self._refresh_resolved_options()
+            return await self.async_step_menu()
+
+        profile_values = ", ".join(
+            f"{key}: {inherited.get(key)!r}"
+            for key in sorted(PROFILE_KEYS[profile_type])
+        )
+        return self.async_show_form(
+            step_id="profile_edit",
+            data_schema=build_profile_schema(
+                profile_type,
+                existing,
+                inherited,
+                field_selection=CONF_OVERRIDE_FIELDS,
+            ),
+            description_placeholders={"profile_values": profile_values},
+        )
+
+    async def async_step_source_overrides(self, user_input=None) -> FlowResult:
+        """Edit selected room-local technical sources with native selectors."""
+
+        room = self._profile_model.data["rooms"][self._room_id]
+        overrides = room.setdefault("source_overrides", {})
+        keys = sorted(ROOM_SOURCE_OVERRIDE_KEYS)
+        if user_input is not None:
+            overrides.clear()
+            for key in keys:
+                value = user_input.get(key)
+                if value not in (None, ""):
+                    self._profile_model.set_source_override(
+                        self._room_id, key, value
+                    )
+            self._refresh_resolved_options()
+            return await self.async_step_menu()
+
+        schema = {}
+        for key in keys:
+            current = _selector_default(overrides.get(key))
+            description = (
+                {"suggested_value": current}
+                if current is not vol.UNDEFINED
+                else None
+            )
+            schema[vol.Optional(key, description=description)] = (
+                selector.EntitySelector(selector.EntitySelectorConfig())
+            )
+        return self.async_show_form(
+            step_id="source_overrides", data_schema=vol.Schema(schema)
+        )
+
+    def _resolved_without_room_override(self, profile_type: str) -> dict[str, Any]:
+        model = deepcopy(self._profile_model.data)
+        room = model["rooms"][self._room_id]
+        room.setdefault("overrides", {}).pop(profile_type, None)
+        return dict(resolve_config_model(model, self._room_id))
+
+    def _profile_fallbacks(self) -> dict[str, Any]:
+        return {
+            **system_defaults(),
+            **self._profile_model.data["global"]["defaults"],
+        }
 
     async def async_step_diagnostics(self, user_input=None) -> FlowResult:
         """Show selected profiles and origins for representative values."""
