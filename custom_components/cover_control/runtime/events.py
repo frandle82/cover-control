@@ -72,7 +72,7 @@ class EventsMixin:
             self._target = self._current_position()
         if self._last_position is None:
             self._last_position = self._current_position()
-        sensor_entities = self._decision_entities()
+        sensor_entities = self._local_decision_entities()
         sensor_entities.add(self.cover)
         for entity_id in sensor_entities:
             if not entity_id:

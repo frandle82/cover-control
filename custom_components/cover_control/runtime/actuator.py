@@ -688,6 +688,21 @@ class ActuatorMixin:
                     entities.add(entity_id)
         return entities
 
+    def _local_decision_entities(self) -> set[str]:
+        """Return inputs whose state is specific to this cover."""
+
+        entities = set(self._contact_entities())
+        if self.config.get(CONF_POSITION_SOURCE) == CONF_POSITION_SOURCE_CUSTOM_SENSOR:
+            custom_sensor = self.config.get(CONF_CUSTOM_POSITION_SENSOR)
+            if isinstance(custom_sensor, str) and custom_sensor:
+                entities.add(custom_sensor)
+        return entities
+
+    def _shared_decision_entities(self) -> set[str]:
+        """Return entry-wide decision inputs owned by the manager."""
+
+        return self._decision_entities() - self._local_decision_entities()
+
     def _unavailable_decision_entities(self) -> set[str]:
         """Return required decision inputs which do not have a usable state."""
 
@@ -695,7 +710,7 @@ class ActuatorMixin:
             entity_id
             for entity_id in self._decision_entities()
             if (
-                (state := self.hass.states.get(entity_id)) is None
+                (state := self._state_for(entity_id)) is None
                 or state.state in {STATE_UNAVAILABLE, STATE_UNKNOWN}
             )
         }

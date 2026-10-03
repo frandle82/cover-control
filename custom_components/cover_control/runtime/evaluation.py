@@ -100,13 +100,17 @@ from ..const import (
 from .common import (
     _LOGGER,
     _coerce_float,
-    _float_state,
 )
 
 
 class EvaluationMixin:
-    async def _evaluate(self, trigger: str) -> None:
-        now = dt_util.utcnow()
+    async def _evaluate(
+        self, trigger: str, triggers: frozenset[str] | None = None
+    ) -> None:
+        context = self._evaluation_context
+        context_now = context.get("now") if context is not None else None
+        now = context_now if isinstance(context_now, datetime) else dt_util.utcnow()
+        self._current_evaluation_triggers = triggers or frozenset({trigger})
         self._expire_manual_override(now)
         self._ensure_manual_expiry_timer(now)
         cover_state = self.hass.states.get(self.cover)
@@ -118,6 +122,7 @@ class EvaluationMixin:
             "evaluate",
             {
                 "trigger": trigger,
+                "triggers": sorted(self._current_evaluation_triggers),
                 "manual_active": self._manual_active,
                 "manual_scope_all": self._manual_scope_all,
                 "next_open": self._next_open,
@@ -177,8 +182,9 @@ class EvaluationMixin:
             )
             self._unavailable_dependencies = set()
 
-        brightness = _float_state(self.hass, self.config.get(CONF_BRIGHTNESS_SENSOR))
-        sun_state = self.hass.states.get("sun.sun")
+        brightness_state = self._state_for(self.config.get(CONF_BRIGHTNESS_SENSOR))
+        brightness = _coerce_float(brightness_state.state if brightness_state else None)
+        sun_state = self._state_for("sun.sun")
         sun_elevation = _coerce_float(
             sun_state and sun_state.attributes.get("elevation")
         )
@@ -931,7 +937,8 @@ class EvaluationMixin:
         if mode == "fixed":
             return fixed_threshold
 
-        sensor_value = _float_state(self.hass, self.config.get(sensor_key))
+        sensor_state = self._state_for(self.config.get(sensor_key))
+        sensor_value = _coerce_float(sensor_state.state if sensor_state else None)
         if mode == "dynamic":
             # Dynamic sensor is optional in config flow. If unavailable or invalid,
             # fall back to the configured fixed threshold so sun timing still works.

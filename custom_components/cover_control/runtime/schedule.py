@@ -119,16 +119,18 @@ class ScheduleMixin:
         workday_entity = self.config.get(CONF_WORKDAY_SENSOR)
         if not workday_entity:
             return True
-        return self.hass.states.is_state(workday_entity, STATE_ON)
+        state = self._state_for(workday_entity)
+        return bool(state and state.state == STATE_ON)
 
     def _is_workday_tomorrow(self) -> bool:
         tomorrow_entity = self.config.get(CONF_WORKDAY_TOMORROW_SENSOR)
         if not tomorrow_entity:
             return self._is_workday()
-        return self.hass.states.is_state(tomorrow_entity, STATE_ON)
+        state = self._state_for(tomorrow_entity)
+        return bool(state and state.state == STATE_ON)
 
     def _single_contact_active(self, entity_id: str, now: datetime) -> bool:
-        state = self.hass.states.get(entity_id)
+        state = self._state_for(entity_id)
         if state is None or state.state != STATE_ON:
             return False
 
@@ -178,7 +180,7 @@ class ScheduleMixin:
             return False
 
         for sensor in sensors:
-            state = self.hass.states.get(sensor)
+            state = self._state_for(sensor)
             if state is None:
                 continue
             if state.state == STATE_ON:
@@ -201,7 +203,7 @@ class ScheduleMixin:
         }:
             return True
         if any(
-            (state := self.hass.states.get(entity_id)) is not None
+            (state := self._state_for(entity_id)) is not None
             and state.state in {STATE_ON, "true", "1"}
             for entity_id in self._contact_entities()
         ):
@@ -214,7 +216,7 @@ class ScheduleMixin:
         resident_entity = self.config.get(CONF_RESIDENT_SENSOR)
         if not resident_entity:
             return False
-        state = self.hass.states.get(resident_entity)
+        state = self._state_for(resident_entity)
         return self._resident_state_is_on(state.state if state else None)
 
     @staticmethod
@@ -241,7 +243,7 @@ class ScheduleMixin:
         if not calendar_entity or not title:
             return None
 
-        state = self.hass.states.get(calendar_entity)
+        state = self._state_for(calendar_entity)
         if state is None or state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
             return None
 
@@ -268,7 +270,7 @@ class ScheduleMixin:
         if not calendar_entity:
             return None, None
 
-        state = self.hass.states.get(calendar_entity)
+        state = self._state_for(calendar_entity)
         if state is None or state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
             return None, None
 
@@ -508,7 +510,7 @@ class ScheduleMixin:
         time_down_enabled = self._auto_enabled(CONF_AUTO_TIME) and self._auto_enabled(
             CONF_AUTO_DOWN
         )
-        sun_state = self.hass.states.get("sun.sun") if sun_enabled else None
+        sun_state = self._state_for("sun.sun") if sun_enabled else None
         sun_next_rising = self._parse_datetime_attr(
             sun_state and sun_state.attributes.get("next_rising")
         )

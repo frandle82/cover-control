@@ -2,10 +2,12 @@
 
 from __future__ import annotations
 
+import asyncio
 from datetime import timedelta
 from types import SimpleNamespace
-from unittest.mock import Mock, patch
+from unittest.mock import AsyncMock, Mock, patch
 
+import pytest
 from homeassistant.util import dt as dt_util
 
 from custom_components.cover_control.const import (
@@ -14,7 +16,7 @@ from custom_components.cover_control.const import (
     CONF_AUTO_TIME,
     CONF_AUTO_UP,
 )
-from custom_components.cover_control.controller import CoverController
+from custom_components.cover_control.controller import ControllerManager, CoverController
 
 
 def test_state_snapshot_is_read_only() -> None:
@@ -221,3 +223,84 @@ def test_duration_condition_timer_requests_one_evaluation() -> None:
     controller.async_request_evaluate.assert_called_once_with(
         "condition_timer:brightness_close"
     )
+
+
+def test_shared_entities_use_one_manager_listener() -> None:
+    """Identical global entities are subscribed once for the whole entry."""
+
+    manager = object.__new__(ControllerManager)
+    manager.hass = object()
+    manager._shared_listener_unsub = None
+    manager._shared_entities = set()
+    first = Mock()
+    first._shared_decision_entities.return_value = {"sun.sun", "sensor.outdoor"}
+    second = Mock()
+    second._shared_decision_entities.return_value = {"sun.sun", "sensor.outdoor"}
+    manager.controllers = {"cover.first": first, "cover.second": second}
+    unsubscribe = Mock()
+
+    with patch(
+        "custom_components.cover_control.runtime.manager.async_track_state_change_event",
+        return_value=unsubscribe,
+    ) as track:
+        manager._setup_shared_listener()
+
+    track.assert_called_once_with(
+        manager.hass,
+        ["sensor.outdoor", "sun.sun"],
+        manager._handle_shared_state_event,
+    )
+
+
+@pytest.mark.asyncio
+async def test_trigger_sets_and_context_are_shared_across_batch() -> None:
+    """A batch retains every cause and snapshots global state only once."""
+
+    state_reads = []
+    manager = object.__new__(ControllerManager)
+    manager.hass = SimpleNamespace(
+        states=SimpleNamespace(
+            get=lambda entity_id: state_reads.append(entity_id) or object()
+        )
+    )
+    manager._shared_entities = {"sun.sun", "sensor.outdoor"}
+    manager._pending_evaluations = {
+        "cover.first": {"state", "resident_woke"},
+        "cover.second": {"sun"},
+    }
+    manager._evaluation_lock = asyncio.Lock()
+    manager._evaluation_task = Mock()
+    manager._start_evaluation_task = Mock()
+    contexts = []
+
+    def _controller(cover):
+        controller = Mock()
+        controller.cover = cover
+        controller._evaluation_context = None
+
+        async def _evaluate(trigger, triggers):
+            contexts.append((controller._evaluation_context, trigger, triggers))
+
+        controller._evaluate = AsyncMock(side_effect=_evaluate)
+        return controller
+
+    manager.controllers = {
+        cover: _controller(cover) for cover in manager._pending_evaluations
+    }
+
+    with patch(
+        "custom_components.cover_control.runtime.manager.asyncio.sleep",
+        new=AsyncMock(),
+    ):
+        await manager._async_flush_evaluations()
+
+    assert state_reads == ["sensor.outdoor", "sun.sun"] or state_reads == [
+        "sun.sun",
+        "sensor.outdoor",
+    ]
+    assert contexts[0][0] is contexts[1][0]
+    assert contexts[0][1:] == (
+        "resident_woke",
+        frozenset({"state", "resident_woke"}),
+    )
+    assert contexts[1][1:] == ("sun", frozenset({"sun"}))

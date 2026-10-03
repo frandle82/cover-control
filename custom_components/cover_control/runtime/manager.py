@@ -11,10 +11,12 @@ from homeassistant.core import (
     callback,
 )
 from homeassistant.helpers.storage import Store
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.util import dt as dt_util
 
 from ..const import (
     CONF_COVERS,
+    CONF_RESIDENT_SENSOR,
     DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_BEHAVIOR_SETTINGS,
     DEFAULT_CONTACT_SETTINGS,
@@ -48,10 +50,12 @@ class ControllerManager:
         self._runtime_toggles: dict[str, bool] = {}
         self._store: Store | None = None
         self._stored_state: dict = {"covers": {}}
-        self._pending_evaluations: dict[str, str] = {}
+        self._pending_evaluations: dict[str, set[str]] = {}
         self._evaluation_task: asyncio.Task | None = None
         self._evaluation_lock = asyncio.Lock()
         self._group_command_lock = asyncio.Lock()
+        self._shared_listener_unsub = None
+        self._shared_entities: set[str] = set()
 
     async def async_setup(self) -> None:
         self._store = Store(
@@ -88,12 +92,14 @@ class ControllerManager:
             )
             self.controllers[cover] = controller
             await controller.async_setup()
+        self._setup_shared_listener()
 
     async def async_unload(self) -> None:
         if self._evaluation_task is not None:
             self._evaluation_task.cancel()
             self._evaluation_task = None
         self._pending_evaluations.clear()
+        self._clear_shared_listener()
         for controller in self.controllers.values():
             controller.persist_status()
             await controller.async_unload()
@@ -113,11 +119,7 @@ class ControllerManager:
 
         if controller.cover not in self.controllers:
             return
-        previous_trigger = self._pending_evaluations.get(controller.cover)
-        if previous_trigger is None or _TRIGGER_PRIORITY.get(
-            trigger, 0
-        ) >= _TRIGGER_PRIORITY.get(previous_trigger, 0):
-            self._pending_evaluations[controller.cover] = trigger
+        self._pending_evaluations.setdefault(controller.cover, set()).add(trigger)
         if self._evaluation_task is None or self._evaluation_task.done():
             self._start_evaluation_task()
 
@@ -140,10 +142,21 @@ class ControllerManager:
                 pending = self._pending_evaluations
                 self._pending_evaluations = {}
                 async with self._evaluation_lock:
-                    for cover, trigger in pending.items():
+                    context = self._evaluation_context()
+                    for cover, triggers in pending.items():
                         controller = self.controllers.get(cover)
                         if controller is not None:
-                            await controller._evaluate(trigger)
+                            trigger = max(
+                                triggers,
+                                key=lambda item: _TRIGGER_PRIORITY.get(item, 0),
+                            )
+                            controller._evaluation_context = context
+                            try:
+                                await controller._evaluate(
+                                    trigger, frozenset(triggers)
+                                )
+                            finally:
+                                controller._evaluation_context = None
                 await asyncio.sleep(0)
         finally:
             self._evaluation_task = None
@@ -191,6 +204,66 @@ class ControllerManager:
                 )
             )
 
+    def _evaluation_context(self) -> dict[str, object]:
+        """Capture entry-wide states once for a complete evaluation batch."""
+
+        return {
+            "now": dt_util.utcnow(),
+            "states": {
+                entity_id: self.hass.states.get(entity_id)
+                for entity_id in self._shared_entities
+            },
+        }
+
+    @callback
+    def request_evaluate_all(self, trigger: str) -> None:
+        """Queue every cover in this entry for the same shared cause."""
+
+        for controller in self.controllers.values():
+            self._request_evaluate(controller, trigger)
+
+    @callback
+    def _handle_shared_state_event(self, event) -> None:
+        entity_id = event.data.get("entity_id")
+        trigger = "sun" if entity_id == "sun.sun" else "state"
+        controller = next(iter(self.controllers.values()), None)
+        if controller is not None and entity_id == controller.config.get(
+            CONF_RESIDENT_SENSOR
+        ):
+            old_state = event.data.get("old_state")
+            new_state = event.data.get("new_state")
+            old_value = old_state.state if old_state else None
+            new_value = new_state.state if new_state else None
+            if controller._resident_state_is_on(
+                old_value
+            ) and controller._resident_state_is_off(new_value):
+                trigger = "resident_woke"
+            elif controller._resident_state_is_off(
+                old_value
+            ) and controller._resident_state_is_on(new_value):
+                trigger = "resident_asleep"
+        self.request_evaluate_all(trigger)
+
+    @callback
+    def _setup_shared_listener(self) -> None:
+        self._clear_shared_listener()
+        self._shared_entities = set().union(
+            *(controller._shared_decision_entities() for controller in self.controllers.values())
+        ) if self.controllers else set()
+        if self._shared_entities:
+            self._shared_listener_unsub = async_track_state_change_event(
+                self.hass,
+                sorted(self._shared_entities),
+                self._handle_shared_state_event,
+            )
+
+    @callback
+    def _clear_shared_listener(self) -> None:
+        if self._shared_listener_unsub is not None:
+            self._shared_listener_unsub()
+            self._shared_listener_unsub = None
+        self._shared_entities.clear()
+
     @callback
     def async_update_options(self) -> None:
         new_data = {
@@ -206,6 +279,7 @@ class ControllerManager:
         }
         for controller in self.controllers.values():
             controller.update_config(new_data)
+        self._setup_shared_listener()
 
     def set_manual_override(self, cover: str, minutes: int) -> bool:
         controller = self.controllers.get(cover)

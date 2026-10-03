@@ -90,6 +90,8 @@ class CoverController(
         self._shading_pending: dict[str, datetime] = {}
         self._shading_timer_unsubs: dict[str, CALLBACK_TYPE] = {}
         self._condition_timer_unsubs: dict[str, CALLBACK_TYPE] = {}
+        self._evaluation_context: dict[str, object] | None = None
+        self._current_evaluation_triggers: frozenset[str] = frozenset()
         self._last_command_context_id: str | None = None
         self._manual_movement_pending = False
         self._logbook_dedupe: set[str] = set()
@@ -116,3 +118,15 @@ class CoverController(
             CONF_AUTO_VENTILATE: CONF_AUTO_VENTILATE_ENTITY,
             CONF_AUTO_SHADING: CONF_AUTO_SHADING_ENTITY,
         }
+
+    def _state_for(self, entity_id: str | None):
+        """Return a batch-snapshotted state when the manager supplied one."""
+
+        if not entity_id:
+            return None
+        context = getattr(self, "_evaluation_context", None)
+        if context is not None:
+            states = context.get("states")
+            if isinstance(states, dict) and entity_id in states:
+                return states[entity_id]
+        return self.hass.states.get(entity_id)
