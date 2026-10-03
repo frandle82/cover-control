@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections import OrderedDict
 from collections.abc import Iterable, Mapping
 from datetime import date, datetime, time, timedelta
+from dataclasses import dataclass
 from typing import Any
 
 import voluptuous as vol
@@ -18,6 +19,7 @@ from .config_resolver import PROFILE_KEYS
 CONF_PROFILE_FIELDS = "configured_profile_fields"
 CONF_OVERRIDE_FIELDS = "configured_override_fields"
 CONF_GLOBAL_DEFAULT_FIELDS = "configured_global_default_fields"
+CONF_PROFILE_CAPABILITIES_FIELD = "profile_capabilities"
 
 _SHADING_CONDITIONS = [
     c.SHADING_CONDITION_AZIMUTH,
@@ -446,6 +448,299 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
     ),
 }
 
+# A capability is the user-facing ownership boundary for a coherent group of
+# canonical runtime keys. Runtime code continues to consume only those keys.
+PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
+    c.PROFILE_TYPE_TIME: {
+        "opening": frozenset(
+            {
+                c.CONF_AUTO_TIME,
+                c.CONF_AUTO_UP,
+                c.CONF_TIME_UP_EARLY_WORKDAY,
+                c.CONF_TIME_UP_LATE_WORKDAY,
+                c.CONF_TIME_UP_EARLY_NON_WORKDAY,
+                c.CONF_TIME_UP_LATE_NON_WORKDAY,
+            }
+        ),
+        "closing": frozenset(
+            {
+                c.CONF_AUTO_DOWN,
+                c.CONF_TIME_DOWN_EARLY_WORKDAY,
+                c.CONF_TIME_DOWN_LATE_WORKDAY,
+                c.CONF_TIME_DOWN_EARLY_NON_WORKDAY,
+                c.CONF_TIME_DOWN_LATE_NON_WORKDAY,
+            }
+        ),
+        "workday": frozenset({c.CONF_USE_WORKDAY_SENSOR}),
+        "calendar": frozenset(
+            {c.CONF_CALENDAR_OPEN_TITLE, c.CONF_CALENDAR_CLOSE_TITLE}
+        ),
+        "sun": frozenset(
+            {
+                c.CONF_AUTO_SUN,
+                c.CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
+                c.CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+                c.CONF_SUN_ELEVATION_OPEN,
+                c.CONF_SUN_ELEVATION_CLOSE,
+                c.CONF_SUN_ELEVATION_MODE,
+                c.CONF_SUN_TIME_DURATION,
+                c.CONF_SUN_ELEVATION_OPEN_OFFSET,
+                c.CONF_SUN_ELEVATION_CLOSE_OFFSET,
+            }
+        ),
+        "brightness": frozenset(
+            {
+                c.CONF_AUTO_BRIGHTNESS,
+                c.CONF_USE_BRIGHTNESS_SENSOR,
+                c.CONF_BRIGHTNESS_OPEN_ABOVE,
+                c.CONF_BRIGHTNESS_CLOSE_BELOW,
+                c.CONF_BRIGHTNESS_HYSTERESIS,
+                c.CONF_BRIGHTNESS_TIME_DURATION,
+                c.CONF_BRIGHTNESS_SUN_OPERATOR,
+            }
+        ),
+    },
+    c.PROFILE_TYPE_SHADING: {
+        "positioning": frozenset(
+            {
+                c.CONF_AUTO_SHADING,
+                c.CONF_SHADING_POSITION,
+                c.CONF_SHADING_POSITION_ALT,
+            }
+        ),
+        "brightness": frozenset(
+            {
+                c.CONF_SHADING_BRIGHTNESS_START,
+                c.CONF_SHADING_BRIGHTNESS_END,
+                c.CONF_SHADING_BRIGHTNESS_HYSTERESIS,
+            }
+        ),
+        "temperature": frozenset(
+            {
+                c.CONF_SHADING_MIN_TEMPERATURE_1,
+                c.CONF_SHADING_TEMPERATURE_HYSTERESIS_1,
+                c.CONF_SHADING_MIN_TEMPERATURE_2,
+                c.CONF_SHADING_TEMPERATURE_HYSTERESIS_2,
+                c.CONF_COLD_PROTECTION_THRESHOLD,
+                c.CONF_TEMPERATURE_THRESHOLD,
+                c.CONF_TEMPERATURE_FORECAST_THRESHOLD,
+                c.CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
+            }
+        ),
+        "forecast": frozenset(
+            {
+                c.CONF_USE_SHADING_FORECAST_SENSOR,
+                c.CONF_SHADING_FORECAST_TYPE,
+                c.CONF_SHADING_FORECAST_TEMP,
+                c.CONF_SHADING_FORECAST_TEMP_HYSTERESIS,
+            }
+        ),
+        "weather": frozenset(
+            {c.CONF_SHADING_WEATHER_CONDITIONS, c.CONF_SHADING_CONFIG}
+        ),
+        "conditions": frozenset(
+            {
+                c.CONF_SHADING_CONDITIONS_START_AND,
+                c.CONF_SHADING_CONDITIONS_START_OR,
+                c.CONF_SHADING_CONDITIONS_END_AND,
+                c.CONF_SHADING_CONDITIONS_END_OR,
+            }
+        ),
+        "waiting": frozenset(
+            {
+                c.CONF_SHADING_WAITINGTIME_START,
+                c.CONF_SHADING_WAITINGTIME_END,
+                c.CONF_SHADING_START_MAX_DURATION,
+                c.CONF_SHADING_END_MAX_DURATION,
+                c.CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
+            }
+        ),
+        "tilt": frozenset(
+            {
+                c.CONF_SHADING_TILT_POSITION,
+                c.CONF_SHADING_TILT_POSITION_0,
+                c.CONF_SHADING_TILT_POSITION_1,
+                c.CONF_SHADING_TILT_POSITION_2,
+                c.CONF_SHADING_TILT_POSITION_3,
+                c.CONF_SHADING_TILT_ELEVATION_1,
+                c.CONF_SHADING_TILT_ELEVATION_2,
+                c.CONF_SHADING_TILT_ELEVATION_3,
+            }
+        ),
+        "independent_temperature": frozenset(
+            {
+                c.CONF_SHADING_INDEPENDENT_TEMP,
+                c.CONF_SHADING_INDEPENDENT_HOLDS_END,
+            }
+        ),
+    },
+    c.PROFILE_TYPE_BEHAVIOR: {
+        "cover_positions": frozenset(
+            {
+                c.CONF_COVER_TYPE,
+                c.CONF_OPEN_POSITION,
+                c.CONF_CLOSE_POSITION,
+                c.CONF_VENTILATE_POSITION,
+                c.CONF_LOCKOUT_POSITION,
+                c.CONF_POSITION_TOLERANCE,
+            }
+        ),
+        "manual_override": frozenset(
+            {
+                c.CONF_MANUAL_OVERRIDE_MINUTES,
+                c.CONF_MANUAL_OVERRIDE_RESET_MODE,
+                c.CONF_MANUAL_OVERRIDE_RESET_TIME,
+                c.CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
+                c.CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
+                c.CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
+                c.CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
+                c.CONF_MANUAL_SCHEDULE_ADOPTION,
+            }
+        ),
+        "ventilation": frozenset(
+            {
+                c.CONF_AUTO_VENTILATE,
+                c.CONF_CONTACT_TRIGGER_DELAY,
+                c.CONF_CONTACT_STATUS_DELAY,
+                c.CONF_VENTILATION_DELAY_AFTER_CLOSE,
+                c.CONF_VENTILATION_ALLOW_HIGHER_POSITION,
+                c.CONF_VENTILATION_USE_AFTER_SHADING,
+                c.CONF_VENTILATION_START_NO_DELAY,
+                c.CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT,
+                c.CONF_SHADING_OVER_VENTILATION,
+                c.CONF_LOCKOUT_TILT_CLOSE,
+                c.CONF_LOCKOUT_TILT_SHADING_START,
+                c.CONF_LOCKOUT_TILT_SHADING_END,
+            }
+        ),
+        "resident": frozenset(
+            {
+                c.CONF_RESIDENT_STATUS,
+                c.CONF_RESIDENT_OPEN_ENABLED,
+                c.CONF_RESIDENT_CLOSE_ENABLED,
+                c.CONF_RESIDENT_ALLOW_SHADING,
+                c.CONF_RESIDENT_ALLOW_OPEN,
+                c.CONF_RESIDENT_ALLOW_VENTILATION,
+            }
+        ),
+        "movement_protection": frozenset(
+            {
+                c.CONF_PREVENT_HIGHER_POSITION_CLOSING,
+                c.CONF_PREVENT_LOWERING_WHEN_CLOSING_IF_SHADED,
+                c.CONF_PREVENT_SHADING_END_IF_CLOSED,
+                c.CONF_PREVENT_OPENING_AFTER_SHADING_END,
+                c.CONF_PREVENT_OPENING_AFTER_VENTILATION_END,
+                c.CONF_PREVENT_OPENING_MULTIPLE_TIMES,
+                c.CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
+                c.CONF_PREVENT_SHADING_MULTIPLE_TIMES,
+                c.CONF_PREVENT_DEFAULT_COVER_ACTIONS,
+            }
+        ),
+        "tilt_behavior": frozenset(
+            {
+                c.CONF_OPEN_TILT_POSITION,
+                c.CONF_CLOSE_TILT_POSITION,
+                c.CONF_VENTILATE_TILT_POSITION,
+                c.CONF_COVER_TILT_WAIT_MODE,
+                c.CONF_COVER_TILT_WAIT_TIMEOUT,
+                c.CONF_ENABLE_LOGBOOK_COVER,
+            }
+        ),
+    },
+}
+
+
+@dataclass(frozen=True)
+class ProfileFieldMetadata:
+    """Canonical ownership metadata shared by profile and override forms."""
+
+    key: str
+    profile_type: str
+    capability: str
+    group: str
+    value_type: str
+    unit: str | None
+    override_allowed: bool = True
+
+
+def _build_profile_field_metadata() -> dict[str, ProfileFieldMetadata]:
+    groups = {
+        profile_type: {
+            key: group
+            for group, keys in profile_groups
+            for key in keys
+        }
+        for profile_type, profile_groups in _PROFILE_GROUPS.items()
+    }
+    metadata: dict[str, ProfileFieldMetadata] = {}
+
+    def value_type(key: str) -> str:
+        if key in _BOOLEAN_KEYS:
+            return "boolean"
+        if key in _TIME_KEYS:
+            return "time"
+        if key in _MULTI_SELECTS:
+            return "multi_select"
+        if key in _SELECTS:
+            return "select"
+        if key in _TEXT_KEYS:
+            return "text"
+        return "number"
+
+    def unit(key: str) -> str | None:
+        if key in _POSITION_KEYS or key == c.CONF_POSITION_TOLERANCE:
+            return "%"
+        if key in _DURATION_KEYS:
+            return "s"
+        if key == c.CONF_MANUAL_OVERRIDE_MINUTES:
+            return "min"
+        if key in _TEMPERATURE_KEYS or key in _TEMPERATURE_HYSTERESIS_KEYS:
+            return "°C"
+        if key in _ELEVATION_KEYS:
+            return "°"
+        if key in _BRIGHTNESS_KEYS:
+            return "lx"
+        return None
+
+    for profile_type, capabilities in PROFILE_CAPABILITY_KEYS.items():
+        for capability, keys in capabilities.items():
+            for key in keys:
+                metadata[key] = ProfileFieldMetadata(
+                    key=key,
+                    profile_type=profile_type,
+                    capability=capability,
+                    group=groups[profile_type][key],
+                    value_type=value_type(key),
+                    unit=unit(key),
+                )
+    return metadata
+
+
+PROFILE_FIELD_METADATA = _build_profile_field_metadata()
+
+
+def capability_keys(profile_type: str, capabilities: Iterable[str]) -> frozenset[str]:
+    """Return canonical keys owned by the selected capabilities."""
+
+    selected = set(capabilities)
+    return frozenset(
+        key
+        for key, metadata in PROFILE_FIELD_METADATA.items()
+        if metadata.profile_type == profile_type
+        and metadata.capability in selected
+    )
+
+
+def infer_capabilities(profile_type: str, settings: Mapping[str, Any]) -> list[str]:
+    """Infer legacy profile metadata without changing effective values."""
+
+    configured = set(settings)
+    return [
+        capability
+        for capability, keys in PROFILE_CAPABILITY_KEYS[profile_type].items()
+        if configured & keys
+    ]
+
 
 def _number_selector(
     minimum: float,
@@ -471,32 +766,39 @@ def _time_default(value: Any) -> Any:
     return parsed or time(0, 0)
 
 
-def _field_validator(key: str, value: Any) -> tuple[Any, Any]:
+def _field_validator(key: str, value: Any, *, stored: bool) -> tuple[Any, Any]:
     """Return voluptuous marker and native selector for one canonical key."""
 
+    def marker(default: Any) -> vol.Optional:
+        if stored:
+            return vol.Optional(key, default=default)
+        if value is not None:
+            return vol.Optional(key, description={"suggested_value": default})
+        return vol.Optional(key)
+
     if key in _BOOLEAN_KEYS:
-        return vol.Optional(key, default=bool(value)), bool
+        return marker(bool(value)), bool
     if key in _TIME_KEYS:
-        return vol.Optional(key, default=_time_default(value)), selector.TimeSelector()
+        return marker(_time_default(value)), selector.TimeSelector()
     if key in _POSITION_KEYS:
-        return vol.Optional(key, default=int(value or 0)), _number_selector(0, 100, 1, "%")
+        return marker(int(value or 0)), _number_selector(0, 100, 1, "%")
     if key == c.CONF_POSITION_TOLERANCE:
-        return vol.Optional(key, default=int(value or 0)), _number_selector(0, 20, 1, "%")
+        return marker(int(value or 0)), _number_selector(0, 20, 1, "%")
     if key == c.CONF_MANUAL_OVERRIDE_MINUTES:
-        return vol.Optional(key, default=int(value or 0)), _number_selector(0, 10080, 1, "min")
+        return marker(int(value or 0)), _number_selector(0, 10080, 1, "min")
     if key in _DURATION_KEYS:
-        return vol.Optional(key, default=float(value or 0)), _number_selector(0, 86400, 1, "s")
+        return marker(float(value or 0)), _number_selector(0, 86400, 1, "s")
     if key in _TEMPERATURE_KEYS:
-        return vol.Optional(key, default=float(value or 0)), _number_selector(-50, 100, 0.1, "°C")
+        return marker(float(value or 0)), _number_selector(-50, 100, 0.1, "°C")
     if key in _TEMPERATURE_HYSTERESIS_KEYS:
-        return vol.Optional(key, default=float(value or 0)), _number_selector(0, 20, 0.1, "°C")
+        return marker(float(value or 0)), _number_selector(0, 20, 0.1, "°C")
     if key in _ELEVATION_KEYS:
-        return vol.Optional(key, default=float(value or 0)), _number_selector(-90, 90, 0.1, "°")
+        return marker(float(value or 0)), _number_selector(-90, 90, 0.1, "°")
     if key in _BRIGHTNESS_KEYS:
-        return vol.Optional(key, default=float(value or 0)), _number_selector(0, 200000, 1, "lx")
+        return marker(float(value or 0)), _number_selector(0, 200000, 1, "lx")
     if key in _MULTI_SELECTS:
         options, translation_key = _MULTI_SELECTS[key]
-        return vol.Optional(key, default=list(value or [])), selector.SelectSelector(
+        return marker(list(value or [])), selector.SelectSelector(
             selector.SelectSelectorConfig(
                 options=options,
                 multiple=True,
@@ -506,14 +808,14 @@ def _field_validator(key: str, value: Any) -> tuple[Any, Any]:
     if key in _SELECTS:
         options, translation_key = _SELECTS[key]
         default = value if value in options else options[0]
-        return vol.Optional(key, default=default), selector.SelectSelector(
+        return marker(default), selector.SelectSelector(
             selector.SelectSelectorConfig(
                 options=options,
                 translation_key=translation_key,
             )
         )
     if key in _TEXT_KEYS:
-        return vol.Optional(key, default=str(value or "")), selector.TextSelector()
+        return marker(str(value or "")), selector.TextSelector()
     raise ValueError(f"No native profile selector for {key}")
 
 
@@ -537,7 +839,7 @@ def build_profile_schema(
     fallbacks: Mapping[str, Any],
     *,
     profile_name: str | None = None,
-    field_selection: str = CONF_PROFILE_FIELDS,
+    field_selection: str | None = CONF_PROFILE_FIELDS,
     allowed_keys: Iterable[str] | None = None,
 ) -> vol.Schema:
     """Build typed, grouped schema while keeping persistence sparse."""
@@ -546,29 +848,33 @@ def build_profile_schema(
     schema: OrderedDict[Any, Any] = OrderedDict()
     if profile_name is not None:
         schema[vol.Required("profile_name", default=profile_name)] = selector.TextSelector()
-    schema[
-        vol.Optional(
-            field_selection,
-            default=sorted(
-                key
-                for key in set(stored) & allowed
-                if stored.get(key) is not None
-            ),
+    if field_selection is not None:
+        schema[
+            vol.Optional(
+                field_selection,
+                default=sorted(
+                    key
+                    for key in set(stored) & allowed
+                    if stored.get(key) is not None
+                ),
+            )
+        ] = selector.SelectSelector(
+            selector.SelectSelectorConfig(
+                options=sorted(allowed),
+                multiple=True,
+                translation_key="profile_field",
+            )
         )
-    ] = selector.SelectSelector(
-        selector.SelectSelectorConfig(
-            options=sorted(allowed),
-            multiple=True,
-            translation_key="profile_field",
-        )
-    )
     for group_name, keys in profile_groups(profile_type):
         fields: OrderedDict[Any, Any] = OrderedDict()
         for key in keys:
             if key not in allowed:
                 continue
+            has_stored_value = key in stored and stored.get(key) is not None
             marker, validator = _field_validator(
-                key, stored.get(key, fallbacks.get(key))
+                key,
+                stored[key] if has_stored_value else fallbacks.get(key),
+                stored=has_stored_value,
             )
             fields[marker] = validator
         if fields:
@@ -583,15 +889,21 @@ def extract_sparse_settings(
     profile_type: str,
     existing: Mapping[str, Any],
     *,
-    field_selection: str = CONF_PROFILE_FIELDS,
+    field_selection: str | None = CONF_PROFILE_FIELDS,
     allowed_keys: Iterable[str] | None = None,
 ) -> dict[str, Any]:
     """Keep selected known keys plus unknown legacy keys, never display defaults."""
 
     allowed = frozenset(allowed_keys or PROFILE_KEYS[profile_type])
-    selected = set(user_input.get(field_selection, [])) & allowed
+    selected = (
+        set(user_input.get(field_selection, [])) & allowed
+        if field_selection is not None
+        else set(allowed)
+    )
     values: dict[str, Any] = {
-        key: value for key, value in existing.items() if key not in allowed
+        key: value
+        for key, value in existing.items()
+        if key not in PROFILE_KEYS[profile_type]
     }
     for key in selected:
         if key in user_input:

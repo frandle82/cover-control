@@ -8,6 +8,7 @@ EVENT_COVER_CONTROL = "cover_control_event"
 CONF_NAME = "name"
 CONF_ROOM = "room"
 CONF_CONFIG_MODEL = "config_model"
+CONF_HUB_ENTRY_ID = "hub_entry_id"
 CONF_CONFIG_VERSION = "version"
 CONF_GLOBAL = "global"
 CONF_GLOBAL_SOURCES = "sources"
@@ -22,8 +23,9 @@ CONF_ROOM_OVERRIDES = "overrides"
 CONF_PROFILE_ID = "id"
 CONF_PROFILE_NAME = "name"
 CONF_PROFILE_SETTINGS = "settings"
+CONF_PROFILE_CAPABILITIES = "capabilities"
 
-CONFIG_MODEL_VERSION = 1
+CONFIG_MODEL_VERSION = 2
 PROFILE_TYPE_TIME = "time"
 PROFILE_TYPE_SHADING = "shading"
 PROFILE_TYPE_BEHAVIOR = "behavior"
@@ -296,6 +298,7 @@ MANUAL_OVERRIDE_RESET_TIMEOUT = "timeout"
 
 SIGNAL_STATE_UPDATED = "covercontrol_state_updated"
 SIGNAL_ENTRY_STATE_UPDATED = "covercontrol_entry_state_updated"
+SIGNAL_HUB_STATE_UPDATED = "covercontrol_hub_state_updated"
 
 REASON_LABELS = {
     "manual_override": "override",

@@ -1,6 +1,9 @@
 """Tests for config-entry migration to reusable profiles."""
 
-from custom_components.cover_control.config_migration import migrate_entry_payload
+from custom_components.cover_control.config_migration import (
+    migrate_entry_collection,
+    migrate_entry_payload,
+)
 from custom_components.cover_control.config_resolver import (
     config_entry_room_id,
     resolve_entry_config,
@@ -13,6 +16,9 @@ from custom_components.cover_control.const import (
     CONF_ROOM_ID,
     CONF_SHADING_POSITION,
     CONF_SHADING_WAITINGTIME_END,
+    CONF_PROFILES,
+    CONF_ROOMS,
+    PROFILE_TYPE_SHADING,
 )
 
 
@@ -80,3 +86,37 @@ def test_missing_optional_setting_is_not_persisted() -> None:
 
     serialized = repr(data[CONF_CONFIG_MODEL])
     assert CONF_BRIGHTNESS_SENSOR not in serialized
+
+
+def test_multiple_legacy_rooms_are_consolidated_without_name_deduplication() -> None:
+    model = migrate_entry_collection(
+        {
+            "living": (
+                {CONF_NAME: "Living", CONF_SHADING_POSITION: 24},
+                {},
+            ),
+            "office": (
+                {CONF_NAME: "Office", CONF_SHADING_POSITION: 26},
+                {},
+            ),
+        }
+    )
+
+    assert set(model[CONF_ROOMS]) == {"living", "office"}
+    profiles = model[CONF_PROFILES][PROFILE_TYPE_SHADING]
+    assert len(profiles) == 2
+    assert {profile["settings"][CONF_SHADING_POSITION] for profile in profiles.values()} == {
+        24,
+        26,
+    }
+
+
+def test_collection_migration_is_idempotent_for_canonical_hub_model() -> None:
+    model = migrate_entry_collection(
+        {"living": ({CONF_NAME: "Living", CONF_SHADING_POSITION: 24}, {})}
+    )
+    migrated = migrate_entry_collection(
+        {"living": ({CONF_NAME: "Living", CONF_CONFIG_MODEL: model}, {})}
+    )
+
+    assert migrated == model

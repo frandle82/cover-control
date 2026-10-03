@@ -22,7 +22,7 @@
         "sections": {
           "automation_features": {
             "name": "Automation functions",
-            "description": "Only enabled functions are configured, exposed as switches, and evaluated by the controller.",
+            "description": "Configure which functions start enabled. All five room function switches remain available.",
             "data": {
               "auto_time_enabled": "Time control - open in the morning and close in the evening",
               "auto_ventilate_enabled": "Ventilation and lockout - react to window contacts",
@@ -346,6 +346,8 @@
         "title": "Function menu",
         "description": "Select a section, adjust settings, then apply them with \"Save and close\".",
         "menu_options": {
+          "hub_settings": "Cover Control hub",
+          "room_settings": "Room configuration",
           "general": "General configuration",
           "global_settings": "Global settings",
           "profiles": "Profiles",
@@ -364,6 +366,20 @@
           "resident": "Resident",
           "additional_conditions": "Additional conditions"
         }
+      },
+      "hub_settings": {
+        "title": "Cover Control hub",
+        "description": "Configure shared sources, defaults, profiles, and profile evaluation once.",
+        "menu_options": {"global_settings": "Global settings", "profiles": "Profiles", "profile_evaluation": "Profile evaluation"}
+      },
+      "room_settings": {
+        "title": "Room configuration",
+        "description": "Configure hardware, profile assignments, local overrides, and diagnostics for this room.",
+        "menu_options": {"general": "General", "advanced": "Cover and hardware", "room_profiles": "Profiles and overrides", "diagnostics": "Room diagnostics"}
+      },
+      "profile_evaluation": {
+        "title": "Profile evaluation",
+        "description": "Profiles and users: {profiles}\n\nNext profile opening / closing: {evaluation}"
       },
       "global_settings": {
         "title": "Global settings",
@@ -437,9 +453,14 @@
       "time_profiles": {"title": "Time profiles", "data": {"profile_action": "Action", "profile_id": "Profile"}},
       "shading_profiles": {"title": "Shading profiles", "data": {"profile_action": "Action", "profile_id": "Profile"}},
       "behavior_profiles": {"title": "Behavior profiles", "data": {"profile_action": "Action", "profile_id": "Profile"}},
+      "profile_setup": {
+        "title": "Profile capabilities",
+        "description": "Choose the functional groups owned by this profile. Disabled groups are not stored or evaluated.",
+        "data": {"profile_name": "Profile name", "profile_capabilities": "Included functions"}
+      },
       "profile_edit": {
         "title": "Profile settings",
-        "description": "Select explicitly stored values. Unselected values inherit from the next resolver layer. Unsupported existing values are preserved automatically. For room overrides, inherited values are: {profile_values}",
+        "description": "Only settings belonging to the active capabilities are shown. Unsupported existing values are preserved automatically. For room overrides, inherited values are: {profile_values}",
         "data": {
           "profile_name": "Profile name",
           "configured_profile_fields": "Values stored in profile",
@@ -823,7 +844,7 @@
       },
       "functions": {
         "title": "Automation functions",
-        "description": "Enable or disable functions. Only active functions appear in the menu, are exposed as switches, and are evaluated by the controller.",
+        "description": "Enable or disable functions. All five room function switches remain available; only active functions are evaluated by the controller.",
         "data": {
           "auto_time_enabled": "Time control",
           "auto_ventilate_enabled": "Ventilation and lockout",
@@ -898,6 +919,7 @@
   },
   "selector": {
     "profile_action": {"options": {"create": "Create", "edit": "Edit", "duplicate": "Duplicate", "delete": "Delete"}},
+    "profile_capability": {"options": {"opening": "Opening", "closing": "Closing", "workday": "Workday", "calendar": "Calendar", "sun": "Sun", "brightness": "Brightness", "positioning": "Positions", "temperature": "Temperature", "forecast": "Forecast", "weather": "Weather", "conditions": "Condition logic", "waiting": "Waiting times", "tilt": "Shading tilt", "independent_temperature": "Independent temperature", "cover_positions": "Cover positions", "manual_override": "Manual override", "ventilation": "Ventilation", "resident": "Resident behavior", "movement_protection": "Movement protection", "tilt_behavior": "Tilt behavior"}},
     "sun_elevation_mode": {"options": {"fixed": "Fixed", "dynamic": "Dynamic"}},
     "brightness_sun_operator": {"options": {"or": "Brightness or sun", "and": "Brightness and sun"}},
     "forecast_type": {"options": {"daily": "Daily forecast", "hourly": "Hourly forecast", "weather_attributes": "Current weather attributes"}},
@@ -932,6 +954,12 @@
       },
       "next_close": {
         "name": "Next closing"
+      },
+      "profile_next_open": {
+        "name": "{profile} – Next profile opening"
+      },
+      "profile_next_close": {
+        "name": "{profile} – Next profile closing"
       },
       "control_state": {
         "name": "Active control"

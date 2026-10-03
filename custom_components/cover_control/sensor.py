@@ -12,15 +12,22 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import (
+    CONF_PROFILE_CAPABILITIES,
+    CONF_PROFILE_SETTINGS,
+    CONF_PROFILES,
     CONF_NAME,
     CONF_RESIDENT_STATUS,
     DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_NAME,
     DOMAIN,
     SIGNAL_ENTRY_STATE_UPDATED,
+    SIGNAL_HUB_STATE_UPDATED,
+    PROFILE_TYPE_TIME,
 )
 from .controller import ControllerManager
 from .config_resolver import config_entry_room_id, resolve_entry_config
+from .config_profile_schema import infer_capabilities
+from .hub import CoverControlHub
 
 
 async def async_setup_entry(
@@ -44,6 +51,27 @@ async def async_setup_entry(
         f"{entry.entry_id}-next_close",
         f"{entry.entry_id}-control_state",
     }
+    hub = hass.data.get(DOMAIN, {}).get("hub")
+    profile_entities: list[SensorEntity] = []
+    if isinstance(hub, CoverControlHub) and hub.owner_entry_id == entry.entry_id:
+        for profile_id, profile in hub.model.get(CONF_PROFILES, {}).get(
+            PROFILE_TYPE_TIME, {}
+        ).items():
+            capabilities = profile.get(CONF_PROFILE_CAPABILITIES)
+            if not isinstance(capabilities, list):
+                capabilities = infer_capabilities(
+                    PROFILE_TYPE_TIME, profile.get(CONF_PROFILE_SETTINGS, {})
+                )
+            if "opening" in capabilities:
+                desired_unique_ids.add(f"profile-{profile_id}-next_open")
+                profile_entities.append(
+                    ProfileScheduleSensor(hass, entry, profile_id, "next_open")
+                )
+            if "closing" in capabilities:
+                desired_unique_ids.add(f"profile-{profile_id}-next_close")
+                profile_entities.append(
+                    ProfileScheduleSensor(hass, entry, profile_id, "next_close")
+                )
     if resident_enabled:
         desired_unique_ids.add(f"{entry.entry_id}-resident_status")
 
@@ -63,6 +91,7 @@ async def async_setup_entry(
 
     if resident_enabled:
         entities.append(ResidentStatusSensor(hass, entry))
+    entities.extend(profile_entities)
 
     async_add_entities(entities)
 
@@ -310,3 +339,75 @@ class ResidentStatusSensor(_BaseCoverControlSensor):
     @property
     def extra_state_attributes(self) -> dict[str, Any]:
         return {"resident_entity": self._resident_entity}
+
+
+class ProfileScheduleSensor(_BaseCoverControlSensor):
+    """Expose a shared time-profile opportunity independently of room plans."""
+
+    _attr_device_class = SensorDeviceClass.TIMESTAMP
+
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        profile_id: str,
+        key: str,
+    ) -> None:
+        super().__init__(hass, entry)
+        self.profile_id = profile_id
+        self.key = key
+        self._attr_unique_id = f"profile-{profile_id}-{key}"
+        self._attr_translation_key = f"profile_{key}"
+        hub = self._hub()
+        profile_name = (
+            hub.profile_name(PROFILE_TYPE_TIME, profile_id)
+            if hub is not None
+            else profile_id
+        )
+        self._attr_translation_placeholders = {"profile": profile_name}
+        self._value: datetime | None = None
+
+    def _hub(self) -> CoverControlHub | None:
+        hub = self.hass.data.get(DOMAIN, {}).get("hub")
+        return hub if isinstance(hub, CoverControlHub) else None
+
+    async def async_added_to_hass(self) -> None:
+        self._refresh()
+        self.async_on_remove(
+            async_dispatcher_connect(
+                self.hass, SIGNAL_HUB_STATE_UPDATED, self._handle_hub_update
+            )
+        )
+
+    @callback
+    def _handle_hub_update(self) -> None:
+        if self._refresh():
+            self.async_write_ha_state()
+
+    @callback
+    def _refresh(self) -> bool:
+        previous = self._value
+        hub = self._hub()
+        evaluation = (
+            hub.profile_evaluations.get((PROFILE_TYPE_TIME, self.profile_id))
+            if hub is not None
+            else None
+        )
+        self._value = getattr(evaluation, self.key, None)
+        return previous != self._value
+
+    @property
+    def native_value(self) -> datetime | None:
+        return self._value
+
+    @property
+    def extra_state_attributes(self) -> dict[str, Any]:
+        hub = self._hub()
+        return {
+            "profile_id": self.profile_id,
+            "rooms": sorted(
+                hub.profile_users.get((PROFILE_TYPE_TIME, self.profile_id), ())
+            )
+            if hub is not None
+            else [],
+        }

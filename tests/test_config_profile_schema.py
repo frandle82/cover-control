@@ -11,7 +11,10 @@ from homeassistant.helpers import config_validation as cv
 from custom_components.cover_control import const as c
 from custom_components.cover_control.config_profile_schema import (
     CONF_PROFILE_FIELDS,
+    PROFILE_CAPABILITY_KEYS,
+    PROFILE_FIELD_METADATA,
     build_profile_schema,
+    capability_keys,
     extract_sparse_settings,
     flatten_section_input,
     profile_groups,
@@ -36,6 +39,39 @@ def test_every_supported_profile_key_has_one_native_schema_field() -> None:
             for nested in field["schema"]
         }
         assert native_fields == supported
+
+
+def test_capabilities_partition_every_profile_key_exactly_once() -> None:
+    """Capabilities remain a UI grouping, never a parallel runtime model."""
+
+    for profile_type, supported in PROFILE_KEYS.items():
+        groups = PROFILE_CAPABILITY_KEYS[profile_type]
+        flattened = [key for keys in groups.values() for key in keys]
+        assert set(flattened) == supported
+        assert len(flattened) == len(set(flattened))
+    assert set(PROFILE_FIELD_METADATA) == set().union(*PROFILE_KEYS.values())
+
+
+def test_capability_removal_discards_disabled_known_values() -> None:
+    existing = {
+        c.CONF_SHADING_BRIGHTNESS_START: 40000,
+        c.CONF_SHADING_FORECAST_TEMP: 25,
+        "future_profile_key": "preserve",
+    }
+    allowed = capability_keys(c.PROFILE_TYPE_SHADING, ["brightness"])
+
+    settings = extract_sparse_settings(
+        {c.CONF_SHADING_BRIGHTNESS_START: 45000},
+        c.PROFILE_TYPE_SHADING,
+        existing,
+        field_selection=None,
+        allowed_keys=allowed,
+    )
+
+    assert settings == {
+        c.CONF_SHADING_BRIGHTNESS_START: 45000,
+        "future_profile_key": "preserve",
+    }
 
 
 def test_sparse_extraction_normalizes_selectors_and_preserves_unknown_keys() -> None:

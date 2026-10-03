@@ -251,7 +251,12 @@ def resolve_room_config(
         settings = profile.get(CONF_PROFILE_SETTINGS, {})
         if not isinstance(settings, Mapping):
             continue
-        merge(settings, f"profile:{profile_id}")
+        resolved_settings = dict(settings)
+        if profile_type == PROFILE_TYPE_TIME and CONF_AUTO_TIME in settings:
+            time_enabled = bool(settings[CONF_AUTO_TIME])
+            resolved_settings.setdefault(CONF_AUTO_UP, time_enabled)
+            resolved_settings.setdefault(CONF_AUTO_DOWN, time_enabled)
+        merge(resolved_settings, f"profile:{profile_id}")
         profile_ids[profile_type] = profile_id
         profile_names[profile_type] = str(
             profile.get(CONF_PROFILE_NAME, profile_id)
@@ -361,6 +366,34 @@ def resolve_config_model(
         room_id=room_id,
         room_name=str(room.get(CONF_NAME, room_id)),
         source_overrides=room.get(CONF_SOURCE_OVERRIDES, {}),
+    )
+
+
+def resolve_profile_config(
+    model: Mapping[str, Any], profile_type: str, profile_id: str
+) -> Mapping[str, Any]:
+    """Resolve a profile without room settings, overrides, or runtime toggles."""
+
+    global_config = model.get(CONF_GLOBAL, {})
+    profile = (
+        model.get(CONF_PROFILES, {})
+        .get(profile_type, {})
+        .get(profile_id)
+    )
+    selected = {profile_type: profile} if isinstance(profile, Mapping) else {}
+    return resolve_room_config(
+        system_defaults(),
+        global_config.get(CONF_GLOBAL_SOURCES, {}),
+        global_config.get(CONF_GLOBAL_DEFAULTS, {}),
+        selected,
+        {},
+        {},
+        room_id="profile",
+        room_name=str(
+            profile.get(CONF_PROFILE_NAME, profile_id)
+            if isinstance(profile, Mapping)
+            else profile_id
+        ),
     )
 
 

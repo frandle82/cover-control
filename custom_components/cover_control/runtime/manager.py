@@ -23,10 +23,16 @@ from ..config_resolver import (
     resolve_entry_config,
 )
 from ..const import (
+    CONF_AUTO_BRIGHTNESS,
+    CONF_AUTO_SHADING,
+    CONF_AUTO_SUN,
+    CONF_AUTO_TIME,
+    CONF_AUTO_VENTILATE,
     CONF_COVERS,
     CONF_PROFILE_SELECTIONS,
     CONF_RESIDENT_SENSOR,
     CONF_ROOMS,
+    CONF_ROOM_OVERRIDES,
     DOMAIN,
     SIGNAL_ENTRY_STATE_UPDATED,
 )
@@ -40,14 +46,22 @@ from .controller import CoverController
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
+    from ..hub import CoverControlHub
 
 
 class ControllerManager:
     """Create and coordinate per-cover controllers."""
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+    def __init__(
+        self,
+        hass: HomeAssistant,
+        entry: ConfigEntry,
+        hub: CoverControlHub | None = None,
+    ) -> None:
         self.hass = hass
         self.entry = entry
+        self.hub = hub
+        self.room_id = config_entry_room_id(entry.data, entry.entry_id)
         self.controllers: dict[str, CoverController] = {}
         # Runtime-only feature overrides controlled by integration switch entities.
         # None/absent => follow persisted config flow options.
@@ -251,6 +265,9 @@ class ControllerManager:
         async_dispatcher_send(
             self.hass, SIGNAL_ENTRY_STATE_UPDATED, self.entry.entry_id
         )
+        hub = getattr(self, "hub", None)
+        if hub is not None:
+            hub.refresh_profile_evaluations()
 
     @callback
     def _rebuild_entry_snapshot(self) -> None:
@@ -340,6 +357,39 @@ class ControllerManager:
             "temperature_threshold",
             "manual_override_minutes",
         )
+        def readable_source(key: str) -> str:
+            source = resolved.sources.get(key, "unknown")
+            if source.startswith("profile:"):
+                profile_id = source.removeprefix("profile:")
+                name = next(
+                    (
+                        resolved.profile_names.get(kind, profile_id)
+                        for kind, selected in resolved.selected_profiles.items()
+                        if selected == profile_id
+                    ),
+                    profile_id,
+                )
+                return f'Profile "{name}"'
+            return {
+                "system_default": "Default",
+                "global_default": "Global default",
+                "room_setting": "Room setting",
+                "room_override": "Room override",
+                "global_source": "Global source",
+                "room_source_override": "Room source override",
+            }.get(source, source)
+
+        room = getattr(self, "_config_model", {}).get(CONF_ROOMS, {}).get(
+            resolved.room_id, {}
+        )
+        runtime_toggles = getattr(self, "_runtime_toggles", {})
+        toggle_keys = (
+            CONF_AUTO_TIME,
+            CONF_AUTO_VENTILATE,
+            CONF_AUTO_BRIGHTNESS,
+            CONF_AUTO_SUN,
+            CONF_AUTO_SHADING,
+        )
         return {
             "room_id": resolved.room_id,
             "room_name": resolved.room_name,
@@ -348,9 +398,15 @@ class ControllerManager:
                 key: {
                     "value": resolved.get(key),
                     "source": resolved.sources.get(key),
+                    "source_name": readable_source(key),
                 }
                 for key in keys
                 if key in resolved
+            },
+            "room_overrides": dict(room.get(CONF_ROOM_OVERRIDES, {})),
+            "feature_switches": {
+                key: runtime_toggles.get(key, bool(resolved.get(key)))
+                for key in toggle_keys
             },
         }
 
@@ -407,12 +463,12 @@ class ControllerManager:
 
     @callback
     def _setup_shared_listener(self) -> None:
-        routes: dict[str, set[str]] = {}
-        for cover, controller in self.controllers.items():
-            for entity_id in controller._shared_decision_entities():
-                routes.setdefault(entity_id, set()).add(cover)
-        desired = set(routes)
-        self._entity_routes = routes
+        desired = self.shared_entity_routes()
+        hub = getattr(self, "hub", None)
+        if hub is not None:
+            self._clear_shared_listener(clear_routes=False)
+            hub.refresh_shared_listener()
+            return
         if desired == self._shared_entities:
             return
         self._clear_shared_listener(clear_routes=False)
@@ -423,6 +479,17 @@ class ControllerManager:
                 sorted(self._shared_entities),
                 self._handle_shared_state_event,
             )
+
+    @callback
+    def shared_entity_routes(self) -> set[str]:
+        """Return shared entity IDs while retaining cover-level routing."""
+
+        routes: dict[str, set[str]] = {}
+        for cover, controller in self.controllers.items():
+            for entity_id in controller._shared_decision_entities():
+                routes.setdefault(entity_id, set()).add(cover)
+        self._entity_routes = routes
+        return set(routes)
 
     @callback
     def _clear_shared_listener(self, *, clear_routes: bool = True) -> None:
@@ -443,13 +510,22 @@ class ControllerManager:
     def _resolve_entry_config(self) -> ResolvedRoomConfig:
         """Build the entry model and expose only its resolved room to runtime."""
 
-        room_id = config_entry_room_id(self.entry.data, self.entry.entry_id)
-        self._config_model = entry_config_model(
-            self.entry.data, self.entry.options, room_id=room_id
+        room_id = getattr(
+            self,
+            "room_id",
+            config_entry_room_id(self.entry.data, self.entry.entry_id),
         )
-        resolved = resolve_entry_config(
-            self.entry.data, self.entry.options, room_id=room_id
-        )
+        hub = getattr(self, "hub", None)
+        if hub is not None and room_id in hub.model.get(CONF_ROOMS, {}):
+            self._config_model = hub.model
+            resolved = resolve_config_model(hub.model, room_id)
+        else:
+            self._config_model = entry_config_model(
+                self.entry.data, self.entry.options, room_id=room_id
+            )
+            resolved = resolve_entry_config(
+                self.entry.data, self.entry.options, room_id=room_id
+            )
         self._resolved_config = resolved
         self._index_profile_users()
         return resolved
@@ -462,7 +538,11 @@ class ControllerManager:
 
         self._config_model = model
         self._index_profile_users()
-        room_id = config_entry_room_id(self.entry.data, self.entry.entry_id)
+        room_id = getattr(
+            self,
+            "room_id",
+            config_entry_room_id(self.entry.data, self.entry.entry_id),
+        )
         affected = affected_rooms or {room_id}
         if room_id not in affected:
             return set()
