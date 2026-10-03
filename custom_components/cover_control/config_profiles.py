@@ -1,0 +1,228 @@
+"""Profile and room operations for hierarchical Cover Control configuration."""
+
+from __future__ import annotations
+
+from collections.abc import Mapping
+from copy import deepcopy
+from typing import Any
+from uuid import uuid4
+
+from .config_resolver import (
+    GLOBAL_SOURCE_KEYS,
+    PROFILE_KEYS,
+    ROOM_SOURCE_OVERRIDE_KEYS,
+    resolve_config_model,
+)
+from .const import (
+    CONF_GLOBAL,
+    CONF_GLOBAL_DEFAULTS,
+    CONF_GLOBAL_SOURCES,
+    CONF_NAME,
+    CONF_PROFILE_ID,
+    CONF_PROFILE_NAME,
+    CONF_PROFILE_SELECTIONS,
+    CONF_PROFILE_SETTINGS,
+    CONF_PROFILES,
+    CONF_ROOM_OVERRIDES,
+    CONF_ROOMS,
+    CONF_SOURCE_OVERRIDES,
+    PROFILE_TYPES,
+)
+
+
+class ProfileError(ValueError):
+    """Base error for invalid profile model changes."""
+
+
+class ProfileInUseError(ProfileError):
+    """Raised when a referenced profile cannot be deleted."""
+
+    def __init__(self, profile_type: str, profile_id: str, rooms: set[str]) -> None:
+        self.profile_type = profile_type
+        self.profile_id = profile_id
+        self.rooms = rooms
+        super().__init__(
+            f"Profile {profile_type}:{profile_id} is used by: "
+            + ", ".join(sorted(rooms))
+        )
+
+
+class ConfigProfileModel:
+    """Apply validated profile changes without duplicating values into rooms."""
+
+    def __init__(self, model: Mapping[str, Any]) -> None:
+        self.data: dict[str, Any] = deepcopy(dict(model))
+        self.data.setdefault(CONF_GLOBAL, {}).setdefault(CONF_GLOBAL_SOURCES, {})
+        self.data[CONF_GLOBAL].setdefault(CONF_GLOBAL_DEFAULTS, {})
+        profiles = self.data.setdefault(CONF_PROFILES, {})
+        for profile_type in PROFILE_TYPES:
+            profiles.setdefault(profile_type, {})
+        self.data.setdefault(CONF_ROOMS, {})
+
+    @property
+    def profile_users(self) -> dict[tuple[str, str], set[str]]:
+        """Return the current reverse dependency index."""
+
+        users: dict[tuple[str, str], set[str]] = {}
+        for room_id, room in self.data[CONF_ROOMS].items():
+            for profile_type, profile_id in room.get(
+                CONF_PROFILE_SELECTIONS, {}
+            ).items():
+                users.setdefault((profile_type, profile_id), set()).add(room_id)
+        return users
+
+    def create_profile(
+        self,
+        profile_type: str,
+        name: str,
+        settings: Mapping[str, Any],
+        *,
+        profile_id: str | None = None,
+    ) -> str:
+        """Create a profile with a stable opaque identifier."""
+
+        self._validate_profile_type(profile_type)
+        self._validate_settings(profile_type, settings)
+        new_id = profile_id or f"{profile_type}-{uuid4().hex[:12]}"
+        catalog = self.data[CONF_PROFILES][profile_type]
+        if new_id in catalog:
+            raise ProfileError(f"Profile already exists: {profile_type}:{new_id}")
+        catalog[new_id] = {
+            CONF_PROFILE_ID: new_id,
+            CONF_PROFILE_NAME: name,
+            CONF_PROFILE_SETTINGS: dict(settings),
+        }
+        return new_id
+
+    def update_profile(
+        self,
+        profile_type: str,
+        profile_id: str,
+        settings: Mapping[str, Any],
+    ) -> set[str]:
+        """Replace profile settings and return only affected rooms."""
+
+        self._validate_settings(profile_type, settings)
+        profile = self._profile(profile_type, profile_id)
+        profile[CONF_PROFILE_SETTINGS] = dict(settings)
+        return set(self.profile_users.get((profile_type, profile_id), set()))
+
+    def rename_profile(
+        self, profile_type: str, profile_id: str, name: str
+    ) -> set[str]:
+        """Rename a profile without changing its ID or references."""
+
+        self._profile(profile_type, profile_id)[CONF_PROFILE_NAME] = name
+        return set(self.profile_users.get((profile_type, profile_id), set()))
+
+    def duplicate_profile(
+        self, profile_type: str, profile_id: str, name: str
+    ) -> str:
+        """Copy profile settings into a new independently identified profile."""
+
+        profile = self._profile(profile_type, profile_id)
+        return self.create_profile(
+            profile_type, name, profile.get(CONF_PROFILE_SETTINGS, {})
+        )
+
+    def delete_profile(self, profile_type: str, profile_id: str) -> None:
+        """Delete an unused profile, blocking dangling room references."""
+
+        profile = self._profile(profile_type, profile_id)
+        users = self.profile_users.get((profile_type, profile_id), set())
+        if users:
+            raise ProfileInUseError(profile_type, profile_id, users)
+        del self.data[CONF_PROFILES][profile_type][profile[CONF_PROFILE_ID]]
+
+    def assign_profile(
+        self, room_id: str, profile_type: str, profile_id: str
+    ) -> None:
+        """Store only a profile reference on the room."""
+
+        self._profile(profile_type, profile_id)
+        room = self._room(room_id)
+        room.setdefault(CONF_PROFILE_SELECTIONS, {})[profile_type] = profile_id
+
+    def unassign_profile(self, room_id: str, profile_type: str) -> None:
+        """Remove a profile reference and overrides tied to that profile type."""
+
+        room = self._room(room_id)
+        room.setdefault(CONF_PROFILE_SELECTIONS, {}).pop(profile_type, None)
+        room.setdefault(CONF_ROOM_OVERRIDES, {}).pop(profile_type, None)
+
+    def set_override(
+        self, room_id: str, profile_type: str, key: str, value: Any
+    ) -> None:
+        """Store an override only when it differs from the inherited value."""
+
+        self._validate_settings(profile_type, {key: value})
+        room = self._room(room_id)
+        overrides = room.setdefault(CONF_ROOM_OVERRIDES, {}).setdefault(
+            profile_type, {}
+        )
+        overrides.pop(key, None)
+        inherited = resolve_config_model(self.data, room_id).get(key)
+        if value != inherited:
+            overrides[key] = value
+        if not overrides:
+            room[CONF_ROOM_OVERRIDES].pop(profile_type, None)
+
+    def remove_override(self, room_id: str, profile_type: str, key: str) -> None:
+        """Return a room value immediately to its inherited profile value."""
+
+        room = self._room(room_id)
+        overrides = room.setdefault(CONF_ROOM_OVERRIDES, {}).get(profile_type, {})
+        overrides.pop(key, None)
+        if not overrides:
+            room[CONF_ROOM_OVERRIDES].pop(profile_type, None)
+
+    def set_global_source(self, key: str, value: Any) -> set[str]:
+        """Update one shared source and return rooms without an override."""
+
+        if key not in GLOBAL_SOURCE_KEYS:
+            raise ProfileError(f"Unsupported global source: {key}")
+        self.data[CONF_GLOBAL][CONF_GLOBAL_SOURCES][key] = value
+        return {
+            room_id
+            for room_id, room in self.data[CONF_ROOMS].items()
+            if key not in room.get(CONF_SOURCE_OVERRIDES, {})
+        }
+
+    def set_source_override(self, room_id: str, key: str, value: Any) -> None:
+        """Set a room-local source override."""
+
+        if key not in ROOM_SOURCE_OVERRIDE_KEYS:
+            raise ProfileError(f"Unsupported room source override: {key}")
+        self._room(room_id).setdefault(CONF_SOURCE_OVERRIDES, {})[key] = value
+
+    def _room(self, room_id: str) -> dict[str, Any]:
+        try:
+            return self.data[CONF_ROOMS][room_id]
+        except KeyError as err:
+            raise ProfileError(f"Unknown room: {room_id}") from err
+
+    def _profile(self, profile_type: str, profile_id: str) -> dict[str, Any]:
+        self._validate_profile_type(profile_type)
+        try:
+            return self.data[CONF_PROFILES][profile_type][profile_id]
+        except KeyError as err:
+            raise ProfileError(
+                f"Unknown profile: {profile_type}:{profile_id}"
+            ) from err
+
+    @staticmethod
+    def _validate_profile_type(profile_type: str) -> None:
+        if profile_type not in PROFILE_TYPES:
+            raise ProfileError(f"Unsupported profile type: {profile_type}")
+
+    @classmethod
+    def _validate_settings(
+        cls, profile_type: str, settings: Mapping[str, Any]
+    ) -> None:
+        cls._validate_profile_type(profile_type)
+        invalid = set(settings) - PROFILE_KEYS[profile_type]
+        if invalid:
+            raise ProfileError(
+                f"Settings do not belong to {profile_type}: "
+                + ", ".join(sorted(invalid))
+            )
