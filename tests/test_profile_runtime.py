@@ -2,6 +2,7 @@
 
 from types import SimpleNamespace
 from unittest.mock import Mock
+from datetime import datetime, timedelta, UTC
 
 from custom_components.cover_control.config_profiles import ConfigProfileModel
 from custom_components.cover_control.const import (
@@ -154,6 +155,33 @@ def test_config_update_clears_pending_timers_before_rescheduling() -> None:
     controller._clear_runtime_condition_timers.assert_called_once_with()
     controller._refresh_next_events.assert_called_once()
     controller.async_request_evaluate.assert_called_once_with("config")
+
+
+def test_profile_waiting_time_reschedules_existing_pending_timer() -> None:
+    controller = object.__new__(CoverController)
+    now = datetime.now(UTC)
+    original_due = now + timedelta(seconds=300)
+    controller.config = {CONF_SHADING_WAITINGTIME_END: 600}
+    controller._shading_pending = {"end": original_due}
+    controller._resubscribe_local_decision_entities = Mock()
+    controller._clear_runtime_condition_timers = Mock(
+        side_effect=lambda: controller._shading_pending.clear()
+    )
+    controller._clear_manual_expiry = Mock()
+    controller._hydrate_persistent_status = Mock()
+    controller._target = 1
+    controller._last_position = 1
+    controller._set_shading_pending = Mock()
+    controller._refresh_next_events = Mock()
+    controller._schedule_manual_expiry = Mock()
+    controller.persist_status = Mock()
+    controller.async_request_evaluate = Mock()
+    controller._publish_state = Mock()
+
+    controller.update_config({CONF_SHADING_WAITINGTIME_END: 900})
+
+    rescheduled = controller._set_shading_pending.call_args.args[1]
+    assert rescheduled == original_due + timedelta(seconds=300)
 
 
 def test_configuration_diagnostics_expose_profile_and_value_origin() -> None:

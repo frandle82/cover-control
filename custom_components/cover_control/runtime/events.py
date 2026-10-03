@@ -34,6 +34,8 @@ from ..const import (
     CONF_POSITION_SOURCE_CUSTOM_SENSOR,
     CONF_POSITION_TOLERANCE,
     CONF_RESIDENT_SENSOR,
+    CONF_SHADING_WAITINGTIME_END,
+    CONF_SHADING_WAITINGTIME_START,
     CONF_VENTILATE_POSITION,
     CONF_VENTILATION_START_NO_DELAY,
     DEFAULT_CLOSE_POSITION,
@@ -89,6 +91,16 @@ class EventsMixin:
 
     @callback
     def update_config(self, new_config: ConfigType) -> None:
+        old_config = self.config
+        pending_started: dict[str, datetime] = {}
+        for kind, due_at in getattr(self, "_shading_pending", {}).items():
+            key = (
+                CONF_SHADING_WAITINGTIME_START
+                if kind == "start"
+                else CONF_SHADING_WAITINGTIME_END
+            )
+            old_wait = max(0.0, float(old_config.get(key, 0) or 0))
+            pending_started[kind] = due_at - timedelta(seconds=old_wait)
         self.config = new_config
         self._resubscribe_local_decision_entities()
         self._clear_runtime_condition_timers()
@@ -99,6 +111,16 @@ class EventsMixin:
         if self._last_position is None:
             self._last_position = self._current_position()
         now = dt_util.utcnow()
+        for kind, started_at in pending_started.items():
+            key = (
+                CONF_SHADING_WAITINGTIME_START
+                if kind == "start"
+                else CONF_SHADING_WAITINGTIME_END
+            )
+            new_wait = max(0.0, float(new_config.get(key, 0) or 0))
+            due_at = started_at + timedelta(seconds=new_wait)
+            if new_wait > 0 and due_at > now:
+                self._set_shading_pending(kind, due_at, False)
         self._refresh_next_events(now)
         self._schedule_manual_expiry()
         self.persist_status()
