@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import asyncio
 from datetime import datetime, time, timedelta
+import inspect
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
@@ -17,7 +18,16 @@ from custom_components.cover_control.const import (
     CONF_AUTO_UP,
 )
 from custom_components.cover_control.controller import ControllerManager, CoverController
+from custom_components.cover_control.runtime.events import EventsMixin
 from custom_components.cover_control.sensor import NextOpenSensor
+
+
+def test_setup_has_no_generic_interval_evaluation() -> None:
+    """Controller setup must not restore the removed minute polling loop."""
+
+    source = inspect.getsource(EventsMixin.async_setup)
+    assert "async_track_time_interval" not in source
+    assert "_handle_interval" not in source
 
 
 def test_state_snapshot_is_read_only() -> None:
@@ -293,6 +303,19 @@ def test_shared_entities_use_one_manager_listener() -> None:
         ["sensor.outdoor", "sun.sun"],
         manager._handle_shared_state_event,
     )
+
+
+def test_shared_sun_event_queues_all_controllers_together() -> None:
+    """One manager callback fans a shared sun change into the common queue."""
+
+    manager = object.__new__(ControllerManager)
+    manager.controllers = {"cover.first": Mock(), "cover.second": Mock()}
+    manager.request_evaluate_all = Mock()
+    event = SimpleNamespace(data={"entity_id": "sun.sun"})
+
+    manager._handle_shared_state_event(event)
+
+    manager.request_evaluate_all.assert_called_once_with("sun")
 
 
 @pytest.mark.asyncio
