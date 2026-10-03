@@ -90,6 +90,7 @@ class EventsMixin:
 
     async def async_unload(self) -> None:
         self._clear_scheduled_event_timers()
+        self._clear_runtime_condition_timers()
         self._clear_manual_expiry()
         while self._unsubs:
             unsub = self._unsubs.pop()
@@ -98,6 +99,7 @@ class EventsMixin:
     @callback
     def update_config(self, new_config: ConfigType) -> None:
         self.config = new_config
+        self._clear_runtime_condition_timers()
         self._clear_manual_expiry()
         self._hydrate_persistent_status()
         if self._target is None:
@@ -547,6 +549,58 @@ class EventsMixin:
                 setattr(self, attribute, None)
         self._scheduled_open_at = None
         self._scheduled_close_at = None
+
+    @callback
+    def _schedule_shading_timer(self, kind: str, due_at: datetime) -> None:
+        existing_due = self._shading_pending.get(kind)
+        existing_unsub = self._shading_timer_unsubs.get(kind)
+        if existing_due == due_at and existing_unsub is not None:
+            return
+        self._cancel_shading_timer(kind)
+
+        @callback
+        def _handle_shading_timer(_now: datetime) -> None:
+            self._shading_timer_unsubs.pop(kind, None)
+            self.async_request_evaluate(f"shading_{kind}_timer")
+
+        self._shading_timer_unsubs[kind] = async_track_point_in_time(
+            self.hass, _handle_shading_timer, due_at
+        )
+
+    @callback
+    def _cancel_shading_timer(self, kind: str) -> None:
+        unsubscribe = self._shading_timer_unsubs.pop(kind, None)
+        if unsubscribe is not None:
+            unsubscribe()
+
+    @callback
+    def _schedule_condition_timer(self, key: str, due_at: datetime) -> None:
+        if key in self._condition_timer_unsubs:
+            return
+
+        @callback
+        def _handle_condition_timer(_now: datetime) -> None:
+            self._condition_timer_unsubs.pop(key, None)
+            self.async_request_evaluate(f"condition_timer:{key}")
+
+        self._condition_timer_unsubs[key] = async_track_point_in_time(
+            self.hass, _handle_condition_timer, due_at
+        )
+
+    @callback
+    def _cancel_condition_timer(self, key: str) -> None:
+        unsubscribe = self._condition_timer_unsubs.pop(key, None)
+        if unsubscribe is not None:
+            unsubscribe()
+
+    @callback
+    def _clear_runtime_condition_timers(self) -> None:
+        for kind in tuple(self._shading_timer_unsubs):
+            self._cancel_shading_timer(kind)
+        self._shading_pending.clear()
+        for key in tuple(self._condition_timer_unsubs):
+            self._cancel_condition_timer(key)
+        self._condition_since.clear()
 
     def activate_shading(self, minutes: int | None = None) -> None:
         duration = minutes or self.config.get(

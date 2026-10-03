@@ -317,6 +317,9 @@ def _shading_wait_controller() -> CoverController:
         }
     }
     controller.persist_status = Mock()
+    controller._shading_pending = {}
+    controller._schedule_shading_timer = Mock()
+    controller._cancel_shading_timer = Mock()
     return controller
 
 

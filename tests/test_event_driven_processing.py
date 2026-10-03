@@ -121,3 +121,103 @@ def test_next_sun_event_does_not_follow_now() -> None:
     assert controller._next_open == next_rising
     assert controller._next_open != now
     controller._reschedule_next_event_timers.assert_called_once_with(now)
+
+
+def test_shading_pending_timer_cancels_and_restarts() -> None:
+    """A broken shading condition cancels its timer before a fresh wait."""
+
+    controller = object.__new__(CoverController)
+    controller.hass = object()
+    controller._status = {"shading": {"active": False}}
+    controller._shading_pending = {}
+    controller._shading_timer_unsubs = {}
+    controller.async_request_evaluate = Mock()
+    now = dt_util.utcnow()
+    first_due = now + timedelta(minutes=5)
+    second_due = now + timedelta(minutes=10)
+    callbacks = []
+    unsubs = []
+
+    def _track(_hass, callback, due):
+        callbacks.append((callback, due))
+        unsubscribe = Mock()
+        unsubs.append(unsubscribe)
+        return unsubscribe
+
+    with patch(
+        "custom_components.cover_control.runtime.events.async_track_point_in_time",
+        side_effect=_track,
+    ):
+        controller._set_shading_pending("start", first_due, False)
+        assert controller._shading_pending_active("start")
+        controller._clear_shading_pending("start")
+        unsubs[0].assert_called_once_with()
+        assert not controller._shading_pending_active("start")
+
+        controller._set_shading_pending("start", second_due, False)
+        callbacks[1][0](second_due)
+
+    controller.async_request_evaluate.assert_called_once_with("shading_start_timer")
+
+
+def test_duration_condition_uses_timer_and_cancels_on_fall() -> None:
+    """A duration condition is reevaluated at its deadline without polling."""
+
+    controller = object.__new__(CoverController)
+    controller.hass = object()
+    controller._condition_since = {}
+    controller._condition_timer_unsubs = {}
+    controller.async_request_evaluate = Mock()
+    now = dt_util.utcnow()
+    callbacks = []
+    unsubscribe = Mock()
+
+    def _track(_hass, callback, due):
+        callbacks.append((callback, due))
+        return unsubscribe
+
+    with (
+        patch(
+            "custom_components.cover_control.runtime.events.async_track_point_in_time",
+            side_effect=_track,
+        ),
+        patch(
+            "custom_components.cover_control.runtime.evaluation.dt_util.utcnow",
+            return_value=now,
+        ),
+    ):
+        assert not controller._condition_held("sun_open", True, 60)
+        assert len(callbacks) == 1
+        assert callbacks[0][1] == now + timedelta(seconds=60)
+        assert not controller._condition_held("sun_open", False, 60)
+
+    unsubscribe.assert_called_once_with()
+    assert "sun_open" not in controller._condition_since
+
+
+def test_duration_condition_timer_requests_one_evaluation() -> None:
+    """A duration callback contributes its precise condition trigger."""
+
+    controller = object.__new__(CoverController)
+    controller.hass = object()
+    controller._condition_timer_unsubs = {}
+    controller.async_request_evaluate = Mock()
+    due = dt_util.utcnow() + timedelta(seconds=30)
+    callback = None
+
+    def _track(_hass, tracked_callback, _due):
+        nonlocal callback
+        callback = tracked_callback
+        return Mock()
+
+    with patch(
+        "custom_components.cover_control.runtime.events.async_track_point_in_time",
+        side_effect=_track,
+    ):
+        controller._schedule_condition_timer("brightness_close", due)
+        assert callback is not None
+        callback(due)
+
+    controller.async_request_evaluate.assert_called_once_with(
+        "condition_timer:brightness_close"
+    )

@@ -543,14 +543,14 @@ class EvaluationMixin:
                 if max_duration <= 0:
                     self._clear_shading_pending("start")
                 else:
-                    pending_ts = (
-                        _coerce_float(self._shading_status().get("start_pending")) or 0
-                    )
+                    pending_at = self._shading_pending_at("start")
                     waiting = self._duration_value(
                         CONF_SHADING_WAITINGTIME_START,
                         DEFAULT_SHADING_TIMING_SETTINGS[CONF_SHADING_WAITINGTIME_START],
                     )
-                    started_ts = max(0, pending_ts - waiting)
+                    started_ts = max(
+                        0, pending_at.timestamp() - waiting if pending_at else 0
+                    )
                     if started_ts and now.timestamp() - started_ts > max_duration:
                         self._clear_shading_pending("start")
             if shading_active and shading_allowed:
@@ -590,10 +590,10 @@ class EvaluationMixin:
                     DEFAULT_SHADING_TIMING_SETTINGS[CONF_SHADING_END_MAX_DURATION],
                 )
                 if self._shading_pending_active("end") and max_end_duration > 0:
-                    pending_ts = (
-                        _coerce_float(self._shading_status().get("end_pending")) or 0
+                    pending_at = self._shading_pending_at("end")
+                    started_ts = max(
+                        0, pending_at.timestamp() - waiting_end if pending_at else 0
                     )
-                    started_ts = max(0, pending_ts - waiting_end)
                     if started_ts and now.timestamp() - started_ts > max_end_duration:
                         self._clear_shading_pending("end")
                         if self._reason in {"shading", "manual_shading"}:
@@ -1061,11 +1061,18 @@ class EvaluationMixin:
     def _condition_held(self, key: str, passed: bool, seconds: int) -> bool:
         if not passed:
             self._condition_since.pop(key, None)
+            self._cancel_condition_timer(key)
             return False
         if seconds <= 0:
+            self._condition_since.pop(key, None)
+            self._cancel_condition_timer(key)
             return True
         now = dt_util.utcnow()
-        start = self._condition_since.setdefault(key, now)
+        start = self._condition_since.get(key)
+        if start is None:
+            start = now
+            self._condition_since[key] = start
+            self._schedule_condition_timer(key, start + timedelta(seconds=seconds))
         return now - start >= timedelta(seconds=seconds)
 
     def _config_bool(self, key: str) -> bool:

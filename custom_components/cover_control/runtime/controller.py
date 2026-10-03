@@ -87,6 +87,9 @@ class CoverController(
         self._scheduled_close_unsub: CALLBACK_TYPE | None = None
         self._scheduled_open_at: datetime | None = None
         self._scheduled_close_at: datetime | None = None
+        self._shading_pending: dict[str, datetime] = {}
+        self._shading_timer_unsubs: dict[str, CALLBACK_TYPE] = {}
+        self._condition_timer_unsubs: dict[str, CALLBACK_TYPE] = {}
         self._last_command_context_id: str | None = None
         self._manual_movement_pending = False
         self._logbook_dedupe: set[str] = set()
@@ -100,6 +103,11 @@ class CoverController(
         self._cover_unavailable_logged = False
         self._unavailable_dependencies: set[str] = set()
         self._hydrate_persistent_status()
+        shading_status = self._status.get("shading")
+        if isinstance(shading_status, dict):
+            # Pending waits are process-local and are never resumed from storage.
+            shading_status["start_pending"] = 0
+            shading_status["end_pending"] = 0
         self._auto_entity_map = {
             CONF_AUTO_UP: CONF_AUTO_UP_ENTITY,
             CONF_AUTO_DOWN: CONF_AUTO_DOWN_ENTITY,
