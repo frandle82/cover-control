@@ -64,6 +64,7 @@ class CoverController(
             [CoverController, float, str], Awaitable[None]
         ]
         | None = None,
+        publish_callback: Callable[[CoverController], None] | None = None,
     ) -> None:
         self.hass = hass
         self.entry = entry
@@ -72,6 +73,7 @@ class CoverController(
         self._persist_callback = persist_callback
         self._evaluate_callback = evaluate_callback
         self._group_position_callback = group_position_callback
+        self._publish_callback = publish_callback
         self._status = _normalize_cover_status(persisted_status)
         self._unsubs: list[CALLBACK_TYPE] = []
         self._manual_until: datetime | None = None
@@ -83,6 +85,18 @@ class CoverController(
         self._last_command_at: datetime | None = None
         self._ignore_service_call_until: datetime | None = None
         self._manual_expire_unsub: CALLBACK_TYPE | None = None
+        self._scheduled_open_unsub: CALLBACK_TYPE | None = None
+        self._scheduled_close_unsub: CALLBACK_TYPE | None = None
+        self._scheduled_open_at: datetime | None = None
+        self._scheduled_close_at: datetime | None = None
+        self._shading_pending: dict[str, datetime] = {}
+        self._shading_timer_unsubs: dict[str, CALLBACK_TYPE] = {}
+        self._condition_timer_unsubs: dict[str, CALLBACK_TYPE] = {}
+        self._delayed_evaluation_unsubs: dict[str, CALLBACK_TYPE] = {}
+        self._calendar_timer_unsubs: dict[str, CALLBACK_TYPE] = {}
+        self._calendar_timer_times: dict[str, datetime] = {}
+        self._evaluation_context: dict[str, object] | None = None
+        self._current_evaluation_triggers: frozenset[str] = frozenset()
         self._last_command_context_id: str | None = None
         self._manual_movement_pending = False
         self._logbook_dedupe: set[str] = set()
@@ -96,6 +110,11 @@ class CoverController(
         self._cover_unavailable_logged = False
         self._unavailable_dependencies: set[str] = set()
         self._hydrate_persistent_status()
+        shading_status = self._status.get("shading")
+        if isinstance(shading_status, dict):
+            # Pending waits are process-local and are never resumed from storage.
+            shading_status["start_pending"] = 0
+            shading_status["end_pending"] = 0
         self._auto_entity_map = {
             CONF_AUTO_UP: CONF_AUTO_UP_ENTITY,
             CONF_AUTO_DOWN: CONF_AUTO_DOWN_ENTITY,
@@ -104,3 +123,15 @@ class CoverController(
             CONF_AUTO_VENTILATE: CONF_AUTO_VENTILATE_ENTITY,
             CONF_AUTO_SHADING: CONF_AUTO_SHADING_ENTITY,
         }
+
+    def _state_for(self, entity_id: str | None):
+        """Return a batch-snapshotted state when the manager supplied one."""
+
+        if not entity_id:
+            return None
+        context = getattr(self, "_evaluation_context", None)
+        if context is not None:
+            states = context.get("states")
+            if isinstance(states, dict) and entity_id in states:
+                return states[entity_id]
+        return self.hass.states.get(entity_id)

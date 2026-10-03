@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import (
     datetime,
     timedelta,
@@ -13,7 +12,6 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import (
     async_track_point_in_time,
     async_track_state_change_event,
-    async_track_time_interval,
 )
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
@@ -66,11 +64,6 @@ class EventsMixin:
             "switch", DOMAIN, f"{self.entry.entry_id}-master"
         )
         self._unsubs.append(
-            async_track_time_interval(
-                self.hass, self._handle_interval, timedelta(minutes=1)
-            )
-        )
-        self._unsubs.append(
             self.hass.bus.async_listen("call_service", self._handle_service_call)
         )
         self._sync_position_reference_from_entity()
@@ -78,7 +71,7 @@ class EventsMixin:
             self._target = self._current_position()
         if self._last_position is None:
             self._last_position = self._current_position()
-        sensor_entities = self._decision_entities()
+        sensor_entities = self._local_decision_entities()
         sensor_entities.add(self.cover)
         for entity_id in sensor_entities:
             if not entity_id:
@@ -95,6 +88,9 @@ class EventsMixin:
         self.async_request_evaluate("startup")
 
     async def async_unload(self) -> None:
+        self._clear_scheduled_event_timers()
+        self._clear_runtime_condition_timers()
+        self._clear_manual_expiry()
         while self._unsubs:
             unsub = self._unsubs.pop()
             unsub()
@@ -102,6 +98,7 @@ class EventsMixin:
     @callback
     def update_config(self, new_config: ConfigType) -> None:
         self.config = new_config
+        self._clear_runtime_condition_timers()
         self._clear_manual_expiry()
         self._hydrate_persistent_status()
         if self._target is None:
@@ -222,7 +219,7 @@ class EventsMixin:
                 else (self._contact_trigger_delay() + self._contact_status_delay())
             )
             if delay > 0:
-                self.hass.async_create_task(self._delayed_evaluate("contact", delay))
+                self._schedule_delayed_evaluate("contact", delay)
                 return
             trigger = "contact"
         self.async_request_evaluate(trigger)
@@ -298,12 +295,20 @@ class EventsMixin:
         self.async_request_evaluate("manual_service")
 
     @callback
-    def _handle_interval(self, now: datetime) -> None:
-        self.async_request_evaluate("time")
+    def _schedule_delayed_evaluate(self, trigger: str, delay: int) -> None:
+        unsubscribe = self._delayed_evaluation_unsubs.pop(trigger, None)
+        if unsubscribe is not None:
+            unsubscribe()
+        due_at = dt_util.utcnow() + timedelta(seconds=delay)
 
-    async def _delayed_evaluate(self, trigger: str, delay: int) -> None:
-        await asyncio.sleep(delay)
-        self.async_request_evaluate(trigger)
+        @callback
+        def _handle_delayed_evaluation(_now: datetime) -> None:
+            self._delayed_evaluation_unsubs.pop(trigger, None)
+            self.async_request_evaluate(trigger)
+
+        self._delayed_evaluation_unsubs[trigger] = async_track_point_in_time(
+            self.hass, _handle_delayed_evaluation, due_at
+        )
 
     def _manual_detection_enabled(self) -> bool:
         if self._manual_active:
@@ -458,7 +463,6 @@ class EventsMixin:
 
     def publish_state(self) -> None:
         """Expose the current state via dispatcher for newly added entities."""
-        self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
 
     def state_snapshot(
@@ -477,7 +481,6 @@ class EventsMixin:
     ]:
         """Provide the current state values without dispatching updates."""
 
-        self._refresh_next_events(dt_util.utcnow())
         current_position = self._current_position()
         shading_enabled = self._auto_enabled(CONF_AUTO_SHADING)
         shading_active = self._shading_is_active(current_position, shading_enabled)
@@ -494,6 +497,160 @@ class EventsMixin:
             shading_active,
             ventilation_active,
         )
+
+    @callback
+    def _reschedule_next_event_timers(self, now: datetime) -> None:
+        """Keep one point-in-time callback for each calculated schedule event."""
+
+        self._scheduled_open_unsub, self._scheduled_open_at = (
+            self._reschedule_event_timer(
+                self._scheduled_open_unsub,
+                self._scheduled_open_at,
+                self._next_open,
+                now,
+                "open",
+            )
+        )
+        self._scheduled_close_unsub, self._scheduled_close_at = (
+            self._reschedule_event_timer(
+                self._scheduled_close_unsub,
+                self._scheduled_close_at,
+                self._next_close,
+                now,
+                "close",
+            )
+        )
+
+    def _reschedule_event_timer(
+        self,
+        unsubscribe,
+        scheduled_at: datetime | None,
+        next_event: datetime | None,
+        now: datetime,
+        kind: str,
+    ):
+        if scheduled_at == next_event and unsubscribe is not None:
+            return unsubscribe, scheduled_at
+        if unsubscribe is not None:
+            unsubscribe()
+        if next_event is None or next_event <= now:
+            return None, None
+
+        @callback
+        def _handle_scheduled_event(_now: datetime) -> None:
+            if kind == "open":
+                self._scheduled_open_unsub = None
+                self._scheduled_open_at = None
+            else:
+                self._scheduled_close_unsub = None
+                self._scheduled_close_at = None
+            self.async_request_evaluate(f"scheduled_{kind}")
+
+        return (
+            async_track_point_in_time(self.hass, _handle_scheduled_event, next_event),
+            next_event,
+        )
+
+    @callback
+    def _clear_scheduled_event_timers(self) -> None:
+        for attribute in ("_scheduled_open_unsub", "_scheduled_close_unsub"):
+            unsubscribe = getattr(self, attribute, None)
+            if unsubscribe is not None:
+                unsubscribe()
+                setattr(self, attribute, None)
+        self._scheduled_open_at = None
+        self._scheduled_close_at = None
+
+    @callback
+    def _schedule_shading_timer(self, kind: str, due_at: datetime) -> None:
+        self._cancel_shading_timer(kind)
+
+        @callback
+        def _handle_shading_timer(_now: datetime) -> None:
+            self._shading_timer_unsubs.pop(kind, None)
+            self.async_request_evaluate(f"shading_{kind}_timer")
+
+        self._shading_timer_unsubs[kind] = async_track_point_in_time(
+            self.hass, _handle_shading_timer, due_at
+        )
+
+    @callback
+    def _cancel_shading_timer(self, kind: str) -> None:
+        unsubscribe = self._shading_timer_unsubs.pop(kind, None)
+        if unsubscribe is not None:
+            unsubscribe()
+
+    @callback
+    def _schedule_condition_timer(self, key: str, due_at: datetime) -> None:
+        if key in self._condition_timer_unsubs:
+            return
+
+        @callback
+        def _handle_condition_timer(_now: datetime) -> None:
+            self._condition_timer_unsubs.pop(key, None)
+            self.async_request_evaluate(f"condition_timer:{key}")
+
+        self._condition_timer_unsubs[key] = async_track_point_in_time(
+            self.hass, _handle_condition_timer, due_at
+        )
+
+    @callback
+    def _cancel_condition_timer(self, key: str) -> None:
+        unsubscribe = self._condition_timer_unsubs.pop(key, None)
+        if unsubscribe is not None:
+            unsubscribe()
+
+    @callback
+    def _clear_runtime_condition_timers(self) -> None:
+        for kind in tuple(self._shading_timer_unsubs):
+            self._cancel_shading_timer(kind)
+        self._shading_pending.clear()
+        for key in tuple(self._condition_timer_unsubs):
+            self._cancel_condition_timer(key)
+        self._condition_since.clear()
+        for trigger, unsubscribe in tuple(self._delayed_evaluation_unsubs.items()):
+            unsubscribe()
+            self._delayed_evaluation_unsubs.pop(trigger, None)
+        for key, unsubscribe in tuple(self._calendar_timer_unsubs.items()):
+            unsubscribe()
+            self._calendar_timer_unsubs.pop(key, None)
+        self._calendar_timer_times.clear()
+
+    @callback
+    def _reschedule_calendar_boundaries(
+        self,
+        open_window: tuple[datetime, datetime] | None,
+        close_window: tuple[datetime, datetime] | None,
+        now: datetime,
+    ) -> None:
+        desired = {
+            key: due_at
+            for key, due_at in (
+                ("open_start", open_window[0] if open_window else None),
+                ("open_end", open_window[1] if open_window else None),
+                ("close_start", close_window[0] if close_window else None),
+                ("close_end", close_window[1] if close_window else None),
+            )
+            if due_at is not None and due_at > now
+        }
+        for key in tuple(self._calendar_timer_unsubs):
+            if self._calendar_timer_times.get(key) != desired.get(key):
+                self._calendar_timer_unsubs.pop(key)()
+                self._calendar_timer_times.pop(key, None)
+        for key, due_at in desired.items():
+            if key in self._calendar_timer_unsubs:
+                continue
+
+            @callback
+            def _handle_calendar_boundary(_now: datetime, boundary: str = key) -> None:
+                self._calendar_timer_unsubs.pop(boundary, None)
+                self._calendar_timer_times.pop(boundary, None)
+                self.async_request_evaluate(f"calendar_boundary:{boundary}")
+
+            self._calendar_timer_times[key] = due_at
+            self._calendar_timer_unsubs[key] = async_track_point_in_time(
+                self.hass, _handle_calendar_boundary, due_at
+            )
 
     def activate_shading(self, minutes: int | None = None) -> None:
         duration = minutes or self.config.get(

@@ -69,7 +69,6 @@ from ..const import (
 from .common import (
     _LOGGER,
     _coerce_float,
-    _float_state,
 )
 
 
@@ -88,7 +87,8 @@ class ShadingMixin:
         )
         if not sensor:
             return fallback
-        return _float_state(self.hass, sensor)
+        state = self._state_for(sensor)
+        return _coerce_float(state.state if state else None)
 
     async def _async_update_shading_forecast(self) -> None:
         forecast_entity = self.config.get(CONF_SHADING_FORECAST_SENSOR)
@@ -99,7 +99,7 @@ class ShadingMixin:
         if not forecast_entity or forecast_type in (None, "weather_attributes"):
             return
 
-        state = self.hass.states.get(forecast_entity)
+        state = self._state_for(forecast_entity)
         if state is None or not state.entity_id.startswith("weather."):
             return
 
@@ -138,14 +138,15 @@ class ShadingMixin:
     def _shading_forecast_temperature(self) -> float | None:
         temp_sensor = self.config.get(CONF_SHADING_FORECAST_TEMP_SENSOR)
         if temp_sensor:
-            value = _float_state(self.hass, temp_sensor)
+            temp_state = self._state_for(temp_sensor)
+            value = _coerce_float(temp_state.state if temp_state else None)
             if value is not None:
                 return value
 
         forecast_entity = self.config.get(CONF_SHADING_FORECAST_SENSOR)
         if not forecast_entity:
             return None
-        state = self.hass.states.get(forecast_entity)
+        state = self._state_for(forecast_entity)
         if state is None:
             return None
 
@@ -180,7 +181,7 @@ class ShadingMixin:
         forecast_entity = self.config.get(CONF_SHADING_FORECAST_SENSOR)
         if not forecast_entity:
             return None
-        state = self.hass.states.get(forecast_entity)
+        state = self._state_for(forecast_entity)
         if state is None or not state.entity_id.startswith("weather."):
             return None
 
@@ -233,8 +234,10 @@ class ShadingMixin:
         temp2_sensor = self.config.get(
             CONF_SHADING_TEMPERATURE_SENSOR_2
         ) or self.config.get(CONF_TEMPERATURE_SENSOR_OUTDOOR)
-        temp1 = _float_state(self.hass, temp1_sensor)
-        temp2 = _float_state(self.hass, temp2_sensor)
+        temp1_state = self._state_for(temp1_sensor)
+        temp2_state = self._state_for(temp2_sensor)
+        temp1 = _coerce_float(temp1_state.state if temp1_state else None)
+        temp2 = _coerce_float(temp2_state.state if temp2_state else None)
         temp1_min = _coerce_float(
             self.config.get(
                 CONF_SHADING_MIN_TEMPERATURE_1,

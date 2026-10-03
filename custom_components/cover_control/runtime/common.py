@@ -16,6 +16,11 @@ _LOGGER = logging.getLogger(__name__)
 _TRIGGER_PRIORITY = {
     "state": 0,
     "time": 1,
+    "sun": 1,
+    "scheduled_open": 2,
+    "scheduled_close": 2,
+    "shading_start_timer": 4,
+    "shading_end_timer": 4,
     "startup": 2,
     "config": 3,
     "runtime_toggle": 3,

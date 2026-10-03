@@ -119,16 +119,18 @@ class ScheduleMixin:
         workday_entity = self.config.get(CONF_WORKDAY_SENSOR)
         if not workday_entity:
             return True
-        return self.hass.states.is_state(workday_entity, STATE_ON)
+        state = self._state_for(workday_entity)
+        return bool(state and state.state == STATE_ON)
 
     def _is_workday_tomorrow(self) -> bool:
         tomorrow_entity = self.config.get(CONF_WORKDAY_TOMORROW_SENSOR)
         if not tomorrow_entity:
             return self._is_workday()
-        return self.hass.states.is_state(tomorrow_entity, STATE_ON)
+        state = self._state_for(tomorrow_entity)
+        return bool(state and state.state == STATE_ON)
 
     def _single_contact_active(self, entity_id: str, now: datetime) -> bool:
-        state = self.hass.states.get(entity_id)
+        state = self._state_for(entity_id)
         if state is None or state.state != STATE_ON:
             return False
 
@@ -178,7 +180,7 @@ class ScheduleMixin:
             return False
 
         for sensor in sensors:
-            state = self.hass.states.get(sensor)
+            state = self._state_for(sensor)
             if state is None:
                 continue
             if state.state == STATE_ON:
@@ -201,7 +203,7 @@ class ScheduleMixin:
         }:
             return True
         if any(
-            (state := self.hass.states.get(entity_id)) is not None
+            (state := self._state_for(entity_id)) is not None
             and state.state in {STATE_ON, "true", "1"}
             for entity_id in self._contact_entities()
         ):
@@ -214,7 +216,7 @@ class ScheduleMixin:
         resident_entity = self.config.get(CONF_RESIDENT_SENSOR)
         if not resident_entity:
             return False
-        state = self.hass.states.get(resident_entity)
+        state = self._state_for(resident_entity)
         return self._resident_state_is_on(state.state if state else None)
 
     @staticmethod
@@ -241,7 +243,7 @@ class ScheduleMixin:
         if not calendar_entity or not title:
             return None
 
-        state = self.hass.states.get(calendar_entity)
+        state = self._state_for(calendar_entity)
         if state is None or state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
             return None
 
@@ -268,7 +270,7 @@ class ScheduleMixin:
         if not calendar_entity:
             return None, None
 
-        state = self.hass.states.get(calendar_entity)
+        state = self._state_for(calendar_entity)
         if state is None or state.state in {STATE_UNKNOWN, STATE_UNAVAILABLE}:
             return None, None
 
@@ -508,15 +510,12 @@ class ScheduleMixin:
         time_down_enabled = self._auto_enabled(CONF_AUTO_TIME) and self._auto_enabled(
             CONF_AUTO_DOWN
         )
-        sun_state = self.hass.states.get("sun.sun") if sun_enabled else None
+        sun_state = self._state_for("sun.sun") if sun_enabled else None
         sun_next_rising = self._parse_datetime_attr(
             sun_state and sun_state.attributes.get("next_rising")
         )
         sun_next_setting = self._parse_datetime_attr(
             sun_state and sun_state.attributes.get("next_setting")
-        )
-        current_sun_elevation = _coerce_float(
-            sun_state and sun_state.attributes.get("elevation")
         )
         open_threshold = self._dynamic_sun_threshold("open")
         close_threshold = self._dynamic_sun_threshold("close")
@@ -549,6 +548,18 @@ class ScheduleMixin:
         next_down_early, next_down_late = self._window_points(
             down_early_time, down_late_time, now
         )
+        action_dates = getattr(self, "_last_action_dates", {})
+        today = dt_util.as_local(now).date()
+        if action_dates.get("open") == today:
+            tomorrow_workday = self._is_workday_tomorrow()
+            up_early_time, up_late_time = self._time_bounds(tomorrow_workday, True)
+            next_up_early, next_up_late = self._window_points_for_date(
+                up_early_time, up_late_time, now, 1
+            )
+        if action_dates.get("close") == today:
+            next_down_early, next_down_late = self._window_points_for_date(
+                down_early_time, down_late_time, now, 1
+            )
 
         def _clamp_candidate(
             candidate: datetime | None,
@@ -571,25 +582,7 @@ class ScheduleMixin:
             )
             return future_fallbacks[0] if future_fallbacks else None
 
-        sun_open_already_passed = (
-            current_sun_elevation is not None
-            and open_threshold is not None
-            and current_sun_elevation > open_threshold
-        )
-        sun_close_already_passed = (
-            current_sun_elevation is not None
-            and close_threshold is not None
-            and current_sun_elevation < close_threshold
-            and (
-                self._within_closing_phase(now)
-                or self._within_evening_phase(now)
-                or self._is_time_down_late(now)
-            )
-        )
-
-        if sun_enabled and sun_open_already_passed:
-            open_base = now
-        elif sun_enabled and mode in {"dynamic", "hybrid"}:
+        if sun_enabled and mode in {"dynamic", "hybrid"}:
             # Dynamic/Hybrid use the elevation-based calculation first.
             # If unavailable, fall back to the native sun integration times
             # so next_open/next_close still remain sun-based.
@@ -597,9 +590,7 @@ class ScheduleMixin:
         else:
             open_base = (sun_open_target or sun_next_rising) if sun_enabled else None
 
-        if sun_enabled and sun_close_already_passed:
-            close_base = now
-        elif sun_enabled and mode in {"dynamic", "hybrid"}:
+        if sun_enabled and mode in {"dynamic", "hybrid"}:
             close_base = sun_close_target or sun_next_setting
         else:
             close_base = (sun_close_target or sun_next_setting) if sun_enabled else None
@@ -634,6 +625,8 @@ class ScheduleMixin:
             )
             if later_close:
                 self._next_close = later_close[0]
+
+        self._reschedule_next_event_timers(now)
 
     def _parse_datetime_attr(self, value: datetime | str | None) -> datetime | None:
         if isinstance(value, datetime):
@@ -736,6 +729,29 @@ class ScheduleMixin:
         elif not late_local and early_local and local_now > early_local:
             early_local = datetime.combine(today + timedelta(days=1), early, tzinfo)
 
+        return (
+            dt_util.as_utc(early_local) if early_local else None,
+            dt_util.as_utc(late_local) if late_local else None,
+        )
+
+    def _window_points_for_date(
+        self,
+        early: time | None,
+        late: time | None,
+        now: datetime,
+        day_offset: int,
+    ) -> tuple[datetime | None, datetime | None]:
+        """Return fixed bounds for a future local calendar date."""
+
+        local_now = dt_util.as_local(now)
+        target_date = local_now.date() + timedelta(days=day_offset)
+        tzinfo = local_now.tzinfo
+        early_local = (
+            datetime.combine(target_date, early, tzinfo) if early is not None else None
+        )
+        late_local = (
+            datetime.combine(target_date, late, tzinfo) if late is not None else None
+        )
         return (
             dt_util.as_utc(early_local) if early_local else None,
             dt_util.as_utc(late_local) if late_local else None,

@@ -10,11 +10,14 @@ from homeassistant.core import (
     HomeAssistant,
     callback,
 )
+from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from ..const import (
     CONF_COVERS,
+    CONF_RESIDENT_SENSOR,
     DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_BEHAVIOR_SETTINGS,
     DEFAULT_CONTACT_SETTINGS,
@@ -23,6 +26,7 @@ from ..const import (
     DEFAULT_SHADING_TIMING_SETTINGS,
     DEFAULT_TIME_SETTINGS,
     DOMAIN,
+    SIGNAL_ENTRY_STATE_UPDATED,
 )
 from .common import (
     _TRIGGER_PRIORITY,
@@ -48,10 +52,23 @@ class ControllerManager:
         self._runtime_toggles: dict[str, bool] = {}
         self._store: Store | None = None
         self._stored_state: dict = {"covers": {}}
-        self._pending_evaluations: dict[str, str] = {}
+        self._pending_evaluations: dict[str, set[str]] = {}
         self._evaluation_task: asyncio.Task | None = None
         self._evaluation_lock = asyncio.Lock()
         self._group_command_lock = asyncio.Lock()
+        self._batch_active = False
+        self._batch_group_actions: set[tuple[str, float]] = set()
+        self._pending_state_controllers: set[str] = set()
+        self._entry_snapshot: dict[str, object] = {
+            "covers": {},
+            "next_open": None,
+            "next_close": None,
+            "control_state": "idle",
+            "resident_status": "off",
+            "resident_entity": None,
+        }
+        self._shared_listener_unsub = None
+        self._shared_entities: set[str] = set()
 
     async def async_setup(self) -> None:
         self._store = Store(
@@ -75,6 +92,7 @@ class ControllerManager:
             **self.entry.data,
             **self.entry.options,
         }
+        self._batch_active = True
         for cover in _unique_covers(data.get(CONF_COVERS, [])):
             controller = CoverController(
                 self.hass,
@@ -85,15 +103,20 @@ class ControllerManager:
                 self._store_cover_status,
                 self._request_evaluate,
                 self._async_set_group_position,
+                self._controller_state_updated,
             )
             self.controllers[cover] = controller
             await controller.async_setup()
+        self._batch_active = False
+        self._setup_shared_listener()
+        self._flush_state_updates()
 
     async def async_unload(self) -> None:
         if self._evaluation_task is not None:
             self._evaluation_task.cancel()
             self._evaluation_task = None
         self._pending_evaluations.clear()
+        self._clear_shared_listener()
         for controller in self.controllers.values():
             controller.persist_status()
             await controller.async_unload()
@@ -113,11 +136,7 @@ class ControllerManager:
 
         if controller.cover not in self.controllers:
             return
-        previous_trigger = self._pending_evaluations.get(controller.cover)
-        if previous_trigger is None or _TRIGGER_PRIORITY.get(
-            trigger, 0
-        ) >= _TRIGGER_PRIORITY.get(previous_trigger, 0):
-            self._pending_evaluations[controller.cover] = trigger
+        self._pending_evaluations.setdefault(controller.cover, set()).add(trigger)
         if self._evaluation_task is None or self._evaluation_task.done():
             self._start_evaluation_task()
 
@@ -140,10 +159,25 @@ class ControllerManager:
                 pending = self._pending_evaluations
                 self._pending_evaluations = {}
                 async with self._evaluation_lock:
-                    for cover, trigger in pending.items():
-                        controller = self.controllers.get(cover)
-                        if controller is not None:
-                            await controller._evaluate(trigger)
+                    self._batch_active = True
+                    self._batch_group_actions.clear()
+                    context = self._evaluation_context()
+                    try:
+                        for cover, triggers in pending.items():
+                            controller = self.controllers.get(cover)
+                            if controller is not None:
+                                trigger = max(triggers, key=self._trigger_priority)
+                                controller._evaluation_context = context
+                                try:
+                                    await controller._evaluate(
+                                        trigger, frozenset(triggers)
+                                    )
+                                finally:
+                                    controller._evaluation_context = None
+                    finally:
+                        self._batch_active = False
+                        self._batch_group_actions.clear()
+                        self._flush_state_updates()
                 await asyncio.sleep(0)
         finally:
             self._evaluation_task = None
@@ -158,6 +192,12 @@ class ControllerManager:
         if "ventilation" in reason or reason.startswith("manual_"):
             await source._set_position_local(position, reason)
             return
+
+        group_key = (reason, float(position))
+        if self._batch_active:
+            if group_key in self._batch_group_actions:
+                return
+            self._batch_group_actions.add(group_key)
 
         action = (
             "close"
@@ -192,6 +232,179 @@ class ControllerManager:
             )
 
     @callback
+    def _controller_state_updated(self, controller: CoverController) -> None:
+        """Defer repeated controller publications until the batch is complete."""
+
+        if controller.cover not in self.controllers:
+            return
+        self._pending_state_controllers.add(controller.cover)
+        if not self._batch_active:
+            self._flush_state_updates()
+
+    @callback
+    def _flush_state_updates(self) -> None:
+        if not self._pending_state_controllers:
+            return
+        changed = tuple(self._pending_state_controllers)
+        self._pending_state_controllers.clear()
+        for cover in changed:
+            controller = self.controllers.get(cover)
+            if controller is not None:
+                controller._dispatch_state()
+        self._rebuild_entry_snapshot()
+        async_dispatcher_send(
+            self.hass, SIGNAL_ENTRY_STATE_UPDATED, self.entry.entry_id
+        )
+
+    @callback
+    def _rebuild_entry_snapshot(self) -> None:
+        """Prepare all entry sensor data from one read-only controller pass."""
+
+        covers: dict[str, dict[str, object]] = {}
+        open_candidates: list[tuple[datetime, str]] = []
+        close_candidates: list[tuple[datetime, str]] = []
+        active_reasons: list[str] = []
+        now = dt_util.utcnow()
+        for cover, controller in self.controllers.items():
+            (
+                target,
+                reason,
+                manual_until,
+                manual_active,
+                next_open,
+                next_close,
+                current_position,
+                shading_enabled,
+                shading_active,
+                ventilation_active,
+            ) = controller.state_snapshot()
+            reason_value = reason or IDLE_REASON
+            covers[cover] = {
+                "reason": reason_value,
+                "current_position": current_position,
+                "target_position": target,
+                "manual_active": manual_active,
+                "manual_until": manual_until.isoformat() if manual_until else None,
+                "next_open": next_open.isoformat() if next_open else None,
+                "next_close": next_close.isoformat() if next_close else None,
+                "shading_enabled": shading_enabled,
+                "shading_active": shading_active,
+                "ventilation_active": ventilation_active,
+            }
+            if isinstance(next_open, datetime) and next_open >= now:
+                open_candidates.append((next_open, cover))
+            if isinstance(next_close, datetime) and next_close >= now:
+                close_candidates.append((next_close, cover))
+            if reason_value != IDLE_REASON and reason_value not in active_reasons:
+                active_reasons.append(reason_value)
+
+        control_state = (
+            IDLE_REASON
+            if not active_reasons
+            else active_reasons[0]
+            if len(active_reasons) == 1
+            else "multiple"
+        )
+        first_controller = next(iter(self.controllers.values()), None)
+        resident_entity = (
+            first_controller.config.get(CONF_RESIDENT_SENSOR)
+            if first_controller is not None
+            else None
+        )
+        resident_state = self.hass.states.get(resident_entity) if resident_entity else None
+        self._entry_snapshot = {
+            "covers": covers,
+            "next_open": min(open_candidates) if open_candidates else None,
+            "next_close": min(close_candidates) if close_candidates else None,
+            "control_state": control_state,
+            "resident_status": (
+                "on"
+                if resident_state is not None
+                and first_controller._resident_state_is_on(resident_state.state)
+                else "off"
+            ),
+            "resident_entity": resident_entity,
+        }
+
+    def entry_snapshot(self) -> dict[str, object]:
+        """Return the already prepared entry-level sensor snapshot."""
+
+        return self._entry_snapshot
+
+    def _evaluation_context(self) -> dict[str, object]:
+        """Capture entry-wide states once for a complete evaluation batch."""
+
+        return {
+            "now": dt_util.utcnow(),
+            "states": {
+                entity_id: self.hass.states.get(entity_id)
+                for entity_id in self._shared_entities
+            },
+        }
+
+    @staticmethod
+    def _trigger_priority(trigger: str) -> int:
+        if trigger.startswith(("condition_timer:", "calendar_boundary:")):
+            return 1
+        return _TRIGGER_PRIORITY.get(trigger, 0)
+
+    @callback
+    def request_evaluate_all(self, trigger: str) -> None:
+        """Queue every cover in this entry for the same shared cause."""
+
+        for controller in self.controllers.values():
+            self._request_evaluate(controller, trigger)
+
+    @callback
+    def _handle_shared_state_event(self, event) -> None:
+        entity_id = event.data.get("entity_id")
+        trigger = "sun" if entity_id == "sun.sun" else "state"
+        controller = next(iter(self.controllers.values()), None)
+        if controller is not None and entity_id == controller.config.get(
+            CONF_RESIDENT_SENSOR
+        ):
+            old_state = event.data.get("old_state")
+            new_state = event.data.get("new_state")
+            old_value = old_state.state if old_state else None
+            new_value = new_state.state if new_state else None
+            if controller._resident_state_is_on(
+                old_value
+            ) and controller._resident_state_is_off(new_value):
+                trigger = "resident_woke"
+            elif controller._resident_state_is_off(
+                old_value
+            ) and controller._resident_state_is_on(new_value):
+                trigger = "resident_asleep"
+        self.request_evaluate_all(trigger)
+
+    @callback
+    def _setup_shared_listener(self) -> None:
+        self._clear_shared_listener()
+        self._shared_entities = (
+            set().union(
+                *(
+                    controller._shared_decision_entities()
+                    for controller in self.controllers.values()
+                )
+            )
+            if self.controllers
+            else set()
+        )
+        if self._shared_entities:
+            self._shared_listener_unsub = async_track_state_change_event(
+                self.hass,
+                sorted(self._shared_entities),
+                self._handle_shared_state_event,
+            )
+
+    @callback
+    def _clear_shared_listener(self) -> None:
+        if self._shared_listener_unsub is not None:
+            self._shared_listener_unsub()
+            self._shared_listener_unsub = None
+        self._shared_entities.clear()
+
+    @callback
     def async_update_options(self) -> None:
         new_data = {
             **DEFAULT_POSITION_SETTINGS,
@@ -206,6 +419,7 @@ class ControllerManager:
         }
         for controller in self.controllers.values():
             controller.update_config(new_data)
+        self._setup_shared_listener()
 
     def set_manual_override(self, cover: str, minutes: int) -> bool:
         controller = self.controllers.get(cover)

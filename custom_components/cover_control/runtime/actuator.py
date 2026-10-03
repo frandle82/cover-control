@@ -18,8 +18,10 @@ from homeassistant.const import (
 from homeassistant.core import (
     Context,
     State,
+    callback,
 )
 from homeassistant.helpers.dispatcher import async_dispatcher_send
+from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.util import dt as dt_util
 
 from ..const import (
@@ -492,7 +494,13 @@ class ActuatorMixin:
                     blocking=True,
                     context=ctx,
                 )
-            await asyncio.sleep(1)
+            await self._async_wait_for_state_change(
+                lambda: (
+                    (state := self.hass.states.get(self.cover)) is not None
+                    and state.state != "open"
+                ),
+                1,
+            )
             return
         preliminary_tilt = 0.0 if target < current else 100.0
         await self._command_tilt_position(
@@ -513,12 +521,13 @@ class ActuatorMixin:
             timeout = self._duration_value(
                 CONF_COVER_TILT_WAIT_TIMEOUT, DEFAULT_COVER_TILT_WAIT_TIMEOUT
             )
-            end = dt_util.utcnow() + timedelta(seconds=timeout)
-            while dt_util.utcnow() < end:
-                state = self.hass.states.get(self.cover)
-                if state is not None and state.state in ("open", "closed"):
-                    break
-                await asyncio.sleep(0.5)
+            await self._async_wait_for_state_change(
+                lambda: (
+                    (state := self.hass.states.get(self.cover)) is not None
+                    and state.state in ("open", "closed")
+                ),
+                timeout,
+            )
         await self._command_tilt_position(tilt_position, reason=reason)
 
     def _tilt_position_value(self, reason: str | None) -> float | None:
@@ -688,6 +697,21 @@ class ActuatorMixin:
                     entities.add(entity_id)
         return entities
 
+    def _local_decision_entities(self) -> set[str]:
+        """Return inputs whose state is specific to this cover."""
+
+        entities = set(self._contact_entities())
+        if self.config.get(CONF_POSITION_SOURCE) == CONF_POSITION_SOURCE_CUSTOM_SENSOR:
+            custom_sensor = self.config.get(CONF_CUSTOM_POSITION_SENSOR)
+            if isinstance(custom_sensor, str) and custom_sensor:
+                entities.add(custom_sensor)
+        return entities
+
+    def _shared_decision_entities(self) -> set[str]:
+        """Return entry-wide decision inputs owned by the manager."""
+
+        return self._decision_entities() - self._local_decision_entities()
+
     def _unavailable_decision_entities(self) -> set[str]:
         """Return required decision inputs which do not have a usable state."""
 
@@ -695,12 +719,20 @@ class ActuatorMixin:
             entity_id
             for entity_id in self._decision_entities()
             if (
-                (state := self.hass.states.get(entity_id)) is None
+                (state := self._state_for(entity_id)) is None
                 or state.state in {STATE_UNAVAILABLE, STATE_UNKNOWN}
             )
         }
 
     def _publish_state(self) -> None:
+        if getattr(self, "_publish_callback", None) is not None:
+            self._publish_callback(self)
+            return
+        self._dispatch_state()
+
+    def _dispatch_state(self) -> None:
+        """Send the stable legacy per-cover runtime signal."""
+
         current_position = self._current_position()
         shading_enabled = self._auto_enabled(CONF_AUTO_SHADING)
         shading_active = self._shading_is_active(current_position, shading_enabled)
@@ -896,9 +928,44 @@ class ActuatorMixin:
     ) -> None:
         if self._current_position() is None:
             return
-        end = dt_util.utcnow() + timedelta(seconds=timeout)
-        while dt_util.utcnow() < end:
+
+        def _target_reached() -> bool:
             current = self._current_position()
-            if current is not None and abs(current - target) <= tolerance:
-                return
-            await asyncio.sleep(1)
+            return current is not None and abs(current - target) <= tolerance
+
+        entities = [self.cover]
+        if self.config.get(CONF_POSITION_SOURCE) == CONF_POSITION_SOURCE_CUSTOM_SENSOR:
+            custom_sensor = self.config.get(CONF_CUSTOM_POSITION_SENSOR)
+            if isinstance(custom_sensor, str) and custom_sensor:
+                entities.append(custom_sensor)
+        await self._async_wait_for_state_change(_target_reached, timeout, entities)
+
+    async def _async_wait_for_state_change(
+        self,
+        predicate,
+        timeout: float,
+        entity_ids: list[str] | None = None,
+    ) -> bool:
+        """Wait for a relevant HA state event, with a non-polling timeout."""
+
+        if predicate():
+            return True
+        loop = asyncio.get_running_loop()
+        reached = loop.create_future()
+
+        @callback
+        def _handle_state_event(_event) -> None:
+            if not reached.done() and predicate():
+                reached.set_result(True)
+
+        unsubscribe = async_track_state_change_event(
+            self.hass, entity_ids or [self.cover], _handle_state_event
+        )
+        try:
+            async with asyncio.timeout(max(0, timeout)):
+                await reached
+            return True
+        except TimeoutError:
+            return predicate()
+        finally:
+            unsubscribe()

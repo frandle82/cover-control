@@ -110,35 +110,40 @@ class StatusMixin:
         self, kind: str, due_at: datetime | None, active: bool | None = None
     ) -> None:
         section = self._shading_status()
-        key = "start_pending" if kind == "start" else "end_pending"
-        section[key] = int(due_at.timestamp()) if due_at else 0
-        section["ts"] = _ts_now()
         if active is not None:
             section["active"] = active
-        self.persist_status()
+        if due_at is None:
+            self._shading_pending.pop(kind, None)
+            self._cancel_shading_timer(kind)
+            return
+        if (
+            self._shading_pending.get(kind) == due_at
+            and kind in self._shading_timer_unsubs
+        ):
+            return
+        self._cancel_shading_timer(kind)
+        self._shading_pending[kind] = due_at
+        self._schedule_shading_timer(kind, due_at)
 
     def _shading_pending_due(self, kind: str, now: datetime) -> bool:
-        section = self._shading_status()
-        key = "start_pending" if kind == "start" else "end_pending"
-        due_ts = _coerce_float(section.get(key)) or 0
-        return bool(due_ts and now.timestamp() >= due_ts)
+        due_at = self._shading_pending.get(kind)
+        return bool(due_at and now >= due_at)
 
     def _shading_pending_active(self, kind: str) -> bool:
-        section = self._shading_status()
-        key = "start_pending" if kind == "start" else "end_pending"
-        return bool((_coerce_float(section.get(key)) or 0) > 0)
+        return kind in self._shading_pending
+
+    def _shading_pending_at(self, kind: str) -> datetime | None:
+        return self._shading_pending.get(kind)
 
     def _clear_shading_pending(
         self, kind: str | None = None, persist: bool = True
     ) -> None:
-        section = self._shading_status()
         if kind in (None, "start"):
-            section["start_pending"] = 0
+            self._shading_pending.pop("start", None)
+            self._cancel_shading_timer("start")
         if kind in (None, "end"):
-            section["end_pending"] = 0
-        section["ts"] = _ts_now()
-        if persist:
-            self.persist_status()
+            self._shading_pending.pop("end", None)
+            self._cancel_shading_timer("end")
 
     def _set_ventilation_status(
         self, partial: bool = False, full: bool = False, ts: int | None = None

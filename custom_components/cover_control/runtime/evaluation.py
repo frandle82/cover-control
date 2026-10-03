@@ -100,13 +100,17 @@ from ..const import (
 from .common import (
     _LOGGER,
     _coerce_float,
-    _float_state,
 )
 
 
 class EvaluationMixin:
-    async def _evaluate(self, trigger: str) -> None:
-        now = dt_util.utcnow()
+    async def _evaluate(
+        self, trigger: str, triggers: frozenset[str] | None = None
+    ) -> None:
+        context = self._evaluation_context
+        context_now = context.get("now") if context is not None else None
+        now = context_now if isinstance(context_now, datetime) else dt_util.utcnow()
+        self._current_evaluation_triggers = triggers or frozenset({trigger})
         self._expire_manual_override(now)
         self._ensure_manual_expiry_timer(now)
         cover_state = self.hass.states.get(self.cover)
@@ -118,6 +122,7 @@ class EvaluationMixin:
             "evaluate",
             {
                 "trigger": trigger,
+                "triggers": sorted(self._current_evaluation_triggers),
                 "manual_active": self._manual_active,
                 "manual_scope_all": self._manual_scope_all,
                 "next_open": self._next_open,
@@ -177,8 +182,9 @@ class EvaluationMixin:
             )
             self._unavailable_dependencies = set()
 
-        brightness = _float_state(self.hass, self.config.get(CONF_BRIGHTNESS_SENSOR))
-        sun_state = self.hass.states.get("sun.sun")
+        brightness_state = self._state_for(self.config.get(CONF_BRIGHTNESS_SENSOR))
+        brightness = _coerce_float(brightness_state.state if brightness_state else None)
+        sun_state = self._state_for("sun.sun")
         sun_elevation = _coerce_float(
             sun_state and sun_state.attributes.get("elevation")
         )
@@ -307,6 +313,9 @@ class EvaluationMixin:
         auto_time_enabled = self._auto_enabled(CONF_AUTO_TIME)
         calendar_open_window, calendar_close_window = (
             await self._calendar_windows(now) if auto_time_enabled else (None, None)
+        )
+        self._reschedule_calendar_boundaries(
+            calendar_open_window, calendar_close_window, now
         )
         calendar_open_active = self._calendar_window_active(calendar_open_window, now)
         calendar_close_active = self._calendar_window_active(calendar_close_window, now)
@@ -543,14 +552,14 @@ class EvaluationMixin:
                 if max_duration <= 0:
                     self._clear_shading_pending("start")
                 else:
-                    pending_ts = (
-                        _coerce_float(self._shading_status().get("start_pending")) or 0
-                    )
+                    pending_at = self._shading_pending_at("start")
                     waiting = self._duration_value(
                         CONF_SHADING_WAITINGTIME_START,
                         DEFAULT_SHADING_TIMING_SETTINGS[CONF_SHADING_WAITINGTIME_START],
                     )
-                    started_ts = max(0, pending_ts - waiting)
+                    started_ts = max(
+                        0, pending_at.timestamp() - waiting if pending_at else 0
+                    )
                     if started_ts and now.timestamp() - started_ts > max_duration:
                         self._clear_shading_pending("start")
             if shading_active and shading_allowed:
@@ -590,10 +599,10 @@ class EvaluationMixin:
                     DEFAULT_SHADING_TIMING_SETTINGS[CONF_SHADING_END_MAX_DURATION],
                 )
                 if self._shading_pending_active("end") and max_end_duration > 0:
-                    pending_ts = (
-                        _coerce_float(self._shading_status().get("end_pending")) or 0
+                    pending_at = self._shading_pending_at("end")
+                    started_ts = max(
+                        0, pending_at.timestamp() - waiting_end if pending_at else 0
                     )
-                    started_ts = max(0, pending_ts - waiting_end)
                     if started_ts and now.timestamp() - started_ts > max_end_duration:
                         self._clear_shading_pending("end")
                         if self._reason in {"shading", "manual_shading"}:
@@ -931,7 +940,8 @@ class EvaluationMixin:
         if mode == "fixed":
             return fixed_threshold
 
-        sensor_value = _float_state(self.hass, self.config.get(sensor_key))
+        sensor_state = self._state_for(self.config.get(sensor_key))
+        sensor_value = _coerce_float(sensor_state.state if sensor_state else None)
         if mode == "dynamic":
             # Dynamic sensor is optional in config flow. If unavailable or invalid,
             # fall back to the configured fixed threshold so sun timing still works.
@@ -1061,11 +1071,20 @@ class EvaluationMixin:
     def _condition_held(self, key: str, passed: bool, seconds: int) -> bool:
         if not passed:
             self._condition_since.pop(key, None)
+            self._cancel_condition_timer(key)
             return False
         if seconds <= 0:
+            self._condition_since.pop(key, None)
+            self._cancel_condition_timer(key)
             return True
-        now = dt_util.utcnow()
-        start = self._condition_since.setdefault(key, now)
+        context = getattr(self, "_evaluation_context", None)
+        context_now = context.get("now") if context is not None else None
+        now = context_now if isinstance(context_now, datetime) else dt_util.utcnow()
+        start = self._condition_since.get(key)
+        if start is None:
+            start = now
+            self._condition_since[key] = start
+            self._schedule_condition_timer(key, start + timedelta(seconds=seconds))
         return now - start >= timedelta(seconds=seconds)
 
     def _config_bool(self, key: str) -> bool:
