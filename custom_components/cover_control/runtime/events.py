@@ -2,7 +2,6 @@
 
 from __future__ import annotations
 
-import asyncio
 from datetime import (
     datetime,
     timedelta,
@@ -220,7 +219,7 @@ class EventsMixin:
                 else (self._contact_trigger_delay() + self._contact_status_delay())
             )
             if delay > 0:
-                self.hass.async_create_task(self._delayed_evaluate("contact", delay))
+                self._schedule_delayed_evaluate("contact", delay)
                 return
             trigger = "contact"
         self.async_request_evaluate(trigger)
@@ -295,9 +294,21 @@ class EventsMixin:
         self._activate_manual_override(scope_all=True, reason="manual_override")
         self.async_request_evaluate("manual_service")
 
-    async def _delayed_evaluate(self, trigger: str, delay: int) -> None:
-        await asyncio.sleep(delay)
-        self.async_request_evaluate(trigger)
+    @callback
+    def _schedule_delayed_evaluate(self, trigger: str, delay: int) -> None:
+        unsubscribe = self._delayed_evaluation_unsubs.pop(trigger, None)
+        if unsubscribe is not None:
+            unsubscribe()
+        due_at = dt_util.utcnow() + timedelta(seconds=delay)
+
+        @callback
+        def _handle_delayed_evaluation(_now: datetime) -> None:
+            self._delayed_evaluation_unsubs.pop(trigger, None)
+            self.async_request_evaluate(trigger)
+
+        self._delayed_evaluation_unsubs[trigger] = async_track_point_in_time(
+            self.hass, _handle_delayed_evaluation, due_at
+        )
 
     def _manual_detection_enabled(self) -> bool:
         if self._manual_active:
@@ -601,6 +612,49 @@ class EventsMixin:
         for key in tuple(self._condition_timer_unsubs):
             self._cancel_condition_timer(key)
         self._condition_since.clear()
+        for trigger, unsubscribe in tuple(self._delayed_evaluation_unsubs.items()):
+            unsubscribe()
+            self._delayed_evaluation_unsubs.pop(trigger, None)
+        for key, unsubscribe in tuple(self._calendar_timer_unsubs.items()):
+            unsubscribe()
+            self._calendar_timer_unsubs.pop(key, None)
+        self._calendar_timer_times.clear()
+
+    @callback
+    def _reschedule_calendar_boundaries(
+        self,
+        open_window: tuple[datetime, datetime] | None,
+        close_window: tuple[datetime, datetime] | None,
+        now: datetime,
+    ) -> None:
+        desired = {
+            key: due_at
+            for key, due_at in (
+                ("open_start", open_window[0] if open_window else None),
+                ("open_end", open_window[1] if open_window else None),
+                ("close_start", close_window[0] if close_window else None),
+                ("close_end", close_window[1] if close_window else None),
+            )
+            if due_at is not None and due_at > now
+        }
+        for key in tuple(self._calendar_timer_unsubs):
+            if self._calendar_timer_times.get(key) != desired.get(key):
+                self._calendar_timer_unsubs.pop(key)()
+                self._calendar_timer_times.pop(key, None)
+        for key, due_at in desired.items():
+            if key in self._calendar_timer_unsubs:
+                continue
+
+            @callback
+            def _handle_calendar_boundary(_now: datetime, boundary: str = key) -> None:
+                self._calendar_timer_unsubs.pop(boundary, None)
+                self._calendar_timer_times.pop(boundary, None)
+                self.async_request_evaluate(f"calendar_boundary:{boundary}")
+
+            self._calendar_timer_times[key] = due_at
+            self._calendar_timer_unsubs[key] = async_track_point_in_time(
+                self.hass, _handle_calendar_boundary, due_at
+            )
 
     def activate_shading(self, minutes: int | None = None) -> None:
         duration = minutes or self.config.get(

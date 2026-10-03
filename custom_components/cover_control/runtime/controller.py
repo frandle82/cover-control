@@ -92,6 +92,9 @@ class CoverController(
         self._shading_pending: dict[str, datetime] = {}
         self._shading_timer_unsubs: dict[str, CALLBACK_TYPE] = {}
         self._condition_timer_unsubs: dict[str, CALLBACK_TYPE] = {}
+        self._delayed_evaluation_unsubs: dict[str, CALLBACK_TYPE] = {}
+        self._calendar_timer_unsubs: dict[str, CALLBACK_TYPE] = {}
+        self._calendar_timer_times: dict[str, datetime] = {}
         self._evaluation_context: dict[str, object] | None = None
         self._current_evaluation_triggers: frozenset[str] = frozenset()
         self._last_command_context_id: str | None = None

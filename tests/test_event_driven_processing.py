@@ -407,3 +407,66 @@ def test_sensor_writes_only_when_visible_entry_state_changes() -> None:
     }
     sensor._async_handle_state_update("entry")
     sensor.async_write_ha_state.assert_called_once_with()
+
+
+def test_calendar_boundaries_are_rescheduled_as_point_timers() -> None:
+    """Changed calendar windows replace old boundary callbacks cleanly."""
+
+    controller = object.__new__(CoverController)
+    controller.hass = object()
+    controller._calendar_timer_unsubs = {}
+    controller._calendar_timer_times = {}
+    controller.async_request_evaluate = Mock()
+    now = dt_util.utcnow()
+    first_window = (now + timedelta(hours=1), now + timedelta(hours=2))
+    second_window = (now + timedelta(hours=3), now + timedelta(hours=4))
+    callbacks = {}
+    unsubs = {}
+
+    def _track(_hass, callback, due):
+        callbacks[due] = callback
+        unsubscribe = Mock()
+        unsubs[due] = unsubscribe
+        return unsubscribe
+
+    with patch(
+        "custom_components.cover_control.runtime.events.async_track_point_in_time",
+        side_effect=_track,
+    ):
+        controller._reschedule_calendar_boundaries(first_window, None, now)
+        controller._reschedule_calendar_boundaries(second_window, None, now)
+        unsubs[first_window[0]].assert_called_once_with()
+        unsubs[first_window[1]].assert_called_once_with()
+        callbacks[second_window[0]](second_window[0])
+
+    controller.async_request_evaluate.assert_called_once_with(
+        "calendar_boundary:open_start"
+    )
+
+
+def test_contact_delay_uses_managed_point_timer() -> None:
+    """A repeated contact delay cancels its predecessor instead of spawning tasks."""
+
+    controller = object.__new__(CoverController)
+    controller.hass = object()
+    controller._delayed_evaluation_unsubs = {}
+    controller.async_request_evaluate = Mock()
+    unsubscribe = Mock()
+    callback = None
+
+    def _track(_hass, tracked_callback, _due):
+        nonlocal callback
+        callback = tracked_callback
+        return unsubscribe
+
+    with patch(
+        "custom_components.cover_control.runtime.events.async_track_point_in_time",
+        side_effect=_track,
+    ):
+        controller._schedule_delayed_evaluate("contact", 10)
+        controller._schedule_delayed_evaluate("contact", 20)
+        unsubscribe.assert_called_once_with()
+        assert callback is not None
+        callback(dt_util.utcnow())
+
+    controller.async_request_evaluate.assert_called_once_with("contact")

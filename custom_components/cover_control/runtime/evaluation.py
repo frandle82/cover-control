@@ -314,6 +314,9 @@ class EvaluationMixin:
         calendar_open_window, calendar_close_window = (
             await self._calendar_windows(now) if auto_time_enabled else (None, None)
         )
+        self._reschedule_calendar_boundaries(
+            calendar_open_window, calendar_close_window, now
+        )
         calendar_open_active = self._calendar_window_active(calendar_open_window, now)
         calendar_close_active = self._calendar_window_active(calendar_close_window, now)
         calendar_daytime_phase = self._calendar_daytime_phase(
