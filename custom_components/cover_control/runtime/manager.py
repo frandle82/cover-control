@@ -15,19 +15,12 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from ..const import (
-    CONF_COVERS,
-    CONF_RESIDENT_SENSOR,
-    DEFAULT_AUTOMATION_FLAGS,
-    DEFAULT_BEHAVIOR_SETTINGS,
-    DEFAULT_CONTACT_SETTINGS,
-    DEFAULT_MANUAL_OVERRIDE_FLAGS,
-    DEFAULT_POSITION_SETTINGS,
-    DEFAULT_SHADING_TIMING_SETTINGS,
-    DEFAULT_TIME_SETTINGS,
-    DOMAIN,
-    SIGNAL_ENTRY_STATE_UPDATED,
+from ..config_resolver import (
+    ResolvedRoomConfig,
+    entry_config_model,
+    resolve_entry_config,
 )
+from ..const import CONF_COVERS, CONF_RESIDENT_SENSOR, DOMAIN, SIGNAL_ENTRY_STATE_UPDATED
 from .common import (
     _TRIGGER_PRIORITY,
     IDLE_REASON,
@@ -70,6 +63,9 @@ class ControllerManager:
         self._shared_listener_unsub = None
         self._shared_entities: set[str] = set()
         self._entity_routes: dict[str, set[str]] = {}
+        self._resolved_config: ResolvedRoomConfig | None = None
+        self._config_model: dict = {}
+        self.profile_users: dict[tuple[str, str], set[str]] = {}
 
     async def async_setup(self) -> None:
         self._store = Store(
@@ -82,17 +78,7 @@ class ControllerManager:
             self._stored_state = loaded
         self._stored_state.setdefault("covers", {})
 
-        data = {
-            **DEFAULT_POSITION_SETTINGS,
-            **DEFAULT_TIME_SETTINGS,
-            **DEFAULT_AUTOMATION_FLAGS,
-            **DEFAULT_MANUAL_OVERRIDE_FLAGS,
-            **DEFAULT_CONTACT_SETTINGS,
-            **DEFAULT_BEHAVIOR_SETTINGS,
-            **DEFAULT_SHADING_TIMING_SETTINGS,
-            **self.entry.data,
-            **self.entry.options,
-        }
+        data = self._resolve_entry_config()
         self._batch_active = True
         for cover in _unique_covers(data.get(CONF_COVERS, [])):
             controller = CoverController(
@@ -413,20 +399,27 @@ class ControllerManager:
 
     @callback
     def async_update_options(self) -> None:
-        new_data = {
-            **DEFAULT_POSITION_SETTINGS,
-            **DEFAULT_TIME_SETTINGS,
-            **DEFAULT_AUTOMATION_FLAGS,
-            **DEFAULT_MANUAL_OVERRIDE_FLAGS,
-            **DEFAULT_CONTACT_SETTINGS,
-            **DEFAULT_BEHAVIOR_SETTINGS,
-            **DEFAULT_SHADING_TIMING_SETTINGS,
-            **self.entry.data,
-            **self.entry.options,
-        }
+        new_data = self._resolve_entry_config()
         for controller in self.controllers.values():
             controller.update_config(new_data)
         self._setup_shared_listener()
+
+    def _resolve_entry_config(self) -> ResolvedRoomConfig:
+        """Build the entry model and expose only its resolved room to runtime."""
+
+        room_id = self.entry.entry_id
+        self._config_model = entry_config_model(
+            self.entry.data, self.entry.options, room_id=room_id
+        )
+        resolved = resolve_entry_config(
+            self.entry.data, self.entry.options, room_id=room_id
+        )
+        self._resolved_config = resolved
+        self.profile_users = {
+            (profile_type, profile_id): {room_id}
+            for profile_type, profile_id in resolved.selected_profiles.items()
+        }
+        return resolved
 
     def set_manual_override(self, cover: str, minutes: int) -> bool:
         controller = self.controllers.get(cover)

@@ -7,6 +7,31 @@ DOMAIN = "cover_control"
 EVENT_COVER_CONTROL = "cover_control_event"
 CONF_NAME = "name"
 CONF_ROOM = "room"
+CONF_CONFIG_MODEL = "config_model"
+CONF_CONFIG_VERSION = "version"
+CONF_GLOBAL = "global"
+CONF_GLOBAL_SOURCES = "sources"
+CONF_GLOBAL_DEFAULTS = "defaults"
+CONF_PROFILES = "profiles"
+CONF_ROOMS = "rooms"
+CONF_ROOM_ID = "room_id"
+CONF_PROFILE_SELECTIONS = "profiles"
+CONF_ROOM_SETTINGS = "settings"
+CONF_SOURCE_OVERRIDES = "source_overrides"
+CONF_ROOM_OVERRIDES = "overrides"
+CONF_PROFILE_ID = "id"
+CONF_PROFILE_NAME = "name"
+CONF_PROFILE_SETTINGS = "settings"
+
+CONFIG_MODEL_VERSION = 1
+PROFILE_TYPE_TIME = "time"
+PROFILE_TYPE_SHADING = "shading"
+PROFILE_TYPE_BEHAVIOR = "behavior"
+PROFILE_TYPES = (
+    PROFILE_TYPE_TIME,
+    PROFILE_TYPE_SHADING,
+    PROFILE_TYPE_BEHAVIOR,
+)
 DEFAULT_NAME = "Cover Control"
 PLATFORMS: list[Platform] = [Platform.SWITCH, Platform.SENSOR, Platform.BUTTON]
 
