@@ -1415,6 +1415,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
             )
         )
         self._profile_type = PROFILE_TYPE_TIME
+        self._affected_rooms: set[str] = set()
         resolved = resolve_config_model(self._profile_model.data, self._room_id)
         self._options = self._normalize_options(
             None, base_options=dict(resolved)
@@ -1661,8 +1662,15 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                 value = user_input.get(key)
                 if value in (None, ""):
                     global_sources.pop(key, None)
+                    self._affected_rooms.update(
+                        room_id
+                        for room_id, room in self._profile_model.data["rooms"].items()
+                        if key not in room.get("source_overrides", {})
+                    )
                 else:
-                    self._profile_model.set_global_source(key, value)
+                    self._affected_rooms.update(
+                        self._profile_model.set_global_source(key, value)
+                    )
             self._refresh_resolved_options()
             return await self.async_step_global_settings()
 
@@ -1698,6 +1706,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                 allowed_keys=GLOBAL_DEFAULT_KEYS,
             )
             self._profile_model.data["global"]["defaults"] = updated
+            self._affected_rooms.update(self._profile_model.data["rooms"])
             self._refresh_resolved_options()
             return await self.async_step_global_settings()
 
@@ -1874,16 +1883,24 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                     allowed_keys=allowed_keys,
                 )
                 if profile_id:
-                    self._profile_model.rename_profile(
-                        self._profile_type,
-                        profile_id,
-                        getattr(self, "_editing_profile_name", profile.get("name", "")),
+                    self._affected_rooms.update(
+                        self._profile_model.rename_profile(
+                            self._profile_type,
+                            profile_id,
+                            getattr(
+                                self,
+                                "_editing_profile_name",
+                                profile.get("name", ""),
+                            ),
+                        )
                     )
                     self._profile_model.set_capabilities(
                         self._profile_type, profile_id, capabilities
                     )
-                    self._profile_model.update_profile(
-                        self._profile_type, profile_id, settings
+                    self._affected_rooms.update(
+                        self._profile_model.update_profile(
+                            self._profile_type, profile_id, settings
+                        )
                     )
                 else:
                     self._profile_model.create_profile(
@@ -1959,6 +1976,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                             self._room_id, profile_type, profile_id
                         )
                 self._refresh_resolved_options()
+                self._affected_rooms.add(self._room_id)
                 return await self.async_step_room_profiles()
             except (ValueError, ProfileError):
                 errors["base"] = "invalid_profile_settings"
@@ -2029,6 +2047,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
             if not room_overrides.get(profile_type):
                 room_overrides.pop(profile_type, None)
             self._refresh_resolved_options()
+            self._affected_rooms.add(self._room_id)
             return await self.async_step_room_profiles()
 
         profile_values = ", ".join(
@@ -2061,6 +2080,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
                         self._room_id, key, value
                     )
             self._refresh_resolved_options()
+            self._affected_rooms.add(self._room_id)
             return await self.async_step_room_profiles()
 
         schema = {}
@@ -2776,7 +2796,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
         if isinstance(hub, CoverControlHub):
             hub.apply_model(
                 self._profile_model.data,
-                set(self._profile_model.data.get("rooms", {})),
+                self._affected_rooms or {self._room_id},
             )
             await hub.async_persist()
             self.hass.config_entries.async_update_entry(
@@ -3269,6 +3289,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
         self._profile_model.apply_flat_settings(
             self._room_id, {CONF_NAME: name, **clean_input}
         )
+        self._affected_rooms.add(self._room_id)
 
     def _cover_full_key(self, cover: str) -> str:
         state = self.hass.states.get(cover)
