@@ -13,7 +13,6 @@ from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers.event import (
     async_track_point_in_time,
     async_track_state_change_event,
-    async_track_time_interval,
 )
 from homeassistant.helpers.typing import ConfigType
 from homeassistant.util import dt as dt_util
@@ -66,11 +65,6 @@ class EventsMixin:
             "switch", DOMAIN, f"{self.entry.entry_id}-master"
         )
         self._unsubs.append(
-            async_track_time_interval(
-                self.hass, self._handle_interval, timedelta(minutes=1)
-            )
-        )
-        self._unsubs.append(
             self.hass.bus.async_listen("call_service", self._handle_service_call)
         )
         self._sync_position_reference_from_entity()
@@ -95,6 +89,8 @@ class EventsMixin:
         self.async_request_evaluate("startup")
 
     async def async_unload(self) -> None:
+        self._clear_scheduled_event_timers()
+        self._clear_manual_expiry()
         while self._unsubs:
             unsub = self._unsubs.pop()
             unsub()
@@ -297,10 +293,6 @@ class EventsMixin:
         self._activate_manual_override(scope_all=True, reason="manual_override")
         self.async_request_evaluate("manual_service")
 
-    @callback
-    def _handle_interval(self, now: datetime) -> None:
-        self.async_request_evaluate("time")
-
     async def _delayed_evaluate(self, trigger: str, delay: int) -> None:
         await asyncio.sleep(delay)
         self.async_request_evaluate(trigger)
@@ -458,7 +450,6 @@ class EventsMixin:
 
     def publish_state(self) -> None:
         """Expose the current state via dispatcher for newly added entities."""
-        self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
 
     def state_snapshot(
@@ -477,7 +468,6 @@ class EventsMixin:
     ]:
         """Provide the current state values without dispatching updates."""
 
-        self._refresh_next_events(dt_util.utcnow())
         current_position = self._current_position()
         shading_enabled = self._auto_enabled(CONF_AUTO_SHADING)
         shading_active = self._shading_is_active(current_position, shading_enabled)
@@ -494,6 +484,69 @@ class EventsMixin:
             shading_active,
             ventilation_active,
         )
+
+    @callback
+    def _reschedule_next_event_timers(self, now: datetime) -> None:
+        """Keep one point-in-time callback for each calculated schedule event."""
+
+        self._scheduled_open_unsub, self._scheduled_open_at = (
+            self._reschedule_event_timer(
+                self._scheduled_open_unsub,
+                self._scheduled_open_at,
+                self._next_open,
+                now,
+                "open",
+            )
+        )
+        self._scheduled_close_unsub, self._scheduled_close_at = (
+            self._reschedule_event_timer(
+                self._scheduled_close_unsub,
+                self._scheduled_close_at,
+                self._next_close,
+                now,
+                "close",
+            )
+        )
+
+    def _reschedule_event_timer(
+        self,
+        unsubscribe,
+        scheduled_at: datetime | None,
+        next_event: datetime | None,
+        now: datetime,
+        kind: str,
+    ):
+        if scheduled_at == next_event and unsubscribe is not None:
+            return unsubscribe, scheduled_at
+        if unsubscribe is not None:
+            unsubscribe()
+        if next_event is None or next_event <= now:
+            return None, None
+
+        @callback
+        def _handle_scheduled_event(_now: datetime) -> None:
+            if kind == "open":
+                self._scheduled_open_unsub = None
+                self._scheduled_open_at = None
+            else:
+                self._scheduled_close_unsub = None
+                self._scheduled_close_at = None
+            self.async_request_evaluate(f"scheduled_{kind}")
+
+        return (
+            async_track_point_in_time(self.hass, _handle_scheduled_event, next_event),
+            next_event,
+        )
+
+    @callback
+    def _clear_scheduled_event_timers(self) -> None:
+        for attribute in ("_scheduled_open_unsub", "_scheduled_close_unsub"):
+            unsubscribe = getattr(self, attribute, None)
+            if unsubscribe is not None:
+                unsubscribe()
+                setattr(self, attribute, None)
+        self._scheduled_open_at = None
+        self._scheduled_close_at = None
 
     def activate_shading(self, minutes: int | None = None) -> None:
         duration = minutes or self.config.get(

@@ -83,6 +83,10 @@ class CoverController(
         self._last_command_at: datetime | None = None
         self._ignore_service_call_until: datetime | None = None
         self._manual_expire_unsub: CALLBACK_TYPE | None = None
+        self._scheduled_open_unsub: CALLBACK_TYPE | None = None
+        self._scheduled_close_unsub: CALLBACK_TYPE | None = None
+        self._scheduled_open_at: datetime | None = None
+        self._scheduled_close_at: datetime | None = None
         self._last_command_context_id: str | None = None
         self._manual_movement_pending = False
         self._logbook_dedupe: set[str] = set()

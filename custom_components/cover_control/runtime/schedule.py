@@ -515,9 +515,6 @@ class ScheduleMixin:
         sun_next_setting = self._parse_datetime_attr(
             sun_state and sun_state.attributes.get("next_setting")
         )
-        current_sun_elevation = _coerce_float(
-            sun_state and sun_state.attributes.get("elevation")
-        )
         open_threshold = self._dynamic_sun_threshold("open")
         close_threshold = self._dynamic_sun_threshold("close")
         mode = str(
@@ -571,25 +568,7 @@ class ScheduleMixin:
             )
             return future_fallbacks[0] if future_fallbacks else None
 
-        sun_open_already_passed = (
-            current_sun_elevation is not None
-            and open_threshold is not None
-            and current_sun_elevation > open_threshold
-        )
-        sun_close_already_passed = (
-            current_sun_elevation is not None
-            and close_threshold is not None
-            and current_sun_elevation < close_threshold
-            and (
-                self._within_closing_phase(now)
-                or self._within_evening_phase(now)
-                or self._is_time_down_late(now)
-            )
-        )
-
-        if sun_enabled and sun_open_already_passed:
-            open_base = now
-        elif sun_enabled and mode in {"dynamic", "hybrid"}:
+        if sun_enabled and mode in {"dynamic", "hybrid"}:
             # Dynamic/Hybrid use the elevation-based calculation first.
             # If unavailable, fall back to the native sun integration times
             # so next_open/next_close still remain sun-based.
@@ -597,9 +576,7 @@ class ScheduleMixin:
         else:
             open_base = (sun_open_target or sun_next_rising) if sun_enabled else None
 
-        if sun_enabled and sun_close_already_passed:
-            close_base = now
-        elif sun_enabled and mode in {"dynamic", "hybrid"}:
+        if sun_enabled and mode in {"dynamic", "hybrid"}:
             close_base = sun_close_target or sun_next_setting
         else:
             close_base = (sun_close_target or sun_next_setting) if sun_enabled else None
@@ -634,6 +611,8 @@ class ScheduleMixin:
             )
             if later_close:
                 self._next_close = later_close[0]
+
+        self._reschedule_next_event_timers(now)
 
     def _parse_datetime_attr(self, value: datetime | str | None) -> datetime | None:
         if isinstance(value, datetime):
