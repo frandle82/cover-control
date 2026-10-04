@@ -278,14 +278,7 @@ class AutomationToggleSwitch(SwitchEntity):
             if runtime_value is not None:
                 return bool(runtime_value)
             return bool(manager._resolved_config.get(self._key, False))
-        from .config_resolver import config_entry_room_id, resolve_entry_config
-
-        resolved = resolve_entry_config(
-            self.entry.data,
-            self.entry.options,
-            room_id=config_entry_room_id(self.entry.data, self.entry.entry_id),
-        )
-        return bool(resolved.get(self._key, DEFAULT_AUTOMATION_FLAGS.get(self._key)))
+        return bool(DEFAULT_AUTOMATION_FLAGS.get(self._key))
 
     @property
     def extra_state_attributes(self):

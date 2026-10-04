@@ -17,11 +17,9 @@ from homeassistant.util import dt as dt_util
 
 from ..config_resolver import (
     ResolvedRoomConfig,
-    config_entry_room_id,
-    entry_config_model,
     resolve_config_model,
-    resolve_entry_config,
 )
+from ..config_subentries import model_from_subentries
 from ..const import (
     CONF_AUTO_BRIGHTNESS,
     CONF_AUTO_SHADING,
@@ -64,7 +62,7 @@ class ControllerManager:
         self.hass = hass
         self.entry = entry
         self.hub = hub
-        self.room_id = room_id or config_entry_room_id(entry.data, entry.entry_id)
+        self.room_id = room_id or entry.entry_id
         self.controllers: dict[str, CoverController] = {}
         # Runtime-only feature overrides controlled by integration switch entities.
         # None/absent => follow persisted config flow options.
@@ -561,22 +559,16 @@ class ControllerManager:
     def _resolve_entry_config(self) -> ResolvedRoomConfig:
         """Build the entry model and expose only its resolved room to runtime."""
 
-        room_id = getattr(
-            self,
-            "room_id",
-            config_entry_room_id(self.entry.data, self.entry.entry_id),
-        )
+        room_id = getattr(self, "room_id", self.entry.entry_id)
         hub = getattr(self, "hub", None)
         if hub is not None and room_id in hub.model.get(CONF_ROOMS, {}):
             self._config_model = hub.model
             resolved = resolve_config_model(hub.model, room_id)
         else:
-            self._config_model = entry_config_model(
-                self.entry.data, self.entry.options, room_id=room_id
+            self._config_model = model_from_subentries(
+                self.entry.data, self.entry.subentries.values()
             )
-            resolved = resolve_entry_config(
-                self.entry.data, self.entry.options, room_id=room_id
-            )
+            resolved = resolve_config_model(self._config_model, room_id)
         self._resolved_config = resolved
         self._index_profile_users()
         return resolved
@@ -589,11 +581,7 @@ class ControllerManager:
 
         self._config_model = model
         self._index_profile_users()
-        room_id = getattr(
-            self,
-            "room_id",
-            config_entry_room_id(self.entry.data, self.entry.entry_id),
-        )
+        room_id = getattr(self, "room_id", self.entry.entry_id)
         affected = affected_rooms or {room_id}
         if room_id not in affected:
             return set()

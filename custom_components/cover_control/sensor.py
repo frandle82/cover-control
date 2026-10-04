@@ -16,7 +16,6 @@ from .const import (
     CONF_PROFILES,
     CONF_NAME,
     CONF_RESIDENT_STATUS,
-    DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_NAME,
     DOMAIN,
     SIGNAL_ENTRY_STATE_UPDATED,
@@ -24,7 +23,6 @@ from .const import (
     PROFILE_TYPE_TIME,
 )
 from .controller import ControllerManager
-from .config_resolver import config_entry_room_id, resolve_entry_config
 from .hub import CoverControlHub
 from .runtime_data import CoverControlRuntime
 
@@ -68,46 +66,6 @@ async def async_setup_entry(
                 registry.async_remove(entity_entry.entity_id)
         async_add_entities(entities)
         return
-    merged = resolve_entry_config(
-        entry.data,
-        entry.options,
-        room_id=config_entry_room_id(entry.data, entry.entry_id),
-    )
-    resident_enabled = bool(
-        merged.get(
-            CONF_RESIDENT_STATUS,
-            DEFAULT_AUTOMATION_FLAGS.get(CONF_RESIDENT_STATUS, False),
-        )
-    )
-
-    desired_unique_ids = {
-        f"{entry.entry_id}-next_open",
-        f"{entry.entry_id}-next_close",
-        f"{entry.entry_id}-control_state",
-    }
-    profile_entities: list[SensorEntity] = []
-    if resident_enabled:
-        desired_unique_ids.add(f"{entry.entry_id}-resident_status")
-
-    registry = er.async_get(hass)
-    for entity_entry in list(registry.entities.values()):
-        if entity_entry.config_entry_id != entry.entry_id or entity_entry.domain != "sensor":
-            continue
-        unique_id = entity_entry.unique_id or ""
-        if unique_id not in desired_unique_ids:
-            registry.async_remove(entity_entry.entity_id)
-
-    entities: list[SensorEntity] = [
-        NextOpenSensor(hass, entry),
-        NextCloseSensor(hass, entry),
-        ControlStateSensor(hass, entry),
-    ]
-
-    if resident_enabled:
-        entities.append(ResidentStatusSensor(hass, entry))
-    entities.extend(profile_entities)
-
-    async_add_entities(entities)
 
 
 class _BaseCoverControlSensor(SensorEntity):

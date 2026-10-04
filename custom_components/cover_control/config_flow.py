@@ -1,4 +1,4 @@
-"""Config and options flow for Cover Control."""
+"""Config and reconfigure flow for Cover Control."""
 from __future__ import annotations
 
 import logging
@@ -10,7 +10,7 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.config_entries import ConfigEntryError, ConfigSubentry, ConfigSubentryFlow
+from homeassistant.config_entries import ConfigSubentry, ConfigSubentryFlow
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult, section
 from homeassistant.helpers import selector
@@ -33,8 +33,6 @@ from .config_resolver import (
     GLOBAL_SOURCE_KEYS,
     PROFILE_KEYS,
     ROOM_SOURCE_OVERRIDE_KEYS,
-    config_entry_room_id,
-    entry_config_model,
     resolve_config_model,
     system_defaults,
 )
@@ -61,7 +59,6 @@ from .const import (
     CONF_BRIGHTNESS_SUN_OPERATOR,
     CONF_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_COLD_PROTECTION_THRESHOLD,
-    CONF_CONFIG_MODEL,
     CONF_GLOBAL,
     CONF_GLOBAL_DEFAULTS,
     CONF_GLOBAL_SOURCES,
@@ -496,6 +493,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     def __init__(self) -> None:
         self._data: dict = {}
+        self._profile_type = PROFILE_TYPE_TIME
 
     async def async_step_user(self, user_input=None) -> FlowResult:
         """Create exactly one global parent entry without requiring a room."""
@@ -1360,16 +1358,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return self.async_show_form(step_id="shading", data_schema=vol.Schema(schema))
 
     async def async_step_finalize(self, user_input=None) -> FlowResult:
-        if user_input:
-            self._data.update(user_input)
-        for key in CLEARABLE_ENTITY_SELECTOR_KEYS:
-            if self._data.get(key) in (None, "", vol.UNDEFINED):
-                self._data.pop(key, None)
-        name = str(self._data.get(CONF_NAME, DEFAULT_NAME)).strip() or DEFAULT_NAME
-        from .config_resolver import persisted_entry_data
-
-        data = persisted_entry_data(_with_config_defaults(self._data))
-        return self.async_create_entry(title=name, data=data)
+        return self.async_abort(reason="legacy_flow_removed")
 
     def _cover_full_key(self, cover: str) -> str:
         state = self.hass.states.get(cover)
@@ -1443,44 +1432,33 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
         return {"room": RoomSubentryFlow}
 
-    @staticmethod
-    @callback
-    def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:
-        if CONF_GLOBAL in config_entry.data and CONF_CONFIG_MODEL not in config_entry.data:
-            return ParentOptionsFlow(config_entry)
-        raise ConfigEntryError(
-            "Cover Control parent entry migration is incomplete"
-        )
+    def _entry(self) -> config_entries.ConfigEntry:
+        """Return the parent entry attached to this reconfigure flow."""
 
-
-class ParentOptionsFlow(config_entries.OptionsFlow):
-    """Edit parent-owned global sources, defaults, and profiles."""
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self._entry = config_entry
-        self._profile_type = PROFILE_TYPE_TIME
+        return self._get_reconfigure_entry()
 
     def _model(self) -> ConfigProfileModel:
         from .config_subentries import model_from_subentries
 
+        entry = self._entry()
         return ConfigProfileModel(
-            model_from_subentries(self._entry.data, self._entry.subentries.values())
+            model_from_subentries(entry.data, entry.subentries.values())
         )
 
     def _save_parent_model(self, model: ConfigProfileModel) -> None:
+        entry = self._entry()
+        new_data = deepcopy(dict(entry.data))
+        new_data[CONF_GLOBAL] = deepcopy(model.data[CONF_GLOBAL])
+        new_data[CONF_PROFILES] = deepcopy(model.data[CONF_PROFILES])
         self.hass.config_entries.async_update_entry(
-            self._entry,
-            data={
-                **self._entry.data,
-                CONF_GLOBAL: deepcopy(model.data[CONF_GLOBAL]),
-                CONF_PROFILES: deepcopy(model.data[CONF_PROFILES]),
-            },
+            entry,
+            data=new_data,
             options={},
         )
 
-    async def async_step_init(self, user_input=None) -> FlowResult:
+    async def async_step_reconfigure(self, user_input=None) -> FlowResult:
         return self.async_show_menu(
-            step_id="init",
+            step_id="reconfigure",
             menu_options=[
                 "global_sources",
                 "global_defaults",
@@ -1490,11 +1468,31 @@ class ParentOptionsFlow(config_entries.OptionsFlow):
             ],
         )
 
-    async def async_step_finish(self, user_input=None) -> FlowResult:
-        return self.async_create_entry(title="", data={})
-
     async def async_step_global_sources(self, user_input=None) -> FlowResult:
-        global_data = dict(self._entry.data.get(CONF_GLOBAL, {}))
+        if self.source != config_entries.SOURCE_RECONFIGURE:
+            if user_input is not None:
+                self._data[CONF_GLOBAL] = {
+                    CONF_GLOBAL_SOURCES: {
+                        key: value
+                        for key, value in user_input.items()
+                        if value not in (None, "")
+                    },
+                    CONF_GLOBAL_DEFAULTS: {},
+                }
+                return await self.async_step_global_defaults()
+            fields = {}
+            for key in sorted(GLOBAL_SOURCE_KEYS):
+                fields[vol.Optional(key)] = (
+                    selector.ConditionSelector()
+                    if key == CONF_ADDITIONAL_CONDITION_GLOBAL
+                    else selector.EntitySelector(selector.EntitySelectorConfig())
+                )
+            return self.async_show_form(
+                step_id="global_sources", data_schema=vol.Schema(fields)
+            )
+
+        entry = self._entry()
+        global_data = deepcopy(dict(entry.data.get(CONF_GLOBAL, {})))
         sources = dict(global_data.get(CONF_GLOBAL_SOURCES, {}))
         if user_input is not None:
             sources = {
@@ -1503,12 +1501,14 @@ class ParentOptionsFlow(config_entries.OptionsFlow):
                 if value not in (None, "")
             }
             global_data[CONF_GLOBAL_SOURCES] = sources
-            self.hass.config_entries.async_update_entry(
-                self._entry,
-                data={**self._entry.data, CONF_GLOBAL: global_data},
+            new_data = deepcopy(dict(entry.data))
+            new_data[CONF_GLOBAL] = global_data
+            return self.async_update_reload_and_abort(
+                entry,
+                data=new_data,
                 options={},
+                reload_even_if_entry_is_unchanged=False,
             )
-            return self.async_create_entry(title="", data={})
         schema = {}
         for key in sorted(GLOBAL_SOURCE_KEYS):
             current = sources.get(key)
@@ -1526,7 +1526,43 @@ class ParentOptionsFlow(config_entries.OptionsFlow):
         )
 
     async def async_step_global_defaults(self, user_input=None) -> FlowResult:
-        global_data = dict(self._entry.data.get(CONF_GLOBAL, {}))
+        if self.source != config_entries.SOURCE_RECONFIGURE:
+            if user_input is not None:
+                defaults = extract_sparse_settings(
+                    flatten_section_input(user_input),
+                    PROFILE_TYPE_BEHAVIOR,
+                    {},
+                    field_selection=CONF_GLOBAL_DEFAULT_FIELDS,
+                    allowed_keys=GLOBAL_DEFAULT_KEYS,
+                )
+                self._data[CONF_GLOBAL][CONF_GLOBAL_DEFAULTS] = defaults
+                await self.async_set_unique_id(DOMAIN)
+                self._abort_if_unique_id_configured()
+                return self.async_create_entry(
+                    title=DEFAULT_NAME,
+                    data={
+                        CONF_NAME: DEFAULT_NAME,
+                        CONF_GLOBAL: self._data[CONF_GLOBAL],
+                        CONF_PROFILES: {
+                            PROFILE_TYPE_TIME: {},
+                            PROFILE_TYPE_SHADING: {},
+                            PROFILE_TYPE_BEHAVIOR: {},
+                        },
+                    },
+                )
+            return self.async_show_form(
+                step_id="global_defaults",
+                data_schema=build_profile_schema(
+                    PROFILE_TYPE_BEHAVIOR,
+                    {},
+                    system_defaults(),
+                    field_selection=CONF_GLOBAL_DEFAULT_FIELDS,
+                    allowed_keys=GLOBAL_DEFAULT_KEYS,
+                ),
+            )
+
+        entry = self._entry()
+        global_data = deepcopy(dict(entry.data.get(CONF_GLOBAL, {})))
         defaults = dict(global_data.get(CONF_GLOBAL_DEFAULTS, {}))
         if user_input is not None:
             defaults = extract_sparse_settings(
@@ -1537,12 +1573,14 @@ class ParentOptionsFlow(config_entries.OptionsFlow):
                 allowed_keys=GLOBAL_DEFAULT_KEYS,
             )
             global_data[CONF_GLOBAL_DEFAULTS] = defaults
-            self.hass.config_entries.async_update_entry(
-                self._entry,
-                data={**self._entry.data, CONF_GLOBAL: global_data},
+            new_data = deepcopy(dict(entry.data))
+            new_data[CONF_GLOBAL] = global_data
+            return self.async_update_reload_and_abort(
+                entry,
+                data=new_data,
                 options={},
+                reload_even_if_entry_is_unchanged=False,
             )
-            return self.async_create_entry(title="", data={})
         return self.async_show_form(
             step_id="global_defaults",
             data_schema=build_profile_schema(
@@ -1557,7 +1595,8 @@ class ParentOptionsFlow(config_entries.OptionsFlow):
     async def async_step_recovery(self, user_input=None) -> FlowResult:
         """Restore last-known-good parent and native subentries."""
 
-        runtime = getattr(self._entry, "runtime_data", None)
+        entry = self._entry()
+        runtime = getattr(entry, "runtime_data", None)
         recovery = getattr(runtime, "recovery_manager", None)
         available = recovery is not None and recovery.last_known_good is not None
         if user_input is not None and user_input.get("confirm") and available:
@@ -1565,13 +1604,13 @@ class ParentOptionsFlow(config_entries.OptionsFlow):
                 recovery.last_known_good
             )
             parent_data[CONF_NAME] = DEFAULT_NAME
-            for subentry_id in tuple(self._entry.subentries):
+            for subentry_id in tuple(entry.subentries):
                 self.hass.config_entries.async_remove_subentry(
-                    self._entry, subentry_id
+                    entry, subentry_id
                 )
             for subentry_id, subentry_type, title, data in payloads:
                 self.hass.config_entries.async_add_subentry(
-                    self._entry,
+                    entry,
                     ConfigSubentry(
                         data=MappingProxyType(data),
                         subentry_id=subentry_id,
@@ -1580,10 +1619,12 @@ class ParentOptionsFlow(config_entries.OptionsFlow):
                         unique_id=subentry_id,
                     ),
                 )
-            self.hass.config_entries.async_update_entry(
-                self._entry, data=parent_data, options={}
+            return self.async_update_reload_and_abort(
+                entry,
+                data=parent_data,
+                options={},
+                reload_even_if_entry_is_unchanged=False,
             )
-            return self.async_create_entry(title="", data={})
         return self.async_show_form(
             step_id="recovery",
             data_schema=vol.Schema(
@@ -1876,7 +1917,31 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         )
 
     async def async_step_general(self, user_input=None) -> FlowResult:
-        return await self.async_step_hardware(user_input)
+        subentry = self._get_reconfigure_subentry()
+        data = dict(subentry.data)
+        settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
+        if user_input is not None:
+            title = str(user_input[CONF_NAME]).strip()
+            data[CONF_NAME] = title
+            settings[CONF_ROOM] = user_input[CONF_ROOM]
+            data[CONF_ROOM_SETTINGS] = settings
+            return self.async_update_and_abort(
+                self._get_entry(),
+                subentry,
+                title=title,
+                data=data,
+            )
+        return self.async_show_form(
+            step_id="general",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_NAME, default=subentry.title): selector.TextSelector(),
+                    vol.Required(
+                        CONF_ROOM, default=settings.get(CONF_ROOM)
+                    ): selector.AreaSelector(),
+                }
+            ),
+        )
 
     async def async_step_functions(self, user_input=None) -> FlowResult:
         return self.async_show_menu(
@@ -1901,8 +1966,8 @@ class RoomSubentryFlow(ConfigSubentryFlow):
             full_map: dict[str, list[str]] = {}
             tilt_map: dict[str, list[str]] = {}
             for cover in covers:
-                full_map[cover] = list(user_input.get(f"{cover}_full", []))
-                tilt_map[cover] = list(user_input.get(f"{cover}_tilt", []))
+                full_map[cover] = list(user_input.get(self._contact_key(cover, "full"), []))
+                tilt_map[cover] = list(user_input.get(self._contact_key(cover, "tilt"), []))
             settings[CONF_WINDOW_SENSOR_FULL] = full_map
             settings[CONF_WINDOW_SENSOR_TILT] = tilt_map
             data[CONF_ROOM_SETTINGS] = settings
@@ -1915,14 +1980,20 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         tilt = settings.get(CONF_WINDOW_SENSOR_TILT, {})
         for cover in covers:
             schema[
-                vol.Optional(f"{cover}_full", default=full.get(cover, []))
+                vol.Optional(self._contact_key(cover, "full"), default=full.get(cover, []))
             ] = multi_selector
             schema[
-                vol.Optional(f"{cover}_tilt", default=tilt.get(cover, []))
+                vol.Optional(self._contact_key(cover, "tilt"), default=tilt.get(cover, []))
             ] = multi_selector
         return self.async_show_form(
             step_id="contacts", data_schema=vol.Schema(schema)
         )
+
+    def _contact_key(self, cover: str, contact_type: str) -> str:
+        state = self.hass.states.get(cover)
+        name = state.name if state else cover.split(".")[-1].replace("_", " ").title()
+        label = "vollständig geöffnet" if contact_type == "full" else "gekippt"
+        return f"{name} - {label}"
 
     async def async_step_room_sensors(self, user_input=None) -> FlowResult:
         subentry = self._get_reconfigure_subentry()
@@ -1987,19 +2058,47 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         )
 
     async def async_step_diagnostics(self, user_input=None) -> FlowResult:
+        entry = self._get_entry()
         subentry = self._get_reconfigure_subentry()
+        data = dict(subentry.data)
+        settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
+        selections = data.get(CONF_PROFILE_SELECTIONS, {})
+        profiles = entry.data.get(CONF_PROFILES, {})
+        profile_labels = []
+        profile_titles = {
+            PROFILE_TYPE_TIME: "Zeitprofil",
+            PROFILE_TYPE_SHADING: "Beschattungsprofil",
+            PROFILE_TYPE_BEHAVIOR: "Verhaltensprofil",
+        }
+        for profile_type in (PROFILE_TYPE_TIME, PROFILE_TYPE_SHADING, PROFILE_TYPE_BEHAVIOR):
+            profile_id = selections.get(profile_type)
+            profile = profiles.get(profile_type, {}).get(profile_id) if profile_id else None
+            name = (
+                profile.get(CONF_PROFILE_NAME)
+                if isinstance(profile, dict)
+                else "Fehlendes Profil"
+            )
+            profile_labels.append(f"{profile_titles[profile_type]}: {name}")
+
         return self.async_show_form(
             step_id="diagnostics",
             data_schema=vol.Schema({}),
             description_placeholders={
-                "room": subentry.title,
-                "profiles": ", ".join(
-                    str(value)
-                    for value in subentry.data.get(CONF_PROFILE_SELECTIONS, {}).values()
-                )
-                or "—",
+                "room": str(data.get(CONF_NAME, subentry.title)),
+                "cover_count": str(len(settings.get(CONF_COVERS, []))),
+                "profiles": "; ".join(profile_labels),
+                "resident_sensor": self._entity_name(settings.get(CONF_RESIDENT_SENSOR)),
+                "temperature_sensor": self._entity_name(settings.get(CONF_TEMPERATURE_SENSOR_INDOOR)),
+                "next_open": str(settings.get(CONF_TIME_UP_EARLY_WORKDAY) or "—"),
+                "next_close": str(settings.get(CONF_TIME_DOWN_EARLY_WORKDAY) or "—"),
             },
         )
+
+    def _entity_name(self, entity_id: Any) -> str:
+        if not entity_id:
+            return "—"
+        state = self.hass.states.get(str(entity_id))
+        return state.name if state else "—"
 
     async def async_step_hardware(self, user_input=None) -> FlowResult:
         """Edit room-local hardware while retaining function configuration."""
@@ -2013,19 +2112,12 @@ class RoomSubentryFlow(ConfigSubentryFlow):
             settings[CONF_COVERS] = list(user_input[CONF_COVERS])
             if settings.get(CONF_POSITION_SOURCE) != CONF_POSITION_SOURCE_CUSTOM_SENSOR:
                 settings.pop(CONF_CUSTOM_POSITION_SENSOR, None)
-            data[CONF_NAME] = str(user_input[CONF_NAME]).strip()
             data[CONF_ROOM_SETTINGS] = settings
-            return self.async_update_and_abort(
-                self._get_entry(), subentry, title=str(user_input[CONF_NAME]).strip(), data=data
-            )
+            return self.async_update_and_abort(self._get_entry(), subentry, data=data)
         return self.async_show_form(
-            step_id="reconfigure",
+            step_id="hardware",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_NAME, default=subentry.title): selector.TextSelector(),
-                    vol.Required(
-                        CONF_ROOM, default=settings.get(CONF_ROOM)
-                    ): selector.AreaSelector(),
                     vol.Required(
                         CONF_COVERS, default=settings.get(CONF_COVERS, [])
                     ): selector.EntitySelector(
@@ -2062,10 +2154,11 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                     ): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=[
-                                {"value": CONF_COVER_TYPE_BLIND, "label": "Blind / roller shutter"},
-                                {"value": CONF_COVER_TYPE_AWNING, "label": "Awning / sunshade"},
+                                CONF_COVER_TYPE_BLIND,
+                                CONF_COVER_TYPE_AWNING,
                             ],
                             mode=selector.SelectSelectorMode.DROPDOWN,
+                            translation_key="cover_type",
                         )
                     ),
                     vol.Optional(
@@ -2089,14 +2182,12 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                     ): selector.SelectSelector(
                         selector.SelectSelectorConfig(
                             options=[
-                                {"value": COVER_TILT_WAIT_FIXED_DELAY, "label": "Fixed delay"},
-                                {"value": COVER_TILT_WAIT_IDLE, "label": "Wait until idle"},
-                                {
-                                    "value": COVER_TILT_WAIT_BEFORE_POSITION,
-                                    "label": "Tilt first, then position",
-                                },
+                                COVER_TILT_WAIT_FIXED_DELAY,
+                                COVER_TILT_WAIT_IDLE,
+                                COVER_TILT_WAIT_BEFORE_POSITION,
                             ],
                             mode=selector.SelectSelectorMode.DROPDOWN,
+                            translation_key="cover_tilt_wait_mode",
                         )
                     ),
                     vol.Optional(
@@ -2285,9 +2376,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
             if profile_type in selected
         ]
         if not options:
-            return self.async_show_form(
-                step_id="overrides", data_schema=vol.Schema({})
-            )
+            return self.async_abort(reason="no_profile_for_overrides")
         return self.async_show_menu(step_id="overrides", menu_options=options)
 
     async def _async_override_step(
@@ -2355,1932 +2444,3 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         return await self._async_override_step(
             PROFILE_TYPE_BEHAVIOR, "override_behavior", user_input
         )
-
-
-class CoverOptionsFlow(config_entries.OptionsFlow):
-    """Handle options flow."""
-
-    _CLEARABLE_OPTION_KEYS = {
-        *CLEARABLE_ENTITY_SELECTOR_KEYS,
-        CONF_ADDITIONAL_CONDITION_GLOBAL,
-        CONF_ADDITIONAL_CONDITION_OPEN,
-        CONF_ADDITIONAL_CONDITION_CLOSE,
-        CONF_ADDITIONAL_CONDITION_VENTILATE,
-        CONF_ADDITIONAL_CONDITION_VENTILATE_END,
-        CONF_ADDITIONAL_CONDITION_SHADING,
-        CONF_ADDITIONAL_CONDITION_SHADING_TILT,
-        CONF_ADDITIONAL_CONDITION_SHADING_END,
-        CONF_CALENDAR_ENTITY,
-        CONF_LOCKOUT_POSITION,
-        CONF_SHADING_POSITION_ALT,
-        CONF_SHADING_POSITION_ALT_ENTITY,
-    }
-
-    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
-        self._config_entry = config_entry
-        self._room_id = config_entry_room_id(
-            config_entry.data, config_entry.entry_id
-        )
-        self._profile_model = ConfigProfileModel(
-            entry_config_model(
-                config_entry.data,
-                config_entry.options,
-                room_id=self._room_id,
-            )
-        )
-        self._profile_type = PROFILE_TYPE_TIME
-        self._affected_rooms: set[str] = set()
-        resolved = resolve_config_model(self._profile_model.data, self._room_id)
-        self._options = self._normalize_options(
-            None, base_options=dict(resolved)
-        )
-
-    def _clean_user_input(self, user_input: dict) -> dict:
-        """Drop empty selector values while keeping valid falsy values."""
-
-        def _json_safe(value: Any) -> Any:
-            """Convert selector results to JSON-serialisable primitives."""
-
-            if isinstance(value, (datetime, date)):
-                return value.isoformat()
-            if isinstance(value, time):
-                return value.isoformat()
-            if isinstance(value, timedelta):
-                return value.total_seconds()
-            if isinstance(value, list | tuple):
-                return [_json_safe(item) for item in value]
-            if isinstance(value, dict):
-                return {key: _json_safe(val) for key, val in value.items()}
-            return value
-
-        cleaned: dict[str, Any] = {}
-        for key, value in user_input.items():
-            if key in self._CLEARABLE_OPTION_KEYS and value in ("", vol.UNDEFINED, None, [], {}):
-                cleaned[key] = None
-                continue
-            if value in ("", vol.UNDEFINED):
-                continue
-            cleaned[key] = _json_safe(value)
-
-        for toggle_key, entity_key in ENTITY_TOGGLE_MAP.items():
-            if toggle_key in user_input:
-                enabled = bool(user_input.get(toggle_key))
-            else:
-                # In options menus without explicit toggle fields, keep newly
-                # selected entities active instead of clearing them.
-                enabled = (
-                    entity_key in user_input
-                    or cleaned.get(entity_key) not in ("", vol.UNDEFINED, None)
-                    or _is_enabled(self._options, entity_key)
-                )
-
-            if not enabled:
-                cleaned[entity_key] = None
-            elif cleaned.get(entity_key) in ("", vol.UNDEFINED):
-                cleaned[entity_key] = None
-
-            cleaned.pop(toggle_key, None)
-
-        if (
-            cleaned.get(CONF_POSITION_SOURCE)
-            and cleaned.get(CONF_POSITION_SOURCE) != CONF_POSITION_SOURCE_CUSTOM_SENSOR
-        ):
-            cleaned[CONF_CUSTOM_POSITION_SENSOR] = None
-
-        return cleaned
-
-    def _optional_default(self, key: str):
-        """Return a safe default for optional selectors."""
-
-        if key not in self._options:
-            return vol.UNDEFINED
-
-        value = self._options.get(key)
-        if value in (None, "", vol.UNDEFINED):
-            return vol.UNDEFINED
-        return value
-
-
-    def _sanitize_options(self, options: dict) -> dict:
-        """Remove empty selector placeholders from stored options."""
-
-        return {
-            key: value
-            for key, value in options.items()
-            if value not in ("", vol.UNDEFINED)
-            and (value is not None or key in self._CLEARABLE_OPTION_KEYS)
-        }
-
-    def _normalize_options(
-        self,
-        config_entry: config_entries.ConfigEntry | None,
-        overrides: dict | None = None,
-        base_options: dict | None = None,
-    ) -> dict:
-        """Merge stored data/options with defaults, overrides, and sanitize them."""
-
-
-        merged: dict = {}
-        if base_options:
-            merged.update(dict(base_options))
-        if config_entry:
-            merged.update(dict(config_entry.data or {}))
-            merged.update(dict(config_entry.options or {}))
-
-        merged = _with_config_defaults(merged)
-        if overrides:
-            merged.update(overrides)
-        sanitized = self._sanitize_options(merged)
-
-        covers_raw = sanitized.get(CONF_COVERS, [])
-        if isinstance(covers_raw, str):
-            covers = [covers_raw]
-        elif isinstance(covers_raw, list):
-            covers = covers_raw
-        else:
-            covers = list(covers_raw) if covers_raw else []
-        unique_covers: list[str] = []
-        for cover in covers:
-            if isinstance(cover, str) and cover and cover not in unique_covers:
-                unique_covers.append(cover)
-        sanitized[CONF_COVERS] = unique_covers
-
-        full_contacts = sanitized.get(CONF_WINDOW_SENSOR_FULL, {})
-        if not isinstance(full_contacts, dict):
-            full_contacts = {}
-        sanitized[CONF_WINDOW_SENSOR_FULL] = {
-            cover: [sensors]
-            if isinstance(sensors, str)
-            else sensors
-            if isinstance(sensors, list)
-            else []
-            for cover, sensors in full_contacts.items()
-            if cover
-        }
-
-        tilt_contacts = sanitized.get(CONF_WINDOW_SENSOR_TILT, {})
-        if not isinstance(tilt_contacts, dict):
-            tilt_contacts = {}
-        sanitized[CONF_WINDOW_SENSOR_TILT] = {
-            cover: [sensors]
-            if isinstance(sensors, str)
-            else sensors
-            if isinstance(sensors, list)
-            else []
-            for cover, sensors in tilt_contacts.items()
-            if cover
-        }
-
-        return sanitized
-
-    async def async_step_init(self, user_input=None) -> FlowResult:
-        from .hub import CoverControlHub
-
-        hub = self.hass.data.get(DOMAIN, {}).get("hub")
-        if (
-            isinstance(hub, CoverControlHub)
-            and self._room_id in hub.model.get("rooms", {})
-        ):
-            self._profile_model = ConfigProfileModel(hub.model)
-            self._refresh_resolved_options()
-        return await self.async_step_menu()
-
-    def _menu_options(self) -> list[str]:
-        """Separate hub ownership from room execution configuration."""
-
-        return [
-            "hub_settings",
-            "room_settings",
-            "finish",
-        ]
-
-    async def async_step_menu(self, user_input=None) -> FlowResult:
-        return self.async_show_menu(
-            step_id="menu",
-            menu_options=self._menu_options(),
-        )
-
-    async def async_step_advanced(self, user_input=None) -> FlowResult:
-        """Expose only room-specific hardware and condition pages."""
-
-        return self.async_show_menu(
-            step_id="advanced",
-            menu_options=[
-                "hardware",
-                "contact_sensors",
-                "geometry",
-                "additional_conditions",
-            ],
-        )
-
-    async def async_step_hub_settings(self, user_input=None) -> FlowResult:
-        """Open configuration owned once by the Cover Control hub."""
-
-        return self.async_show_menu(
-            step_id="hub_settings",
-            menu_options=["global_settings", "profiles", "profile_evaluation"],
-        )
-
-    async def async_step_room_settings(self, user_input=None) -> FlowResult:
-        """Open hardware, assignments, overrides, and room diagnostics."""
-
-        return self.async_show_menu(
-            step_id="room_settings",
-            menu_options=["general", "advanced", "room_profiles", "diagnostics"],
-        )
-
-    async def async_step_profile_evaluation(self, user_input=None) -> FlowResult:
-        """Show bounded hub diagnostics with readable profile names."""
-
-        from .hub import CoverControlHub
-
-        hub = self.hass.data.get(DOMAIN, {}).get("hub")
-        if isinstance(hub, CoverControlHub):
-            diagnostics = hub.diagnostics()
-            profiles = "; ".join(
-                f"{profile['name']}: {', '.join(profile['users']) or '—'}"
-                for catalog in diagnostics["profiles"].values()
-                for profile in catalog.values()
-            ) or "—"
-            evaluation = "; ".join(
-                f"{hub.profile_name(*key.split(':', 1))}: "
-                f"{value['next_open'] or '—'} / {value['next_close'] or '—'}"
-                for key, value in diagnostics["profile_evaluation"].items()
-            ) or "—"
-        else:
-            profiles = evaluation = "—"
-        return self.async_show_form(
-            step_id="profile_evaluation",
-            data_schema=vol.Schema({}),
-            description_placeholders={
-                "profiles": profiles,
-                "evaluation": evaluation,
-            },
-        )
-
-    async def async_step_global_settings(self, user_input=None) -> FlowResult:
-        """Separate technical sources from global fallback values."""
-
-        return self.async_show_menu(
-            step_id="global_settings",
-            menu_options=["global_sources", "global_defaults"],
-        )
-
-    async def async_step_global_sources(self, user_input=None) -> FlowResult:
-        """Configure shared technical inputs separately from behavior profiles."""
-
-        source_keys = sorted(GLOBAL_SOURCE_KEYS)
-        global_sources = self._profile_model.data["global"]["sources"]
-        if user_input is not None:
-            for key in source_keys:
-                value = user_input.get(key)
-                if value in (None, ""):
-                    global_sources.pop(key, None)
-                    self._affected_rooms.update(
-                        room_id
-                        for room_id, room in self._profile_model.data["rooms"].items()
-                        if key not in room.get("source_overrides", {})
-                    )
-                else:
-                    self._affected_rooms.update(
-                        self._profile_model.set_global_source(key, value)
-                    )
-            self._refresh_resolved_options()
-            return await self.async_step_global_settings()
-
-        schema = {}
-        for key in source_keys:
-            current = _selector_default(global_sources.get(key))
-            description = (
-                {"suggested_value": current}
-                if current is not vol.UNDEFINED
-                else None
-            )
-            marker = vol.Optional(key, description=description)
-            schema[marker] = (
-                selector.ConditionSelector()
-                if key == CONF_ADDITIONAL_CONDITION_GLOBAL
-                else selector.EntitySelector(selector.EntitySelectorConfig())
-            )
-        return self.async_show_form(
-            step_id="global_sources", data_schema=vol.Schema(schema)
-        )
-
-    async def async_step_global_defaults(self, user_input=None) -> FlowResult:
-        """Edit sparse global fallback values through native fields."""
-
-        defaults = self._profile_model.data["global"]["defaults"]
-        if user_input is not None:
-            flattened = flatten_section_input(user_input)
-            updated = extract_sparse_settings(
-                flattened,
-                PROFILE_TYPE_BEHAVIOR,
-                defaults,
-                field_selection=CONF_GLOBAL_DEFAULT_FIELDS,
-                allowed_keys=GLOBAL_DEFAULT_KEYS,
-            )
-            self._profile_model.data["global"]["defaults"] = updated
-            self._affected_rooms.update(self._profile_model.data["rooms"])
-            self._refresh_resolved_options()
-            return await self.async_step_global_settings()
-
-        return self.async_show_form(
-            step_id="global_defaults",
-            data_schema=build_profile_schema(
-                PROFILE_TYPE_BEHAVIOR,
-                defaults,
-                system_defaults(),
-                field_selection=CONF_GLOBAL_DEFAULT_FIELDS,
-                allowed_keys=GLOBAL_DEFAULT_KEYS,
-            ),
-        )
-
-    async def async_step_profiles(self, user_input=None) -> FlowResult:
-        """Choose one of the three supported reusable profile types."""
-
-        return self.async_show_menu(
-            step_id="profiles",
-            menu_options=[
-                "time_profiles",
-                "shading_profiles",
-                "behavior_profiles",
-            ],
-        )
-
-    async def async_step_time_profiles(self, user_input=None) -> FlowResult:
-        self._profile_type = PROFILE_TYPE_TIME
-        return await self._async_profile_manager("time_profiles", user_input)
-
-    async def async_step_shading_profiles(self, user_input=None) -> FlowResult:
-        self._profile_type = PROFILE_TYPE_SHADING
-        return await self._async_profile_manager("shading_profiles", user_input)
-
-    async def async_step_behavior_profiles(self, user_input=None) -> FlowResult:
-        self._profile_type = PROFILE_TYPE_BEHAVIOR
-        return await self._async_profile_manager("behavior_profiles", user_input)
-
-    async def _async_profile_manager(
-        self, step_id: str, user_input: dict | None
-    ) -> FlowResult:
-        catalog = self._profile_model.data["profiles"][self._profile_type]
-        errors: dict[str, str] = {}
-        if user_input is not None:
-            action = user_input["profile_action"]
-            profile_id = user_input.get("profile_id")
-            if action == "create":
-                self._editing_profile_id = None
-                self._editing_context = "profile"
-                return await self.async_step_profile_setup()
-            if not profile_id:
-                errors["base"] = "profile_required"
-            elif action == "edit":
-                self._editing_profile_id = profile_id
-                self._editing_context = "profile"
-                return await self.async_step_profile_setup()
-            elif action == "duplicate":
-                profile = catalog[profile_id]
-                self._profile_model.duplicate_profile(
-                    self._profile_type,
-                    profile_id,
-                    profile["name"],
-                )
-                return await self.async_step_menu()
-            elif action == "delete":
-                try:
-                    self._profile_model.delete_profile(
-                        self._profile_type, profile_id
-                    )
-                except ProfileInUseError:
-                    errors["base"] = "profile_in_use"
-                else:
-                    return await self.async_step_menu()
-
-        profile_options = [
-            {"value": profile_id, "label": profile["name"]}
-            for profile_id, profile in catalog.items()
-        ]
-        schema: dict = {
-            vol.Required("profile_action", default="edit"): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=["create", "edit", "duplicate", "delete"],
-                    translation_key="profile_action",
-                )
-            )
-        }
-        if profile_options:
-            schema[vol.Optional("profile_id")] = selector.SelectSelector(
-                selector.SelectSelectorConfig(options=profile_options)
-            )
-        return self.async_show_form(
-            step_id=step_id,
-            data_schema=vol.Schema(schema),
-            errors=errors,
-        )
-
-    async def async_step_profile_setup(self, user_input=None) -> FlowResult:
-        """Select a profile name and its user-facing capability groups."""
-
-        catalog = self._profile_model.data["profiles"][self._profile_type]
-        profile_id = getattr(self, "_editing_profile_id", None)
-        profile = catalog.get(profile_id, {})
-        existing = profile.get("settings", {})
-        capabilities = profile.get(CONF_PROFILE_CAPABILITIES)
-        if not capabilities:
-            capabilities = infer_capabilities(self._profile_type, existing)
-        if user_input is not None:
-            selected = list(user_input.get(CONF_PROFILE_CAPABILITIES_FIELD, ()))
-            invalid = set(selected) - set(PROFILE_CAPABILITY_KEYS[self._profile_type])
-            if not invalid:
-                self._editing_profile_name = str(user_input["profile_name"])
-                self._editing_capabilities = selected
-                return await self.async_step_profile_edit()
-            return self.async_show_form(
-                step_id="profile_setup",
-                data_schema=self._profile_setup_schema(profile, capabilities),
-                errors={"base": "invalid_profile_settings"},
-            )
-        return self.async_show_form(
-            step_id="profile_setup",
-            data_schema=self._profile_setup_schema(profile, capabilities),
-        )
-
-    def _profile_setup_schema(
-        self, profile: dict[str, Any], capabilities: list[str]
-    ) -> vol.Schema:
-        return vol.Schema(
-            {
-                vol.Required(
-                    "profile_name", default=profile.get("name", "")
-                ): selector.TextSelector(),
-                vol.Required(
-                    CONF_PROFILE_CAPABILITIES_FIELD,
-                    default=capabilities,
-                ): selector.SelectSelector(
-                    selector.SelectSelectorConfig(
-                        options=list(PROFILE_CAPABILITY_KEYS[self._profile_type]),
-                        multiple=True,
-                        translation_key="profile_capability",
-                    )
-                ),
-            }
-        )
-
-    async def async_step_profile_edit(self, user_input=None) -> FlowResult:
-        """Create or edit one profile while retaining its stable identifier."""
-
-        context = getattr(self, "_editing_context", "profile")
-        if context != "profile":
-            return await self._async_room_override_form(user_input)
-
-        catalog = self._profile_model.data["profiles"][self._profile_type]
-        profile_id = getattr(self, "_editing_profile_id", None)
-        profile = catalog.get(profile_id, {})
-        existing = profile.get("settings", {})
-        unknown_keys = sorted(set(existing) - PROFILE_KEYS[self._profile_type])
-        if unknown_keys:
-            LOGGER.warning(
-                "Profile %s contains unsupported settings that will be preserved: %s",
-                profile_id,
-                ", ".join(unknown_keys),
-            )
-        errors: dict[str, str] = {}
-        if user_input is not None:
-            try:
-                flattened = flatten_section_input(user_input)
-                capabilities = list(getattr(self, "_editing_capabilities", ()))
-                allowed_keys = capability_keys(self._profile_type, capabilities)
-                settings = extract_sparse_settings(
-                    flattened,
-                    self._profile_type,
-                    existing,
-                    field_selection=None,
-                    allowed_keys=allowed_keys,
-                )
-                if profile_id:
-                    self._affected_rooms.update(
-                        self._profile_model.rename_profile(
-                            self._profile_type,
-                            profile_id,
-                            getattr(
-                                self,
-                                "_editing_profile_name",
-                                profile.get("name", ""),
-                            ),
-                        )
-                    )
-                    self._profile_model.set_capabilities(
-                        self._profile_type, profile_id, capabilities
-                    )
-                    self._affected_rooms.update(
-                        self._profile_model.update_profile(
-                            self._profile_type, profile_id, settings
-                        )
-                    )
-                else:
-                    self._profile_model.create_profile(
-                        self._profile_type,
-                        getattr(self, "_editing_profile_name", ""),
-                        settings,
-                        capabilities=capabilities,
-                    )
-                self._refresh_resolved_options()
-                if self._profile_type == PROFILE_TYPE_TIME:
-                    return await self.async_step_time_profiles()
-                if self._profile_type == PROFILE_TYPE_SHADING:
-                    return await self.async_step_shading_profiles()
-                return await self.async_step_behavior_profiles()
-            except (ValueError, ProfileError):
-                errors["base"] = "invalid_profile_settings"
-
-        return self.async_show_form(
-            step_id="profile_edit",
-            data_schema=build_profile_schema(
-                self._profile_type,
-                existing,
-                self._profile_fallbacks(),
-                field_selection=None,
-                allowed_keys=capability_keys(
-                    self._profile_type,
-                    getattr(
-                        self,
-                        "_editing_capabilities",
-                        profile.get(CONF_PROFILE_CAPABILITIES)
-                        or infer_capabilities(self._profile_type, existing),
-                    ),
-                ),
-            ),
-            errors=errors,
-            description_placeholders={"profile_values": "—"},
-        )
-
-    async def async_step_room_profiles(self, user_input=None) -> FlowResult:
-        """Open profile assignments and progressive room override groups."""
-
-        return self.async_show_menu(
-            step_id="room_profiles",
-            menu_options=[
-                "room_assignments",
-                "time_overrides",
-                "shading_overrides",
-                "behavior_overrides",
-                "source_overrides",
-            ],
-        )
-
-    async def async_step_room_assignments(self, user_input=None) -> FlowResult:
-        """Assign reusable profiles without copying their settings."""
-
-        room = self._profile_model.data["rooms"][self._room_id]
-        selections = room.get("profiles", {})
-        errors: dict[str, str] = {}
-        if user_input is not None:
-            try:
-                for profile_type in (
-                    PROFILE_TYPE_TIME,
-                    PROFILE_TYPE_SHADING,
-                    PROFILE_TYPE_BEHAVIOR,
-                ):
-                    profile_id = user_input.get(f"{profile_type}_profile")
-                    if profile_id == "__none__":
-                        self._profile_model.unassign_profile(
-                            self._room_id, profile_type
-                        )
-                    elif profile_id:
-                        self._profile_model.assign_profile(
-                            self._room_id, profile_type, profile_id
-                        )
-                self._refresh_resolved_options()
-                self._affected_rooms.add(self._room_id)
-                return await self.async_step_room_profiles()
-            except (ValueError, ProfileError):
-                errors["base"] = "invalid_profile_settings"
-
-        schema: dict = {}
-        for profile_type in (
-            PROFILE_TYPE_TIME,
-            PROFILE_TYPE_SHADING,
-            PROFILE_TYPE_BEHAVIOR,
-        ):
-            catalog = self._profile_model.data["profiles"][profile_type]
-            options = [{"value": "__none__", "label": "—"}]
-            options.extend(
-                {"value": profile_id, "label": profile["name"]}
-                for profile_id, profile in catalog.items()
-            )
-            schema[
-                vol.Required(
-                    f"{profile_type}_profile",
-                    default=selections.get(profile_type, "__none__"),
-                )
-            ] = selector.SelectSelector(
-                selector.SelectSelectorConfig(options=options)
-            )
-        return self.async_show_form(
-            step_id="room_assignments",
-            data_schema=vol.Schema(schema),
-            errors=errors,
-        )
-
-    async def async_step_time_overrides(self, user_input=None) -> FlowResult:
-        self._editing_context = ("override", PROFILE_TYPE_TIME)
-        return await self.async_step_profile_edit(user_input)
-
-    async def async_step_shading_overrides(self, user_input=None) -> FlowResult:
-        self._editing_context = ("override", PROFILE_TYPE_SHADING)
-        return await self.async_step_profile_edit(user_input)
-
-    async def async_step_behavior_overrides(self, user_input=None) -> FlowResult:
-        self._editing_context = ("override", PROFILE_TYPE_BEHAVIOR)
-        return await self.async_step_profile_edit(user_input)
-
-    async def _async_room_override_form(self, user_input: dict | None) -> FlowResult:
-        _context, profile_type = self._editing_context
-        room = self._profile_model.data["rooms"][self._room_id]
-        room_overrides = room.setdefault("overrides", {})
-        existing = room_overrides.get(profile_type, {})
-        inherited = self._resolved_without_room_override(profile_type)
-        if user_input is not None:
-            flattened = flatten_section_input(user_input)
-            submitted = extract_sparse_settings(
-                flattened,
-                profile_type,
-                existing,
-                field_selection=CONF_OVERRIDE_FIELDS,
-            )
-            unknown = {
-                key: value
-                for key, value in existing.items()
-                if key not in PROFILE_KEYS[profile_type]
-            }
-            room_overrides[profile_type] = unknown
-            for key, value in submitted.items():
-                if key in PROFILE_KEYS[profile_type]:
-                    self._profile_model.set_override(
-                        self._room_id, profile_type, key, value
-                    )
-            if not room_overrides.get(profile_type):
-                room_overrides.pop(profile_type, None)
-            self._refresh_resolved_options()
-            self._affected_rooms.add(self._room_id)
-            return await self.async_step_room_profiles()
-
-        profile_values = ", ".join(
-            f"{key}: {inherited.get(key)!r}"
-            for key in sorted(PROFILE_KEYS[profile_type])
-        )
-        return self.async_show_form(
-            step_id="profile_edit",
-            data_schema=build_profile_schema(
-                profile_type,
-                existing,
-                inherited,
-                field_selection=CONF_OVERRIDE_FIELDS,
-            ),
-            description_placeholders={"profile_values": profile_values},
-        )
-
-    async def async_step_source_overrides(self, user_input=None) -> FlowResult:
-        """Edit selected room-local technical sources with native selectors."""
-
-        room = self._profile_model.data["rooms"][self._room_id]
-        overrides = room.setdefault("source_overrides", {})
-        keys = sorted(ROOM_SOURCE_OVERRIDE_KEYS)
-        if user_input is not None:
-            overrides.clear()
-            for key in keys:
-                value = user_input.get(key)
-                if value not in (None, ""):
-                    self._profile_model.set_source_override(
-                        self._room_id, key, value
-                    )
-            self._refresh_resolved_options()
-            self._affected_rooms.add(self._room_id)
-            return await self.async_step_room_profiles()
-
-        schema = {}
-        for key in keys:
-            current = _selector_default(overrides.get(key))
-            description = (
-                {"suggested_value": current}
-                if current is not vol.UNDEFINED
-                else None
-            )
-            schema[vol.Optional(key, description=description)] = (
-                selector.EntitySelector(selector.EntitySelectorConfig())
-            )
-        return self.async_show_form(
-            step_id="source_overrides", data_schema=vol.Schema(schema)
-        )
-
-    def _resolved_without_room_override(self, profile_type: str) -> dict[str, Any]:
-        model = deepcopy(self._profile_model.data)
-        room = model["rooms"][self._room_id]
-        room.setdefault("overrides", {}).pop(profile_type, None)
-        return dict(resolve_config_model(model, self._room_id))
-
-    def _profile_fallbacks(self) -> dict[str, Any]:
-        return {
-            **system_defaults(),
-            **self._profile_model.data["global"]["defaults"],
-        }
-
-    async def async_step_diagnostics(self, user_input=None) -> FlowResult:
-        """Show selected profiles and origins for representative values."""
-
-        resolved = resolve_config_model(self._profile_model.data, self._room_id)
-        profile_labels = {
-            PROFILE_TYPE_TIME: "Time",
-            PROFILE_TYPE_SHADING: "Shading",
-            PROFILE_TYPE_BEHAVIOR: "Behavior",
-        }
-        profiles = ", ".join(
-            f"{profile_labels[kind]}: {resolved.profile_names.get(kind, 'defaults')}"
-            for kind in (PROFILE_TYPE_TIME, PROFILE_TYPE_SHADING, PROFILE_TYPE_BEHAVIOR)
-        )
-        value_labels = {
-            CONF_SHADING_POSITION: ("Shading position", "%"),
-            CONF_SHADING_WAITINGTIME_START: ("Shading start delay", "s"),
-            CONF_SHADING_WAITINGTIME_END: ("Shading end delay", "s"),
-            CONF_TEMPERATURE_THRESHOLD: ("Temperature threshold", "°C"),
-        }
-
-        def source_label(source: str | None) -> str:
-            if source and source.startswith("profile:"):
-                profile_id = source.removeprefix("profile:")
-                for kind, selected_id in resolved.selected_profiles.items():
-                    if selected_id == profile_id:
-                        return f'profile "{resolved.profile_names.get(kind, "Unknown")}"'
-                return "profile"
-            return {
-                "system_default": "system default",
-                "global_default": "global default",
-                "room_setting": "room setting",
-                "room_override": "room override",
-                "global_source": "global source",
-                "room_source_override": "room source override",
-            }.get(source or "", "unknown")
-
-        values = "; ".join(
-            f"{label}: {resolved.get(key)} {unit} "
-            f"({source_label(resolved.sources.get(key))})"
-            for key, (label, unit) in value_labels.items()
-        )
-        return self.async_show_form(
-            step_id="diagnostics",
-            data_schema=vol.Schema({}),
-            description_placeholders={
-                "room": resolved.room_name,
-                "profiles": profiles,
-                "values": values,
-            },
-        )
-
-    def _refresh_resolved_options(self) -> None:
-        resolved = resolve_config_model(self._profile_model.data, self._room_id)
-        self._options = self._normalize_options(
-            None, base_options=dict(resolved)
-        )
-
-    async def async_step_general(self, user_input=None) -> FlowResult:
-        if user_input is not None:
-            await self._save_options(user_input)
-            return await self.async_step_room_settings()
-
-        schema: dict = {
-            vol.Optional(
-                CONF_NAME,
-                default=self._options.get(CONF_NAME, self._config_entry.title or DEFAULT_NAME),
-            ): str,
-            vol.Optional(CONF_ROOM, default=self._optional_default(CONF_ROOM)): selector.AreaSelector(),
-            vol.Required(CONF_COVERS, default=self._options.get(CONF_COVERS, [])): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["cover"], multiple=True)
-            ),
-        }
-        return self.async_show_form(step_id="general", data_schema=vol.Schema(schema))
-
-    async def async_step_positions(self, user_input=None) -> FlowResult:
-        if user_input is not None:
-            await self._save_options(user_input)
-            return await self.async_step_advanced()
-
-        schema: dict = {
-            vol.Required(
-                CONF_POSITION_SOURCE,
-                default=self._options.get(
-                    CONF_POSITION_SOURCE,
-                    CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
-                ),
-            ): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=[
-                        {
-                            "value": CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
-                            "label": "Use current_position attribute",
-                        },
-                        {
-                            "value": CONF_POSITION_SOURCE_POSITION_ATTR,
-                            "label": "Use position attribute",
-                        },
-                        {
-                            "value": CONF_POSITION_SOURCE_CUSTOM_SENSOR,
-                            "label": "Use custom position sensor",
-                        },
-                    ],
-                    mode=selector.SelectSelectorMode.DROPDOWN,
-                )
-            ),
-            vol.Optional(
-                CONF_CUSTOM_POSITION_SENSOR,
-                default=self._optional_default(CONF_CUSTOM_POSITION_SENSOR),
-            ): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["sensor"])
-            ),
-            vol.Required(
-                CONF_COVER_TYPE,
-                default=self._options.get(
-                    CONF_COVER_TYPE,
-                    DEFAULT_BEHAVIOR_SETTINGS[CONF_COVER_TYPE],
-                ),
-            ): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=[
-                        {"value": CONF_COVER_TYPE_BLIND, "label": "Blind / roller shutter"},
-                        {"value": CONF_COVER_TYPE_AWNING, "label": "Awning / sunshade"},
-                    ],
-                    mode=selector.SelectSelectorMode.DROPDOWN,
-                )
-            ),
-            vol.Required(
-                CONF_OPEN_POSITION,
-                default=_position_default(self._options, CONF_OPEN_POSITION),
-            ): _position_number_selector(),
-            vol.Required(
-                CONF_CLOSE_POSITION,
-                default=_position_default(self._options, CONF_CLOSE_POSITION),
-            ): _position_number_selector(),
-            vol.Required(
-                CONF_VENTILATE_POSITION,
-                default=_position_default(self._options, CONF_VENTILATE_POSITION),
-            ): _position_number_selector(),
-            vol.Optional(
-                CONF_LOCKOUT_POSITION,
-                default=self._optional_default(CONF_LOCKOUT_POSITION),
-            ): _position_number_selector(),
-            vol.Required(
-                CONF_SHADING_POSITION,
-                default=_position_default(self._options, CONF_SHADING_POSITION),
-            ): _position_number_selector(),
-            vol.Optional(
-                CONF_SHADING_POSITION_ALT,
-                default=self._optional_default(CONF_SHADING_POSITION_ALT),
-            ): _position_number_selector(),
-            vol.Optional(
-                CONF_SHADING_POSITION_ALT_ENTITY,
-                default=self._optional_default(CONF_SHADING_POSITION_ALT_ENTITY),
-            ): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["binary_sensor", "input_boolean"])
-            ),
-            vol.Required(
-                CONF_POSITION_TOLERANCE,
-                default=_position_default(self._options, CONF_POSITION_TOLERANCE),
-            ): _position_number_selector(CONF_POSITION_TOLERANCE),
-            vol.Required(
-                CONF_OPEN_TILT_POSITION,
-                default=_position_default(self._options, CONF_OPEN_TILT_POSITION),
-            ): _position_number_selector(),
-            vol.Required(
-                CONF_CLOSE_TILT_POSITION,
-                default=_position_default(self._options, CONF_CLOSE_TILT_POSITION),
-            ): _position_number_selector(),
-            vol.Required(
-                CONF_VENTILATE_TILT_POSITION,
-                default=_position_default(self._options, CONF_VENTILATE_TILT_POSITION),
-            ): _position_number_selector(),
-            vol.Required(
-                CONF_SHADING_TILT_POSITION,
-                default=_position_default(self._options, CONF_SHADING_TILT_POSITION),
-            ): _position_number_selector(),
-            vol.Required(
-                CONF_SHADING_TILT_POSITION_0,
-                default=_position_default(self._options, CONF_SHADING_TILT_POSITION_0),
-            ): _position_number_selector(),
-            vol.Required(
-                CONF_SHADING_TILT_POSITION_1,
-                default=_position_default(self._options, CONF_SHADING_TILT_POSITION_1),
-            ): _position_number_selector(),
-            vol.Required(
-                CONF_SHADING_TILT_POSITION_2,
-                default=_position_default(self._options, CONF_SHADING_TILT_POSITION_2),
-            ): _position_number_selector(),
-            vol.Required(
-                CONF_SHADING_TILT_POSITION_3,
-                default=_position_default(self._options, CONF_SHADING_TILT_POSITION_3),
-            ): _position_number_selector(),
-            vol.Optional(
-                CONF_SHADING_TILT_ELEVATION_1,
-                default=self._options.get(CONF_SHADING_TILT_ELEVATION_1, DEFAULT_SHADING_TILT_ELEVATION_1),
-            ): vol.Coerce(float),
-            vol.Optional(
-                CONF_SHADING_TILT_ELEVATION_2,
-                default=self._options.get(CONF_SHADING_TILT_ELEVATION_2, DEFAULT_SHADING_TILT_ELEVATION_2),
-            ): vol.Coerce(float),
-            vol.Optional(
-                CONF_SHADING_TILT_ELEVATION_3,
-                default=self._options.get(CONF_SHADING_TILT_ELEVATION_3, DEFAULT_SHADING_TILT_ELEVATION_3),
-            ): vol.Coerce(float),
-            vol.Optional(
-                CONF_DRIVE_TIME,
-                default=self._options.get(CONF_DRIVE_TIME, DEFAULT_DRIVE_TIME),
-            ): vol.Coerce(int),
-            vol.Optional(
-                CONF_COVER_TILT_WAIT_MODE,
-                default=self._options.get(CONF_COVER_TILT_WAIT_MODE, DEFAULT_COVER_TILT_WAIT_MODE),
-            ): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=[
-                        {"value": COVER_TILT_WAIT_FIXED_DELAY, "label": "Fixed delay"},
-                        {"value": COVER_TILT_WAIT_IDLE, "label": "Wait until idle"},
-                        {
-                            "value": COVER_TILT_WAIT_BEFORE_POSITION,
-                            "label": "Tilt first, then position",
-                        },
-                    ],
-                    mode=selector.SelectSelectorMode.DROPDOWN,
-                )
-            ),
-            vol.Optional(
-                CONF_COVER_TILT_WAIT_TIMEOUT,
-                default=self._options.get(CONF_COVER_TILT_WAIT_TIMEOUT, DEFAULT_COVER_TILT_WAIT_TIMEOUT),
-            ): vol.Coerce(int),
-        }
-        return self.async_show_form(step_id="positions", data_schema=vol.Schema(schema))
-
-    async def async_step_hardware(self, user_input=None) -> FlowResult:
-        """Configure only room-local cover feedback and hardware properties."""
-
-        if user_input is not None:
-            await self._save_options(user_input)
-            return await self.async_step_advanced()
-        return self.async_show_form(
-            step_id="hardware",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        CONF_POSITION_SOURCE,
-                        default=self._options.get(
-                            CONF_POSITION_SOURCE,
-                            CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
-                        ),
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=[
-                                CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
-                                CONF_POSITION_SOURCE_POSITION_ATTR,
-                                CONF_POSITION_SOURCE_CUSTOM_SENSOR,
-                            ],
-                            translation_key="position_source",
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_CUSTOM_POSITION_SENSOR,
-                        default=self._optional_default(CONF_CUSTOM_POSITION_SENSOR),
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor"])
-                    ),
-                    vol.Optional(
-                        CONF_DRIVE_TIME,
-                        default=self._options.get(CONF_DRIVE_TIME, DEFAULT_DRIVE_TIME),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=0,
-                            max=600,
-                            step=0.1,
-                            unit_of_measurement="s",
-                            mode=selector.NumberSelectorMode.BOX,
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_SHADING_POSITION_ALT_ENTITY,
-                        default=self._optional_default(
-                            CONF_SHADING_POSITION_ALT_ENTITY
-                        ),
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(
-                            domain=["binary_sensor", "input_boolean"]
-                        )
-                    ),
-                }
-            ),
-        )
-
-    async def async_step_geometry(self, user_input=None) -> FlowResult:
-        """Configure window orientation and room-local environmental inputs."""
-
-        if user_input is not None:
-            await self._save_options(user_input)
-            return await self.async_step_advanced()
-        return self.async_show_form(
-            step_id="geometry",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        CONF_SUN_AZIMUTH_START,
-                        default=self._options.get(
-                            CONF_SUN_AZIMUTH_START, DEFAULT_SHADING_AZIMUTH_START
-                        ),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(min=0, max=360, step=1)
-                    ),
-                    vol.Required(
-                        CONF_SUN_AZIMUTH_END,
-                        default=self._options.get(
-                            CONF_SUN_AZIMUTH_END, DEFAULT_SHADING_AZIMUTH_END
-                        ),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(min=0, max=360, step=1)
-                    ),
-                    vol.Required(
-                        CONF_SUN_ELEVATION_MIN,
-                        default=self._options.get(
-                            CONF_SUN_ELEVATION_MIN, DEFAULT_SHADING_ELEVATION_MIN
-                        ),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(min=-90, max=90, step=0.1)
-                    ),
-                    vol.Required(
-                        CONF_SUN_ELEVATION_MAX,
-                        default=self._options.get(
-                            CONF_SUN_ELEVATION_MAX, DEFAULT_SHADING_ELEVATION_MAX
-                        ),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(min=-90, max=90, step=0.1)
-                    ),
-                    vol.Optional(
-                        CONF_TEMPERATURE_SENSOR_INDOOR,
-                        default=self._optional_default(CONF_TEMPERATURE_SENSOR_INDOOR),
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor"])
-                    ),
-                }
-            ),
-        )
-
-    async def async_step_functions(self, user_input=None) -> FlowResult:
-        if user_input is not None:
-            if CONF_AUTO_TIME in user_input:
-                time_enabled = bool(user_input[CONF_AUTO_TIME])
-                user_input[CONF_AUTO_UP] = time_enabled
-                user_input[CONF_AUTO_DOWN] = time_enabled
-            await self._save_options(user_input)
-            return await self.async_step_menu()
-
-        schema: dict = {
-            vol.Optional(
-                CONF_AUTO_TIME,
-                default=bool(self._options.get(CONF_AUTO_TIME, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_TIME])),
-            ): bool,
-            vol.Optional(
-                CONF_AUTO_VENTILATE,
-                default=bool(self._options.get(CONF_AUTO_VENTILATE, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_VENTILATE])),
-            ): bool,
-            vol.Optional(
-                CONF_AUTO_BRIGHTNESS,
-                default=bool(self._options.get(CONF_AUTO_BRIGHTNESS, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_BRIGHTNESS])),
-            ): bool,
-            vol.Optional(
-                CONF_AUTO_SUN,
-                default=bool(self._options.get(CONF_AUTO_SUN, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_SUN])),
-            ): bool,
-            vol.Optional(
-                CONF_AUTO_SHADING,
-                default=bool(self._options.get(CONF_AUTO_SHADING, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_SHADING])),
-            ): bool,
-            vol.Optional(
-                CONF_RESIDENT_STATUS,
-                default=bool(self._options.get(CONF_RESIDENT_STATUS, DEFAULT_AUTOMATION_FLAGS[CONF_RESIDENT_STATUS])),
-            ): bool,
-            vol.Optional(
-                CONF_ADDITIONAL_CONDITIONS_ENABLED,
-                default=bool(
-                    self._options.get(
-                        CONF_ADDITIONAL_CONDITIONS_ENABLED,
-                        DEFAULT_AUTOMATION_FLAGS[CONF_ADDITIONAL_CONDITIONS_ENABLED],
-                    )
-                ),
-            ): bool,
-            vol.Optional(
-                CONF_MANUAL_CONTROL,
-                default=bool(
-                    self._options.get(
-                        CONF_MANUAL_CONTROL,
-                        self._options.get(
-                            CONF_ENABLE_RECALIBRATE_BUTTON,
-                            self._options.get(
-                                CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON,
-                                DEFAULT_BUTTON_SETTINGS[CONF_MANUAL_CONTROL],
-                            ),
-                        ),
-                    )
-                ),
-            ): bool,
-        }
-        return self.async_show_form(step_id="functions", data_schema=vol.Schema(schema))
-
-    async def async_step_behavior(self, user_input=None) -> FlowResult:
-        if user_input is not None:
-            await self._save_options(user_input)
-            return await self.async_step_menu()
-
-        schema: dict = {
-            vol.Optional(
-                CONF_PREVENT_HIGHER_POSITION_CLOSING,
-                default=bool(self._options.get(CONF_PREVENT_HIGHER_POSITION_CLOSING, False)),
-            ): bool,
-            vol.Optional(
-                CONF_PREVENT_LOWERING_WHEN_CLOSING_IF_SHADED,
-                default=bool(self._options.get(CONF_PREVENT_LOWERING_WHEN_CLOSING_IF_SHADED, False)),
-            ): bool,
-            vol.Optional(
-                CONF_PREVENT_SHADING_END_IF_CLOSED,
-                default=bool(self._options.get(CONF_PREVENT_SHADING_END_IF_CLOSED, False)),
-            ): bool,
-            vol.Optional(
-                CONF_PREVENT_OPENING_AFTER_SHADING_END,
-                default=bool(self._options.get(CONF_PREVENT_OPENING_AFTER_SHADING_END, False)),
-            ): bool,
-            vol.Optional(
-                CONF_PREVENT_OPENING_AFTER_VENTILATION_END,
-                default=bool(self._options.get(CONF_PREVENT_OPENING_AFTER_VENTILATION_END, False)),
-            ): bool,
-            vol.Optional(
-                CONF_PREVENT_OPENING_MULTIPLE_TIMES,
-                default=bool(self._options.get(CONF_PREVENT_OPENING_MULTIPLE_TIMES, False)),
-            ): bool,
-            vol.Optional(
-                CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
-                default=bool(self._options.get(CONF_PREVENT_CLOSING_MULTIPLE_TIMES, False)),
-            ): bool,
-            vol.Optional(
-                CONF_PREVENT_SHADING_MULTIPLE_TIMES,
-                default=bool(self._options.get(CONF_PREVENT_SHADING_MULTIPLE_TIMES, False)),
-            ): bool,
-            vol.Optional(
-                CONF_PREVENT_DEFAULT_COVER_ACTIONS,
-                default=bool(
-                    self._options.get(
-                        CONF_PREVENT_DEFAULT_COVER_ACTIONS,
-                        DEFAULT_BEHAVIOR_SETTINGS.get(CONF_PREVENT_DEFAULT_COVER_ACTIONS, False),
-                    )
-                ),
-            ): bool,
-            vol.Optional(
-                CONF_MANUAL_SCHEDULE_ADOPTION,
-                default=bool(
-                    self._options.get(CONF_MANUAL_SCHEDULE_ADOPTION, False)
-                ),
-            ): bool,
-            vol.Optional(
-                CONF_ENABLE_LOGBOOK_COVER,
-                default=bool(self._options.get(CONF_ENABLE_LOGBOOK_COVER, False)),
-            ): bool,
-        }
-        return self.async_show_form(step_id="behavior", data_schema=vol.Schema(schema))
-
-    async def async_step_additional_conditions(self, user_input=None) -> FlowResult:
-        if user_input is not None:
-            await self._save_options(user_input)
-            return await self.async_step_advanced()
-
-        condition_selector = selector.ConditionSelector()
-        schema: dict = {
-            vol.Optional(
-                CONF_ADDITIONAL_CONDITION_OPEN,
-                default=self._optional_default(CONF_ADDITIONAL_CONDITION_OPEN),
-            ): condition_selector,
-            vol.Optional(
-                CONF_ADDITIONAL_CONDITION_CLOSE,
-                default=self._optional_default(CONF_ADDITIONAL_CONDITION_CLOSE),
-            ): condition_selector,
-            vol.Optional(
-                CONF_ADDITIONAL_CONDITION_VENTILATE,
-                default=self._optional_default(CONF_ADDITIONAL_CONDITION_VENTILATE),
-            ): condition_selector,
-            vol.Optional(
-                CONF_ADDITIONAL_CONDITION_VENTILATE_END,
-                default=self._optional_default(CONF_ADDITIONAL_CONDITION_VENTILATE_END),
-            ): condition_selector,
-            vol.Optional(
-                CONF_ADDITIONAL_CONDITION_SHADING,
-                default=self._optional_default(CONF_ADDITIONAL_CONDITION_SHADING),
-            ): condition_selector,
-            vol.Optional(
-                CONF_ADDITIONAL_CONDITION_SHADING_TILT,
-                default=self._optional_default(CONF_ADDITIONAL_CONDITION_SHADING_TILT),
-            ): condition_selector,
-            vol.Optional(
-                CONF_ADDITIONAL_CONDITION_SHADING_END,
-                default=self._optional_default(CONF_ADDITIONAL_CONDITION_SHADING_END),
-            ): condition_selector,
-        }
-        return self.async_show_form(step_id="additional_conditions", data_schema=vol.Schema(schema))
-
-    async def async_step_resident(self, user_input=None) -> FlowResult:
-        if user_input is not None:
-            await self._save_options(user_input)
-            return await self.async_step_menu()
-
-        schema: dict = {
-            vol.Optional(
-                CONF_RESIDENT_SENSOR,
-                default=self._optional_default(CONF_RESIDENT_SENSOR),
-            ): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["binary_sensor", "input_boolean", "switch"])
-            ),
-            vol.Optional(
-                CONF_RESIDENT_OPEN_ENABLED,
-                default=bool(
-                    self._options.get(
-                        CONF_RESIDENT_OPEN_ENABLED,
-                        DEFAULT_AUTOMATION_FLAGS[CONF_RESIDENT_OPEN_ENABLED],
-                    )
-                ),
-            ): bool,
-            vol.Optional(
-                CONF_RESIDENT_CLOSE_ENABLED,
-                default=bool(
-                    self._options.get(
-                        CONF_RESIDENT_CLOSE_ENABLED,
-                        DEFAULT_AUTOMATION_FLAGS[CONF_RESIDENT_CLOSE_ENABLED],
-                    )
-                ),
-            ): bool,
-            vol.Optional(
-                CONF_RESIDENT_ALLOW_SHADING,
-                default=bool(
-                    self._options.get(
-                        CONF_RESIDENT_ALLOW_SHADING,
-                        DEFAULT_AUTOMATION_FLAGS[CONF_RESIDENT_ALLOW_SHADING],
-                    )
-                ),
-            ): bool,
-            vol.Optional(
-                CONF_RESIDENT_ALLOW_OPEN,
-                default=bool(
-                    self._options.get(
-                        CONF_RESIDENT_ALLOW_OPEN,
-                        DEFAULT_AUTOMATION_FLAGS[CONF_RESIDENT_ALLOW_OPEN],
-                    )
-                ),
-            ): bool,
-            vol.Optional(
-                CONF_RESIDENT_ALLOW_VENTILATION,
-                default=bool(
-                    self._options.get(
-                        CONF_RESIDENT_ALLOW_VENTILATION,
-                        DEFAULT_AUTOMATION_FLAGS[CONF_RESIDENT_ALLOW_VENTILATION],
-                    )
-                ),
-            ): bool,
-        }
-        return self.async_show_form(step_id="resident", data_schema=vol.Schema(schema))
-
-    async def async_step_time_control(self, user_input=None) -> FlowResult:
-        if user_input is not None:
-            await self._save_options(user_input)
-            return await self.async_step_menu()
-
-        auto_up = bool(self._options.get(CONF_AUTO_UP, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_UP]))
-        auto_down = bool(self._options.get(CONF_AUTO_DOWN, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_DOWN]))
-
-        schema: dict = {}
-        if auto_up or auto_down:
-            schema.update(
-                {
-            vol.Optional(
-                CONF_WORKDAY_SENSOR,
-                default=self._optional_default(CONF_WORKDAY_SENSOR),
-            ): selector.EntitySelector(selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])),
-                }
-            )
-        if auto_down:
-            schema.update(
-                {
-                    vol.Optional(
-                        CONF_WORKDAY_TOMORROW_SENSOR,
-                        default=self._optional_default(CONF_WORKDAY_TOMORROW_SENSOR),
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["binary_sensor", "sensor"])
-                    ),
-                }
-            )
-        if auto_up:
-            schema.update(
-                {
-                    vol.Optional(
-                        CONF_TIME_UP_EARLY_WORKDAY,
-                        default=_time_default(
-                            self._options.get(CONF_TIME_UP_EARLY_WORKDAY, DEFAULT_TIME_SETTINGS[CONF_TIME_UP_EARLY_WORKDAY])
-                        ),
-                    ): selector.TimeSelector(),
-                    vol.Optional(
-                        CONF_TIME_UP_LATE_WORKDAY,
-                        default=_time_default(
-                            self._options.get(CONF_TIME_UP_LATE_WORKDAY, DEFAULT_TIME_SETTINGS[CONF_TIME_UP_LATE_WORKDAY])
-                        ),
-                    ): selector.TimeSelector(),
-                    vol.Optional(
-                        CONF_TIME_UP_EARLY_NON_WORKDAY,
-                        default=_time_default(
-                            self._options.get(
-                                CONF_TIME_UP_EARLY_NON_WORKDAY, DEFAULT_TIME_SETTINGS[CONF_TIME_UP_EARLY_NON_WORKDAY]
-                            )
-                        ),
-                    ): selector.TimeSelector(),
-                    vol.Optional(
-                        CONF_TIME_UP_LATE_NON_WORKDAY,
-                        default=_time_default(
-                            self._options.get(CONF_TIME_UP_LATE_NON_WORKDAY, DEFAULT_TIME_SETTINGS[CONF_TIME_UP_LATE_NON_WORKDAY])
-                        ),
-                    ): selector.TimeSelector(),
-                }
-            )
-        if auto_down:
-            schema.update(
-                {
-                    vol.Optional(
-                        CONF_TIME_DOWN_EARLY_WORKDAY,
-                        default=_time_default(
-                            self._options.get(
-                                CONF_TIME_DOWN_EARLY_WORKDAY, DEFAULT_TIME_SETTINGS[CONF_TIME_DOWN_EARLY_WORKDAY]
-                            )
-                        ),
-                    ): selector.TimeSelector(),
-                    vol.Optional(
-                        CONF_TIME_DOWN_LATE_WORKDAY,
-                        default=_time_default(
-                            self._options.get(CONF_TIME_DOWN_LATE_WORKDAY, DEFAULT_TIME_SETTINGS[CONF_TIME_DOWN_LATE_WORKDAY])
-                        ),
-                    ): selector.TimeSelector(),
-                    vol.Optional(
-                        CONF_TIME_DOWN_EARLY_NON_WORKDAY,
-                        default=_time_default(
-                            self._options.get(
-                                CONF_TIME_DOWN_EARLY_NON_WORKDAY, DEFAULT_TIME_SETTINGS[CONF_TIME_DOWN_EARLY_NON_WORKDAY]
-                            )
-                        ),
-                    ): selector.TimeSelector(),
-                    vol.Optional(
-                        CONF_TIME_DOWN_LATE_NON_WORKDAY,
-                        default=_time_default(
-                            self._options.get(
-                                CONF_TIME_DOWN_LATE_NON_WORKDAY, DEFAULT_TIME_SETTINGS[CONF_TIME_DOWN_LATE_NON_WORKDAY]
-                            )
-                        ),
-                    ): selector.TimeSelector(),
-                    vol.Optional(
-                        CONF_CALENDAR_ENTITY,
-                        default=self._optional_default(CONF_CALENDAR_ENTITY),
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["calendar"])
-                    ),
-                    vol.Optional(
-                        CONF_CALENDAR_OPEN_TITLE,
-                        default=self._options.get(CONF_CALENDAR_OPEN_TITLE, ""),
-                    ): str,
-                    vol.Optional(
-                        CONF_CALENDAR_CLOSE_TITLE,
-                        default=self._options.get(CONF_CALENDAR_CLOSE_TITLE, ""),
-                    ): str,
-                }
-            )
-        return self.async_show_form(step_id="time_control", data_schema=vol.Schema(schema))
-
-    async def async_step_finish(self, user_input=None) -> FlowResult:
-        name = str(self._options.get(CONF_NAME, self._config_entry.title)).strip() or DEFAULT_NAME
-        room = self._profile_model.data["rooms"][self._room_id]
-        room[CONF_NAME] = name
-        data = {
-            CONF_ROOM_ID: self._room_id,
-            CONF_NAME: name,
-            CONF_CONFIG_MODEL: self._profile_model.data,
-        }
-        from .hub import CoverControlHub
-
-        hub = self.hass.data.get(DOMAIN, {}).get("hub")
-        if isinstance(hub, CoverControlHub):
-            hub.apply_model(
-                self._profile_model.data,
-                self._affected_rooms or {self._room_id},
-            )
-            await hub.async_persist()
-            self.hass.config_entries.async_update_entry(
-                self._config_entry, title=name
-            )
-        else:
-            self.hass.config_entries.async_update_entry(
-                self._config_entry, title=name, data=data, options={}
-            )
-        return self.async_create_entry(title="", data={})
-
-    async def async_step_contact_sensors(self, user_input=None) -> FlowResult:
-        covers = self._options.get(CONF_COVERS, [])
-        if user_input is not None:
-            await self._save_options(user_input, include_contacts=True)
-            return await self.async_step_advanced()
-
-        multi_selector = selector.EntitySelector(
-            selector.EntitySelectorConfig(
-                domain=["binary_sensor"],
-                device_class=["window", "door", "opening"],
-                multiple=True,
-            )
-        )
-        schema: OrderedDict = OrderedDict()
-        for cover in covers:
-            schema[vol.Optional(self._cover_full_key(cover), default=_selector_default(self._existing_full_contacts_for_cover(cover)))] = multi_selector
-            schema[vol.Optional(self._cover_tilt_key(cover), default=_selector_default(self._existing_tilt_contacts_for_cover(cover)))] = multi_selector
-        schema.update(
-            {
-                vol.Optional(
-                    CONF_CONTACT_TRIGGER_DELAY,
-                    default=self._options.get(CONF_CONTACT_TRIGGER_DELAY, DEFAULT_CONTACT_TRIGGER_DELAY),
-                ): vol.Coerce(int),
-                vol.Optional(
-                    CONF_CONTACT_STATUS_DELAY,
-                    default=self._options.get(CONF_CONTACT_STATUS_DELAY, DEFAULT_CONTACT_STATUS_DELAY),
-                ): vol.Coerce(int),
-                vol.Optional(
-                    CONF_VENTILATION_DELAY_AFTER_CLOSE,
-                    default=self._options.get(CONF_VENTILATION_DELAY_AFTER_CLOSE, DEFAULT_VENTILATION_DELAY_AFTER_CLOSE),
-                ): vol.Coerce(int),
-                vol.Optional(
-                    CONF_VENTILATION_ALLOW_HIGHER_POSITION,
-                    default=bool(self._options.get(CONF_VENTILATION_ALLOW_HIGHER_POSITION, DEFAULT_CONTACT_SETTINGS[CONF_VENTILATION_ALLOW_HIGHER_POSITION])),
-                ): bool,
-                vol.Optional(
-                    CONF_VENTILATION_USE_AFTER_SHADING,
-                    default=bool(self._options.get(CONF_VENTILATION_USE_AFTER_SHADING, DEFAULT_CONTACT_SETTINGS[CONF_VENTILATION_USE_AFTER_SHADING])),
-                ): bool,
-                vol.Optional(
-                    CONF_LOCKOUT_TILT_CLOSE,
-                    default=bool(self._options.get(CONF_LOCKOUT_TILT_CLOSE, DEFAULT_CONTACT_SETTINGS[CONF_LOCKOUT_TILT_CLOSE])),
-                ): bool,
-                vol.Optional(
-                    CONF_LOCKOUT_TILT_SHADING_START,
-                    default=bool(self._options.get(CONF_LOCKOUT_TILT_SHADING_START, DEFAULT_CONTACT_SETTINGS[CONF_LOCKOUT_TILT_SHADING_START])),
-                ): bool,
-                vol.Optional(
-                    CONF_LOCKOUT_TILT_SHADING_END,
-                    default=bool(self._options.get(CONF_LOCKOUT_TILT_SHADING_END, DEFAULT_CONTACT_SETTINGS[CONF_LOCKOUT_TILT_SHADING_END])),
-                ): bool,
-                vol.Optional(
-                    CONF_VENTILATION_START_NO_DELAY,
-                    default=bool(self._options.get(CONF_VENTILATION_START_NO_DELAY, DEFAULT_CONTACT_SETTINGS[CONF_VENTILATION_START_NO_DELAY])),
-                ): bool,
-                vol.Optional(
-                    CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT,
-                    default=bool(self._options.get(CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT, DEFAULT_CONTACT_SETTINGS[CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT])),
-                ): bool,
-                vol.Optional(
-                    CONF_SHADING_OVER_VENTILATION,
-                    default=bool(self._options.get(CONF_SHADING_OVER_VENTILATION, DEFAULT_CONTACT_SETTINGS[CONF_SHADING_OVER_VENTILATION])),
-                ): bool,
-            }
-        )
-        return self.async_show_form(step_id="contact_sensors", data_schema=vol.Schema(schema))
-
-    async def async_step_brightness(self, user_input=None) -> FlowResult:
-        if user_input is not None:
-            await self._save_options(user_input)
-            return await self.async_step_menu()
-
-        auto_brightness = bool(
-            self._options.get(CONF_AUTO_BRIGHTNESS, DEFAULT_AUTOMATION_FLAGS[CONF_AUTO_BRIGHTNESS])
-        )
-
-        schema: dict = {}
-        if auto_brightness:
-            schema.update(
-                {
-                    vol.Optional(
-                        CONF_BRIGHTNESS_SENSOR,
-                        default=self._optional_default(CONF_BRIGHTNESS_SENSOR),
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(
-                            domain=["sensor"], device_class=["illuminance"]
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_BRIGHTNESS_OPEN_ABOVE,
-                        default=self._options.get(CONF_BRIGHTNESS_OPEN_ABOVE, DEFAULT_BRIGHTNESS_OPEN),
-                    ): vol.Coerce(float),
-                    vol.Optional(
-                        CONF_BRIGHTNESS_CLOSE_BELOW,
-                        default=self._options.get(CONF_BRIGHTNESS_CLOSE_BELOW, DEFAULT_BRIGHTNESS_CLOSE),
-                    ): vol.Coerce(float),
-                    vol.Optional(
-                        CONF_BRIGHTNESS_HYSTERESIS,
-                        default=self._options.get(CONF_BRIGHTNESS_HYSTERESIS, DEFAULT_BRIGHTNESS_HYSTERESIS),
-                    ): vol.Coerce(float),
-                    vol.Optional(
-                        CONF_BRIGHTNESS_TIME_DURATION,
-                        default=self._options.get(CONF_BRIGHTNESS_TIME_DURATION, DEFAULT_BRIGHTNESS_TIME_DURATION),
-                    ): vol.Coerce(int),
-                    vol.Optional(
-                        CONF_BRIGHTNESS_SUN_OPERATOR,
-                        default=self._options.get(CONF_BRIGHTNESS_SUN_OPERATOR, DEFAULT_BRIGHTNESS_SUN_OPERATOR),
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=[
-                                {"value": BRIGHTNESS_SUN_OPERATOR_OR, "label": "OR — brightness or sun elevation triggers"},
-                                {"value": BRIGHTNESS_SUN_OPERATOR_AND, "label": "AND — both brightness and sun elevation must trigger"},
-                            ],
-                            mode=selector.SelectSelectorMode.DROPDOWN,
-                        )
-                    ),
-                }
-            )
-
-        return self.async_show_form(
-            step_id="brightness",
-            data_schema=vol.Schema(schema),
-        )
-
-    async def async_step_sun_elevation(self, user_input=None) -> FlowResult:
-        selected_mode = str(
-            (user_input or {}).get(
-                CONF_SUN_ELEVATION_MODE,
-                self._options.get(CONF_SUN_ELEVATION_MODE, DEFAULT_SUN_ELEVATION_MODE),
-            )
-            or DEFAULT_SUN_ELEVATION_MODE
-        ).lower()
-
-        schema: dict = {
-            vol.Optional(
-                CONF_SUN_ELEVATION_MODE,
-                default=selected_mode,
-            ): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=[
-                        {"value": "fixed", "label": "Fixed - use only fixed values"},
-                        {"value": "dynamic", "label": "Dynamic - use only sensor values"},
-                        {"value": "hybrid", "label": "Hybrid - sensor + fixed value as offset"},
-                    ],
-                    mode=selector.SelectSelectorMode.DROPDOWN,
-                )
-            ),
-            vol.Optional(
-                CONF_SUN_ELEVATION_OPEN,
-                default=(user_input or {}).get(
-                    CONF_SUN_ELEVATION_OPEN,
-                    self._options.get(CONF_SUN_ELEVATION_OPEN, DEFAULT_SUN_ELEVATION_OPEN),
-                ),
-            ): vol.Coerce(float),
-            vol.Optional(
-                CONF_SUN_ELEVATION_CLOSE,
-                default=(user_input or {}).get(
-                    CONF_SUN_ELEVATION_CLOSE,
-                    self._options.get(CONF_SUN_ELEVATION_CLOSE, DEFAULT_SUN_ELEVATION_CLOSE),
-                ),
-            ): vol.Coerce(float),
-            vol.Optional(
-                CONF_SUN_TIME_DURATION,
-                default=(user_input or {}).get(
-                    CONF_SUN_TIME_DURATION,
-                    self._options.get(CONF_SUN_TIME_DURATION, DEFAULT_SUN_TIME_DURATION),
-                ),
-            ): vol.Coerce(int),
-            vol.Optional(
-                CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
-                default=(user_input or {}).get(
-                    CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
-                    self._optional_default(CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR),
-                ),
-            ): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["sensor", "input_number", "number"])
-            ),
-            vol.Optional(
-                CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
-                default=(user_input or {}).get(
-                    CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
-                    self._optional_default(CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR),
-                ),
-            ): selector.EntitySelector(
-                selector.EntitySelectorConfig(domain=["sensor", "input_number", "number"])
-            ),
-        }
-
-        if user_input is not None:
-            await self._save_options(user_input)
-            return await self.async_step_menu()
-
-        return self.async_show_form(
-            step_id="sun_elevation",
-            data_schema=vol.Schema(schema),
-        )
-
-    async def async_step_shading(self, user_input=None) -> FlowResult:
-        if user_input is not None:
-            await self._save_options(user_input)
-            return await self.async_step_menu()
-
-        return self.async_show_form(
-            step_id="shading",
-            data_schema=vol.Schema(
-                {
-                    vol.Optional(CONF_SUN_AZIMUTH_START, default=self._options.get(CONF_SUN_AZIMUTH_START, DEFAULT_SHADING_AZIMUTH_START)): vol.Coerce(float),
-                    vol.Optional(CONF_SUN_AZIMUTH_END, default=self._options.get(CONF_SUN_AZIMUTH_END, DEFAULT_SHADING_AZIMUTH_END)): vol.Coerce(float),
-                    vol.Optional(CONF_SUN_ELEVATION_MIN, default=self._options.get(CONF_SUN_ELEVATION_MIN, DEFAULT_SHADING_ELEVATION_MIN)): vol.Coerce(float),
-                    vol.Optional(CONF_SUN_ELEVATION_MAX, default=self._options.get(CONF_SUN_ELEVATION_MAX, DEFAULT_SHADING_ELEVATION_MAX)): vol.Coerce(float),
-                    vol.Optional(
-                        CONF_SHADING_CONDITIONS_START_AND,
-                        default=self._options.get(
-                            CONF_SHADING_CONDITIONS_START_AND,
-                            DEFAULT_SHADING_CONDITIONS_START_AND,
-                        ),
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=SHADING_CONDITION_OPTIONS,
-                            multiple=True,
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_SHADING_CONDITIONS_START_OR,
-                        default=self._options.get(
-                            CONF_SHADING_CONDITIONS_START_OR,
-                            DEFAULT_SHADING_CONDITIONS_START_OR,
-                        ),
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=SHADING_CONDITION_OPTIONS,
-                            multiple=True,
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_SHADING_CONDITIONS_END_AND,
-                        default=self._options.get(
-                            CONF_SHADING_CONDITIONS_END_AND,
-                            DEFAULT_SHADING_CONDITIONS_END_AND,
-                        ),
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=SHADING_CONDITION_OPTIONS,
-                            multiple=True,
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_SHADING_CONDITIONS_END_OR,
-                        default=self._options.get(
-                            CONF_SHADING_CONDITIONS_END_OR,
-                            DEFAULT_SHADING_CONDITIONS_END_OR,
-                        ),
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=SHADING_CONDITION_OPTIONS,
-                            multiple=True,
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_SHADING_BRIGHTNESS_SENSOR,
-                        default=self._options.get(
-                            CONF_SHADING_BRIGHTNESS_SENSOR,
-                            self._optional_default(CONF_BRIGHTNESS_SENSOR),
-                        ),
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(
-                            domain=["sensor"], device_class=["illuminance"]
-                        )
-                    ),
-                    vol.Optional(CONF_SHADING_BRIGHTNESS_START, default=self._options.get(CONF_SHADING_BRIGHTNESS_START, DEFAULT_SHADING_BRIGHTNESS_START)): vol.Coerce(float),
-                    vol.Optional(CONF_SHADING_BRIGHTNESS_END, default=self._options.get(CONF_SHADING_BRIGHTNESS_END, DEFAULT_SHADING_BRIGHTNESS_END)): vol.Coerce(float),
-                    vol.Optional(
-                        CONF_SHADING_BRIGHTNESS_HYSTERESIS,
-                        default=self._options.get(
-                            CONF_SHADING_BRIGHTNESS_HYSTERESIS,
-                            DEFAULT_SHADING_BRIGHTNESS_HYSTERESIS,
-                        ),
-                    ): vol.Coerce(float),
-                    vol.Optional(
-                        CONF_SHADING_TEMPERATURE_SENSOR_1,
-                        default=self._options.get(
-                            CONF_SHADING_TEMPERATURE_SENSOR_1,
-                            self._optional_default(CONF_TEMPERATURE_SENSOR_INDOOR),
-                        ),
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor"])
-                    ),
-                    vol.Optional(
-                        CONF_SHADING_MIN_TEMPERATURE_1,
-                        default=self._options.get(
-                            CONF_SHADING_MIN_TEMPERATURE_1,
-                            self._options.get(
-                                CONF_TEMPERATURE_THRESHOLD,
-                                DEFAULT_SHADING_MIN_TEMPERATURE_1,
-                            ),
-                        ),
-                    ): vol.Coerce(float),
-                    vol.Optional(
-                        CONF_SHADING_TEMPERATURE_HYSTERESIS_1,
-                        default=self._options.get(
-                            CONF_SHADING_TEMPERATURE_HYSTERESIS_1,
-                            DEFAULT_SHADING_TEMPERATURE_HYSTERESIS_1,
-                        ),
-                    ): vol.Coerce(float),
-                    vol.Optional(
-                        CONF_SHADING_TEMPERATURE_SENSOR_2,
-                        default=self._options.get(
-                            CONF_SHADING_TEMPERATURE_SENSOR_2,
-                            self._optional_default(CONF_TEMPERATURE_SENSOR_OUTDOOR),
-                        ),
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor"])
-                    ),
-                    vol.Optional(
-                        CONF_SHADING_MIN_TEMPERATURE_2,
-                        default=self._options.get(
-                            CONF_SHADING_MIN_TEMPERATURE_2,
-                            self._options.get(
-                                CONF_TEMPERATURE_THRESHOLD,
-                                DEFAULT_SHADING_MIN_TEMPERATURE_2,
-                            ),
-                        ),
-                    ): vol.Coerce(float),
-                    vol.Optional(
-                        CONF_SHADING_TEMPERATURE_HYSTERESIS_2,
-                        default=self._options.get(
-                            CONF_SHADING_TEMPERATURE_HYSTERESIS_2,
-                            DEFAULT_SHADING_TEMPERATURE_HYSTERESIS_2,
-                        ),
-                    ): vol.Coerce(float),
-                    vol.Optional(
-                        CONF_SHADING_WAITINGTIME_START,
-                        default=self._options.get(CONF_SHADING_WAITINGTIME_START, DEFAULT_SHADING_WAITINGTIME_START),
-                    ): vol.Coerce(int),
-                    vol.Optional(
-                        CONF_SHADING_WAITINGTIME_END,
-                        default=self._options.get(CONF_SHADING_WAITINGTIME_END, DEFAULT_SHADING_WAITINGTIME_END),
-                    ): vol.Coerce(int),
-                    vol.Optional(
-                        CONF_SHADING_START_MAX_DURATION,
-                        default=self._options.get(CONF_SHADING_START_MAX_DURATION, DEFAULT_SHADING_START_MAX_DURATION),
-                    ): vol.Coerce(int),
-                    vol.Optional(
-                        CONF_SHADING_END_MAX_DURATION,
-                        default=self._options.get(CONF_SHADING_END_MAX_DURATION, DEFAULT_SHADING_END_MAX_DURATION),
-                    ): vol.Coerce(int),
-                    vol.Optional(
-                        CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
-                        default=bool(
-                            self._options.get(
-                                CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
-                                DEFAULT_SHADING_TIMING_SETTINGS[CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION],
-                            )
-                        ),
-                    ): bool,
-                    vol.Optional(
-                        CONF_SHADING_INDEPENDENT_HOLDS_END,
-                        default=bool(
-                            self._options.get(
-                                CONF_SHADING_INDEPENDENT_HOLDS_END, False
-                            )
-                        ),
-                    ): bool,
-                    vol.Optional(
-                        CONF_SHADING_FORECAST_SENSOR,
-                        default=self._optional_default(CONF_SHADING_FORECAST_SENSOR),
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor", "weather"])
-                    ),
-                    vol.Optional(
-                        CONF_SHADING_FORECAST_TEMP_SENSOR,
-                        default=self._optional_default(CONF_SHADING_FORECAST_TEMP_SENSOR),
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor"])
-                    ),
-                    vol.Optional(
-                        CONF_SHADING_FORECAST_TEMP,
-                        default=self._options.get(
-                            CONF_SHADING_FORECAST_TEMP,
-                            self._options.get(CONF_TEMPERATURE_FORECAST_THRESHOLD),
-                        ),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(mode=selector.NumberSelectorMode.BOX)
-                    ),
-                    vol.Optional(
-                        CONF_SHADING_FORECAST_TEMP_HYSTERESIS,
-                        default=self._options.get(
-                            CONF_SHADING_FORECAST_TEMP_HYSTERESIS,
-                            DEFAULT_SHADING_FORECAST_TEMP_HYSTERESIS,
-                        ),
-                    ): vol.Coerce(float),
-                    vol.Optional(
-                        CONF_SHADING_FORECAST_TYPE,
-                        default=self._options.get(CONF_SHADING_FORECAST_TYPE, DEFAULT_SHADING_FORECAST_TYPE),
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=[
-                                {"value": "daily", "label": "Use the daily weather forecast service"},
-                                {"value": "hourly", "label": "Use the hourly weather forecast service"},
-                                {"value": "weather_attributes", "label": "Use current weather attributes"},
-                            ]
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_SHADING_WEATHER_CONDITIONS,
-                        default=self._options.get(CONF_SHADING_WEATHER_CONDITIONS, []),
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=[
-                                "clear-night", "clear", "cloudy", "fog", "hail", "lightning", "lightning-rainy",
-                                "partlycloudy", "pouring", "rainy", "snowy", "snowy-rainy", "sunny", "windy",
-                                "windy-variant", "exceptional",
-                            ],
-                            multiple=True,
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_SHADING_CONFIG,
-                        default=self._options.get(CONF_SHADING_CONFIG, []),
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=SHADING_CONFIG_OPTIONS,
-                            multiple=True,
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_SHADING_INDEPENDENT_TEMP,
-                        default=self._options.get(
-                            CONF_SHADING_INDEPENDENT_TEMP,
-                            DEFAULT_SHADING_INDEPENDENT_TEMP,
-                        ),
-                    ): selector.NumberSelector(
-                        selector.NumberSelectorConfig(
-                            min=0,
-                            max=50,
-                            step=0.5,
-                            unit_of_measurement="°C",
-                            mode=selector.NumberSelectorMode.SLIDER,
-                        )
-                    ),
-                }
-            ),
-        )
-
-    async def _save_options(self, user_input: dict, include_contacts: bool = False) -> None:
-        clean_input = _normalize_position_fields(self._clean_user_input(user_input))
-        name = str(clean_input.pop(CONF_NAME, self._config_entry.title)).strip() or DEFAULT_NAME
-
-        if include_contacts:
-            covers = self._options.get(CONF_COVERS, [])
-            full_mapping: dict[str, list[str]] = {}
-            tilt_mapping: dict[str, list[str]] = {}
-            for cover in covers:
-                full_mapping[cover] = [
-                    sensor
-                    for sensor in clean_input.get(
-                        self._cover_full_key(cover),
-                        self._existing_full_contacts_for_cover(cover),
-                    )
-                    if isinstance(sensor, str) and sensor
-                ]
-                tilt_mapping[cover] = [
-                    sensor
-                    for sensor in clean_input.get(
-                        self._cover_tilt_key(cover),
-                        self._existing_tilt_contacts_for_cover(cover),
-                    )
-                    if isinstance(sensor, str) and sensor
-                ]
-            clean_input[CONF_WINDOW_SENSOR_FULL] = full_mapping
-            clean_input[CONF_WINDOW_SENSOR_TILT] = tilt_mapping
-
-        overrides = {CONF_NAME: name} | clean_input
-        self._options = self._normalize_options(
-            None,
-            overrides,
-            base_options=self._options,
-        )
-        self._profile_model.apply_flat_settings(
-            self._room_id, {CONF_NAME: name, **clean_input}
-        )
-        self._affected_rooms.add(self._room_id)
-
-    def _cover_full_key(self, cover: str) -> str:
-        state = self.hass.states.get(cover)
-        friendly_name = state.name if state else cover.split(".")[-1]
-        return f"Voll geöffnet Sensor(e) für {friendly_name}"
-
-    def _cover_tilt_key(self, cover: str) -> str:
-        state = self.hass.states.get(cover)
-        friendly_name = state.name if state else cover.split(".")[-1]
-        return f"Kipp-Sensor(e) für {friendly_name}"
-
-    def _existing_full_contacts_for_cover(self, cover: str) -> list[str]:
-        mapping = self._options.get(CONF_WINDOW_SENSOR_FULL) or {}
-        sensors = mapping.get(cover, [])
-        return sensors if isinstance(sensors, list) else []
-
-    def _existing_tilt_contacts_for_cover(self, cover: str) -> list[str]:
-        mapping = self._options.get(CONF_WINDOW_SENSOR_TILT) or {}
-        sensors = mapping.get(cover, [])
-        return sensors if isinstance(sensors, list) else []

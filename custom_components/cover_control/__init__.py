@@ -14,7 +14,6 @@ from homeassistant.helpers.typing import ConfigType
 
 from .config_profiles import ConfigProfileModel
 from .const import (
-    CONF_CONFIG_MODEL,
     CONF_GLOBAL,
     CONF_NAME,
     CONF_PROFILE_CAPABILITIES,
@@ -27,7 +26,11 @@ from .const import (
     PLATFORMS,
     PROFILE_TYPES,
 )
-from .config_migration import migrate_entry_payload
+from .config_migration import (
+    has_legacy_config_model,
+    is_native_parent_entry,
+    legacy_entry_model,
+)
 from .config_subentries import legacy_model_to_subentry_data, model_from_subentries
 from .hub import CoverControlHub
 from .runtime_data import CoverControlRuntime
@@ -72,7 +75,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         if entity_entry.domain in {"number", "text", "time"}:
             registry.async_remove(entity_entry.entity_id)
 
-    if CONF_GLOBAL in entry.data and CONF_CONFIG_MODEL not in entry.data:
+    if is_native_parent_entry(entry.data):
         model = model_from_subentries(entry.data, entry.subentries.values())
         recovery = RecoveryManager(hass, entry.entry_id)
         await recovery.async_initialize()
@@ -135,8 +138,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         (
             candidate
             for candidate in entries
-            if CONF_GLOBAL in candidate.data
-            and CONF_CONFIG_MODEL not in candidate.data
+            if is_native_parent_entry(candidate.data)
             and not candidate.data.get("hub_entry_id")
         ),
         None,
@@ -159,7 +161,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
     elif legacy_parents:
         parent = legacy_parents.pop(0)
-        merged = _legacy_entry_model(parent)
+        merged = legacy_entry_model(parent.data, parent.options, entry_id=parent.entry_id)
     else:
         parent = next(
             (
@@ -182,7 +184,11 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     for legacy_entry in legacy_parents:
         merged = merge_config_models(
             merged,
-            _legacy_entry_model(legacy_entry),
+            legacy_entry_model(
+                legacy_entry.data,
+                legacy_entry.options,
+                entry_id=legacy_entry.entry_id,
+            ),
             namespace=legacy_entry.entry_id,
         )
 
@@ -220,7 +226,7 @@ async def _async_migrate_parent_profiles_to_data(
 
     from .config_subentries import PROFILE_SUBENTRY_TYPES, is_profile_subentry
 
-    if CONF_GLOBAL not in entry.data or CONF_CONFIG_MODEL in entry.data:
+    if not is_native_parent_entry(entry.data):
         hass.config_entries.async_update_entry(entry, version=5)
         return True
 
@@ -277,17 +283,6 @@ async def _async_migrate_parent_profiles_to_data(
     for subentry_id in legacy_profile_ids:
         hass.config_entries.async_remove_subentry(entry, subentry_id)
     return True
-
-
-def _legacy_entry_model(entry: ConfigEntry) -> dict:
-    """Normalize one legacy parent or standalone room entry."""
-
-    if CONF_CONFIG_MODEL in entry.data:
-        return dict(entry.data[CONF_CONFIG_MODEL])
-    data, _options = migrate_entry_payload(
-        entry.data, entry.options, entry_id=entry.entry_id
-    )
-    return data[CONF_CONFIG_MODEL]
 
 
 def _add_subentries(hass, entry, payloads) -> None:

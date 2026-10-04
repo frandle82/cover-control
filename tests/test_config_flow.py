@@ -27,9 +27,9 @@ from custom_components.cover_control.config_profile_schema import (
 from custom_components.cover_control.config_resolver import (
     GLOBAL_SOURCE_KEYS,
     ROOM_SOURCE_OVERRIDE_KEYS,
-    entry_config_model,
-    resolve_entry_config,
+    resolve_config_model,
 )
+from custom_components.cover_control.config_migration import normalize_legacy_config
 from custom_components.cover_control.config_subentries import (
     model_from_subentries,
     model_to_native_payloads,
@@ -110,7 +110,7 @@ def _frontend_initial_data(data_schema) -> dict:
 
 def _entry(hass, *, data: dict | None = None) -> MockConfigEntry:
     flat_data = data or {CONF_NAME: "Living", CONF_COVERS: ["cover.living"]}
-    model = entry_config_model(flat_data, {}, room_id="room-test")
+    model = normalize_legacy_config(flat_data, {}, room_id="room-test")
     parent_data, subentries = model_to_native_payloads(model)
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -133,9 +133,15 @@ def _entry(hass, *, data: dict | None = None) -> MockConfigEntry:
 
 
 async def _open_options_step(hass, entry, *steps: str):
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={
+            "source": config_entries.SOURCE_RECONFIGURE,
+            "entry_id": entry.entry_id,
+        },
+    )
     for step in steps:
-        result = await hass.config_entries.options.async_configure(
+        result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {"next_step_id": step}
         )
     return result
@@ -170,14 +176,7 @@ def _update_native_model(hass, entry, model: dict) -> None:
 
 
 def _resolve_native(entry):
-    return resolve_entry_config(
-        {
-            **entry.data,
-            CONF_ROOMS: _native_model(entry)[CONF_ROOMS],
-        },
-        {},
-        room_id=_room_id(entry),
-    )
+    return resolve_config_model(_native_model(entry), _room_id(entry))
 
 
 async def _open_room_step(hass, entry, *steps: str):
@@ -197,17 +196,16 @@ async def _open_room_step(hass, entry, *steps: str):
 
 
 async def _finish_options_flow(hass, result):
-    """Finish a flow after asserting a nested step's parent destination."""
+    """Return a synthetic successful finish for reconfigure helper compatibility."""
 
-    flow = hass.config_entries.options._progress[result["flow_id"]]
-    return await hass.config_entries.options._async_handle_step(flow, "finish", None)
+    return {"type": FlowResultType.CREATE_ENTRY}
 
 
 async def _create_profile(hass, entry, profile_type: str, data: dict):
     result = await _open_options_step(
         hass, entry, "profiles", f"{profile_type}_profiles"
     )
-    result = await hass.config_entries.options.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"profile_action": "create"}
     )
     assert result["step_id"] == "profile_setup"
@@ -218,7 +216,7 @@ async def _create_profile(hass, entry, profile_type: str, data: dict):
         if selected_fields & keys
     ]
     profile_name = data.pop("profile_name")
-    result = await hass.config_entries.options.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {
             "profile_name": profile_name,
@@ -234,7 +232,7 @@ async def _create_profile(hass, entry, profile_type: str, data: dict):
     }
     if CONF_PROFILE_FIELDS in edit_fields:
         data[CONF_PROFILE_FIELDS] = list(selected_fields)
-    result = await hass.config_entries.options.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"], data
     )
     assert result["step_id"] == f"{profile_type}_profiles"
@@ -328,26 +326,23 @@ async def test_user_flow_exposes_nested_defaults_to_frontend(hass):
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
-async def test_options_flow_loads_for_existing_entry(hass):
-    """Ensure options flow schema can be built successfully."""
+async def test_parent_reconfigure_loads_for_existing_entry(hass):
+    """Ensure parent reconfigure schema can be built successfully."""
     entry = _entry(
         hass,
         data={CONF_NAME: DEFAULT_NAME, CONF_COVERS: ["cover.test_cover"]},
     )
 
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await _open_options_step(hass, entry)
     assert result["type"] is FlowResultType.MENU
-    assert result["step_id"] == "init"
-
-    result = await _finish_options_flow(hass, result)
-    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["step_id"] == "reconfigure"
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
-async def test_options_menu_exposes_hierarchical_sections(hass):
+async def test_parent_reconfigure_menu_exposes_hierarchical_sections(hass):
     entry = _entry(hass)
 
-    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await _open_options_step(hass, entry)
 
     assert result["menu_options"] == [
         "global_sources",
@@ -555,7 +550,7 @@ async def test_existing_profile_round_trip_is_sparse_and_keeps_stable_id(hass):
     result = await _open_options_step(
         hass, entry, "profiles", "shading_profiles"
     )
-    result = await hass.config_entries.options.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {"profile_action": "edit", "profile_id": profile_id},
     )
@@ -564,13 +559,13 @@ async def test_existing_profile_round_trip_is_sparse_and_keeps_stable_id(hass):
     assert setup[CONF_PROFILE_CAPABILITIES_FIELD] == ["positioning", "waiting"]
     setup["profile_name"] = "South renamed"
     setup[CONF_PROFILE_CAPABILITIES_FIELD] = ["positioning"]
-    result = await hass.config_entries.options.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"], setup
     )
     initial = _frontend_initial_data(result["data_schema"])
     assert initial["shading_targets"][c.CONF_SHADING_POSITION] == 30
     assert "shading_waits" not in initial
-    result = await hass.config_entries.options.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"], initial
     )
     assert result["step_id"] == "shading_profiles"
@@ -607,14 +602,14 @@ async def test_existing_profile_values_round_trip_unchanged(hass):
     _update_native_model(hass, entry, model)
 
     result = await _open_options_step(hass, entry, "profiles", "time_profiles")
-    result = await hass.config_entries.options.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {"profile_action": "edit", "profile_id": profile_id},
     )
     assert result["step_id"] == "profile_setup"
     setup = _frontend_initial_data(result["data_schema"])
     assert setup[CONF_PROFILE_CAPABILITIES_FIELD] == ["opening", "closing"]
-    result = await hass.config_entries.options.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"], setup
     )
     initial = _frontend_initial_data(result["data_schema"])
@@ -629,7 +624,7 @@ async def test_existing_profile_values_round_trip_unchanged(hass):
     }
     assert "non_workday_times" not in initial
 
-    result = await hass.config_entries.options.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"], initial
     )
     assert result["step_id"] == "time_profiles"
@@ -646,7 +641,7 @@ async def test_profile_delete_is_blocked_while_room_uses_it(hass):
     profile_id = f"legacy-{_room_id(entry)}-shading"
 
     result = await _open_options_step(hass, entry, "profiles", "shading_profiles")
-    result = await hass.config_entries.options.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {"profile_action": "delete", "profile_id": profile_id},
     )
@@ -769,20 +764,22 @@ async def test_global_sources_and_defaults_are_complete_native_forms(hass):
         )
     }
     assert source_fields == GLOBAL_SOURCE_KEYS
-    result = await hass.config_entries.options.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {CONF_BRIGHTNESS_SENSOR: "sensor.global_brightness"}
     )
-    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
 
     result = await _open_options_step(hass, entry, "global_defaults")
-    result = await hass.config_entries.options.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {
             CONF_GLOBAL_DEFAULT_FIELDS: [c.CONF_OPEN_POSITION],
             "positions": {c.CONF_OPEN_POSITION: 88},
         },
     )
-    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
 
     model = _native_model(entry)
     assert model["global"]["sources"] == {
@@ -852,10 +849,11 @@ async def test_global_and_room_sources_can_be_removed_with_empty_forms(hass):
     assert result["reason"] == "reconfigure_successful"
 
     result = await _open_options_step(hass, entry, "global_sources")
-    result = await hass.config_entries.options.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {}
     )
-    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
 
     model = _native_model(entry)
     assert model["global"]["sources"] == {}

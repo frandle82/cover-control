@@ -4,10 +4,7 @@ from custom_components.cover_control.config_migration import (
     migrate_entry_collection,
     migrate_entry_payload,
 )
-from custom_components.cover_control.config_resolver import (
-    config_entry_room_id,
-    resolve_entry_config,
-)
+from custom_components.cover_control.config_resolver import resolve_config_model
 from custom_components.cover_control.const import (
     CONF_BRIGHTNESS_SENSOR,
     CONF_CONFIG_MODEL,
@@ -20,6 +17,10 @@ from custom_components.cover_control.const import (
     CONF_ROOMS,
     PROFILE_TYPE_SHADING,
 )
+
+
+def _resolve_migrated(data: dict, room_id: str):
+    return resolve_config_model(data[CONF_CONFIG_MODEL], room_id)
 
 
 def test_flat_data_and_options_migrate_with_options_precedence() -> None:
@@ -37,9 +38,7 @@ def test_flat_data_and_options_migrate_with_options_precedence() -> None:
     data, options = migrate_entry_payload(
         old_data, old_options, entry_id="entry-1"
     )
-    resolved = resolve_entry_config(
-        data, options, room_id=config_entry_room_id(data, "entry-1")
-    )
+    resolved = _resolve_migrated(data, "entry-1")
 
     assert options == {}
     assert resolved[CONF_COVERS] == ["cover.left", "cover.right"]
@@ -73,8 +72,8 @@ def test_different_entries_keep_different_profile_values() -> None:
         {CONF_SHADING_POSITION: 26}, {}, entry_id="office"
     )
 
-    assert resolve_entry_config(first, {}, room_id="living")[CONF_SHADING_POSITION] == 24
-    assert resolve_entry_config(second, {}, room_id="office")[CONF_SHADING_POSITION] == 26
+    assert _resolve_migrated(first, "living")[CONF_SHADING_POSITION] == 24
+    assert _resolve_migrated(second, "office")[CONF_SHADING_POSITION] == 26
 
 
 def test_missing_optional_setting_is_not_persisted() -> None:

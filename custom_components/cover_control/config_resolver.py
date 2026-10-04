@@ -278,70 +278,10 @@ def resolve_room_config(
     )
 
 
-def normalize_legacy_config(
-    data: Mapping[str, Any],
-    options: Mapping[str, Any],
-    *,
-    room_id: str,
-) -> dict[str, Any]:
-    """Convert a flat entry to an equivalent in-memory profile model."""
-
-    flat = {**data, **options}
-    room_name = str(flat.get(CONF_ROOM) or flat.get(CONF_NAME) or room_id)
-    profiles: dict[str, dict[str, Any]] = {kind: {} for kind in PROFILE_TYPES}
-    selections: dict[str, str] = {}
-    classified: set[str] = set()
-    for profile_type, keys in PROFILE_KEYS.items():
-        settings = {key: flat[key] for key in keys if key in flat}
-        profile_id = f"legacy-{room_id}-{profile_type}"
-        profiles[profile_type][profile_id] = {
-            CONF_PROFILE_ID: profile_id,
-            CONF_PROFILE_NAME: f"{room_name} (legacy)",
-            CONF_PROFILE_SETTINGS: settings,
-        }
-        selections[profile_type] = profile_id
-        classified.update(settings)
-
-    global_sources = {
-        key: flat[key] for key in GLOBAL_SOURCE_KEYS if key in flat
-    }
-    classified.update(global_sources)
-    model_keys = {
-        CONF_CONFIG_MODEL,
-        CONF_CONFIG_VERSION,
-        CONF_GLOBAL,
-        CONF_PROFILES,
-        CONF_ROOMS,
-    }
-    room_settings = {
-        key: value
-        for key, value in flat.items()
-        if key not in classified and key not in model_keys
-    }
-    return {
-        CONF_CONFIG_VERSION: CONFIG_MODEL_VERSION,
-        CONF_GLOBAL: {
-            CONF_GLOBAL_SOURCES: global_sources,
-            CONF_GLOBAL_DEFAULTS: {},
-        },
-        CONF_PROFILES: profiles,
-        CONF_ROOMS: {
-            room_id: {
-                CONF_ROOM_ID: room_id,
-                CONF_NAME: room_name,
-                CONF_PROFILE_SELECTIONS: selections,
-                CONF_ROOM_SETTINGS: room_settings,
-                CONF_SOURCE_OVERRIDES: {},
-                CONF_ROOM_OVERRIDES: {},
-            }
-        },
-    }
-
-
 def resolve_config_model(
     model: Mapping[str, Any], room_id: str
 ) -> ResolvedRoomConfig:
-    """Resolve one room from a persisted or in-memory configuration model."""
+    """Resolve one room from the native parent/subentry configuration model."""
 
     global_config = model.get(CONF_GLOBAL, {})
     profiles = model.get(CONF_PROFILES, {})
@@ -392,49 +332,4 @@ def resolve_profile_config(
             if isinstance(profile, Mapping)
             else profile_id
         ),
-    )
-
-
-def entry_config_model(
-    data: Mapping[str, Any], options: Mapping[str, Any], *, room_id: str
-) -> dict[str, Any]:
-    """Return the persisted model or a lossless legacy normalization."""
-
-    combined = {**data, **options}
-    model = combined.get(CONF_CONFIG_MODEL)
-    if isinstance(model, Mapping):
-        return dict(model)
-    if all(key in combined for key in (CONF_GLOBAL, CONF_PROFILES, CONF_ROOMS)):
-        return {key: combined[key] for key in combined if key != CONF_CONFIG_MODEL}
-    return normalize_legacy_config(data, options, room_id=room_id)
-
-
-def config_entry_room_id(data: Mapping[str, Any], fallback: str) -> str:
-    """Return the stable persisted room ID for a config entry."""
-
-    room_id = data.get(CONF_ROOM_ID)
-    return str(room_id) if room_id else fallback
-
-
-def persisted_entry_data(
-    flat: Mapping[str, Any], *, room_id: str | None = None
-) -> dict[str, Any]:
-    """Wrap flat flow output in the canonical persisted configuration model."""
-
-    stable_room_id = room_id or f"room-{uuid4().hex}"
-    model = normalize_legacy_config(flat, {}, room_id=stable_room_id)
-    return {
-        CONF_ROOM_ID: stable_room_id,
-        CONF_NAME: flat.get(CONF_NAME, DEFAULT_NAME),
-        CONF_CONFIG_MODEL: model,
-    }
-
-
-def resolve_entry_config(
-    data: Mapping[str, Any], options: Mapping[str, Any], *, room_id: str
-) -> ResolvedRoomConfig:
-    """Resolve current or legacy config-entry data for the runtime."""
-
-    return resolve_config_model(
-        entry_config_model(data, options, room_id=room_id), room_id
     )
