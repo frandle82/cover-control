@@ -158,7 +158,7 @@ Das Ereignis kann für Diagnose, Protokollierung und eigene Automationen verwend
 
 ## Voraussetzungen
 
-- Home Assistant 2024.10.0 oder neuer.
+- Home Assistant 2025.2.0 oder neuer.
 - Mindestens eine Cover-Entität.
 - Für Positionsziele wird ein Cover mit Positionsunterstützung empfohlen.
 - Sensoren, Kontakte, Kalender, Arbeitstag- und Bedingungsentitäten sind optional.

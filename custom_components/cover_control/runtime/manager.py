@@ -43,6 +43,7 @@ from .common import (
     _unique_covers,
 )
 from .controller import CoverController
+from ..feature_state import FeatureState, feature_configured
 
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
@@ -57,11 +58,13 @@ class ControllerManager:
         hass: HomeAssistant,
         entry: ConfigEntry,
         hub: CoverControlHub | None = None,
+        *,
+        room_id: str | None = None,
     ) -> None:
         self.hass = hass
         self.entry = entry
         self.hub = hub
-        self.room_id = config_entry_room_id(entry.data, entry.entry_id)
+        self.room_id = room_id or config_entry_room_id(entry.data, entry.entry_id)
         self.controllers: dict[str, CoverController] = {}
         # Runtime-only feature overrides controlled by integration switch entities.
         # None/absent => follow persisted config flow options.
@@ -94,7 +97,7 @@ class ControllerManager:
         self._store = Store(
             self.hass,
             STORAGE_VERSION,
-            f"{DOMAIN}.{self.entry.entry_id}.cover_status",
+            f"{DOMAIN}.{self.entry.entry_id}.{self.room_id}.cover_status",
         )
         loaded = await self._store.async_load()
         if isinstance(loaded, dict):
@@ -413,12 +416,17 @@ class ControllerManager:
     def _evaluation_context(self) -> dict[str, object]:
         """Capture entry-wide states once for a complete evaluation batch."""
 
-        return {
-            "now": dt_util.utcnow(),
-            "states": {
+        hub = getattr(self, "hub", None)
+        if hub is not None:
+            states = dict(hub.shared_input_coordinator.snapshot.states)
+        else:
+            states = {
                 entity_id: self.hass.states.get(entity_id)
                 for entity_id in self._shared_entities
-            },
+            }
+        return {
+            "now": dt_util.utcnow(),
+            "states": states,
         }
 
     @staticmethod
@@ -576,6 +584,18 @@ class ControllerManager:
         """Return runtime override for a feature toggle, if present."""
 
         return self._runtime_toggles.get(key)
+
+    def feature_state(self, key: str, *, eligible: bool) -> FeatureState:
+        """Expose three independent function lifecycle dimensions."""
+
+        configured = feature_configured(self._config_model, self.room_id, key)
+        persisted = bool((self._resolved_config or {}).get(key, False))
+        enabled = self._runtime_toggles.get(key, persisted)
+        return FeatureState(
+            configured=configured,
+            enabled=bool(enabled),
+            eligible=bool(eligible),
+        )
 
     @callback
     def set_runtime_toggle(self, key: str, enabled: bool) -> None:

@@ -661,9 +661,43 @@ class ProfileFieldMetadata:
     value_type: str
     unit: str | None
     override_allowed: bool = True
+    owner: str = "PROFILE"
+    feature: str | None = None
+    ui_level: str = "advanced"
+    selector: str | None = None
+    default: Any = None
+    source_scope: str = "profile"
 
 
 def _build_profile_field_metadata() -> dict[str, ProfileFieldMetadata]:
+    basic_fields = {
+        c.CONF_AUTO_TIME,
+        c.CONF_TIME_UP_EARLY_WORKDAY,
+        c.CONF_TIME_UP_LATE_WORKDAY,
+        c.CONF_TIME_UP_EARLY_NON_WORKDAY,
+        c.CONF_TIME_UP_LATE_NON_WORKDAY,
+        c.CONF_TIME_DOWN_EARLY_WORKDAY,
+        c.CONF_TIME_DOWN_LATE_WORKDAY,
+        c.CONF_TIME_DOWN_EARLY_NON_WORKDAY,
+        c.CONF_TIME_DOWN_LATE_NON_WORKDAY,
+        c.CONF_AUTO_BRIGHTNESS,
+        c.CONF_BRIGHTNESS_OPEN_ABOVE,
+        c.CONF_BRIGHTNESS_CLOSE_BELOW,
+        c.CONF_AUTO_SUN,
+        c.CONF_SUN_ELEVATION_OPEN,
+        c.CONF_SUN_ELEVATION_CLOSE,
+        c.CONF_AUTO_SHADING,
+        c.CONF_SHADING_POSITION,
+        c.CONF_AUTO_VENTILATE,
+        c.CONF_VENTILATE_POSITION,
+        c.CONF_VENTILATE_TILT_POSITION,
+        c.CONF_RESIDENT_STATUS,
+        c.CONF_RESIDENT_OPEN_ENABLED,
+        c.CONF_RESIDENT_CLOSE_ENABLED,
+        c.CONF_RESIDENT_ALLOW_OPEN,
+        c.CONF_RESIDENT_ALLOW_SHADING,
+        c.CONF_RESIDENT_ALLOW_VENTILATION,
+    }
     groups = {
         profile_type: {
             key: group
@@ -705,13 +739,17 @@ def _build_profile_field_metadata() -> dict[str, ProfileFieldMetadata]:
     for profile_type, capabilities in PROFILE_CAPABILITY_KEYS.items():
         for capability, keys in capabilities.items():
             for key in keys:
+                selector_type = value_type(key)
                 metadata[key] = ProfileFieldMetadata(
                     key=key,
                     profile_type=profile_type,
                     capability=capability,
                     group=groups[profile_type][key],
-                    value_type=value_type(key),
+                    value_type=selector_type,
                     unit=unit(key),
+                    feature=profile_type,
+                    ui_level="basic" if key in basic_fields else "advanced",
+                    selector=selector_type,
                 )
     return metadata
 

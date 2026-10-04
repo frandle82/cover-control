@@ -52,6 +52,17 @@ def test_capabilities_partition_every_profile_key_exactly_once() -> None:
     assert set(PROFILE_FIELD_METADATA) == set().union(*PROFILE_KEYS.values())
 
 
+def test_metadata_drives_basic_and_advanced_ui_levels() -> None:
+    position = PROFILE_FIELD_METADATA[c.CONF_SHADING_POSITION]
+    waiting = PROFILE_FIELD_METADATA[c.CONF_SHADING_WAITINGTIME_START]
+
+    assert position.owner == "PROFILE"
+    assert position.feature == c.PROFILE_TYPE_SHADING
+    assert position.ui_level == "basic"
+    assert waiting.ui_level == "advanced"
+    assert position.selector == position.value_type
+
+
 def test_capability_removal_discards_disabled_known_values() -> None:
     existing = {
         c.CONF_SHADING_BRIGHTNESS_START: 40000,

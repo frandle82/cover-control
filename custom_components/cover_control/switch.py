@@ -91,6 +91,8 @@ from .const import (
     DOMAIN,
 )
 from .controller import ControllerManager
+from .feature_state import feature_configured
+from .runtime_data import CoverControlRuntime
 
 
 AUTOMATION_TOGGLES: tuple[tuple[str, str], ...] = (
@@ -159,6 +161,29 @@ async def async_setup_entry(
 ) -> None:
     """Register automation toggle switches."""
 
+    runtime = getattr(entry, "runtime_data", None)
+    if isinstance(runtime, CoverControlRuntime):
+        entities: list[SwitchEntity] = []
+        for room_id, manager in runtime.room_managers.items():
+            for key, translation_key in AUTOMATION_TOGGLES:
+                if feature_configured(runtime.model, room_id, key):
+                    entities.append(
+                        AutomationToggleSwitch(
+                            entry, key, translation_key, room_id=room_id
+                        )
+                    )
+        desired = {entity.unique_id for entity in entities}
+        registry = er.async_get(hass)
+        for entity_entry in list(registry.entities.values()):
+            if (
+                entity_entry.config_entry_id == entry.entry_id
+                and entity_entry.domain == "switch"
+                and entity_entry.unique_id not in desired
+            ):
+                registry.async_remove(entity_entry.entity_id)
+        async_add_entities(entities)
+        return
+
     toggle_keys = {key for key, _translation_key in AUTOMATION_TOGGLES}
     registry = er.async_get(hass)
     for entity_entry in list(registry.entities.values()):
@@ -193,10 +218,20 @@ class AutomationToggleSwitch(SwitchEntity):
     _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.CONFIG
 
-    def __init__(self, entry: ConfigEntry, key: str, translation_key: str) -> None:
+    def __init__(
+        self,
+        entry: ConfigEntry,
+        key: str,
+        translation_key: str,
+        *,
+        room_id: str | None = None,
+    ) -> None:
         self.entry = entry
+        self.room_id = room_id
         self._key = key
-        self._attr_unique_id = f"{entry.entry_id}-{key}"
+        owner_id = room_id or entry.entry_id
+        self._attr_unique_id = f"{owner_id}-{key}"
+        self._attr_config_subentry_id = room_id
         self._attr_translation_key = translation_key
         self._attr_icon = TOGGLE_ICONS.get(key)
         self._attr_friendly_name = translation_key
@@ -216,6 +251,14 @@ class AutomationToggleSwitch(SwitchEntity):
 
     @property
     def device_info(self) -> DeviceInfo:
+        if self.room_id:
+            runtime = getattr(self.entry, "runtime_data", None)
+            room = runtime.model.get("rooms", {}).get(self.room_id, {}) if isinstance(runtime, CoverControlRuntime) else {}
+            return DeviceInfo(
+                identifiers={(DOMAIN, self.entry.entry_id, self.room_id)},
+                name=str(room.get(CONF_NAME, self.room_id)),
+                manufacturer="CCA-derived",
+            )
         return DeviceInfo(
             identifiers={(DOMAIN, self.entry.entry_id)},
             name=self.entry.options.get(
@@ -227,6 +270,15 @@ class AutomationToggleSwitch(SwitchEntity):
 
     @property
     def is_on(self) -> bool:
+        if self.room_id:
+            runtime = getattr(self.entry, "runtime_data", None)
+            manager = runtime.manager(self.room_id) if isinstance(runtime, CoverControlRuntime) else None
+            if manager is None:
+                return False
+            runtime_value = manager.get_runtime_toggle(self._key)
+            if runtime_value is not None:
+                return bool(runtime_value)
+            return bool(manager._resolved_config.get(self._key, False))
         manager = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id) if self.hass else None
         if isinstance(manager, ControllerManager):
             runtime_value = manager.get_runtime_toggle(self._key)
@@ -246,6 +298,16 @@ class AutomationToggleSwitch(SwitchEntity):
         return None
 
     async def async_turn_on(self, **kwargs) -> None:  # type: ignore[override]
+        if self.room_id:
+            runtime = getattr(self.entry, "runtime_data", None)
+            manager = runtime.manager(self.room_id) if isinstance(runtime, CoverControlRuntime) else None
+            if manager:
+                manager.set_runtime_toggle(self._key, True)
+                if self._key == CONF_AUTO_TIME:
+                    manager.set_runtime_toggle(CONF_AUTO_UP, True)
+                    manager.set_runtime_toggle(CONF_AUTO_DOWN, True)
+                self.async_write_ha_state()
+            return
         manager = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id)
         if isinstance(manager, ControllerManager):
             manager.clear_runtime_toggle(self._key)
@@ -262,6 +324,16 @@ class AutomationToggleSwitch(SwitchEntity):
         self.hass.config_entries.async_update_entry(self.entry, options=options)
 
     async def async_turn_off(self, **kwargs) -> None:  # type: ignore[override]
+        if self.room_id:
+            runtime = getattr(self.entry, "runtime_data", None)
+            manager = runtime.manager(self.room_id) if isinstance(runtime, CoverControlRuntime) else None
+            if manager:
+                manager.set_runtime_toggle(self._key, False)
+                if self._key == CONF_AUTO_TIME:
+                    manager.set_runtime_toggle(CONF_AUTO_UP, False)
+                    manager.set_runtime_toggle(CONF_AUTO_DOWN, False)
+                self.async_write_ha_state()
+            return
         manager = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id)
         if isinstance(manager, ControllerManager):
             manager.set_runtime_toggle(self._key, False)

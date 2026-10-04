@@ -12,23 +12,15 @@ from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
 from homeassistant.helpers.event import (
     async_track_point_in_time,
-    async_track_state_change_event,
 )
 
 from .config_profiles import ConfigProfileModel
 from .config_profile_schema import infer_capabilities
-from .config_resolver import (
-    GLOBAL_SOURCE_KEYS,
-    config_entry_room_id,
-    entry_config_model,
-    resolve_profile_config,
-)
+from .config_resolver import GLOBAL_SOURCE_KEYS, resolve_profile_config
 from .const import (
     CONF_GLOBAL,
     CONF_GLOBAL_DEFAULTS,
     CONF_GLOBAL_SOURCES,
-    CONF_CONFIG_MODEL,
-    CONF_HUB_ENTRY_ID,
     CONF_NAME,
     CONF_ROOM_ID,
     CONF_PROFILE_ID,
@@ -46,10 +38,9 @@ from .const import (
     SIGNAL_HUB_STATE_UPDATED,
 )
 from .runtime.profile_evaluation import evaluate_time_profile
+from .shared_input import SharedInputCoordinator
 
 if TYPE_CHECKING:
-    from homeassistant.config_entries import ConfigEntry
-
     from .runtime.manager import ControllerManager
 
 
@@ -114,100 +105,42 @@ class CoverControlHub:
 
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
-        self.owner_entry_id: str | None = None
         self.model = ConfigProfileModel({}).data
         self.managers: dict[str, ControllerManager] = {}
         self.profile_users: dict[tuple[str, str], set[str]] = {}
         self.entity_profile_routes: dict[str, set[tuple[str, str]]] = {}
         self.entity_room_routes: dict[str, set[str]] = {}
         self.profile_evaluations: dict[tuple[str, str], ProfileEvaluation] = {}
-        self._shared_listener_unsub = None
         self._shared_entities: set[str] = set()
+        self.shared_input_coordinator = SharedInputCoordinator(
+            hass, self._handle_shared_state_event
+        )
         self._profile_timer_unsubs: dict[tuple[str, str], Any] = {}
         self._profile_timer_at: dict[tuple[str, str], datetime] = {}
 
-    def prepare_entry(self, entry: ConfigEntry) -> None:
-        """Load or merge persisted data before a room manager starts."""
+    @callback
+    def set_parent_model(self, model: Mapping[str, Any]) -> None:
+        """Install transient model assembled from parent and subentries."""
 
-        room_id = config_entry_room_id(entry.data, entry.entry_id)
-        hinted_owner = entry.data.get(CONF_HUB_ENTRY_ID)
-        if self.owner_entry_id is None:
-            owner = (
-                self.hass.config_entries.async_get_entry(str(hinted_owner))
-                if hinted_owner
-                else None
-            )
-            if owner is not None and isinstance(
-                owner.data.get(CONF_CONFIG_MODEL), Mapping
-            ):
-                owner_room_id = config_entry_room_id(owner.data, owner.entry_id)
-                self.owner_entry_id = owner.entry_id
-                self.model = ConfigProfileModel(
-                    entry_config_model(
-                        owner.data, owner.options, room_id=owner_room_id
-                    )
-                ).data
-            else:
-                self.owner_entry_id = entry.entry_id
-        incoming = entry_config_model(entry.data, entry.options, room_id=room_id)
-        if entry.entry_id == self.owner_entry_id:
-            self.model = ConfigProfileModel(incoming).data
-        elif room_id not in self.model[CONF_ROOMS]:
-            self.model = merge_config_models(
-                self.model, incoming, namespace=entry.entry_id
-            )
+        self.model = ConfigProfileModel(model).data
+        self._rebuild_dependencies()
 
-    async def async_register(
-        self, entry: ConfigEntry, manager: ControllerManager
-    ) -> None:
-        """Register one room execution manager and persist the canonical model."""
+    async def async_register_room(self, manager: ControllerManager) -> None:
+        """Register one manager keyed by native room subentry ID."""
 
-        room_id = manager.room_id
-        self.managers[entry.entry_id] = manager
+        self.managers[manager.room_id] = manager
         manager.hub = self
-        manager.apply_config_model(self.model, {room_id})
+        manager.apply_config_model(self.model, {manager.room_id})
         self._rebuild_dependencies()
         self.refresh_shared_listener()
         self.refresh_profile_evaluations()
-        await self.async_persist()
 
-    async def async_persist(self) -> None:
-        """Store the hub model once and keep room entries as lightweight references."""
+    async def async_unload_parent(self) -> None:
+        """Release parent-owned listeners and shared timers."""
 
-        if self.owner_entry_id is None:
-            return
-        for entry_id, manager in self.managers.items():
-            entry = self.hass.config_entries.async_get_entry(entry_id)
-            if entry is None:
-                continue
-            if entry_id == self.owner_entry_id:
-                data = dict(entry.data)
-                data.update(
-                    {
-                        CONF_HUB_ENTRY_ID: self.owner_entry_id,
-                        CONF_CONFIG_MODEL: deepcopy(self.model),
-                    }
-                )
-            else:
-                room = self.model[CONF_ROOMS].get(manager.room_id, {})
-                data = {
-                    CONF_HUB_ENTRY_ID: self.owner_entry_id,
-                    CONF_ROOM_ID: manager.room_id,
-                    CONF_NAME: room.get(CONF_NAME, entry.title),
-                }
-            if data != dict(entry.data):
-                self.hass.config_entries.async_update_entry(
-                    entry, data=data, options={}
-                )
-
-    async def async_unregister(self, entry_id: str) -> None:
-        self.managers.pop(entry_id, None)
-        self._rebuild_dependencies()
-        self.refresh_shared_listener()
-        self.refresh_profile_evaluations()
-        if not self.managers:
-            self._clear_shared_listener()
-            self._clear_profile_timers()
+        self.managers.clear()
+        self._clear_shared_listener()
+        self._clear_profile_timers()
 
     @callback
     def apply_model(self, model: Mapping[str, Any], affected_rooms: set[str]) -> None:
@@ -289,12 +222,8 @@ class CoverControlHub:
             desired.update(manager.shared_entity_routes())
         if desired == self._shared_entities:
             return
-        self._clear_shared_listener()
         self._shared_entities = desired
-        if desired:
-            self._shared_listener_unsub = async_track_state_change_event(
-                self.hass, sorted(desired), self._handle_shared_state_event
-            )
+        self.shared_input_coordinator.update_entities(desired)
 
     @callback
     def _handle_shared_state_event(self, event) -> None:
@@ -306,9 +235,7 @@ class CoverControlHub:
 
     @callback
     def _clear_shared_listener(self) -> None:
-        if self._shared_listener_unsub is not None:
-            self._shared_listener_unsub()
-            self._shared_listener_unsub = None
+        self.shared_input_coordinator.clear()
         self._shared_entities.clear()
 
     @callback

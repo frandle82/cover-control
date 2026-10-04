@@ -10,8 +10,6 @@ from custom_components.cover_control.const import (
     CONF_GLOBAL,
     CONF_GLOBAL_DEFAULTS,
     CONF_GLOBAL_SOURCES,
-    CONF_CONFIG_MODEL,
-    CONF_HUB_ENTRY_ID,
     CONF_NAME,
     CONF_PROFILE_SELECTIONS,
     CONF_PROFILES,
@@ -101,7 +99,7 @@ def test_hub_uses_one_listener_and_removes_it_on_last_route() -> None:
     unsubscribe = Mock()
 
     with patch(
-        "custom_components.cover_control.hub.async_track_state_change_event",
+        "custom_components.cover_control.shared_input.async_track_state_change_event",
         return_value=unsubscribe,
     ) as track:
         hub.refresh_shared_listener()
@@ -185,51 +183,3 @@ def test_room_override_keeps_its_time_timer_local() -> None:
 
     assert hub.room_uses_shared_time_timer("living")
     assert not hub.room_uses_shared_time_timer("office")
-
-
-async def test_hub_persists_model_once_and_thins_room_entries() -> None:
-    owner = SimpleNamespace(
-        entry_id="owner",
-        title="Living",
-        data={CONF_NAME: "Living"},
-        options={},
-    )
-    room = SimpleNamespace(
-        entry_id="room",
-        title="Office",
-        data={CONF_NAME: "Office", CONF_CONFIG_MODEL: {"legacy": True}},
-        options={},
-    )
-    entries = {"owner": owner, "room": room}
-
-    def update_entry(entry, *, data, options):
-        entry.data = data
-        entry.options = options
-
-    config_entries = SimpleNamespace(
-        async_get_entry=lambda entry_id: entries.get(entry_id),
-        async_update_entry=Mock(side_effect=update_entry),
-    )
-    hub = CoverControlHub(SimpleNamespace(config_entries=config_entries))
-    hub.owner_entry_id = "owner"
-    hub.model = _model("living", "south", 25)
-    hub.model[CONF_ROOMS]["office"] = {
-        CONF_NAME: "Office",
-        CONF_PROFILE_SELECTIONS: {},
-        CONF_ROOM_SETTINGS: {},
-        CONF_SOURCE_OVERRIDES: {},
-        CONF_ROOM_OVERRIDES: {},
-    }
-    hub.managers = {
-        "owner": SimpleNamespace(room_id="living"),
-        "room": SimpleNamespace(room_id="office"),
-    }
-
-    await hub.async_persist()
-
-    assert owner.data[CONF_CONFIG_MODEL] == hub.model
-    assert room.data == {
-        CONF_HUB_ENTRY_ID: "owner",
-        "room_id": "office",
-        CONF_NAME: "Office",
-    }

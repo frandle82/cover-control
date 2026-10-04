@@ -958,6 +958,61 @@
       "ventilate_position": "Ventilation position", "ventilate_tilt_position": "Ventilation tilt position", "ventilation_allow_higher_position": "Allow higher ventilation position", "ventilation_delay_after_close": "Ventilation delay after closing", "ventilation_keep_open_on_full_to_tilt": "Keep open from full to tilt", "ventilation_start_no_delay": "Start ventilation without delay", "ventilation_use_after_shading": "Ventilate after shading", "shading_over_ventilation": "Shading over ventilation"
     }}
   },
+  "config_subentries": {
+    "room": {
+      "title": "Room",
+      "step": {
+        "user": {"title": "Add room", "data": {"name": "Name", "room": "Area", "covers": "Covers"}},
+        "reconfigure": {"title": "Edit room", "menu_options": {"hardware": "Hardware", "time": "Time", "brightness": "Brightness", "sun": "Sun", "shading": "Shading", "ventilation": "Ventilation", "resident": "Resident", "behavior": "Behavior", "source_overrides": "Source overrides", "profile_references": "Profiles", "overrides": "Overrides"}},
+        "hardware": {"title": "Hardware", "data": {"name": "Name", "room": "Area", "covers": "Covers"}},
+        "time": {"title": "Time"},
+        "brightness": {"title": "Brightness"},
+        "sun": {"title": "Sun"},
+        "shading": {"title": "Shading"},
+        "ventilation": {"title": "Ventilation"},
+        "resident": {"title": "Resident"},
+        "behavior": {"title": "Behavior"},
+        "source_overrides": {"title": "Source overrides"},
+        "profile_references": {"title": "Profile references", "data": {"time": "Time profile", "shading": "Shading profile", "behavior": "Behavior profile"}},
+        "overrides": {"title": "Overrides", "menu_options": {"override_time": "Time profile", "override_shading": "Shading profile", "override_behavior": "Behavior profile"}},
+        "override_time": {"title": "Time overrides"},
+        "override_shading": {"title": "Shading overrides"},
+        "override_behavior": {"title": "Behavior overrides"}
+      },
+      "abort": {"reconfigure_successful": "Room updated", "missing_profile_reference": "Referenced profile no longer exists"}
+    },
+    "time_profile": {
+      "title": "Time profile",
+      "step": {
+        "user": {"title": "Add time profile", "data": {"profile_name": "Name", "profile_capabilities": "Capabilities"}},
+        "settings": {"title": "Time profile settings"},
+        "reconfigure": {"title": "Edit time profile", "data": {"profile_name": "Name"}}
+      },
+      "abort": {"reconfigure_successful": "Profile updated"}
+    },
+    "shading_profile": {
+      "title": "Shading profile",
+      "step": {
+        "user": {"title": "Add shading profile", "data": {"profile_name": "Name", "profile_capabilities": "Capabilities"}},
+        "settings": {"title": "Shading profile settings"},
+        "reconfigure": {"title": "Edit shading profile", "data": {"profile_name": "Name"}}
+      },
+      "abort": {"reconfigure_successful": "Profile updated"}
+    },
+    "behavior_profile": {
+      "title": "Behavior profile",
+      "step": {
+        "user": {"title": "Add behavior profile", "data": {"profile_name": "Name", "profile_capabilities": "Capabilities"}},
+        "settings": {"title": "Behavior profile settings"},
+        "reconfigure": {"title": "Edit behavior profile", "data": {"profile_name": "Name"}}
+      },
+      "abort": {"reconfigure_successful": "Profile updated"}
+    }
+  },
+  "issues": {
+    "invalid_parent_config": {"title": "Invalid Cover Control configuration", "description": "Configuration is structurally invalid: {error}"},
+    "automatic_recovery": {"title": "Cover Control restored configuration", "description": "Runtime uses the last-known-good configuration. Review Recovery settings."}
+  },
   "entity": {
     "sensor": {
       "next_open": {

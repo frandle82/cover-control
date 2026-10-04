@@ -912,6 +912,61 @@
       "ventilate_position": "Lüftungsposition", "ventilate_tilt_position": "Lüftungslamelle", "ventilation_allow_higher_position": "Höhere Lüftungsposition erlauben", "ventilation_delay_after_close": "Lüftungsverzögerung nach Schließen", "ventilation_keep_open_on_full_to_tilt": "Bei Wechsel vollständig zu gekippt offen lassen", "ventilation_start_no_delay": "Lüftung ohne Verzögerung starten", "ventilation_use_after_shading": "Nach Beschattung lüften", "shading_over_ventilation": "Beschattung vor Lüftung"
     }}
   },
+  "config_subentries": {
+    "room": {
+      "title": "Raum",
+      "step": {
+        "user": {"title": "Raum hinzufügen", "data": {"name": "Name", "room": "Bereich", "covers": "Cover"}},
+        "reconfigure": {"title": "Raum bearbeiten", "menu_options": {"hardware": "Hardware", "time": "Zeit", "brightness": "Helligkeit", "sun": "Sonne", "shading": "Beschattung", "ventilation": "Lüftung", "resident": "Bewohner", "behavior": "Verhalten", "source_overrides": "Quellen überschreiben", "profile_references": "Profile", "overrides": "Abweichungen"}},
+        "hardware": {"title": "Hardware", "data": {"name": "Name", "room": "Bereich", "covers": "Cover"}},
+        "time": {"title": "Zeit"},
+        "brightness": {"title": "Helligkeit"},
+        "sun": {"title": "Sonne"},
+        "shading": {"title": "Beschattung"},
+        "ventilation": {"title": "Lüftung"},
+        "resident": {"title": "Bewohner"},
+        "behavior": {"title": "Verhalten"},
+        "source_overrides": {"title": "Quellen überschreiben"},
+        "profile_references": {"title": "Profilreferenzen", "data": {"time": "Zeitprofil", "shading": "Beschattungsprofil", "behavior": "Verhaltensprofil"}},
+        "overrides": {"title": "Abweichungen", "menu_options": {"override_time": "Zeitprofil", "override_shading": "Beschattungsprofil", "override_behavior": "Verhaltensprofil"}},
+        "override_time": {"title": "Zeit-Abweichungen"},
+        "override_shading": {"title": "Beschattungs-Abweichungen"},
+        "override_behavior": {"title": "Verhaltens-Abweichungen"}
+      },
+      "abort": {"reconfigure_successful": "Raum aktualisiert", "missing_profile_reference": "Das referenzierte Profil existiert nicht mehr"}
+    },
+    "time_profile": {
+      "title": "Zeitprofil",
+      "step": {
+        "user": {"title": "Zeitprofil hinzufügen", "data": {"profile_name": "Name", "profile_capabilities": "Funktionen"}},
+        "settings": {"title": "Zeitprofil-Einstellungen"},
+        "reconfigure": {"title": "Zeitprofil bearbeiten", "data": {"profile_name": "Name"}}
+      },
+      "abort": {"reconfigure_successful": "Profil aktualisiert"}
+    },
+    "shading_profile": {
+      "title": "Beschattungsprofil",
+      "step": {
+        "user": {"title": "Beschattungsprofil hinzufügen", "data": {"profile_name": "Name", "profile_capabilities": "Funktionen"}},
+        "settings": {"title": "Beschattungsprofil-Einstellungen"},
+        "reconfigure": {"title": "Beschattungsprofil bearbeiten", "data": {"profile_name": "Name"}}
+      },
+      "abort": {"reconfigure_successful": "Profil aktualisiert"}
+    },
+    "behavior_profile": {
+      "title": "Verhaltensprofil",
+      "step": {
+        "user": {"title": "Verhaltensprofil hinzufügen", "data": {"profile_name": "Name", "profile_capabilities": "Funktionen"}},
+        "settings": {"title": "Verhaltensprofil-Einstellungen"},
+        "reconfigure": {"title": "Verhaltensprofil bearbeiten", "data": {"profile_name": "Name"}}
+      },
+      "abort": {"reconfigure_successful": "Profil aktualisiert"}
+    }
+  },
+  "issues": {
+    "invalid_parent_config": {"title": "Ungültige Cover-Control-Konfiguration", "description": "Die Konfiguration ist strukturell ungültig: {error}"},
+    "automatic_recovery": {"title": "Cover Control hat die Konfiguration wiederhergestellt", "description": "Die Laufzeit verwendet die letzte gültige Konfiguration. Recovery-Einstellungen prüfen."}
+  },
   "entity": {
     "sensor": {
       "next_open": {
