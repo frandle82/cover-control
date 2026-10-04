@@ -182,12 +182,12 @@ class ActuatorMixin:
     def _auto_enabled(self, config_key: str) -> bool:
         if not self._master_enabled():
             return False
-        manager = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id)
-        get_runtime_toggle = getattr(manager, "get_runtime_toggle", None)
-        if get_runtime_toggle is not None:
-            runtime_override = get_runtime_toggle(config_key)
-            if runtime_override is not None:
-                return runtime_override
+        context = getattr(self, "_evaluation_context", None)
+        runtime_toggles = (
+            context.get("runtime_toggles", {}) if isinstance(context, dict) else {}
+        )
+        if isinstance(runtime_toggles, dict) and config_key in runtime_toggles:
+            return bool(runtime_toggles[config_key])
         entity_key = self._auto_entity_map.get(config_key)
         if entity_key:
             entity_id = self.config.get(entity_key)

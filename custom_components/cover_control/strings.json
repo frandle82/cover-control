@@ -333,6 +333,24 @@
   },
   "options": {
     "step": {
+      "init": {
+        "title": "Configure Cover Control",
+        "description": "Manage global data sources, default values, and behavior profiles. Room-specific hardware is configured only in each room.",
+        "menu_options": {
+          "global_sources": "Global data sources",
+          "global_defaults": "Global default values",
+          "profiles": "Profiles",
+          "diagnostics": "Diagnostics",
+          "recovery": "Recovery"
+        },
+        "menu_option_descriptions": {
+          "global_sources": "Set shared Home Assistant entities such as workday, outdoor temperature, brightness, calendar, and weather.",
+          "global_defaults": "Set fallback values used when neither a profile nor a room defines a different value.",
+          "profiles": "Centrally create and edit time, shading, and behavior profiles. Rooms select these profiles afterwards.",
+          "diagnostics": "Inspect structure, profile usage, dependencies, and runtime status for Cover Control.",
+          "recovery": "Show the last valid configuration or restore it when needed."
+        }
+      },
       "general": {
         "title": "General configuration",
         "description": "Set instance name, room, and covers.",
@@ -452,25 +470,31 @@
         }
       },
       "profiles": {
-        "title": "Reusable profiles",
-        "description": "Profiles define how rooms behave; technical sources and physical room properties stay separate.",
+        "title": "Profiles",
+        "description": "Profiles define only Cover Control behavior. Hardware, window contacts, and room sensors are configured in rooms. A profile can be used by multiple rooms or by just one room.",
         "menu_options": {
           "time_profiles": "Time profiles",
           "shading_profiles": "Shading profiles",
           "behavior_profiles": "Behavior profiles"
+        },
+        "menu_option_descriptions": {
+          "time_profiles": "Time profiles define when and under which time-based conditions covers open or close. Shared sources such as workday and calendar are selected separately under Global data sources.",
+          "shading_profiles": "Shading profiles define thresholds, target positions, waiting times, and shading rules. The concrete room temperature sensor and physical orientation are configured on the room.",
+          "behavior_profiles": "Behavior profiles define manual override, resident behavior, protection rules, and related behavior. The concrete resident entity is selected on each room."
         }
       },
-      "time_profiles": {"title": "Time profiles", "data": {"profile_action": "Action", "profile_id": "Profile"}},
-      "shading_profiles": {"title": "Shading profiles", "data": {"profile_action": "Action", "profile_id": "Profile"}},
-      "behavior_profiles": {"title": "Behavior profiles", "data": {"profile_action": "Action", "profile_id": "Profile"}},
+      "time_profiles": {"title": "Time profiles", "description": "Create, edit, duplicate, or delete time profiles. {profile_usage}", "data": {"profile_action": "Action", "profile_id": "Profile"}, "data_description": {"profile_action": "Choose whether to create a new profile or manage the selected one.", "profile_id": "Select the profile by name. Cover Control stores its stable internal profile ID."}},
+      "shading_profiles": {"title": "Shading profiles", "description": "Create, edit, duplicate, or delete shading profiles. {profile_usage}", "data": {"profile_action": "Action", "profile_id": "Profile"}, "data_description": {"profile_action": "Choose whether to create a new profile or manage the selected one.", "profile_id": "Select the profile by name. Cover Control stores its stable internal profile ID."}},
+      "behavior_profiles": {"title": "Behavior profiles", "description": "Create, edit, duplicate, or delete behavior profiles. {profile_usage}", "data": {"profile_action": "Action", "profile_id": "Profile"}, "data_description": {"profile_action": "Choose whether to create a new profile or manage the selected one.", "profile_id": "Select the profile by name. Cover Control stores its stable internal profile ID."}},
       "profile_setup": {
         "title": "Profile capabilities",
-        "description": "Choose the functional groups owned by this profile. Disabled groups are not stored or evaluated.",
-        "data": {"profile_name": "Profile name", "profile_capabilities": "Included functions"}
+        "description": "Choose the behavior groups owned by this profile. Physical hardware and room sensors remain on rooms. {profile_usage}",
+        "data": {"profile_name": "Profile name", "profile_capabilities": "Included functions"},
+        "data_description": {"profile_name": "Human-readable profile name. Renaming does not change room references.", "profile_capabilities": "Functional behavior groups stored in this profile."}
       },
       "profile_edit": {
         "title": "Profile settings",
-        "description": "Only settings belonging to the active capabilities are shown. Unsupported existing values are preserved automatically. For room overrides, inherited values are: {profile_values}",
+        "description": "Only behavior settings belonging to the active capabilities are shown. Hardware, contacts, and room sensors are configured on rooms. {profile_usage}",
         "data": {
           "profile_name": "Profile name",
           "configured_profile_fields": "Values stored in profile",
@@ -568,7 +592,12 @@
       },
       "diagnostics": {
         "title": "Configuration diagnostics",
-        "description": "Room: {room}\n\nSelected profiles: {profiles}\n\nRepresentative effective values and origins: {values}"
+        "description": "Profile usage and runtime status: {profiles}"
+      },
+      "recovery": {
+        "title": "Recovery",
+        "description": "Restore the last known-good parent configuration and room subentries when available. Available: {available}",
+        "data": {"confirm": "Restore last known-good configuration"}
       },
       "positions": {
         "title": "Cover positions",
@@ -963,8 +992,12 @@
       "title": "Room",
       "step": {
         "user": {"title": "Add room", "data": {"name": "Name", "room": "Area", "covers": "Covers"}},
-        "reconfigure": {"title": "Edit room", "menu_options": {"hardware": "Hardware", "time": "Time", "brightness": "Brightness", "sun": "Sun", "shading": "Shading", "ventilation": "Ventilation", "resident": "Resident", "behavior": "Behavior", "source_overrides": "Source overrides", "profile_references": "Profiles", "overrides": "Overrides"}},
-        "hardware": {"title": "Hardware", "data": {"name": "Name", "room": "Area", "covers": "Covers"}},
+        "reconfigure": {"title": "Configure room", "description": "Configure the real installation of this room: covers, window contacts, room sensors, and geometry. Behavior profiles are only selected here; their contents are edited centrally in the global Cover Control entry.", "menu_options": {"general": "General", "hardware": "Cover & hardware", "contacts": "Window contacts", "room_sensors": "Room sensors", "geometry": "Geometry", "functions": "Functions", "profile_references": "Profiles", "source_overrides": "Local deviations", "overrides": "Profile overrides", "diagnostics": "Diagnostics"}, "menu_option_descriptions": {"general": "Rename the room and keep its Home Assistant area assignment readable.", "hardware": "Assign controlled covers to this room and configure hardware-related properties.", "contacts": "Assign window contacts to the covers for ventilation and protection functions.", "room_sensors": "Select sensors that belong only to this room.", "geometry": "Describe the physical window orientation evaluated with sun and shading rules.", "functions": "Configure room-local feature switches and behavior without editing global profiles.", "profile_references": "Choose which central behavior profiles this room uses.", "source_overrides": "Override shared global sources only for this room.", "overrides": "Store sparse local deviations from the selected profiles.", "diagnostics": "Inspect the room structure and selected profile references."}},
+        "functions": {"title": "Functions", "description": "Configure room-local feature behavior. Profile contents remain in the global profile manager.", "menu_options": {"time": "Time control", "brightness": "Brightness control", "sun": "Sun control", "shading": "Shading", "ventilation": "Ventilation", "resident": "Resident behavior", "behavior": "Manual behavior"}},
+        "hardware": {"title": "Cover & hardware", "description": "Assign controlled covers to this room and configure hardware-related properties such as cover type, position source, and drive time.", "data": {"name": "Name", "room": "Area", "covers": "Covers"}, "data_description": {"name": "Human-readable room name.", "room": "Home Assistant area for the physical room.", "covers": "All covers that belong to this room and are controlled together by Cover Control."}},
+        "contacts": {"title": "Window contacts", "description": "Assign each cover its related window contacts. Cover Control uses this mapping for ventilation, lockout protection, and contact-dependent behavior."},
+        "room_sensors": {"title": "Room sensors", "description": "Select sensors that belong only to this room. Their measurements are combined with the rules from the assigned profiles.", "data": {"temperature_sensor_indoor": "Room temperature sensor", "resident_sensor": "Resident sensor"}, "data_description": {"temperature_sensor_indoor": "Temperature sensor of this room. Its value is evaluated against thresholds from the assigned shading profile.", "resident_sensor": "Resident or occupancy entity for this room. Behavior rules stay in the assigned behavior profile."}},
+        "geometry": {"title": "Geometry", "description": "Describe the physical orientation of this room's windows. These values are evaluated together with sun position and the assigned shading profile.", "data": {"shading_azimuth_start": "Azimuth from", "shading_azimuth_end": "Azimuth to"}},
         "time": {"title": "Time"},
         "brightness": {"title": "Brightness"},
         "sun": {"title": "Sun"},
@@ -972,8 +1005,8 @@
         "ventilation": {"title": "Ventilation"},
         "resident": {"title": "Resident"},
         "behavior": {"title": "Behavior"},
-        "source_overrides": {"title": "Source overrides"},
-        "profile_references": {"title": "Profile references", "data": {"time": "Time profile", "shading": "Shading profile", "behavior": "Behavior profile"}},
+        "source_overrides": {"title": "Local source deviations", "description": "Only select a source here when this room intentionally differs from the global source."},
+        "profile_references": {"title": "Profiles", "description": "Choose the behavior profiles for this room. Profiles are created and edited centrally under Cover Control configuration > Profiles.", "data": {"time": "Time profile", "shading": "Shading profile", "behavior": "Behavior profile"}, "data_description": {"time": "Controls opening and closing schedules and time-related behavior.", "shading": "Controls shading thresholds, positions, waiting times, and rules.", "behavior": "Controls manual override, resident behavior, ventilation rules, and protection behavior."}},
         "overrides": {"title": "Overrides", "menu_options": {"override_time": "Time profile", "override_shading": "Shading profile", "override_behavior": "Behavior profile"}},
         "override_time": {"title": "Time overrides"},
         "override_shading": {"title": "Shading overrides"},

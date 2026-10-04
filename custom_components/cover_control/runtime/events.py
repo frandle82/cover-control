@@ -540,10 +540,8 @@ class EventsMixin:
     def _reschedule_next_event_timers(self, now: datetime) -> None:
         """Keep one point-in-time callback for each calculated schedule event."""
 
-        entry_id = getattr(getattr(self, "entry", None), "entry_id", None)
-        manager = getattr(self.hass, "data", {}).get(DOMAIN, {}).get(entry_id)
-        hub = getattr(manager, "hub", None)
-        room_id = getattr(manager, "room_id", None)
+        hub = getattr(self, "hub", None)
+        room_id = getattr(self, "room_id", None)
         if (
             hub is not None
             and room_id is not None

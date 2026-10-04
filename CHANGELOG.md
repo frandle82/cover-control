@@ -1,14 +1,22 @@
 # Changelog
 
-## [0.7.6](https://github.com/frandle82/cover-control/compare/0.7.5...0.7.6) (2026-09-19)
+## [0.10.1](https://github.com/frandle82/cover-control/compare/0.10.0...0.10.1) (2026-10-03)
 
+### Bug Fixes
+
+* ensure all five room function switches exist regardless of initial state
+* restore next open/close scheduling for time profiles
+* ensure profile values are correctly pre-selected during edit
+* correct return navigation for global and room settings
+* improve readability of configuration diagnostics
+
+## [0.7.6](https://github.com/frandle82/cover-control/compare/0.7.5...0.7.6) (2026-09-19)
 
 ### Bug Fixes
 
 * initialize config flow section defaults ([8f1ad94](https://github.com/frandle82/cover-control/commit/8f1ad94d18d3618215f64b95ef590cf36cd8445d))
 
 ## [0.7.5](https://github.com/frandle82/cover-control/compare/0.7.4...0.7.5) (2026-08-10)
-
 
 ### Bug Fixes
 
