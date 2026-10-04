@@ -133,8 +133,7 @@ class _BaseCoverControlButton(ButtonEntity):
         runtime = getattr(self.entry, "runtime_data", None)
         if self.room_id and isinstance(runtime, CoverControlRuntime):
             return runtime.manager(self.room_id)
-        manager = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id)
-        return manager if isinstance(manager, ControllerManager) else None
+        return None
 
 
 class RecalibrateButton(_BaseCoverControlButton):

@@ -3,9 +3,11 @@
 from __future__ import annotations
 
 from dataclasses import dataclass, field
-from typing import TYPE_CHECKING, Any
+from typing import TYPE_CHECKING, Any, TypeAlias
 
 if TYPE_CHECKING:
+    from homeassistant.config_entries import ConfigEntry
+
     from .hub import CoverControlHub
     from .runtime.manager import ControllerManager
     from .shared_input import SharedInputCoordinator
@@ -47,3 +49,9 @@ class CoverControlRuntime:
         """Return manager belonging to one room subentry."""
 
         return self.room_managers.get(room_subentry_id)
+
+
+if TYPE_CHECKING:
+    CoverControlConfigEntry: TypeAlias = ConfigEntry[CoverControlRuntime]
+else:
+    CoverControlConfigEntry: TypeAlias = Any

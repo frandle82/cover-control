@@ -90,7 +90,6 @@ from .const import (
     DEFAULT_COLD_PROTECTION_THRESHOLD,
     DOMAIN,
 )
-from .controller import ControllerManager
 from .feature_state import feature_configured
 from .runtime_data import CoverControlRuntime
 
@@ -279,11 +278,6 @@ class AutomationToggleSwitch(SwitchEntity):
             if runtime_value is not None:
                 return bool(runtime_value)
             return bool(manager._resolved_config.get(self._key, False))
-        manager = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id) if self.hass else None
-        if isinstance(manager, ControllerManager):
-            runtime_value = manager.get_runtime_toggle(self._key)
-            if runtime_value is not None:
-                return bool(runtime_value)
         from .config_resolver import config_entry_room_id, resolve_entry_config
 
         resolved = resolve_entry_config(
@@ -308,15 +302,6 @@ class AutomationToggleSwitch(SwitchEntity):
                     manager.set_runtime_toggle(CONF_AUTO_DOWN, True)
                 self.async_write_ha_state()
             return
-        manager = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id)
-        if isinstance(manager, ControllerManager):
-            manager.clear_runtime_toggle(self._key)
-            if self._key == CONF_AUTO_TIME:
-                manager.clear_runtime_toggle(CONF_AUTO_UP)
-                manager.clear_runtime_toggle(CONF_AUTO_DOWN)
-            self.async_write_ha_state()
-            return
-
         options = {**self.entry.options, self._key: True}
         if self._key == CONF_AUTO_TIME:
             options[CONF_AUTO_UP] = True
@@ -334,15 +319,6 @@ class AutomationToggleSwitch(SwitchEntity):
                     manager.set_runtime_toggle(CONF_AUTO_DOWN, False)
                 self.async_write_ha_state()
             return
-        manager = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id)
-        if isinstance(manager, ControllerManager):
-            manager.set_runtime_toggle(self._key, False)
-            if self._key == CONF_AUTO_TIME:
-                manager.set_runtime_toggle(CONF_AUTO_UP, False)
-                manager.set_runtime_toggle(CONF_AUTO_DOWN, False)
-            self.async_write_ha_state()
-            return
-
         options = {**self.entry.options, self._key: False}
         if self._key == CONF_AUTO_TIME:
             options[CONF_AUTO_UP] = False

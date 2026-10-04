@@ -1,4 +1,4 @@
-"""Tests for parent entry and native room/profile subentry persistence."""
+"""Tests for parent profiles and native room subentry persistence."""
 
 from types import SimpleNamespace
 
@@ -32,16 +32,24 @@ def _subentry(subentry_id: str, subentry_type: str, title: str, data: dict):
     )
 
 
-def test_native_subentries_build_one_transient_runtime_model() -> None:
+def test_parent_profiles_and_room_subentries_build_one_transient_runtime_model() -> None:
     model = model_from_subentries(
-        {CONF_GLOBAL: {CONF_GLOBAL_SOURCES: {"brightness_sensor": "sensor.lux"}}},
+        {
+            CONF_GLOBAL: {CONF_GLOBAL_SOURCES: {"brightness_sensor": "sensor.lux"}},
+            CONF_PROFILES: {
+                "time": {},
+                "shading": {
+                    "profile-south": {
+                        "id": "profile-south",
+                        "name": "South",
+                        "capabilities": ["positioning"],
+                        "settings": {"shading_position": 25},
+                    }
+                },
+                "behavior": {},
+            },
+        },
         [
-            _subentry(
-                "profile-south",
-                "shading_profile",
-                "South",
-                {"capabilities": ["positioning"], "settings": {"shading_position": 25}},
-            ),
             _subentry(
                 "room-living",
                 "room",
@@ -58,7 +66,7 @@ def test_native_subentries_build_one_transient_runtime_model() -> None:
     }
 
 
-def test_legacy_conversion_rewrites_profile_references_to_subentry_ids() -> None:
+def test_legacy_conversion_rewrites_profile_references_to_parent_profile_ids() -> None:
     ids = iter(["new-profile", "new-room"])
     parent, subentries = legacy_model_to_subentry_data(
         {
@@ -86,19 +94,15 @@ def test_legacy_conversion_rewrites_profile_references_to_subentry_ids() -> None
     )
 
     assert parent[CONF_GLOBAL][CONF_GLOBAL_SOURCES] == {"brightness_sensor": "sensor.lux"}
+    assert set(parent[CONF_PROFILES][PROFILE_TYPE_SHADING]) == {"new-profile"}
     room = next(data for subentry_id, kind, _title, data in subentries if kind == "room")
     assert room[CONF_PROFILE_SELECTIONS] == {"shading": "new-profile"}
 
 
-def test_config_flow_exposes_only_native_room_and_profile_subentry_types() -> None:
+def test_config_flow_exposes_only_native_room_subentry_type() -> None:
     supported = CoverControlFlow.async_get_supported_subentry_types(None)
 
-    assert set(supported) == {
-        "room",
-        "time_profile",
-        "shading_profile",
-        "behavior_profile",
-    }
+    assert set(supported) == {"room"}
 
 
 async def test_parent_runtime_owns_room_managers(hass) -> None:
@@ -164,19 +168,64 @@ async def test_legacy_entry_migrates_to_parent_and_native_subentries(hass) -> No
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert entry.version == 4
+    assert entry.version == 5
     assert entry.title == "Cover Control"
     assert entry.unique_id == DOMAIN
     assert "config_model" not in entry.data
     assert {subentry.subentry_type for subentry in entry.subentries.values()} == {
         "room",
-        "time_profile",
-        "shading_profile",
-        "behavior_profile",
     }
+    assert set(entry.data[CONF_PROFILES][PROFILE_TYPE_SHADING])
     assert isinstance(entry.runtime_data, CoverControlRuntime)
     assert len(entry.runtime_data.room_managers) == 1
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_v4_profile_subentries_migrate_to_parent_profiles(hass) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Cover Control",
+        version=4,
+        data={CONF_GLOBAL: {"sources": {}, "defaults": {}}},
+        subentries_data=[
+            {
+                "subentry_id": "profile-south",
+                "subentry_type": "shading_profile",
+                "title": "South",
+                "unique_id": "profile-south",
+                "data": {
+                    "capabilities": ["positioning"],
+                    "settings": {"shading_position": 25},
+                },
+            },
+            {
+                "subentry_id": "room-living",
+                "subentry_type": "room",
+                "title": "Living",
+                "unique_id": "room-living",
+                "data": {
+                    "name": "Living",
+                    "settings": {"covers": ["cover.living"]},
+                    "profiles": {"shading": "profile-south"},
+                    "source_overrides": {},
+                    "overrides": {},
+                },
+            },
+        ],
+    )
+    entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    assert entry.version == 5
+    assert set(entry.data[CONF_PROFILES][PROFILE_TYPE_SHADING]) == {"profile-south"}
+    assert entry.data[CONF_PROFILES][PROFILE_TYPE_SHADING]["profile-south"]["name"] == "South"
+    assert {subentry.subentry_type for subentry in entry.subentries.values()} == {
+        "room"
+    }
+    room = next(iter(entry.subentries.values()))
+    assert room.data[CONF_PROFILE_SELECTIONS] == {"shading": "profile-south"}
 
 
 async def test_multiple_legacy_entries_consolidate_into_one_parent(hass) -> None:
@@ -200,7 +249,7 @@ async def test_multiple_legacy_entries_consolidate_into_one_parent(hass) -> None
 
     entries = hass.config_entries.async_entries(DOMAIN)
     assert [entry.entry_id for entry in entries] == [first.entry_id]
-    assert second.version == 4
+    assert second.version == 5
     assert second.data == {"hub_entry_id": first.entry_id}
     room_subentries = [
         subentry
