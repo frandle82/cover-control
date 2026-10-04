@@ -200,6 +200,8 @@ async def test_multiple_legacy_entries_consolidate_into_one_parent(hass) -> None
 
     entries = hass.config_entries.async_entries(DOMAIN)
     assert [entry.entry_id for entry in entries] == [first.entry_id]
+    assert second.version == 4
+    assert second.data == {"hub_entry_id": first.entry_id}
     room_subentries = [
         subentry
         for subentry in first.subentries.values()

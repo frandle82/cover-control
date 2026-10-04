@@ -112,66 +112,102 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     if entry.version >= 4:
         return True
-    if CONF_GLOBAL in entry.data and CONF_CONFIG_MODEL not in entry.data:
-        hass.config_entries.async_update_entry(entry, version=4)
-        return True
-    data, _options = (
-        migrate_entry_payload(entry.data, entry.options, entry_id=entry.entry_id)
-        if CONF_CONFIG_MODEL not in entry.data
-        else (dict(entry.data), dict(entry.options))
-    )
     from homeassistant.util.ulid import ulid_now
+    from .hub import merge_config_models
 
+    entries = hass.config_entries.async_entries(DOMAIN)
     native_parent = next(
         (
             candidate
-            for candidate in hass.config_entries.async_entries(DOMAIN)
-            if candidate.entry_id != entry.entry_id
-            and CONF_GLOBAL in candidate.data
+            for candidate in entries
+            if CONF_GLOBAL in candidate.data
             and CONF_CONFIG_MODEL not in candidate.data
             and not candidate.data.get("hub_entry_id")
         ),
         None,
     )
-    if native_parent is not None:
-        from .hub import merge_config_models
+    legacy_parents = [
+        candidate
+        for candidate in entries
+        if candidate is not native_parent
+        and candidate.version < 4
+        and not candidate.data.get("hub_entry_id")
+    ]
 
-        parent_model = model_from_subentries(
+    if native_parent is not None and not legacy_parents:
+        hass.config_entries.async_update_entry(native_parent, version=4)
+        return True
+
+    if native_parent is not None:
+        parent = native_parent
+        merged = model_from_subentries(
             native_parent.data, native_parent.subentries.values()
         )
-        merged = merge_config_models(
-            parent_model, data[CONF_CONFIG_MODEL], namespace=entry.entry_id
+    elif legacy_parents:
+        parent = legacy_parents.pop(0)
+        merged = _legacy_entry_model(parent)
+    else:
+        parent = next(
+            (
+                candidate
+                for candidate in entries
+                if candidate.entry_id == entry.data.get("hub_entry_id")
+            ),
+            None,
         )
-        parent_data, payloads = legacy_model_to_subentry_data(merged, ulid_now)
-        parent_data["name"] = "Cover Control"
-        for subentry_id in tuple(native_parent.subentries):
-            hass.config_entries.async_remove_subentry(native_parent, subentry_id)
-        _add_subentries(hass, native_parent, payloads)
-        hass.config_entries.async_update_entry(
-            native_parent, data=parent_data, options={}, version=4
-        )
+        if parent is None:
+            raise ConfigEntryError("Cover Control parent entry migration is incomplete")
         hass.config_entries.async_update_entry(
             entry,
-            data={"hub_entry_id": native_parent.entry_id},
+            data={"hub_entry_id": parent.entry_id},
             options={},
             version=4,
         )
         return True
 
-    parent_data, payloads = legacy_model_to_subentry_data(
-        data[CONF_CONFIG_MODEL], ulid_now
-    )
+    for legacy_entry in legacy_parents:
+        merged = merge_config_models(
+            merged,
+            _legacy_entry_model(legacy_entry),
+            namespace=legacy_entry.entry_id,
+        )
+
+    parent_data, payloads = legacy_model_to_subentry_data(merged, ulid_now)
     parent_data["name"] = "Cover Control"
-    _add_subentries(hass, entry, payloads)
+    for subentry_id in tuple(parent.subentries):
+        hass.config_entries.async_remove_subentry(parent, subentry_id)
+    _add_subentries(hass, parent, payloads)
     hass.config_entries.async_update_entry(
-        entry,
+        parent,
         data=parent_data,
         options={},
         title="Cover Control",
         unique_id=DOMAIN,
         version=4,
     )
+    for legacy_entry in entries:
+        if legacy_entry.entry_id == parent.entry_id:
+            continue
+        if legacy_entry.version >= 4 and not legacy_entry.data.get("hub_entry_id"):
+            continue
+        hass.config_entries.async_update_entry(
+            legacy_entry,
+            data={"hub_entry_id": parent.entry_id},
+            options={},
+            version=4,
+        )
     return True
+
+
+def _legacy_entry_model(entry: ConfigEntry) -> dict:
+    """Normalize one legacy parent or standalone room entry."""
+
+    if CONF_CONFIG_MODEL in entry.data:
+        return dict(entry.data[CONF_CONFIG_MODEL])
+    data, _options = migrate_entry_payload(
+        entry.data, entry.options, entry_id=entry.entry_id
+    )
+    return data[CONF_CONFIG_MODEL]
 
 
 def _add_subentries(hass, entry, payloads) -> None:
