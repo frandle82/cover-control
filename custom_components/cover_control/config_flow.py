@@ -109,6 +109,7 @@ from .const import (
     CONF_OPEN_POSITION,
     CONF_OPEN_TILT_POSITION,
     CONF_ROOM,
+    CONF_ROOMS,
     CONF_ROOM_OVERRIDES,
     CONF_ROOM_SETTINGS,
     CONF_SOURCE_OVERRIDES,
@@ -1704,7 +1705,7 @@ class ParentOptionsFlow(config_entries.OptionsFlow):
         profile = model.data[CONF_PROFILES][self._profile_type].get(profile_id, {})
         existing = profile.get(CONF_PROFILE_SETTINGS, {})
         capabilities = profile.get(CONF_PROFILE_CAPABILITIES)
-        if not isinstance(capabilities, list):
+        if not capabilities:
             capabilities = infer_capabilities(self._profile_type, existing)
         if user_input is not None:
             self._editing_profile_name = str(user_input["profile_name"]).strip()
@@ -2304,7 +2305,9 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         if profile is None:
             return self.async_abort(reason="missing_profile_reference")
         profile_settings = dict(profile.get(CONF_PROFILE_SETTINGS, {}))
-        capabilities = profile.get(CONF_PROFILE_CAPABILITIES, ())
+        capabilities = profile.get(CONF_PROFILE_CAPABILITIES) or infer_capabilities(
+            profile_type, profile_settings
+        )
         allowed = capability_keys(profile_type, capabilities)
         all_overrides = dict(data.get(CONF_ROOM_OVERRIDES, {}))
         current = dict(all_overrides.get(profile_type, {}))
@@ -2313,6 +2316,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                 flatten_section_input(user_input),
                 profile_type,
                 current,
+                field_selection=CONF_OVERRIDE_FIELDS,
                 allowed_keys=allowed,
             )
             sparse = {
@@ -2332,6 +2336,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                 profile_type,
                 current,
                 {**system_defaults(), **profile_settings},
+                field_selection=CONF_OVERRIDE_FIELDS,
                 allowed_keys=allowed,
             ),
         )
@@ -2780,7 +2785,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
         profile = catalog.get(profile_id, {})
         existing = profile.get("settings", {})
         capabilities = profile.get(CONF_PROFILE_CAPABILITIES)
-        if not isinstance(capabilities, list):
+        if not capabilities:
             capabilities = infer_capabilities(self._profile_type, existing)
         if user_input is not None:
             selected = list(user_input.get(CONF_PROFILE_CAPABILITIES_FIELD, ()))
