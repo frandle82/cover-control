@@ -172,7 +172,7 @@ async def _create_profile(hass, entry, profile_type: str, data: dict):
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
 async def test_user_flow_can_be_completed_without_errors(hass):
-    """Ensure config flow reaches entry creation without internal server errors."""
+    """Create one room-free parent entry through global setup."""
     result = await hass.config_entries.flow.async_init(
         DOMAIN,
         context={"source": config_entries.SOURCE_USER},
@@ -182,41 +182,42 @@ async def test_user_flow_can_be_completed_without_errors(hass):
 
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
-        {
-            CONF_NAME: "Test",
-            CONF_ROOM: "living-room",
-            CONF_COVERS: ["cover.test_cover"],
-            "automation_features": {
-                CONF_AUTO_VENTILATE: True,
-                CONF_AUTO_SHADING: True,
-            },
-        },
+        {CONF_NAME: "Cover Control"},
     )
     assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "windows"
+    assert result["step_id"] == "global_sources"
 
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "schedule"
-
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
-    assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "shading"
+    assert result["step_id"] == "global_defaults"
 
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    assert result["title"] == "Test"
-    resolved = resolve_entry_config(
-        result["data"],
-        {},
-        room_id=config_entry_room_id(result["data"], "new-entry"),
+    assert result["title"] == "Cover Control"
+    assert result["data"]["global"] == {"sources": {}, "defaults": {}}
+    assert CONF_COVERS not in result["data"]
+
+
+async def test_user_flow_blocks_second_parent_entry(hass) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Cover Control",
+        version=4,
+        data={"global": {"sources": {}, "defaults": {}}},
     )
-    assert resolved[CONF_COVERS] == ["cover.test_cover"]
+    entry.add_to_hass(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN, context={"source": config_entries.SOURCE_USER}
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "single_instance_allowed"
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
 async def test_user_flow_exposes_nested_defaults_to_frontend(hass):
-    """Ensure collapsed sections do not hide required fields without values."""
+    """Parent setup requires no room hardware or function settings."""
 
     hass.states.async_set(
         "cover.test_cover",
@@ -228,46 +229,22 @@ async def test_user_flow_exposes_nested_defaults_to_frontend(hass):
         context={"source": config_entries.SOURCE_USER},
     )
     initial_data = _frontend_initial_data(result["data_schema"])
-    assert initial_data["automation_features"] == {
-        key: False for key in INITIAL_FEATURE_KEYS
-    }
+    assert initial_data == {CONF_NAME: DEFAULT_NAME}
 
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
-        {
-            CONF_NAME: "All functions",
-            CONF_ROOM: "living-room",
-            CONF_COVERS: ["cover.test_cover"],
-            "automation_features": {key: True for key in INITIAL_FEATURE_KEYS},
-        },
+        {CONF_NAME: DEFAULT_NAME},
     )
-    assert result["step_id"] == "windows"
+    assert result["step_id"] == "global_sources"
+    source_fields = {str(key.schema) for key in result["data_schema"].schema}
+    assert CONF_BRIGHTNESS_SENSOR in source_fields
+    assert CONF_COVERS not in source_fields
 
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {}
+    )
+    assert result["step_id"] == "global_defaults"
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
-    assert result["step_id"] == "schedule"
-    schedule_data = _frontend_initial_data(result["data_schema"])
-    assert schedule_data["positions"]["open_position"] == 100
-    assert schedule_data["tilt_positions"]["open_tilt_position"] == 50
-    assert schedule_data["timing"][CONF_MANUAL_SCHEDULE_ADOPTION] is False
-    assert schedule_data["behavior"][CONF_ENABLE_LOGBOOK_COVER] is False
-
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], schedule_data
-    )
-    assert result["step_id"] == "shading"
-    shading_data = _frontend_initial_data(result["data_schema"])
-    assert shading_data["brightness_controls"]
-    assert shading_data["sun_controls"]
-    assert shading_data["shading_controls"]
-    assert (
-        shading_data["shading_controls"][CONF_SHADING_INDEPENDENT_HOLDS_END]
-        is False
-    )
-    assert shading_data["manual_override"]
-
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"], shading_data
-    )
     assert result["type"] is FlowResultType.CREATE_ENTRY
 
     await hass.async_block_till_done()
@@ -974,7 +951,8 @@ async def test_entry_setup_and_unload_on_home_assistant_2026_9(hass):
     entry.add_to_hass(hass)
 
     assert await hass.config_entries.async_setup(entry.entry_id)
-    manager = hass.data[DOMAIN][entry.entry_id]
+    runtime = hass.data[DOMAIN][entry.entry_id]
+    manager = next(iter(runtime.room_managers.values()))
     assert manager._evaluation_task in entry._background_tasks
     await hass.async_block_till_done()
     assert entry.state is config_entries.ConfigEntryState.LOADED

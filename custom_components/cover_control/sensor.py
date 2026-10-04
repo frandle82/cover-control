@@ -13,7 +13,6 @@ from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import (
     CONF_PROFILE_CAPABILITIES,
-    CONF_PROFILE_SETTINGS,
     CONF_PROFILES,
     CONF_NAME,
     CONF_RESIDENT_STATUS,
@@ -26,14 +25,49 @@ from .const import (
 )
 from .controller import ControllerManager
 from .config_resolver import config_entry_room_id, resolve_entry_config
-from .config_profile_schema import infer_capabilities
 from .hub import CoverControlHub
+from .runtime_data import CoverControlRuntime
 
 
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
     """Set up Cover Control sensor entities."""
+    runtime = getattr(entry, "runtime_data", None)
+    if isinstance(runtime, CoverControlRuntime):
+        entities: list[SensorEntity] = []
+        for room_id, manager in runtime.room_managers.items():
+            entities.extend(
+                [
+                    NextOpenSensor(hass, entry, room_id),
+                    NextCloseSensor(hass, entry, room_id),
+                    ControlStateSensor(hass, entry, room_id),
+                ]
+            )
+            resolved = manager._resolved_config or {}
+            if CONF_RESIDENT_STATUS in resolved and bool(
+                resolved.get(CONF_RESIDENT_STATUS)
+            ):
+                entities.append(ResidentStatusSensor(hass, entry, room_id))
+        for profile_id, profile in runtime.model.get(CONF_PROFILES, {}).get(
+            PROFILE_TYPE_TIME, {}
+        ).items():
+            capabilities = profile.get(CONF_PROFILE_CAPABILITIES, [])
+            if "opening" in capabilities:
+                entities.append(ProfileScheduleSensor(hass, entry, profile_id, "next_open"))
+            if "closing" in capabilities:
+                entities.append(ProfileScheduleSensor(hass, entry, profile_id, "next_close"))
+        desired = {entity.unique_id for entity in entities}
+        registry = er.async_get(hass)
+        for entity_entry in list(registry.entities.values()):
+            if (
+                entity_entry.config_entry_id == entry.entry_id
+                and entity_entry.domain == "sensor"
+                and entity_entry.unique_id not in desired
+            ):
+                registry.async_remove(entity_entry.entity_id)
+        async_add_entities(entities)
+        return
     merged = resolve_entry_config(
         entry.data,
         entry.options,
@@ -51,27 +85,7 @@ async def async_setup_entry(
         f"{entry.entry_id}-next_close",
         f"{entry.entry_id}-control_state",
     }
-    hub = hass.data.get(DOMAIN, {}).get("hub")
     profile_entities: list[SensorEntity] = []
-    if isinstance(hub, CoverControlHub) and hub.owner_entry_id == entry.entry_id:
-        for profile_id, profile in hub.model.get(CONF_PROFILES, {}).get(
-            PROFILE_TYPE_TIME, {}
-        ).items():
-            capabilities = profile.get(CONF_PROFILE_CAPABILITIES)
-            if not isinstance(capabilities, list):
-                capabilities = infer_capabilities(
-                    PROFILE_TYPE_TIME, profile.get(CONF_PROFILE_SETTINGS, {})
-                )
-            if "opening" in capabilities:
-                desired_unique_ids.add(f"profile-{profile_id}-next_open")
-                profile_entities.append(
-                    ProfileScheduleSensor(hass, entry, profile_id, "next_open")
-                )
-            if "closing" in capabilities:
-                desired_unique_ids.add(f"profile-{profile_id}-next_close")
-                profile_entities.append(
-                    ProfileScheduleSensor(hass, entry, profile_id, "next_close")
-                )
     if resident_enabled:
         desired_unique_ids.add(f"{entry.entry_id}-resident_status")
 
@@ -103,12 +117,24 @@ class _BaseCoverControlSensor(SensorEntity):
     _attr_has_entity_name = True
     _attr_entity_category = EntityCategory.DIAGNOSTIC
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
+    def __init__(
+        self, hass: HomeAssistant, entry: ConfigEntry, room_id: str | None = None
+    ) -> None:
         self.hass = hass
         self.entry = entry
+        self.room_id = room_id
+        self._attr_config_subentry_id = room_id
 
     @property
     def device_info(self) -> DeviceInfo:
+        if self.room_id:
+            runtime = getattr(self.entry, "runtime_data", None)
+            room = runtime.model.get("rooms", {}).get(self.room_id, {}) if isinstance(runtime, CoverControlRuntime) else {}
+            return DeviceInfo(
+                identifiers={(DOMAIN, self.entry.entry_id, self.room_id)},
+                name=str(room.get(CONF_NAME, self.room_id)),
+                manufacturer="CCA-derived",
+            )
         return DeviceInfo(
             identifiers={(DOMAIN, self.entry.entry_id)},
             name=self.entry.options.get(
@@ -119,6 +145,9 @@ class _BaseCoverControlSensor(SensorEntity):
         )
 
     def _manager(self) -> ControllerManager | None:
+        runtime = getattr(self.entry, "runtime_data", None)
+        if self.room_id and isinstance(runtime, CoverControlRuntime):
+            return runtime.manager(self.room_id)
         manager = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id)
         return manager if isinstance(manager, ControllerManager) else None
 
@@ -128,9 +157,11 @@ class _BaseEntryRuntimeSensor(_BaseCoverControlSensor):
 
     _key: str
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
-        super().__init__(hass, entry)
-        self._attr_unique_id = f"{entry.entry_id}-{self._key}"
+    def __init__(
+        self, hass: HomeAssistant, entry: ConfigEntry, room_id: str | None = None
+    ) -> None:
+        super().__init__(hass, entry, room_id)
+        self._attr_unique_id = f"{room_id or entry.entry_id}-{self._key}"
         self._attr_translation_key = self._key
         self._target_time: datetime | None = None
         self._target_cover: str | None = None
@@ -225,9 +256,11 @@ class ControlStateSensor(_BaseCoverControlSensor):
     _attr_translation_key = "control_state"
     _attr_icon = "mdi:state-machine"
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
-        super().__init__(hass, entry)
-        self._attr_unique_id = f"{entry.entry_id}-control_state"
+    def __init__(
+        self, hass: HomeAssistant, entry: ConfigEntry, room_id: str | None = None
+    ) -> None:
+        super().__init__(hass, entry, room_id)
+        self._attr_unique_id = f"{room_id or entry.entry_id}-control_state"
         self._state: str = "idle"
         self._cover_states: dict[str, dict[str, Any]] = {}
         self._config_diagnostics: dict[str, Any] = {}
@@ -295,9 +328,11 @@ class ResidentStatusSensor(_BaseCoverControlSensor):
     _attr_icon = "mdi:bed"
     _attr_unique_id: str
 
-    def __init__(self, hass: HomeAssistant, entry: ConfigEntry) -> None:
-        super().__init__(hass, entry)
-        self._attr_unique_id = f"{entry.entry_id}-resident_status"
+    def __init__(
+        self, hass: HomeAssistant, entry: ConfigEntry, room_id: str | None = None
+    ) -> None:
+        super().__init__(hass, entry, room_id)
+        self._attr_unique_id = f"{room_id or entry.entry_id}-resident_status"
         self._state: str = "off"
         self._resident_entity: str | None = None
 
@@ -356,6 +391,7 @@ class ProfileScheduleSensor(_BaseCoverControlSensor):
         super().__init__(hass, entry)
         self.profile_id = profile_id
         self.key = key
+        self._attr_config_subentry_id = profile_id
         self._attr_unique_id = f"profile-{profile_id}-{key}"
         self._attr_translation_key = f"profile_{key}"
         hub = self._hub()
@@ -368,6 +404,9 @@ class ProfileScheduleSensor(_BaseCoverControlSensor):
         self._value: datetime | None = None
 
     def _hub(self) -> CoverControlHub | None:
+        runtime = getattr(self.entry, "runtime_data", None)
+        if isinstance(runtime, CoverControlRuntime):
+            return runtime.hub
         hub = self.hass.data.get(DOMAIN, {}).get("hub")
         return hub if isinstance(hub, CoverControlHub) else None
 

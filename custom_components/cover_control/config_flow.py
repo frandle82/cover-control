@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import logging
+from types import MappingProxyType
 from datetime import date, datetime, time, timedelta
 from collections import OrderedDict
 from copy import deepcopy
@@ -9,6 +10,7 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.config_entries import ConfigSubentry, ConfigSubentryFlow
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult, section
 from homeassistant.helpers import selector
@@ -36,7 +38,7 @@ from .config_resolver import (
     resolve_config_model,
     system_defaults,
 )
-
+from .config_subentries import model_to_native_payloads
 from .const import (
     BRIGHTNESS_SUN_OPERATOR_AND,
     BRIGHTNESS_SUN_OPERATOR_OR,
@@ -60,6 +62,9 @@ from .const import (
     CONF_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_COLD_PROTECTION_THRESHOLD,
     CONF_CONFIG_MODEL,
+    CONF_GLOBAL,
+    CONF_GLOBAL_DEFAULTS,
+    CONF_GLOBAL_SOURCES,
     CONF_CALENDAR_CLOSE_TITLE,
     CONF_CALENDAR_ENTITY,
     CONF_CALENDAR_OPEN_TITLE,
@@ -101,6 +106,10 @@ from .const import (
     CONF_OPEN_POSITION,
     CONF_OPEN_TILT_POSITION,
     CONF_ROOM,
+    CONF_ROOM_OVERRIDES,
+    CONF_ROOM_SETTINGS,
+    CONF_SOURCE_OVERRIDES,
+    CONF_PROFILE_SELECTIONS,
     CONF_ROOM_ID,
     CONF_POSITION_TOLERANCE,
     CONF_POSITION_SOURCE,
@@ -276,6 +285,7 @@ from .const import (
     PROFILE_TYPE_BEHAVIOR,
     PROFILE_TYPE_SHADING,
     PROFILE_TYPE_TIME,
+    PROFILE_TYPES,
     MANUAL_OVERRIDE_RESET_NONE,
     MANUAL_OVERRIDE_RESET_TIME,
     MANUAL_OVERRIDE_RESET_TIMEOUT,
@@ -478,45 +488,83 @@ def _normalize_position_fields(data: dict[str, Any]) -> dict[str, Any]:
 class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the config flow."""
 
-    VERSION = 3
+    VERSION = 4
 
     def __init__(self) -> None:
         self._data: dict = {}
 
     async def async_step_user(self, user_input=None) -> FlowResult:
+        """Create exactly one global parent entry without requiring a room."""
+
+        if self._async_current_entries():
+            return self.async_abort(reason="single_instance_allowed")
         if user_input is not None:
-            data = self._flatten_section_input(user_input, ("automation_features",))
-            if CONF_AUTO_TIME in data:
-                time_enabled = bool(data[CONF_AUTO_TIME])
-                data[CONF_AUTO_UP] = time_enabled
-                data[CONF_AUTO_DOWN] = time_enabled
-            self._data.update(data)
-            if self._data.get(CONF_AUTO_VENTILATE):
-                return await self.async_step_windows()
-            return await self.async_step_schedule()
+            self._data[CONF_NAME] = str(user_input.get(CONF_NAME, DEFAULT_NAME))
+            return await self.async_step_global_sources()
 
         return self.async_show_form(
             step_id="user",
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_NAME, default=DEFAULT_NAME): str,
-                    vol.Required(CONF_ROOM): selector.AreaSelector(),
-                    vol.Required(CONF_COVERS): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["cover"], multiple=True)
-                    ),
-                    vol.Optional("automation_features"): section(
-                        vol.Schema(
-                            {
-                                vol.Required(
-                                    key,
-                                    default=DEFAULT_AUTOMATION_FLAGS.get(key, False),
-                                ): bool
-                                for key in INITIAL_FEATURE_KEYS
-                            }
-                        ),
-                        {"collapsed": False},
-                    ),
                 }
+            ),
+        )
+
+    async def async_step_global_sources(self, user_input=None) -> FlowResult:
+        """Collect optional shared sources for parent entry."""
+
+        if user_input is not None:
+            self._data[CONF_GLOBAL] = {
+                CONF_GLOBAL_SOURCES: {
+                    key: value
+                    for key, value in user_input.items()
+                    if value not in (None, "")
+                },
+                CONF_GLOBAL_DEFAULTS: {},
+            }
+            return await self.async_step_global_defaults()
+        fields = {}
+        for key in sorted(GLOBAL_SOURCE_KEYS):
+            fields[vol.Optional(key)] = (
+                selector.ConditionSelector()
+                if key == CONF_ADDITIONAL_CONDITION_GLOBAL
+                else selector.EntitySelector(selector.EntitySelectorConfig())
+            )
+        return self.async_show_form(
+            step_id="global_sources", data_schema=vol.Schema(fields)
+        )
+
+    async def async_step_global_defaults(self, user_input=None) -> FlowResult:
+        """Collect sparse shared defaults and finish parent setup."""
+
+        if user_input is not None:
+            flattened = flatten_section_input(user_input)
+            defaults = extract_sparse_settings(
+                flattened,
+                PROFILE_TYPE_BEHAVIOR,
+                {},
+                field_selection=CONF_GLOBAL_DEFAULT_FIELDS,
+                allowed_keys=GLOBAL_DEFAULT_KEYS,
+            )
+            self._data[CONF_GLOBAL][CONF_GLOBAL_DEFAULTS] = defaults
+            await self.async_set_unique_id(DOMAIN)
+            self._abort_if_unique_id_configured()
+            return self.async_create_entry(
+                title=DEFAULT_NAME,
+                data={
+                    CONF_NAME: DEFAULT_NAME,
+                    CONF_GLOBAL: self._data[CONF_GLOBAL],
+                },
+            )
+        return self.async_show_form(
+            step_id="global_defaults",
+            data_schema=build_profile_schema(
+                PROFILE_TYPE_BEHAVIOR,
+                {},
+                system_defaults(),
+                field_selection=CONF_GLOBAL_DEFAULT_FIELDS,
+                allowed_keys=GLOBAL_DEFAULT_KEYS,
             ),
         )
 
@@ -1377,10 +1425,552 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             flattened[key] = value
         return flattened
 
+    @classmethod
+    @callback
+    def async_get_supported_subentry_types(
+        cls, config_entry: config_entries.ConfigEntry
+    ) -> dict[str, type[ConfigSubentryFlow]]:
+        """Expose rooms and reusable profiles as native ConfigSubentries."""
+
+        return {
+            "room": RoomSubentryFlow,
+            "time_profile": TimeProfileSubentryFlow,
+            "shading_profile": ShadingProfileSubentryFlow,
+            "behavior_profile": BehaviorProfileSubentryFlow,
+        }
+
     @staticmethod
     @callback
     def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:
+        if CONF_GLOBAL in config_entry.data and CONF_CONFIG_MODEL not in config_entry.data:
+            return ParentOptionsFlow(config_entry)
         return CoverOptionsFlow(config_entry)
+
+
+class ParentOptionsFlow(config_entries.OptionsFlow):
+    """Edit only parent-owned global sources and defaults."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        self._entry = config_entry
+
+    async def async_step_init(self, user_input=None) -> FlowResult:
+        return self.async_show_menu(
+            step_id="init",
+            menu_options=["global_sources", "global_defaults", "recovery"],
+        )
+
+    async def async_step_global_sources(self, user_input=None) -> FlowResult:
+        global_data = dict(self._entry.data.get(CONF_GLOBAL, {}))
+        sources = dict(global_data.get(CONF_GLOBAL_SOURCES, {}))
+        if user_input is not None:
+            sources = {
+                key: value
+                for key, value in user_input.items()
+                if value not in (None, "")
+            }
+            global_data[CONF_GLOBAL_SOURCES] = sources
+            self.hass.config_entries.async_update_entry(
+                self._entry,
+                data={**self._entry.data, CONF_GLOBAL: global_data},
+            )
+            return self.async_create_entry(title="", data={})
+        schema = {}
+        for key in sorted(GLOBAL_SOURCE_KEYS):
+            current = sources.get(key)
+            marker = vol.Optional(
+                key,
+                description={"suggested_value": current} if current else None,
+            )
+            schema[marker] = (
+                selector.ConditionSelector()
+                if key == CONF_ADDITIONAL_CONDITION_GLOBAL
+                else selector.EntitySelector(selector.EntitySelectorConfig())
+            )
+        return self.async_show_form(
+            step_id="global_sources", data_schema=vol.Schema(schema)
+        )
+
+    async def async_step_global_defaults(self, user_input=None) -> FlowResult:
+        global_data = dict(self._entry.data.get(CONF_GLOBAL, {}))
+        defaults = dict(global_data.get(CONF_GLOBAL_DEFAULTS, {}))
+        if user_input is not None:
+            defaults = extract_sparse_settings(
+                flatten_section_input(user_input),
+                PROFILE_TYPE_BEHAVIOR,
+                defaults,
+                field_selection=CONF_GLOBAL_DEFAULT_FIELDS,
+                allowed_keys=GLOBAL_DEFAULT_KEYS,
+            )
+            global_data[CONF_GLOBAL_DEFAULTS] = defaults
+            self.hass.config_entries.async_update_entry(
+                self._entry,
+                data={**self._entry.data, CONF_GLOBAL: global_data},
+            )
+            return self.async_create_entry(title="", data={})
+        return self.async_show_form(
+            step_id="global_defaults",
+            data_schema=build_profile_schema(
+                PROFILE_TYPE_BEHAVIOR,
+                defaults,
+                system_defaults(),
+                field_selection=CONF_GLOBAL_DEFAULT_FIELDS,
+                allowed_keys=GLOBAL_DEFAULT_KEYS,
+            ),
+        )
+
+    async def async_step_recovery(self, user_input=None) -> FlowResult:
+        """Restore last-known-good parent and native subentries."""
+
+        runtime = getattr(self._entry, "runtime_data", None)
+        recovery = getattr(runtime, "recovery_manager", None)
+        available = recovery is not None and recovery.last_known_good is not None
+        if user_input is not None and user_input.get("confirm") and available:
+            parent_data, payloads = model_to_native_payloads(
+                recovery.last_known_good
+            )
+            parent_data[CONF_NAME] = DEFAULT_NAME
+            for subentry_id in tuple(self._entry.subentries):
+                self.hass.config_entries.async_remove_subentry(
+                    self._entry, subentry_id
+                )
+            for subentry_id, subentry_type, title, data in payloads:
+                self.hass.config_entries.async_add_subentry(
+                    self._entry,
+                    ConfigSubentry(
+                        data=MappingProxyType(data),
+                        subentry_id=subentry_id,
+                        subentry_type=subentry_type,
+                        title=title,
+                        unique_id=subentry_id,
+                    ),
+                )
+            self.hass.config_entries.async_update_entry(
+                self._entry, data=parent_data, options={}
+            )
+            return self.async_create_entry(title="", data={})
+        return self.async_show_form(
+            step_id="recovery",
+            data_schema=vol.Schema(
+                {vol.Required("confirm", default=False): bool}
+            ),
+            description_placeholders={"available": str(available).lower()},
+        )
+
+
+class RoomSubentryFlow(ConfigSubentryFlow):
+    """Create or edit room-local hardware data on a native subentry."""
+
+    async def async_step_user(self, user_input=None) -> FlowResult:
+        """Create one room without duplicating parent global settings."""
+
+        if user_input is not None:
+            title = str(user_input[CONF_NAME]).strip()
+            return self.async_create_entry(
+                title=title,
+                data={
+                    CONF_NAME: title,
+                    CONF_PROFILE_SELECTIONS: {},
+                    CONF_ROOM_SETTINGS: {
+                        CONF_ROOM: user_input[CONF_ROOM],
+                        CONF_COVERS: list(user_input[CONF_COVERS]),
+                    },
+                    CONF_SOURCE_OVERRIDES: {},
+                    CONF_ROOM_OVERRIDES: {},
+                },
+            )
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_NAME): selector.TextSelector(),
+                    vol.Required(CONF_ROOM): selector.AreaSelector(),
+                    vol.Required(CONF_COVERS): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["cover"], multiple=True)
+                    ),
+                }
+            ),
+        )
+
+    async def async_step_reconfigure(self, user_input=None) -> FlowResult:
+        """Expose room-only configuration pages."""
+
+        return self.async_show_menu(
+            step_id="reconfigure",
+            menu_options=[
+                "hardware",
+                "time",
+                "brightness",
+                "sun",
+                "shading",
+                "ventilation",
+                "resident",
+                "behavior",
+                "source_overrides",
+                "profile_references",
+                "overrides",
+            ],
+        )
+
+    async def async_step_hardware(self, user_input=None) -> FlowResult:
+        """Edit room-local hardware while retaining function configuration."""
+
+        subentry = self._get_reconfigure_subentry()
+        settings = subentry.data.get(CONF_ROOM_SETTINGS, {})
+        if user_input is not None:
+            data = dict(subentry.data)
+            settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
+            settings.update(
+                {CONF_ROOM: user_input[CONF_ROOM], CONF_COVERS: list(user_input[CONF_COVERS])}
+            )
+            data[CONF_NAME] = str(user_input[CONF_NAME]).strip()
+            data[CONF_ROOM_SETTINGS] = settings
+            return self.async_update_and_abort(
+                self._get_entry(), subentry, title=str(user_input[CONF_NAME]).strip(), data=data
+            )
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_NAME, default=subentry.title): selector.TextSelector(),
+                    vol.Required(
+                        CONF_ROOM, default=settings.get(CONF_ROOM)
+                    ): selector.AreaSelector(),
+                    vol.Required(
+                        CONF_COVERS, default=settings.get(CONF_COVERS, [])
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["cover"], multiple=True)
+                    ),
+                }
+            ),
+        )
+
+    async def _async_function_step(
+        self,
+        profile_type: str,
+        step_id: str,
+        user_input,
+        *,
+        capabilities: tuple[str, ...] | None = None,
+    ) -> FlowResult:
+        subentry = self._get_reconfigure_subentry()
+        data = dict(subentry.data)
+        settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
+        allowed = (
+            capability_keys(profile_type, capabilities)
+            if capabilities is not None
+            else PROFILE_KEYS[profile_type]
+        )
+        if user_input is not None:
+            selected = extract_sparse_settings(
+                flatten_section_input(user_input),
+                profile_type,
+                {key: value for key, value in settings.items() if key in allowed},
+                allowed_keys=allowed,
+            )
+            settings = {
+                **{key: value for key, value in settings.items() if key not in allowed},
+                **selected,
+            }
+            data[CONF_ROOM_SETTINGS] = settings
+            return self.async_update_and_abort(
+                self._get_entry(), subentry, data=data
+            )
+        return self.async_show_form(
+            step_id=step_id,
+            data_schema=build_profile_schema(
+                profile_type,
+                settings,
+                system_defaults(),
+                allowed_keys=allowed,
+            ),
+        )
+
+    async def async_step_time(self, user_input=None) -> FlowResult:
+        return await self._async_function_step(
+            PROFILE_TYPE_TIME,
+            "time",
+            user_input,
+            capabilities=("opening", "closing", "workday", "calendar"),
+        )
+
+    async def async_step_brightness(self, user_input=None) -> FlowResult:
+        return await self._async_function_step(
+            PROFILE_TYPE_TIME,
+            "brightness",
+            user_input,
+            capabilities=("brightness",),
+        )
+
+    async def async_step_sun(self, user_input=None) -> FlowResult:
+        return await self._async_function_step(
+            PROFILE_TYPE_TIME, "sun", user_input, capabilities=("sun",)
+        )
+
+    async def async_step_shading(self, user_input=None) -> FlowResult:
+        return await self._async_function_step(
+            PROFILE_TYPE_SHADING, "shading", user_input
+        )
+
+    async def async_step_behavior(self, user_input=None) -> FlowResult:
+        return await self._async_function_step(
+            PROFILE_TYPE_BEHAVIOR,
+            "behavior",
+            user_input,
+            capabilities=(
+                "cover_positions",
+                "manual_override",
+                "movement_protection",
+                "tilt_behavior",
+            ),
+        )
+
+    async def async_step_ventilation(self, user_input=None) -> FlowResult:
+        return await self._async_function_step(
+            PROFILE_TYPE_BEHAVIOR,
+            "ventilation",
+            user_input,
+            capabilities=("ventilation",),
+        )
+
+    async def async_step_resident(self, user_input=None) -> FlowResult:
+        return await self._async_function_step(
+            PROFILE_TYPE_BEHAVIOR,
+            "resident",
+            user_input,
+            capabilities=("resident",),
+        )
+
+    async def async_step_source_overrides(self, user_input=None) -> FlowResult:
+        subentry = self._get_reconfigure_subentry()
+        data = dict(subentry.data)
+        overrides = dict(data.get(CONF_SOURCE_OVERRIDES, {}))
+        if user_input is not None:
+            data[CONF_SOURCE_OVERRIDES] = {
+                key: value
+                for key, value in user_input.items()
+                if value not in (None, "")
+            }
+            return self.async_update_and_abort(
+                self._get_entry(), subentry, data=data
+            )
+        schema = {}
+        for key in sorted(ROOM_SOURCE_OVERRIDE_KEYS):
+            current = overrides.get(key)
+            marker = vol.Optional(
+                key,
+                description={"suggested_value": current} if current else None,
+            )
+            schema[marker] = selector.EntitySelector(selector.EntitySelectorConfig())
+        return self.async_show_form(
+            step_id="source_overrides", data_schema=vol.Schema(schema)
+        )
+
+    async def async_step_profile_references(self, user_input=None) -> FlowResult:
+        entry = self._get_entry()
+        subentry = self._get_reconfigure_subentry()
+        data = dict(subentry.data)
+        references = dict(data.get(CONF_PROFILE_SELECTIONS, {}))
+        type_map = {
+            PROFILE_TYPE_TIME: "time_profile",
+            PROFILE_TYPE_SHADING: "shading_profile",
+            PROFILE_TYPE_BEHAVIOR: "behavior_profile",
+        }
+        if user_input is not None:
+            data[CONF_PROFILE_SELECTIONS] = {
+                profile_type: profile_id
+                for profile_type, profile_id in user_input.items()
+                if profile_id not in (None, "")
+            }
+            return self.async_update_and_abort(
+                entry, subentry, data=data
+            )
+        schema = {}
+        for profile_type, subentry_type in type_map.items():
+            options = [
+                {"value": candidate.subentry_id, "label": candidate.title}
+                for candidate in entry.subentries.values()
+                if candidate.subentry_type == subentry_type
+            ]
+            current = references.get(profile_type)
+            schema[
+                vol.Optional(
+                    profile_type,
+                    description={"suggested_value": current} if current else None,
+                )
+            ] = selector.SelectSelector(
+                selector.SelectSelectorConfig(options=options)
+            )
+        return self.async_show_form(
+            step_id="profile_references", data_schema=vol.Schema(schema)
+        )
+
+    async def async_step_overrides(self, user_input=None) -> FlowResult:
+        subentry = self._get_reconfigure_subentry()
+        selected = subentry.data.get(CONF_PROFILE_SELECTIONS, {})
+        options = [
+            f"override_{profile_type}"
+            for profile_type in PROFILE_TYPES
+            if profile_type in selected
+        ]
+        if not options:
+            return self.async_show_form(
+                step_id="overrides", data_schema=vol.Schema({})
+            )
+        return self.async_show_menu(step_id="overrides", menu_options=options)
+
+    async def _async_override_step(
+        self, profile_type: str, step_id: str, user_input
+    ) -> FlowResult:
+        entry = self._get_entry()
+        room_subentry = self._get_reconfigure_subentry()
+        data = dict(room_subentry.data)
+        profile_id = data.get(CONF_PROFILE_SELECTIONS, {}).get(profile_type)
+        profile = entry.subentries.get(profile_id) if profile_id else None
+        if profile is None:
+            return self.async_abort(reason="missing_profile_reference")
+        profile_settings = dict(profile.data.get(CONF_PROFILE_SETTINGS, {}))
+        capabilities = profile.data.get(CONF_PROFILE_CAPABILITIES, ())
+        allowed = capability_keys(profile_type, capabilities)
+        all_overrides = dict(data.get(CONF_ROOM_OVERRIDES, {}))
+        current = dict(all_overrides.get(profile_type, {}))
+        if user_input is not None:
+            candidate = extract_sparse_settings(
+                flatten_section_input(user_input),
+                profile_type,
+                current,
+                allowed_keys=allowed,
+            )
+            sparse = {
+                key: value
+                for key, value in candidate.items()
+                if value != profile_settings.get(key)
+            }
+            if sparse:
+                all_overrides[profile_type] = sparse
+            else:
+                all_overrides.pop(profile_type, None)
+            data[CONF_ROOM_OVERRIDES] = all_overrides
+            return self.async_update_and_abort(entry, room_subentry, data=data)
+        return self.async_show_form(
+            step_id=step_id,
+            data_schema=build_profile_schema(
+                profile_type,
+                current,
+                {**system_defaults(), **profile_settings},
+                allowed_keys=allowed,
+            ),
+        )
+
+    async def async_step_override_time(self, user_input=None) -> FlowResult:
+        return await self._async_override_step(
+            PROFILE_TYPE_TIME, "override_time", user_input
+        )
+
+    async def async_step_override_shading(self, user_input=None) -> FlowResult:
+        return await self._async_override_step(
+            PROFILE_TYPE_SHADING, "override_shading", user_input
+        )
+
+    async def async_step_override_behavior(self, user_input=None) -> FlowResult:
+        return await self._async_override_step(
+            PROFILE_TYPE_BEHAVIOR, "override_behavior", user_input
+        )
+
+
+class ProfileSubentryFlow(ConfigSubentryFlow):
+    """Shared implementation for native time, shading, and behavior profiles."""
+
+    profile_type: str
+
+    async def async_step_user(self, user_input=None) -> FlowResult:
+        if user_input is not None:
+            self._name = str(user_input["profile_name"]).strip()
+            self._capabilities = list(user_input[CONF_PROFILE_CAPABILITIES_FIELD])
+            return await self.async_step_settings()
+        return self.async_show_form(
+            step_id="user",
+            data_schema=vol.Schema(
+                {
+                    vol.Required("profile_name"): selector.TextSelector(),
+                    vol.Required(CONF_PROFILE_CAPABILITIES_FIELD): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=sorted(PROFILE_CAPABILITY_KEYS[self.profile_type]),
+                            multiple=True,
+                        )
+                    ),
+                }
+            ),
+        )
+
+    async def async_step_settings(self, user_input=None) -> FlowResult:
+        if user_input is not None:
+            flattened = flatten_section_input(user_input)
+            settings = extract_sparse_settings(
+                flattened,
+                self.profile_type,
+                {},
+                allowed_keys=capability_keys(self.profile_type, self._capabilities),
+            )
+            return self.async_create_entry(
+                title=self._name,
+                data={
+                    CONF_PROFILE_CAPABILITIES: self._capabilities,
+                    CONF_PROFILE_SETTINGS: settings,
+                },
+            )
+        return self.async_show_form(
+            step_id="settings",
+            data_schema=build_profile_schema(
+                self.profile_type,
+                {},
+                system_defaults(),
+                field_selection=None,
+                allowed_keys=capability_keys(self.profile_type, self._capabilities),
+            ),
+        )
+
+    async def async_step_reconfigure(self, user_input=None) -> FlowResult:
+        subentry = self._get_reconfigure_subentry()
+        capabilities = list(subentry.data.get(CONF_PROFILE_CAPABILITIES, ()))
+        if user_input is not None:
+            flattened = flatten_section_input(user_input)
+            settings = extract_sparse_settings(
+                flattened,
+                self.profile_type,
+                subentry.data.get(CONF_PROFILE_SETTINGS, {}),
+                allowed_keys=capability_keys(self.profile_type, capabilities),
+            )
+            return self.async_update_and_abort(
+                self._get_entry(),
+                subentry,
+                title=str(flattened["profile_name"]).strip(),
+                data={
+                    CONF_PROFILE_CAPABILITIES: capabilities,
+                    CONF_PROFILE_SETTINGS: settings,
+                },
+            )
+        return self.async_show_form(
+            step_id="reconfigure",
+            data_schema=build_profile_schema(
+                self.profile_type,
+                subentry.data.get(CONF_PROFILE_SETTINGS, {}),
+                system_defaults(),
+                profile_name=subentry.title,
+                allowed_keys=capability_keys(self.profile_type, capabilities),
+            ),
+        )
+
+
+class TimeProfileSubentryFlow(ProfileSubentryFlow):
+    profile_type = PROFILE_TYPE_TIME
+
+
+class ShadingProfileSubentryFlow(ProfileSubentryFlow):
+    profile_type = PROFILE_TYPE_SHADING
+
+
+class BehaviorProfileSubentryFlow(ProfileSubentryFlow):
+    profile_type = PROFILE_TYPE_BEHAVIOR
 
 
 class CoverOptionsFlow(config_entries.OptionsFlow):
