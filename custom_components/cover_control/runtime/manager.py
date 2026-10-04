@@ -122,7 +122,7 @@ class ControllerManager:
             await controller.async_setup()
         self._batch_active = False
         self._setup_shared_listener()
-        self._flush_state_updates()
+        self.refresh_schedule_snapshot()
 
     async def async_unload(self) -> None:
         if self._evaluation_task is not None:
@@ -264,13 +264,55 @@ class ControllerManager:
             controller = self.controllers.get(cover)
             if controller is not None:
                 controller._dispatch_state()
-        self._rebuild_entry_snapshot()
+        try:
+            self._rebuild_entry_snapshot()
+        except (TypeError, ValueError):
+            return False
         async_dispatcher_send(
             self.hass, SIGNAL_ENTRY_STATE_UPDATED, self.entry.entry_id
         )
         hub = getattr(self, "hub", None)
         if hub is not None:
             hub.refresh_profile_evaluations()
+
+    @callback
+    def refresh_schedule_snapshot(self) -> bool:
+        """Publish changed room schedule data without requiring cover state churn."""
+
+        self._entry_snapshot = getattr(
+            self,
+            "_entry_snapshot",
+            {
+                "covers": {},
+                "next_open": None,
+                "next_close": None,
+                "control_state": IDLE_REASON,
+                "resident_status": "off",
+                "resident_entity": None,
+            },
+        )
+        previous = (
+            self._entry_snapshot.get("next_open"),
+            self._entry_snapshot.get("next_close"),
+            self._entry_snapshot.get("resident_status"),
+            self._entry_snapshot.get("resident_entity"),
+        )
+        try:
+            self._rebuild_entry_snapshot()
+        except (TypeError, ValueError):
+            return False
+        current = (
+            self._entry_snapshot.get("next_open"),
+            self._entry_snapshot.get("next_close"),
+            self._entry_snapshot.get("resident_status"),
+            self._entry_snapshot.get("resident_entity"),
+        )
+        if current == previous:
+            return False
+        async_dispatcher_send(
+            self.hass, SIGNAL_ENTRY_STATE_UPDATED, self.entry.entry_id
+        )
+        return True
 
     @callback
     def _rebuild_entry_snapshot(self) -> None:
@@ -560,6 +602,7 @@ class ControllerManager:
         for controller in self.controllers.values():
             controller.update_config(resolved)
         self._setup_shared_listener()
+        self.refresh_schedule_snapshot()
         return {room_id}
 
     def _index_profile_users(self) -> None:

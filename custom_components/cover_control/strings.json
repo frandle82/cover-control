@@ -994,7 +994,7 @@
         "user": {"title": "Add room", "data": {"name": "Name", "room": "Area", "covers": "Covers"}},
         "reconfigure": {"title": "Configure room", "description": "Configure the real installation of this room: covers, window contacts, room sensors, and geometry. Behavior profiles are only selected here; their contents are edited centrally in the global Cover Control entry.", "menu_options": {"general": "General", "hardware": "Cover & hardware", "contacts": "Window contacts", "room_sensors": "Room sensors", "geometry": "Geometry", "functions": "Functions", "profile_references": "Profiles", "source_overrides": "Local deviations", "overrides": "Profile overrides", "diagnostics": "Diagnostics"}, "menu_option_descriptions": {"general": "Rename the room and keep its Home Assistant area assignment readable.", "hardware": "Assign controlled covers to this room and configure hardware-related properties.", "contacts": "Assign window contacts to the covers for ventilation and protection functions.", "room_sensors": "Select sensors that belong only to this room.", "geometry": "Describe the physical window orientation evaluated with sun and shading rules.", "functions": "Configure room-local feature switches and behavior without editing global profiles.", "profile_references": "Choose which central behavior profiles this room uses.", "source_overrides": "Override shared global sources only for this room.", "overrides": "Store sparse local deviations from the selected profiles.", "diagnostics": "Inspect the room structure and selected profile references."}},
         "functions": {"title": "Functions", "description": "Configure room-local feature behavior. Profile contents remain in the global profile manager.", "menu_options": {"time": "Time control", "brightness": "Brightness control", "sun": "Sun control", "shading": "Shading", "ventilation": "Ventilation", "resident": "Resident behavior", "behavior": "Manual behavior"}},
-        "hardware": {"title": "Cover & hardware", "description": "Assign controlled covers to this room and configure hardware-related properties such as cover type, position source, and drive time.", "data": {"name": "Name", "room": "Area", "covers": "Covers"}, "data_description": {"name": "Human-readable room name.", "room": "Home Assistant area for the physical room.", "covers": "All covers that belong to this room and are controlled together by Cover Control."}},
+        "hardware": {"title": "Cover & hardware", "description": "Assign controlled covers to this room and configure hardware-related properties such as cover type, position source, and drive time.", "data": {"name": "Name", "room": "Area", "covers": "Covers", "position_source": "Position source", "custom_position_sensor": "Custom position sensor", "cover_type": "Cover type", "drive_time": "Drive time", "cover_tilt_wait_mode": "Tilt wait mode", "cover_tilt_wait_timeout": "Tilt wait timeout", "position_tolerance": "Position tolerance"}, "data_description": {"name": "Human-readable room name.", "room": "Home Assistant area for the physical room.", "covers": "All covers that belong to this room and are controlled together by Cover Control.", "position_source": "Choose where Cover Control reads the current cover position.", "custom_position_sensor": "Sensor used when the custom position source is selected.", "cover_type": "Physical cover type used for movement and position behavior.", "drive_time": "Approximate full travel time for covers without reliable position feedback.", "cover_tilt_wait_mode": "How slatted blind tilt commands are sequenced with cover movement.", "cover_tilt_wait_timeout": "Maximum wait time for the selected tilt wait mode.", "position_tolerance": "Position difference tolerated before another command is sent."}},
         "contacts": {"title": "Window contacts", "description": "Assign each cover its related window contacts. Cover Control uses this mapping for ventilation, lockout protection, and contact-dependent behavior."},
         "room_sensors": {"title": "Room sensors", "description": "Select sensors that belong only to this room. Their measurements are combined with the rules from the assigned profiles.", "data": {"temperature_sensor_indoor": "Room temperature sensor", "resident_sensor": "Resident sensor"}, "data_description": {"temperature_sensor_indoor": "Temperature sensor of this room. Its value is evaluated against thresholds from the assigned shading profile.", "resident_sensor": "Resident or occupancy entity for this room. Behavior rules stay in the assigned behavior profile."}},
         "geometry": {"title": "Geometry", "description": "Describe the physical orientation of this room's windows. These values are evaluated together with sun position and the assigned shading profile.", "data": {"shading_azimuth_start": "Azimuth from", "shading_azimuth_end": "Azimuth to"}},
@@ -1013,33 +1013,6 @@
         "override_behavior": {"title": "Behavior overrides"}
       },
       "abort": {"reconfigure_successful": "Room updated", "missing_profile_reference": "Referenced profile no longer exists"}
-    },
-    "time_profile": {
-      "title": "Time profile",
-      "step": {
-        "user": {"title": "Add time profile", "data": {"profile_name": "Name", "profile_capabilities": "Capabilities"}},
-        "settings": {"title": "Time profile settings"},
-        "reconfigure": {"title": "Edit time profile", "data": {"profile_name": "Name"}}
-      },
-      "abort": {"reconfigure_successful": "Profile updated"}
-    },
-    "shading_profile": {
-      "title": "Shading profile",
-      "step": {
-        "user": {"title": "Add shading profile", "data": {"profile_name": "Name", "profile_capabilities": "Capabilities"}},
-        "settings": {"title": "Shading profile settings"},
-        "reconfigure": {"title": "Edit shading profile", "data": {"profile_name": "Name"}}
-      },
-      "abort": {"reconfigure_successful": "Profile updated"}
-    },
-    "behavior_profile": {
-      "title": "Behavior profile",
-      "step": {
-        "user": {"title": "Add behavior profile", "data": {"profile_name": "Name", "profile_capabilities": "Capabilities"}},
-        "settings": {"title": "Behavior profile settings"},
-        "reconfigure": {"title": "Edit behavior profile", "data": {"profile_name": "Name"}}
-      },
-      "abort": {"reconfigure_successful": "Profile updated"}
     }
   },
   "issues": {

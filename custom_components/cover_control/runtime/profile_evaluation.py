@@ -8,6 +8,9 @@ from typing import Any, Mapping
 from homeassistant.util import dt as dt_util
 
 from ..const import (
+    CONF_AUTO_DOWN,
+    CONF_AUTO_TIME,
+    CONF_AUTO_UP,
     CONF_SUN_ELEVATION_CLOSE,
     CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
     CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
@@ -71,10 +74,22 @@ class _TimeProfileProbe(ScheduleMixin):
 
 
 def evaluate_time_profile(
-    hass, config: Mapping[str, Any], now: datetime | None = None
+    hass,
+    config: Mapping[str, Any],
+    now: datetime | None = None,
+    *,
+    capabilities: list[str] | tuple[str, ...] | None = None,
 ) -> tuple[datetime | None, datetime | None]:
     """Return the next pure profile opportunities using existing schedule logic."""
 
-    probe = _TimeProfileProbe(hass, config)
+    effective_config = dict(config)
+    capability_set = set(capabilities or ())
+    if "opening" in capability_set:
+        effective_config[CONF_AUTO_TIME] = True
+        effective_config[CONF_AUTO_UP] = True
+    if "closing" in capability_set:
+        effective_config[CONF_AUTO_TIME] = True
+        effective_config[CONF_AUTO_DOWN] = True
+    probe = _TimeProfileProbe(hass, effective_config)
     probe._refresh_next_events(now or dt_util.utcnow())
     return probe._next_open, probe._next_close

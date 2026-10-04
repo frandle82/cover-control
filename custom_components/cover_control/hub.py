@@ -228,10 +228,16 @@ class CoverControlHub:
     @callback
     def _handle_shared_state_event(self, event) -> None:
         entity_id = event.data.get("entity_id")
-        for manager in self.managers.values():
-            if entity_id in manager.shared_entity_routes():
+        affected_rooms = self.entity_room_routes.get(entity_id, set())
+        for room_id in affected_rooms:
+            manager = self.managers.get(room_id)
+            if manager is not None:
                 manager._handle_shared_state_event(event)
-        self.refresh_profile_evaluations()
+                refresh = getattr(manager, "refresh_schedule_snapshot", None)
+                if refresh is not None:
+                    refresh()
+        affected_profiles = self.entity_profile_routes.get(entity_id, set())
+        self.refresh_profile_evaluations(affected_profiles)
 
     @callback
     def _clear_shared_listener(self) -> None:
@@ -239,17 +245,34 @@ class CoverControlHub:
         self._shared_entities.clear()
 
     @callback
-    def refresh_profile_evaluations(self) -> None:
+    def refresh_profile_evaluations(
+        self, profile_keys: set[tuple[str, str]] | None = None
+    ) -> None:
         """Calculate each profile once without room overrides."""
 
-        evaluations: dict[tuple[str, str], ProfileEvaluation] = {}
-        for profile_key in self.profile_users:
+        evaluations: dict[tuple[str, str], ProfileEvaluation] = dict(
+            self.profile_evaluations
+        )
+        candidates = self.profile_users if profile_keys is None else profile_keys
+        if profile_keys is None:
+            evaluations = {}
+        for profile_key in candidates:
             if profile_key[0] != PROFILE_TYPE_TIME:
+                continue
+            if profile_key not in self.profile_users:
+                evaluations.pop(profile_key, None)
                 continue
             config = resolve_profile_config(
                 self.model, profile_key[0], profile_key[1]
             )
-            next_open, next_close = evaluate_time_profile(self.hass, config)
+            profile = self.model[CONF_PROFILES][profile_key[0]].get(
+                profile_key[1], {}
+            )
+            next_open, next_close = evaluate_time_profile(
+                self.hass,
+                config,
+                capabilities=profile.get(CONF_PROFILE_CAPABILITIES, ()),
+            )
             evaluations[profile_key] = ProfileEvaluation(
                 next_open=next_open,
                 next_close=next_close,
@@ -257,6 +280,16 @@ class CoverControlHub:
         if evaluations != self.profile_evaluations:
             self.profile_evaluations = evaluations
             async_dispatcher_send(self.hass, SIGNAL_HUB_STATE_UPDATED)
+            affected_rooms = {
+                room_id
+                for profile_key in candidates
+                for room_id in self.profile_users.get(profile_key, set())
+            }
+            for room_id in affected_rooms:
+                manager = self.managers.get(room_id)
+                refresh = getattr(manager, "refresh_schedule_snapshot", None)
+                if manager is not None and refresh is not None:
+                    refresh()
         self._reschedule_profile_timers()
 
     @callback

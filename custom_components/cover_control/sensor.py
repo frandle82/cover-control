@@ -390,7 +390,6 @@ class ProfileScheduleSensor(_BaseCoverControlSensor):
         super().__init__(hass, entry)
         self.profile_id = profile_id
         self.key = key
-        self._attr_config_subentry_id = profile_id
         self._attr_unique_id = f"profile-{profile_id}-{key}"
         self._attr_translation_key = f"profile_{key}"
         hub = self._hub()

@@ -10,7 +10,7 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.config_entries import ConfigSubentry, ConfigSubentryFlow
+from homeassistant.config_entries import ConfigEntryError, ConfigSubentry, ConfigSubentryFlow
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult, section
 from homeassistant.helpers import selector
@@ -109,6 +109,7 @@ from .const import (
     CONF_OPEN_POSITION,
     CONF_OPEN_TILT_POSITION,
     CONF_ROOM,
+    CONF_ROOMS,
     CONF_ROOM_OVERRIDES,
     CONF_ROOM_SETTINGS,
     CONF_SOURCE_OVERRIDES,
@@ -1447,7 +1448,9 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def async_get_options_flow(config_entry: config_entries.ConfigEntry) -> config_entries.OptionsFlow:
         if CONF_GLOBAL in config_entry.data and CONF_CONFIG_MODEL not in config_entry.data:
             return ParentOptionsFlow(config_entry)
-        return CoverOptionsFlow(config_entry)
+        raise ConfigEntryError(
+            "Cover Control parent entry migration is incomplete"
+        )
 
 
 class ParentOptionsFlow(config_entries.OptionsFlow):
@@ -1702,7 +1705,7 @@ class ParentOptionsFlow(config_entries.OptionsFlow):
         profile = model.data[CONF_PROFILES][self._profile_type].get(profile_id, {})
         existing = profile.get(CONF_PROFILE_SETTINGS, {})
         capabilities = profile.get(CONF_PROFILE_CAPABILITIES)
-        if not isinstance(capabilities, list):
+        if not capabilities:
             capabilities = infer_capabilities(self._profile_type, existing)
         if user_input is not None:
             self._editing_profile_name = str(user_input["profile_name"]).strip()
@@ -2006,9 +2009,10 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         if user_input is not None:
             data = dict(subentry.data)
             settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
-            settings.update(
-                {CONF_ROOM: user_input[CONF_ROOM], CONF_COVERS: list(user_input[CONF_COVERS])}
-            )
+            settings.update(_normalize_position_fields(dict(user_input)))
+            settings[CONF_COVERS] = list(user_input[CONF_COVERS])
+            if settings.get(CONF_POSITION_SOURCE) != CONF_POSITION_SOURCE_CUSTOM_SENSOR:
+                settings.pop(CONF_CUSTOM_POSITION_SENSOR, None)
             data[CONF_NAME] = str(user_input[CONF_NAME]).strip()
             data[CONF_ROOM_SETTINGS] = settings
             return self.async_update_and_abort(
@@ -2027,6 +2031,85 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                     ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["cover"], multiple=True)
                     ),
+                    vol.Required(
+                        CONF_POSITION_SOURCE,
+                        default=settings.get(
+                            CONF_POSITION_SOURCE,
+                            CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
+                        ),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
+                                CONF_POSITION_SOURCE_POSITION_ATTR,
+                                CONF_POSITION_SOURCE_CUSTOM_SENSOR,
+                            ],
+                            translation_key="position_source",
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_CUSTOM_POSITION_SENSOR,
+                        default=_selector_default(settings.get(CONF_CUSTOM_POSITION_SENSOR)),
+                    ): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["sensor"])
+                    ),
+                    vol.Required(
+                        CONF_COVER_TYPE,
+                        default=settings.get(
+                            CONF_COVER_TYPE,
+                            DEFAULT_BEHAVIOR_SETTINGS[CONF_COVER_TYPE],
+                        ),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                {"value": CONF_COVER_TYPE_BLIND, "label": "Blind / roller shutter"},
+                                {"value": CONF_COVER_TYPE_AWNING, "label": "Awning / sunshade"},
+                            ],
+                            mode=selector.SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_DRIVE_TIME,
+                        default=settings.get(CONF_DRIVE_TIME, DEFAULT_DRIVE_TIME),
+                    ): selector.NumberSelector(
+                        selector.NumberSelectorConfig(
+                            min=0,
+                            max=600,
+                            step=0.1,
+                            unit_of_measurement="s",
+                            mode=selector.NumberSelectorMode.BOX,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_COVER_TILT_WAIT_MODE,
+                        default=settings.get(
+                            CONF_COVER_TILT_WAIT_MODE,
+                            DEFAULT_COVER_TILT_WAIT_MODE,
+                        ),
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=[
+                                {"value": COVER_TILT_WAIT_FIXED_DELAY, "label": "Fixed delay"},
+                                {"value": COVER_TILT_WAIT_IDLE, "label": "Wait until idle"},
+                                {
+                                    "value": COVER_TILT_WAIT_BEFORE_POSITION,
+                                    "label": "Tilt first, then position",
+                                },
+                            ],
+                            mode=selector.SelectSelectorMode.DROPDOWN,
+                        )
+                    ),
+                    vol.Optional(
+                        CONF_COVER_TILT_WAIT_TIMEOUT,
+                        default=settings.get(
+                            CONF_COVER_TILT_WAIT_TIMEOUT,
+                            DEFAULT_COVER_TILT_WAIT_TIMEOUT,
+                        ),
+                    ): vol.Coerce(int),
+                    vol.Required(
+                        CONF_POSITION_TOLERANCE,
+                        default=_position_default(dict(settings), CONF_POSITION_TOLERANCE),
+                    ): _position_number_selector(CONF_POSITION_TOLERANCE),
                 }
             ),
         )
@@ -2222,7 +2305,9 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         if profile is None:
             return self.async_abort(reason="missing_profile_reference")
         profile_settings = dict(profile.get(CONF_PROFILE_SETTINGS, {}))
-        capabilities = profile.get(CONF_PROFILE_CAPABILITIES, ())
+        capabilities = profile.get(CONF_PROFILE_CAPABILITIES) or infer_capabilities(
+            profile_type, profile_settings
+        )
         allowed = capability_keys(profile_type, capabilities)
         all_overrides = dict(data.get(CONF_ROOM_OVERRIDES, {}))
         current = dict(all_overrides.get(profile_type, {}))
@@ -2231,6 +2316,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                 flatten_section_input(user_input),
                 profile_type,
                 current,
+                field_selection=CONF_OVERRIDE_FIELDS,
                 allowed_keys=allowed,
             )
             sparse = {
@@ -2250,6 +2336,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                 profile_type,
                 current,
                 {**system_defaults(), **profile_settings},
+                field_selection=CONF_OVERRIDE_FIELDS,
                 allowed_keys=allowed,
             ),
         )
@@ -2268,102 +2355,6 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         return await self._async_override_step(
             PROFILE_TYPE_BEHAVIOR, "override_behavior", user_input
         )
-
-
-class ProfileSubentryFlow(ConfigSubentryFlow):
-    """Shared implementation for native time, shading, and behavior profiles."""
-
-    profile_type: str
-
-    async def async_step_user(self, user_input=None) -> FlowResult:
-        if user_input is not None:
-            self._name = str(user_input["profile_name"]).strip()
-            self._capabilities = list(user_input[CONF_PROFILE_CAPABILITIES_FIELD])
-            return await self.async_step_settings()
-        return self.async_show_form(
-            step_id="user",
-            data_schema=vol.Schema(
-                {
-                    vol.Required("profile_name"): selector.TextSelector(),
-                    vol.Required(CONF_PROFILE_CAPABILITIES_FIELD): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=sorted(PROFILE_CAPABILITY_KEYS[self.profile_type]),
-                            multiple=True,
-                        )
-                    ),
-                }
-            ),
-        )
-
-    async def async_step_settings(self, user_input=None) -> FlowResult:
-        if user_input is not None:
-            flattened = flatten_section_input(user_input)
-            settings = extract_sparse_settings(
-                flattened,
-                self.profile_type,
-                {},
-                allowed_keys=capability_keys(self.profile_type, self._capabilities),
-            )
-            return self.async_create_entry(
-                title=self._name,
-                data={
-                    CONF_PROFILE_CAPABILITIES: self._capabilities,
-                    CONF_PROFILE_SETTINGS: settings,
-                },
-            )
-        return self.async_show_form(
-            step_id="settings",
-            data_schema=build_profile_schema(
-                self.profile_type,
-                {},
-                system_defaults(),
-                field_selection=None,
-                allowed_keys=capability_keys(self.profile_type, self._capabilities),
-            ),
-        )
-
-    async def async_step_reconfigure(self, user_input=None) -> FlowResult:
-        subentry = self._get_reconfigure_subentry()
-        capabilities = list(subentry.data.get(CONF_PROFILE_CAPABILITIES, ()))
-        if user_input is not None:
-            flattened = flatten_section_input(user_input)
-            settings = extract_sparse_settings(
-                flattened,
-                self.profile_type,
-                subentry.data.get(CONF_PROFILE_SETTINGS, {}),
-                allowed_keys=capability_keys(self.profile_type, capabilities),
-            )
-            return self.async_update_and_abort(
-                self._get_entry(),
-                subentry,
-                title=str(flattened["profile_name"]).strip(),
-                data={
-                    CONF_PROFILE_CAPABILITIES: capabilities,
-                    CONF_PROFILE_SETTINGS: settings,
-                },
-            )
-        return self.async_show_form(
-            step_id="reconfigure",
-            data_schema=build_profile_schema(
-                self.profile_type,
-                subentry.data.get(CONF_PROFILE_SETTINGS, {}),
-                system_defaults(),
-                profile_name=subentry.title,
-                allowed_keys=capability_keys(self.profile_type, capabilities),
-            ),
-        )
-
-
-class TimeProfileSubentryFlow(ProfileSubentryFlow):
-    profile_type = PROFILE_TYPE_TIME
-
-
-class ShadingProfileSubentryFlow(ProfileSubentryFlow):
-    profile_type = PROFILE_TYPE_SHADING
-
-
-class BehaviorProfileSubentryFlow(ProfileSubentryFlow):
-    profile_type = PROFILE_TYPE_BEHAVIOR
 
 
 class CoverOptionsFlow(config_entries.OptionsFlow):
@@ -2794,7 +2785,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
         profile = catalog.get(profile_id, {})
         existing = profile.get("settings", {})
         capabilities = profile.get(CONF_PROFILE_CAPABILITIES)
-        if not isinstance(capabilities, list):
+        if not capabilities:
             capabilities = infer_capabilities(self._profile_type, existing)
         if user_input is not None:
             selected = list(user_input.get(CONF_PROFILE_CAPABILITIES_FIELD, ()))
