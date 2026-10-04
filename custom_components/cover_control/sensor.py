@@ -148,8 +148,7 @@ class _BaseCoverControlSensor(SensorEntity):
         runtime = getattr(self.entry, "runtime_data", None)
         if self.room_id and isinstance(runtime, CoverControlRuntime):
             return runtime.manager(self.room_id)
-        manager = self.hass.data.get(DOMAIN, {}).get(self.entry.entry_id)
-        return manager if isinstance(manager, ControllerManager) else None
+        return None
 
 
 class _BaseEntryRuntimeSensor(_BaseCoverControlSensor):
@@ -407,8 +406,7 @@ class ProfileScheduleSensor(_BaseCoverControlSensor):
         runtime = getattr(self.entry, "runtime_data", None)
         if isinstance(runtime, CoverControlRuntime):
             return runtime.hub
-        hub = self.hass.data.get(DOMAIN, {}).get("hub")
-        return hub if isinstance(hub, CoverControlHub) else None
+        return None
 
     async def async_added_to_hass(self) -> None:
         self._refresh()

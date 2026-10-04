@@ -427,6 +427,7 @@ class ControllerManager:
         return {
             "now": dt_util.utcnow(),
             "states": states,
+            "runtime_toggles": dict(getattr(self, "_runtime_toggles", {})),
         }
 
     @staticmethod

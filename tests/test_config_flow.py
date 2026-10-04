@@ -44,9 +44,12 @@ from custom_components.cover_control.const import (
     CONF_CONFIG_MODEL,
     CONF_COVERS,
     CONF_ENABLE_LOGBOOK_COVER,
+    CONF_GLOBAL,
     CONF_LOCKOUT_POSITION,
     CONF_MANUAL_SCHEDULE_ADOPTION,
+    CONF_PROFILES,
     CONF_ROOM,
+    CONF_ROOMS,
     CONF_SHADING_INDEPENDENT_HOLDS_END,
     CONF_SHADING_POSITION,
     DEFAULT_NAME,
@@ -110,7 +113,8 @@ def _entry(hass, *, data: dict | None = None) -> MockConfigEntry:
 
 async def _open_options_step(hass, entry, *steps: str):
     result = await hass.config_entries.options.async_init(entry.entry_id)
-    if steps and steps[0] in {"global_settings", "profiles"}:
+    root_options = set(result.get("menu_options", ()))
+    if steps and steps[0] in {"global_settings", "profiles"} and "hub_settings" in root_options:
         result = await hass.config_entries.options.async_configure(
             result["flow_id"], {"next_step_id": "hub_settings"}
         )
@@ -119,11 +123,16 @@ async def _open_options_step(hass, entry, *steps: str):
         "room_profiles",
         "advanced",
         "diagnostics",
-    }:
+    } and "room_settings" in root_options:
         result = await hass.config_entries.options.async_configure(
             result["flow_id"], {"next_step_id": "room_settings"}
         )
     for step in steps:
+        if (
+            step == "global_settings"
+            and step not in set(result.get("menu_options", ()))
+        ):
+            continue
         result = await hass.config_entries.options.async_configure(
             result["flow_id"], {"next_step_id": step}
         )
@@ -160,13 +169,24 @@ async def _create_profile(hass, entry, profile_type: str, data: dict):
         },
     )
     assert result["step_id"] == "profile_edit"
+    edit_fields = {
+        field["name"]
+        for field in to_field_list(
+            result["data_schema"], custom_serializer=cv.custom_serializer
+        )
+    }
+    if CONF_PROFILE_FIELDS in edit_fields:
+        data[CONF_PROFILE_FIELDS] = list(selected_fields)
     result = await hass.config_entries.options.async_configure(
         result["flow_id"], data
     )
     assert result["step_id"] == f"{profile_type}_profiles"
     result = await _finish_options_flow(hass, result)
     assert result["type"] is FlowResultType.CREATE_ENTRY
-    catalog = entry.data[CONF_CONFIG_MODEL]["profiles"][profile_type]
+    if CONF_PROFILES in entry.data:
+        catalog = entry.data[CONF_PROFILES][profile_type]
+    else:
+        catalog = entry.data[CONF_CONFIG_MODEL]["profiles"][profile_type]
     return next(reversed(catalog.values()))
 
 
@@ -951,7 +971,7 @@ async def test_entry_setup_and_unload_on_home_assistant_2026_9(hass):
     entry.add_to_hass(hass)
 
     assert await hass.config_entries.async_setup(entry.entry_id)
-    runtime = hass.data[DOMAIN][entry.entry_id]
+    runtime = entry.runtime_data
     manager = next(iter(runtime.room_managers.values()))
     assert manager._evaluation_task in entry._background_tasks
     await hass.async_block_till_done()
