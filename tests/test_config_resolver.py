@@ -1,10 +1,10 @@
 """Tests for hierarchical room configuration resolution."""
 
 from custom_components.cover_control.config_resolver import (
-    normalize_legacy_config,
     resolve_config_model,
     resolve_room_config,
 )
+from custom_components.cover_control.config_migration import normalize_legacy_config
 from custom_components.cover_control.const import (
     CONF_BRIGHTNESS_SENSOR,
     CONF_CONFIG_VERSION,
