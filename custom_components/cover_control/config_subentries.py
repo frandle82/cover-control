@@ -24,15 +24,13 @@ from .const import (
     CONF_PROFILE_SELECTIONS,
     CONF_PROFILE_SETTINGS,
     CONF_PROFILES,
+    CONF_RESIDENT_SENSOR,
     CONF_ROOM_ID,
     CONF_ROOM_OVERRIDES,
     CONF_ROOM_SETTINGS,
     CONF_ROOMS,
     CONF_SOURCE_OVERRIDES,
     PROFILE_TYPES,
-    SUBENTRY_TYPE_PROFILE_BEHAVIOR,
-    SUBENTRY_TYPE_PROFILE_SHADING,
-    SUBENTRY_TYPE_PROFILE_TIME,
     SUBENTRY_TYPE_ROOM,
 )
 
@@ -41,20 +39,6 @@ PROFILE_SUBENTRY_TYPES = {
     "shading_profile": "shading",
     "behavior_profile": "behavior",
 }
-
-
-def profile_subentry_type(profile_type: str) -> str:
-    """Return native subentry type for one supported profile type."""
-
-    types = {
-        "time": SUBENTRY_TYPE_PROFILE_TIME,
-        "shading": SUBENTRY_TYPE_PROFILE_SHADING,
-        "behavior": SUBENTRY_TYPE_PROFILE_BEHAVIOR,
-    }
-    try:
-        return types[profile_type]
-    except KeyError as err:
-        raise ValueError(f"Unsupported profile type: {profile_type}") from err
 
 
 def is_room_subentry(subentry: Any) -> bool:
@@ -102,6 +86,7 @@ def model_from_subentries(
             room.setdefault(CONF_ROOM_OVERRIDES, {})
             model[CONF_ROOMS][subentry_id] = room
             continue
+    _migrate_legacy_global_resident_source(model)
     return ConfigProfileModel(model).data
 
 
@@ -112,6 +97,7 @@ def legacy_model_to_subentry_data(
     """Convert legacy catalog model to parent data and room subentry payloads."""
 
     canonical = ConfigProfileModel(model).data
+    _migrate_legacy_global_resident_source(canonical)
     parent_data = {
         CONF_GLOBAL: deepcopy(canonical[CONF_GLOBAL]),
         CONF_PROFILES: {profile_type: {} for profile_type in PROFILE_TYPES},
@@ -174,3 +160,20 @@ def model_to_native_payloads(
             )
         )
     return parent_data, payloads
+
+
+def _migrate_legacy_global_resident_source(model: dict[str, Any]) -> None:
+    """Move legacy global resident sensor values to rooms that lack one."""
+
+    global_sources = model.get(CONF_GLOBAL, {}).get(CONF_GLOBAL_SOURCES, {})
+    if not isinstance(global_sources, dict):
+        return
+    resident_sensor = global_sources.pop(CONF_RESIDENT_SENSOR, None)
+    if resident_sensor in (None, ""):
+        return
+    for room in model.get(CONF_ROOMS, {}).values():
+        if not isinstance(room, dict):
+            continue
+        settings = room.setdefault(CONF_ROOM_SETTINGS, {})
+        if isinstance(settings, dict) and not settings.get(CONF_RESIDENT_SENSOR):
+            settings[CONF_RESIDENT_SENSOR] = resident_sensor

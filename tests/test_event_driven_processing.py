@@ -31,6 +31,7 @@ from custom_components.cover_control.const import (
     CONF_TIME_UP_EARLY_WORKDAY,
     CONF_TIME_UP_LATE_WORKDAY,
     PROFILE_TYPE_TIME,
+    SIGNAL_ENTRY_STATE_UPDATED,
 )
 from custom_components.cover_control.config_resolver import resolve_config_model
 from custom_components.cover_control.controller import ControllerManager, CoverController
@@ -516,6 +517,47 @@ def test_entry_snapshot_reads_each_controller_once() -> None:
     second.state_snapshot.assert_called_once_with()
     assert initial["next_open"] == (now + timedelta(hours=1), "cover.first")
     assert initial["control_state"] == "shading"
+
+
+def test_schedule_snapshot_refresh_dispatches_without_pending_cover_state() -> None:
+    """Room next-event sensors update even when no cover state was queued."""
+
+    now = dt_util.utcnow()
+    controller = Mock()
+    controller.config = {}
+    controller.state_snapshot.return_value = (
+        None,
+        "idle",
+        None,
+        False,
+        now + timedelta(hours=1),
+        None,
+        None,
+        False,
+        False,
+        False,
+    )
+    controller._resident_state_is_on.return_value = False
+    manager = object.__new__(ControllerManager)
+    manager.controllers = {"cover.living": controller}
+    manager.hass = SimpleNamespace(states=SimpleNamespace(get=Mock(return_value=None)))
+    manager.entry = SimpleNamespace(entry_id="entry")
+    manager._entry_snapshot = {
+        "covers": {},
+        "next_open": None,
+        "next_close": None,
+        "resident_status": "off",
+        "resident_entity": None,
+    }
+
+    with patch("custom_components.cover_control.runtime.manager.async_dispatcher_send") as send:
+        assert manager.refresh_schedule_snapshot()
+
+    send.assert_called_once_with(manager.hass, SIGNAL_ENTRY_STATE_UPDATED, "entry")
+    assert manager.entry_snapshot()["next_open"] == (
+        now + timedelta(hours=1),
+        "cover.living",
+    )
 
 
 def test_sensor_writes_only_when_visible_entry_state_changes() -> None:

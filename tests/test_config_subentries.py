@@ -11,6 +11,7 @@ from custom_components.cover_control.config_subentries import (
 )
 from custom_components.cover_control.config_flow import CoverControlFlow
 from custom_components.cover_control.const import DOMAIN
+from custom_components.cover_control.sensor import ProfileScheduleSensor
 from custom_components.cover_control.runtime_data import CoverControlRuntime
 from custom_components.cover_control.const import (
     CONF_GLOBAL,
@@ -18,6 +19,8 @@ from custom_components.cover_control.const import (
     CONF_NAME,
     CONF_PROFILE_SELECTIONS,
     CONF_PROFILES,
+    CONF_RESIDENT_SENSOR,
+    CONF_ROOM_SETTINGS,
     CONF_ROOMS,
     PROFILE_TYPE_SHADING,
 )
@@ -99,10 +102,61 @@ def test_legacy_conversion_rewrites_profile_references_to_parent_profile_ids() -
     assert room[CONF_PROFILE_SELECTIONS] == {"shading": "new-profile"}
 
 
+def test_legacy_global_resident_sensor_moves_to_room_settings() -> None:
+    parent, subentries = legacy_model_to_subentry_data(
+        {
+            CONF_GLOBAL: {
+                CONF_GLOBAL_SOURCES: {
+                    CONF_RESIDENT_SENSOR: "binary_sensor.sleeping",
+                    "brightness_sensor": "sensor.lux",
+                }
+            },
+            CONF_PROFILES: {"time": {}, "shading": {}, "behavior": {}},
+            CONF_ROOMS: {
+                "legacy-living": {
+                    "name": "Living",
+                    CONF_ROOM_SETTINGS: {"covers": ["cover.living"]},
+                },
+                "legacy-bedroom": {
+                    "name": "Bedroom",
+                    CONF_ROOM_SETTINGS: {
+                        "covers": ["cover.bedroom"],
+                        CONF_RESIDENT_SENSOR: "input_boolean.bedroom_sleep",
+                    },
+                },
+            },
+        },
+        iter(["room-living", "room-bedroom"]).__next__,
+    )
+
+    assert parent[CONF_GLOBAL][CONF_GLOBAL_SOURCES] == {
+        "brightness_sensor": "sensor.lux"
+    }
+    rooms = {
+        title: data
+        for _subentry_id, kind, title, data in subentries
+        if kind == "room"
+    }
+    assert rooms["Living"][CONF_ROOM_SETTINGS][CONF_RESIDENT_SENSOR] == (
+        "binary_sensor.sleeping"
+    )
+    assert rooms["Bedroom"][CONF_ROOM_SETTINGS][CONF_RESIDENT_SENSOR] == (
+        "input_boolean.bedroom_sleep"
+    )
+
+
 def test_config_flow_exposes_only_native_room_subentry_type() -> None:
     supported = CoverControlFlow.async_get_supported_subentry_types(None)
 
     assert set(supported) == {"room"}
+
+
+def test_profile_schedule_sensor_is_parent_entry_entity(hass) -> None:
+    entry = MockConfigEntry(domain=DOMAIN, title="Cover Control", data={})
+    sensor = ProfileScheduleSensor(hass, entry, "profile-time", "next_open")
+
+    assert sensor.unique_id == "profile-profile-time-next_open"
+    assert getattr(sensor, "config_subentry_id", None) is None
 
 
 async def test_parent_runtime_owns_room_managers(hass) -> None:

@@ -43,6 +43,7 @@ from custom_components.cover_control.const import (
     CONF_BRIGHTNESS_SENSOR,
     CONF_CONFIG_MODEL,
     CONF_COVERS,
+    CONF_RESIDENT_SENSOR,
     CONF_ENABLE_LOGBOOK_COVER,
     CONF_GLOBAL,
     CONF_LOCKOUT_POSITION,
@@ -55,6 +56,11 @@ from custom_components.cover_control.const import (
     DEFAULT_NAME,
     DOMAIN,
 )
+
+
+def test_resident_sensor_is_room_only_source() -> None:
+    assert CONF_RESIDENT_SENSOR not in GLOBAL_SOURCE_KEYS
+    assert CONF_RESIDENT_SENSOR not in ROOM_SOURCE_OVERRIDE_KEYS
 
 REQUIRES_NEW_HA = (
     not hasattr(selector, "ConditionSelector")

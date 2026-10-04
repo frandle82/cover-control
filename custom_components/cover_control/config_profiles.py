@@ -257,6 +257,9 @@ class ConfigProfileModel:
             if key in GLOBAL_SOURCE_KEYS:
                 self.data[CONF_GLOBAL][CONF_GLOBAL_SOURCES][key] = value
                 continue
+            if key in ROOM_SOURCE_OVERRIDE_KEYS:
+                room.setdefault(CONF_SOURCE_OVERRIDES, {})[key] = value
+                continue
             profile_type = next(
                 (kind for kind, keys in PROFILE_KEYS.items() if key in keys),
                 None,

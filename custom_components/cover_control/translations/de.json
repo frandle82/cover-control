@@ -948,7 +948,7 @@
         "user": {"title": "Raum hinzufügen", "data": {"name": "Name", "room": "Bereich", "covers": "Cover"}},
         "reconfigure": {"title": "Raum konfigurieren", "description": "Konfiguriere die reale Installation dieses Raums: Cover, Fensterkontakte, Raumsensoren und Geometrie. Verhaltensprofile werden hier nur ausgewählt; ihre Inhalte werden zentral in der globalen Cover-Control-Instanz bearbeitet.", "menu_options": {"general": "Allgemein", "hardware": "Cover & Hardware", "contacts": "Fensterkontakte", "room_sensors": "Raumsensoren", "geometry": "Geometrie", "functions": "Funktionen", "profile_references": "Profile", "source_overrides": "Lokale Abweichungen", "overrides": "Profilabweichungen", "diagnostics": "Diagnose"}, "menu_option_descriptions": {"general": "Raum umbenennen und die Home-Assistant-Bereichszuordnung lesbar halten.", "hardware": "Gesteuerte Cover diesem Raum zuordnen und hardwarebezogene Eigenschaften konfigurieren.", "contacts": "Fensterkontakte den Covern für Lüftung und Schutzfunktionen zuordnen.", "room_sensors": "Sensoren auswählen, die ausschließlich zu diesem Raum gehören.", "geometry": "Physische Fensterausrichtung beschreiben, die mit Sonne und Beschattungsregeln ausgewertet wird.", "functions": "Raumlokale Funktionen konfigurieren, ohne globale Profile zu bearbeiten.", "profile_references": "Zentrale Verhaltensprofile für diesen Raum auswählen.", "source_overrides": "Globale Quellen nur für diesen Raum überschreiben.", "overrides": "Sparsame lokale Abweichungen von gewählten Profilen speichern.", "diagnostics": "Raumstruktur und ausgewählte Profilreferenzen prüfen."}},
         "functions": {"title": "Funktionen", "description": "Raumlokales Funktionsverhalten konfigurieren. Profilinhalte bleiben in der globalen Profilverwaltung.", "menu_options": {"time": "Zeitsteuerung", "brightness": "Helligkeitssteuerung", "sun": "Sonnensteuerung", "shading": "Beschattung", "ventilation": "Lüftung", "resident": "Resident-Verhalten", "behavior": "Manuelles Verhalten"}},
-        "hardware": {"title": "Cover & Hardware", "description": "Ordne diesem Raum die gesteuerten Cover zu und lege hardwarebezogene Eigenschaften wie Cover-Typ, Positionsermittlung und Fahrzeit fest.", "data": {"name": "Name", "room": "Bereich", "covers": "Cover"}, "data_description": {"name": "Lesbarer Raumname.", "room": "Home-Assistant-Bereich des physischen Raums.", "covers": "Alle Cover, die zu diesem Raum gehören und gemeinsam von Cover Control gesteuert werden."}},
+        "hardware": {"title": "Cover & Hardware", "description": "Ordne diesem Raum die gesteuerten Cover zu und lege hardwarebezogene Eigenschaften wie Cover-Typ, Positionsermittlung und Fahrzeit fest.", "data": {"name": "Name", "room": "Bereich", "covers": "Cover", "position_source": "Positionsquelle", "custom_position_sensor": "Eigener Positionssensor", "cover_type": "Cover-Typ", "drive_time": "Fahrzeit", "cover_tilt_wait_mode": "Lamellen-Wartemodus", "cover_tilt_wait_timeout": "Lamellen-Wartezeit", "position_tolerance": "Positionstoleranz"}, "data_description": {"name": "Lesbarer Raumname.", "room": "Home-Assistant-Bereich des physischen Raums.", "covers": "Alle Cover, die zu diesem Raum gehören und gemeinsam von Cover Control gesteuert werden.", "position_source": "Legt fest, wo Cover Control die aktuelle Cover-Position liest.", "custom_position_sensor": "Sensor, der bei eigener Positionsquelle verwendet wird.", "cover_type": "Physischer Cover-Typ für Bewegungs- und Positionsverhalten.", "drive_time": "Ungefähre vollständige Fahrzeit für Cover ohne zuverlässige Positionsrückmeldung.", "cover_tilt_wait_mode": "Wie Lamellenbefehle mit der Coverbewegung gekoppelt werden.", "cover_tilt_wait_timeout": "Maximale Wartezeit für den gewählten Lamellen-Wartemodus.", "position_tolerance": "Positionsabweichung, die toleriert wird, bevor ein weiterer Befehl gesendet wird."}},
         "contacts": {"title": "Fensterkontakte", "description": "Ordne jedem Cover die zugehörigen Fensterkontakte zu. Cover Control verwendet diese Zuordnung für Lüftung, Aussperrschutz und weitere kontaktabhängige Funktionen."},
         "room_sensors": {"title": "Raumsensoren", "description": "Wähle Sensoren aus, die ausschließlich zu diesem Raum gehören. Die hier ausgewählten Messwerte werden mit den Regeln der zugewiesenen Profile kombiniert.", "data": {"temperature_sensor_indoor": "Raumtemperatursensor", "resident_sensor": "Resident-/Bewohner-Sensor"}, "data_description": {"temperature_sensor_indoor": "Temperatursensor dieses Raums. Der Messwert wird mit den Temperaturgrenzen des gewählten Beschattungsprofils ausgewertet.", "resident_sensor": "Resident- oder Bewohner-Entity dieses Raums. Die Verhaltensregeln bleiben im gewählten Verhaltensprofil."}},
         "geometry": {"title": "Geometrie", "description": "Beschreibe die physische Ausrichtung der Fenster dieses Raums. Diese Werte werden zusammen mit Sonnenstand und Beschattungsprofil ausgewertet.", "data": {"shading_azimuth_start": "Azimut von", "shading_azimuth_end": "Azimut bis"}},
@@ -967,33 +967,6 @@
         "override_behavior": {"title": "Verhaltens-Abweichungen"}
       },
       "abort": {"reconfigure_successful": "Raum aktualisiert", "missing_profile_reference": "Das referenzierte Profil existiert nicht mehr"}
-    },
-    "time_profile": {
-      "title": "Zeitprofil",
-      "step": {
-        "user": {"title": "Zeitprofil hinzufügen", "data": {"profile_name": "Name", "profile_capabilities": "Funktionen"}},
-        "settings": {"title": "Zeitprofil-Einstellungen"},
-        "reconfigure": {"title": "Zeitprofil bearbeiten", "data": {"profile_name": "Name"}}
-      },
-      "abort": {"reconfigure_successful": "Profil aktualisiert"}
-    },
-    "shading_profile": {
-      "title": "Beschattungsprofil",
-      "step": {
-        "user": {"title": "Beschattungsprofil hinzufügen", "data": {"profile_name": "Name", "profile_capabilities": "Funktionen"}},
-        "settings": {"title": "Beschattungsprofil-Einstellungen"},
-        "reconfigure": {"title": "Beschattungsprofil bearbeiten", "data": {"profile_name": "Name"}}
-      },
-      "abort": {"reconfigure_successful": "Profil aktualisiert"}
-    },
-    "behavior_profile": {
-      "title": "Verhaltensprofil",
-      "step": {
-        "user": {"title": "Verhaltensprofil hinzufügen", "data": {"profile_name": "Name", "profile_capabilities": "Funktionen"}},
-        "settings": {"title": "Verhaltensprofil-Einstellungen"},
-        "reconfigure": {"title": "Verhaltensprofil bearbeiten", "data": {"profile_name": "Name"}}
-      },
-      "abort": {"reconfigure_successful": "Profil aktualisiert"}
     }
   },
   "issues": {
