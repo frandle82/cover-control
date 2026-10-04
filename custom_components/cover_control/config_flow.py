@@ -1641,7 +1641,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 rooms = sorted(model.profile_users.get((profile_type, profile_id), ()))
                 usage.append(
                     f"{profile.get(CONF_PROFILE_NAME, profile_id)}: "
-                    f"{', '.join(self._room_names(model, rooms)) or 'unused'}"
+                    f"{', '.join(self._room_names(model, rooms)) or '—'}"
                 )
         return self.async_show_form(
             step_id="diagnostics",
@@ -1690,9 +1690,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return await self.async_step_profile_setup()
             elif action == "duplicate":
                 name = catalog[profile_id].get(CONF_PROFILE_NAME, profile_id)
-                model.duplicate_profile(
-                    self._profile_type, profile_id, f"{name} - Kopie"
-                )
+                model.duplicate_profile(self._profile_type, profile_id, f"{name} 2")
                 self._save_parent_model(model)
                 return await self._async_profile_manager(step_id, None)
             elif action == "delete":
@@ -1730,7 +1728,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             description_placeholders={
                 "profile_usage": "; ".join(
                     f"{profile.get(CONF_PROFILE_NAME, profile_id)}: "
-                    f"{', '.join(self._room_names(model, sorted(model.profile_users.get((self._profile_type, profile_id), ())))) or 'unused'}"
+                    f"{', '.join(self._room_names(model, sorted(model.profile_users.get((self._profile_type, profile_id), ())))) or '—'}"
                     for profile_id, profile in catalog.items()
                 )
                 or "—",
@@ -1845,15 +1843,13 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, model: ConfigProfileModel, profile_type: str, profile_id: str | None
     ) -> str:
         if not profile_id:
-            return "Dieses Profil wird derzeit von keinem Raum verwendet."
+            return "—"
         rooms = self._room_names(
             model, sorted(model.profile_users.get((profile_type, profile_id), ()))
         )
         if not rooms:
-            return "Dieses Profil wird derzeit von keinem Raum verwendet."
-        if len(rooms) == 1:
-            return f"Dieses Profil wird derzeit nur von {rooms[0]} verwendet."
-        return "Verwendet von: " + ", ".join(rooms)
+            return "—"
+        return ", ".join(rooms)
 
     @staticmethod
     def _room_names(model: ConfigProfileModel, room_ids: list[str]) -> list[str]:
@@ -1962,12 +1958,13 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         data = dict(subentry.data)
         settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
         covers = settings.get(CONF_COVERS, [])
+        key_map = self._contact_key_map(covers)
         if user_input is not None:
             full_map: dict[str, list[str]] = {}
             tilt_map: dict[str, list[str]] = {}
             for cover in covers:
-                full_map[cover] = list(user_input.get(self._contact_key(cover, "full"), []))
-                tilt_map[cover] = list(user_input.get(self._contact_key(cover, "tilt"), []))
+                full_map[cover] = list(user_input.get(key_map[(cover, "full")], []))
+                tilt_map[cover] = list(user_input.get(key_map[(cover, "tilt")], []))
             settings[CONF_WINDOW_SENSOR_FULL] = full_map
             settings[CONF_WINDOW_SENSOR_TILT] = tilt_map
             data[CONF_ROOM_SETTINGS] = settings
@@ -1980,20 +1977,25 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         tilt = settings.get(CONF_WINDOW_SENSOR_TILT, {})
         for cover in covers:
             schema[
-                vol.Optional(self._contact_key(cover, "full"), default=full.get(cover, []))
+                vol.Optional(key_map[(cover, "full")], default=full.get(cover, []))
             ] = multi_selector
             schema[
-                vol.Optional(self._contact_key(cover, "tilt"), default=tilt.get(cover, []))
+                vol.Optional(key_map[(cover, "tilt")], default=tilt.get(cover, []))
             ] = multi_selector
         return self.async_show_form(
             step_id="contacts", data_schema=vol.Schema(schema)
         )
 
-    def _contact_key(self, cover: str, contact_type: str) -> str:
-        state = self.hass.states.get(cover)
-        name = state.name if state else cover.split(".")[-1].replace("_", " ").title()
-        label = "vollständig geöffnet" if contact_type == "full" else "gekippt"
-        return f"{name} - {label}"
+    @staticmethod
+    def _contact_key(index: int, contact_type: str) -> str:
+        return f"cover_{index}_{contact_type}"
+
+    def _contact_key_map(self, covers: list[str]) -> dict[tuple[str, str], str]:
+        return {
+            (cover, contact_type): self._contact_key(index, contact_type)
+            for index, cover in enumerate(covers)
+            for contact_type in ("full", "tilt")
+        }
 
     async def async_step_room_sensors(self, user_input=None) -> FlowResult:
         subentry = self._get_reconfigure_subentry()
@@ -2065,20 +2067,16 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         selections = data.get(CONF_PROFILE_SELECTIONS, {})
         profiles = entry.data.get(CONF_PROFILES, {})
         profile_labels = []
-        profile_titles = {
-            PROFILE_TYPE_TIME: "Zeitprofil",
-            PROFILE_TYPE_SHADING: "Beschattungsprofil",
-            PROFILE_TYPE_BEHAVIOR: "Verhaltensprofil",
-        }
         for profile_type in (PROFILE_TYPE_TIME, PROFILE_TYPE_SHADING, PROFILE_TYPE_BEHAVIOR):
             profile_id = selections.get(profile_type)
             profile = profiles.get(profile_type, {}).get(profile_id) if profile_id else None
             name = (
                 profile.get(CONF_PROFILE_NAME)
                 if isinstance(profile, dict)
-                else "Fehlendes Profil"
+                else "—"
             )
-            profile_labels.append(f"{profile_titles[profile_type]}: {name}")
+            profile_labels.append(str(name))
+        snapshot = self._room_entry_snapshot(entry, subentry.subentry_id)
 
         return self.async_show_form(
             step_id="diagnostics",
@@ -2089,10 +2087,33 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                 "profiles": "; ".join(profile_labels),
                 "resident_sensor": self._entity_name(settings.get(CONF_RESIDENT_SENSOR)),
                 "temperature_sensor": self._entity_name(settings.get(CONF_TEMPERATURE_SENSOR_INDOOR)),
-                "next_open": str(settings.get(CONF_TIME_UP_EARLY_WORKDAY) or "—"),
-                "next_close": str(settings.get(CONF_TIME_DOWN_EARLY_WORKDAY) or "—"),
+                "next_open": self._format_schedule_event(snapshot.get("next_open")),
+                "next_close": self._format_schedule_event(snapshot.get("next_close")),
             },
         )
+
+    def _room_entry_snapshot(
+        self, entry: config_entries.ConfigEntry, subentry_id: str
+    ) -> dict[str, Any]:
+        runtime = getattr(entry, "runtime_data", None)
+        managers = getattr(runtime, "room_managers", {})
+        manager = managers.get(subentry_id) if isinstance(managers, dict) else None
+        if manager is None:
+            return {}
+        snapshot = manager.entry_snapshot()
+        return snapshot if isinstance(snapshot, dict) else {}
+
+    def _format_schedule_event(self, event: Any) -> str:
+        if not (
+            isinstance(event, tuple)
+            and len(event) == 2
+            and isinstance(event[0], datetime)
+        ):
+            return "—"
+        when = dt_util.as_local(event[0])
+        cover_name = self._entity_name(event[1])
+        value = when.strftime("%Y-%m-%d %H:%M")
+        return value if cover_name == "—" else f"{value} ({cover_name})"
 
     def _entity_name(self, entity_id: Any) -> str:
         if not entity_id:

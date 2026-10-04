@@ -3,7 +3,9 @@
 from __future__ import annotations
 
 import json
+from datetime import datetime, timezone
 from pathlib import Path
+from types import SimpleNamespace
 
 import pytest
 from probatio import to_field_list
@@ -25,7 +27,9 @@ from custom_components.cover_control.config_profile_schema import (
     PROFILE_CAPABILITY_KEYS,
 )
 from custom_components.cover_control.config_resolver import (
+    GLOBAL_DEFAULT_KEYS,
     GLOBAL_SOURCE_KEYS,
+    PROFILE_KEYS,
     ROOM_SOURCE_OVERRIDE_KEYS,
     resolve_config_model,
 )
@@ -87,6 +91,153 @@ def test_translation_files_have_matching_structure() -> None:
 
     structures = [_shape(json.loads(path.read_text())) for path in paths]
     assert structures[0] == structures[1] == structures[2]
+
+
+def test_parent_reconfigure_steps_have_runtime_translations() -> None:
+    """Parent reconfigure forms must not render empty or technical-only text."""
+
+    expected_steps = {
+        "user",
+        "reconfigure",
+        "global_sources",
+        "global_defaults",
+        "profiles",
+        "time_profiles",
+        "shading_profiles",
+        "behavior_profiles",
+        "profile_setup",
+        "profile_edit",
+        "diagnostics",
+        "recovery",
+    }
+    translation_dir = Path("custom_components/cover_control")
+    for path in (
+        translation_dir / "strings.json",
+        translation_dir / "translations/en.json",
+        translation_dir / "translations/de.json",
+    ):
+        document = json.loads(path.read_text())
+        steps = document["config"]["step"]
+        assert set(steps) == expected_steps
+        assert set(steps["user"]["data"]) == {CONF_NAME}
+        assert set(steps["user"]["data_description"]) == {CONF_NAME}
+
+        assert set(steps["reconfigure"]["menu_options"]) == {
+            "global_sources",
+            "global_defaults",
+            "profiles",
+            "diagnostics",
+            "recovery",
+        }
+        assert set(steps["reconfigure"]["menu_option_descriptions"]) == set(
+            steps["reconfigure"]["menu_options"]
+        )
+        assert set(steps["global_sources"]["data"]) == GLOBAL_SOURCE_KEYS
+        assert set(steps["global_sources"]["data_description"]) == GLOBAL_SOURCE_KEYS
+        global_default_fields = set().union(
+            *(
+                set(section["data"])
+                for section in steps["global_defaults"]["sections"].values()
+            )
+        )
+        assert GLOBAL_DEFAULT_KEYS <= global_default_fields
+        assert set(steps["profiles"]["menu_options"]) == {
+            "time_profiles",
+            "shading_profiles",
+            "behavior_profiles",
+        }
+        for profile_step in (
+            "time_profiles",
+            "shading_profiles",
+            "behavior_profiles",
+        ):
+            assert {"profile_action", "profile_id"} <= set(steps[profile_step]["data"])
+        assert {"profile_name", CONF_PROFILE_CAPABILITIES_FIELD} <= set(
+            steps["profile_setup"]["data"]
+        )
+        assert CONF_PROFILE_FIELDS in steps["profile_edit"]["data"]
+        profile_fields = set().union(
+            *(
+                set(section["data"])
+                for section in steps["profile_edit"]["sections"].values()
+            )
+        )
+        assert set().union(*PROFILE_KEYS.values()) <= profile_fields
+        assert "{profile_usage}" in steps["profile_setup"]["description"]
+        assert "{profile_usage}" in steps["profile_edit"]["description"]
+        assert "{profiles}" in steps["diagnostics"]["description"]
+        assert "{available}" in steps["recovery"]["description"]
+        assert "reconfigure_successful" in document["config"]["abort"]
+        assert (
+            "no_profile_for_overrides"
+            in document["config_subentries"]["room"]["abort"]
+        )
+
+
+def test_active_room_steps_have_runtime_translations() -> None:
+    """Every active room subentry step needs visible runtime text."""
+
+    active_room_steps = {
+        "user",
+        "reconfigure",
+        "general",
+        "hardware",
+        "contacts",
+        "room_sensors",
+        "geometry",
+        "functions",
+        "time",
+        "brightness",
+        "sun",
+        "shading",
+        "ventilation",
+        "resident",
+        "behavior",
+        "profile_references",
+        "source_overrides",
+        "overrides",
+        "override_time",
+        "override_shading",
+        "override_behavior",
+        "diagnostics",
+    }
+    menu_steps = {
+        "reconfigure",
+        "functions",
+        "overrides",
+    }
+    translation_dir = Path("custom_components/cover_control")
+    for path in (
+        translation_dir / "strings.json",
+        translation_dir / "translations/en.json",
+        translation_dir / "translations/de.json",
+    ):
+        document = json.loads(path.read_text())
+        steps = document["config_subentries"]["room"]["step"]
+        assert active_room_steps <= set(steps)
+        for step in active_room_steps:
+            assert "title" in steps[step]
+            assert "description" in steps[step]
+        for step in menu_steps:
+            assert set(steps[step]["menu_options"]) == set(
+                steps[step]["menu_option_descriptions"]
+            )
+        for step in (
+            "time",
+            "brightness",
+            "sun",
+            "shading",
+            "ventilation",
+            "resident",
+            "behavior",
+        ):
+            assert steps[step]["description"]
+        room_abort = document["config_subentries"]["room"]["abort"]
+        assert {
+            "reconfigure_successful",
+            "missing_profile_reference",
+            "no_profile_for_overrides",
+        } <= set(room_abort)
 
 
 def _frontend_initial_data(data_schema) -> dict:
@@ -365,6 +516,71 @@ async def test_parent_reconfigure_menu_exposes_hierarchical_sections(hass):
         "overrides",
         "diagnostics",
     ]
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_parent_reconfigure_submenus_open_without_errors(hass):
+    entry = _entry(hass)
+
+    for step in (
+        "global_sources",
+        "global_defaults",
+        "profiles",
+        "diagnostics",
+        "recovery",
+    ):
+        result = await _open_options_step(hass, entry, step)
+        assert result["type"] in {
+            FlowResultType.FORM,
+            FlowResultType.MENU,
+            FlowResultType.ABORT,
+        }
+        if result["type"] is FlowResultType.FORM:
+            to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_room_reconfigure_submenus_open_without_errors(hass):
+    entry = _entry(hass)
+
+    for step in (
+        "general",
+        "hardware",
+        "contacts",
+        "room_sensors",
+        "geometry",
+        "functions",
+        "profile_references",
+        "source_overrides",
+        "overrides",
+        "diagnostics",
+    ):
+        result = await _open_room_step(hass, entry, step)
+        assert result["type"] in {
+            FlowResultType.FORM,
+            FlowResultType.MENU,
+            FlowResultType.ABORT,
+        }
+        if result["type"] is FlowResultType.FORM:
+            to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_room_function_steps_serialize_without_errors(hass):
+    entry = _entry(hass)
+
+    for step in (
+        "time",
+        "brightness",
+        "sun",
+        "shading",
+        "ventilation",
+        "resident",
+        "behavior",
+    ):
+        result = await _open_room_step(hass, entry, "functions", step)
+        assert result["type"] is FlowResultType.FORM
+        to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
@@ -700,6 +916,54 @@ async def test_room_profile_overrides_and_source_override_are_persisted(hass):
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_room_contacts_use_stable_form_keys_and_preserve_cover_mapping(hass):
+    entry = _entry(
+        hass,
+        data={
+            CONF_NAME: "Living",
+            CONF_COVERS: ["cover.living_left", "cover.living_right"],
+        },
+    )
+
+    result = await _open_room_step(hass, entry, "contacts")
+    fields = {
+        field["name"]
+        for field in to_field_list(
+            result["data_schema"], custom_serializer=cv.custom_serializer
+        )
+    }
+
+    assert fields == {
+        "cover_0_full",
+        "cover_0_tilt",
+        "cover_1_full",
+        "cover_1_tilt",
+    }
+    assert not any("living" in field for field in fields)
+
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            "cover_0_full": ["binary_sensor.left_open"],
+            "cover_0_tilt": ["binary_sensor.left_tilt"],
+            "cover_1_full": ["binary_sensor.right_open"],
+            "cover_1_tilt": ["binary_sensor.right_tilt"],
+        },
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    room = _native_model(entry)["rooms"][_room_id(entry)]["settings"]
+    assert room[c.CONF_WINDOW_SENSOR_FULL] == {
+        "cover.living_left": ["binary_sensor.left_open"],
+        "cover.living_right": ["binary_sensor.right_open"],
+    }
+    assert room[c.CONF_WINDOW_SENSOR_TILT] == {
+        "cover.living_left": ["binary_sensor.left_tilt"],
+        "cover.living_right": ["binary_sensor.right_tilt"],
+    }
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
 async def test_room_profile_without_override_resolves_profile_values(hass):
     """O1: Assignment alone resolves the selected sparse profile."""
 
@@ -815,6 +1079,40 @@ async def test_diagnostics_use_profile_names_and_readable_values(hass):
     assert "South windows" in text
     assert opaque_id not in text
     assert c.CONF_SHADING_POSITION not in text
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_room_diagnostics_use_runtime_schedule_snapshot(hass):
+    entry = _entry(
+        hass,
+        data={CONF_NAME: "Living", CONF_COVERS: ["cover.living"]},
+    )
+    room_id = _room_id(entry)
+    hass.states.async_set("cover.living", "open", {"friendly_name": "Living cover"})
+    entry.runtime_data = SimpleNamespace(
+        room_managers={
+            room_id: SimpleNamespace(
+                entry_snapshot=lambda: {
+                    "next_open": (
+                        datetime(2026, 10, 4, 7, 30, tzinfo=timezone.utc),
+                        "cover.living",
+                    ),
+                    "next_close": (
+                        datetime(2026, 10, 4, 19, 45, tzinfo=timezone.utc),
+                        "cover.living",
+                    ),
+                }
+            )
+        }
+    )
+
+    result = await _open_room_step(hass, entry, "diagnostics")
+
+    assert result["description_placeholders"]["next_open"].startswith("2026-10-04")
+    assert "Living cover" in result["description_placeholders"]["next_open"]
+    assert result["description_placeholders"]["next_close"].startswith("2026-10-04")
+    assert "07:30:00" not in result["description_placeholders"]["next_open"]
+    assert "(" in result["description_placeholders"]["next_open"]
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
