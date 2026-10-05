@@ -446,436 +446,76 @@
       "profiles": {
         "title": "Profile",
         "description": "Profile definieren ausschließlich das Verhalten von Cover Control. Hardware, Fensterkontakte und Raumsensoren werden in den jeweiligen Räumen konfiguriert. Ein Profil kann von mehreren Räumen oder nur von einem einzelnen Raum verwendet werden.",
-        "menu_options": {
-          "time_profiles": "Zeitprofile",
-          "shading_profiles": "Beschattungsprofile",
-          "behavior_profiles": "Verhaltensprofile"
-        },
-        "menu_option_descriptions": {
-          "time_profiles": "Zeitbezogene Regeln für Öffnen, Schließen, Helligkeit, Sonne und Kalender verwalten.",
-          "shading_profiles": "Beschattungspositionen, Grenzwerte, Wartezeiten und Beschattungslogik verwalten.",
-          "behavior_profiles": "Manuelle Eingriffe, Bewohnerzustände, Lüftung und Schutzmechanismen verwalten."
-        }
-      },
-      "time_profiles": {
-        "title": "Zeitprofile",
-        "description": "Zeitprofile legen fest, wann und unter welchen zeitbezogenen Bedingungen Cover geöffnet oder geschlossen werden. Gemeinsame Quellen wie Arbeitstag oder Kalender werden unter „Globale Datenquellen“ ausgewählt.\n\nProfilnutzung:\n{profile_usage}",
         "data": {
-          "profile_action": "Aktion",
-          "profile_id": "Profil"
+          "profile_action": "Action",
+          "profile_id": "Profile"
         },
         "data_description": {
-          "profile_action": "Wähle, ob ein Profil erstellt, bearbeitet, dupliziert oder gelöscht werden soll.",
-          "profile_id": "Vorhandenes Zeitprofil."
-        }
-      },
-      "shading_profiles": {
-        "title": "Beschattungsprofile",
-        "description": "Beschattungsprofile definieren Positionen, Grenzwerte, Wartezeiten und weitere Regeln für die Beschattung. Der konkrete Raumtemperatursensor und die physische Fensterausrichtung werden im Raum konfiguriert.\n\nProfilnutzung:\n{profile_usage}",
-        "data": {
-          "profile_action": "Aktion",
-          "profile_id": "Profil"
-        },
-        "data_description": {
-          "profile_action": "Wähle, ob ein Profil erstellt, bearbeitet, dupliziert oder gelöscht werden soll.",
-          "profile_id": "Vorhandenes Beschattungsprofil."
-        }
-      },
-      "behavior_profiles": {
-        "title": "Verhaltensprofile",
-        "description": "Verhaltensprofile definieren Regeln für manuelle Eingriffe, Bewohnerzustände, Lüftung und Schutzmechanismen. Die konkrete Bewohner-Entity wird im jeweiligen Raum ausgewählt.\n\nProfilnutzung:\n{profile_usage}",
-        "data": {
-          "profile_action": "Aktion",
-          "profile_id": "Profil"
-        },
-        "data_description": {
-          "profile_action": "Wähle, ob ein Profil erstellt, bearbeitet, dupliziert oder gelöscht werden soll.",
-          "profile_id": "Vorhandenes Verhaltensprofil."
+          "profile_action": "Choose whether to create, edit, duplicate, or delete a profile.",
+          "profile_id": "Select the profile for this action."
         }
       },
       "profile_setup": {
         "title": "Profil einrichten",
-        "description": "Lege Namen und Funktionsumfang des Profils fest.\n\n{profile_usage}",
+        "description": "Set the profile name. Profile functions are managed in the following sections.\n\n{profile_usage}",
         "data": {
-          "profile_name": "Profilname",
-          "profile_capabilities": "Funktionsumfang"
+          "profile_name": "Profilname"
         },
         "data_description": {
-          "profile_name": "Lesbarer Name dieses Profils.",
-          "profile_capabilities": "Wähle die Regelbereiche, die dieses Profil zentral verwaltet."
+          "profile_name": "Lesbarer Name dieses Profils."
         }
       },
-      "profile_edit": {
-        "title": "Profil bearbeiten",
-        "description": "Bearbeite die Werte dieses Profils. Änderungen wirken auf alle Räume, die dieses Profil verwenden.\n\n{profile_usage}",
-        "data": {
-          "configured_profile_fields": "Profilfelder"
+      "profile_sections": {
+        "title": "Profile sections",
+        "description": "Open one rule section for this unified profile.\n\n{profile_usage}",
+        "menu_options": {
+          "profile_setup": "Setup",
+          "profile_time": "Time",
+          "profile_brightness": "Brightness",
+          "profile_sun": "Sun position",
+          "profile_shading": "Shading",
+          "profile_ventilation": "Ventilation",
+          "profile_resident": "Resident",
+          "profile_behavior": "Behavior"
         },
-        "data_description": {
-          "configured_profile_fields": "Wähle, welche Profilwerte gespeichert werden sollen. Nicht ausgewählte Werte kommen aus globalen Standards oder Systemvorgaben."
-        },
-        "sections": {
-          "time_features": {
-            "name": "Zeitfunktionen",
-            "data": {
-              "auto_brightness_enabled": "Helligkeitsautomatik",
-              "auto_down_enabled": "Automatisches Schließen",
-              "auto_sun_enabled": "Sonnenautomatik",
-              "auto_time_enabled": "Zeitautomatik",
-              "auto_up_enabled": "Automatisches Öffnen",
-              "use_brightness_sensor": "Helligkeitsquelle verwenden",
-              "use_sun_elevation_dynamic_close_sensor": "Dynamische Schließhöhe verwenden",
-              "use_sun_elevation_dynamic_open_sensor": "Dynamische Öffnungshöhe verwenden",
-              "use_workday_sensor": "Werktagsquelle verwenden"
-            },
-            "data_description": {
-              "auto_brightness_enabled": "Wert fuer Helligkeitsautomatik in diesem Profil oder Standard.",
-              "auto_down_enabled": "Wert fuer Automatisches Schließen in diesem Profil oder Standard.",
-              "auto_sun_enabled": "Wert fuer Sonnenautomatik in diesem Profil oder Standard.",
-              "auto_time_enabled": "Wert fuer Zeitautomatik in diesem Profil oder Standard.",
-              "auto_up_enabled": "Wert fuer Automatisches Öffnen in diesem Profil oder Standard.",
-              "use_brightness_sensor": "Wert fuer Helligkeitsquelle verwenden in diesem Profil oder Standard.",
-              "use_sun_elevation_dynamic_close_sensor": "Wert fuer Dynamische Schließhöhe verwenden in diesem Profil oder Standard.",
-              "use_sun_elevation_dynamic_open_sensor": "Wert fuer Dynamische Öffnungshöhe verwenden in diesem Profil oder Standard.",
-              "use_workday_sensor": "Wert fuer Werktagsquelle verwenden in diesem Profil oder Standard."
-            }
-          },
-          "workday_times": {
-            "name": "Arbeitstagszeiten",
-            "data": {
-              "time_down_early_workday": "Früheste Schließung an Werktagen",
-              "time_down_late_workday": "Späteste Schließung an Werktagen",
-              "time_up_early_workday": "Früheste Öffnung an Werktagen",
-              "time_up_late_workday": "Späteste Öffnung an Werktagen"
-            },
-            "data_description": {
-              "time_down_early_workday": "Wert fuer Früheste Schließung an Werktagen in diesem Profil oder Standard.",
-              "time_down_late_workday": "Wert fuer Späteste Schließung an Werktagen in diesem Profil oder Standard.",
-              "time_up_early_workday": "Wert fuer Früheste Öffnung an Werktagen in diesem Profil oder Standard.",
-              "time_up_late_workday": "Wert fuer Späteste Öffnung an Werktagen in diesem Profil oder Standard."
-            }
-          },
-          "non_workday_times": {
-            "name": "Nicht-Arbeitstagszeiten",
-            "data": {
-              "time_down_early_non_workday": "Früheste Schließung an freien Tagen",
-              "time_down_late_non_workday": "Späteste Schließung an freien Tagen",
-              "time_up_early_non_workday": "Früheste Öffnung an freien Tagen",
-              "time_up_late_non_workday": "Späteste Öffnung an freien Tagen"
-            },
-            "data_description": {
-              "time_down_early_non_workday": "Wert fuer Früheste Schließung an freien Tagen in diesem Profil oder Standard.",
-              "time_down_late_non_workday": "Wert fuer Späteste Schließung an freien Tagen in diesem Profil oder Standard.",
-              "time_up_early_non_workday": "Wert fuer Früheste Öffnung an freien Tagen in diesem Profil oder Standard.",
-              "time_up_late_non_workday": "Wert fuer Späteste Öffnung an freien Tagen in diesem Profil oder Standard."
-            }
-          },
-          "sun_settings": {
-            "name": "Sonneneinstellungen",
-            "data": {
-              "brightness_sun_operator": "Kombination aus Helligkeit und Sonne",
-              "sun_elevation_close": "Sonnenhöhe zum Schließen",
-              "sun_elevation_close_offset": "Offset der Schließhöhe",
-              "sun_elevation_mode": "Sonnenhöhenmodus",
-              "sun_elevation_open": "Sonnenhöhe zum Öffnen",
-              "sun_elevation_open_offset": "Offset der Öffnungshöhe",
-              "sun_time_duration": "Sonnendauer"
-            },
-            "data_description": {
-              "brightness_sun_operator": "Wert fuer Kombination aus Helligkeit und Sonne in diesem Profil oder Standard.",
-              "sun_elevation_close": "Wert fuer Sonnenhöhe zum Schließen in diesem Profil oder Standard.",
-              "sun_elevation_close_offset": "Wert fuer Offset der Schließhöhe in diesem Profil oder Standard.",
-              "sun_elevation_mode": "Wert fuer Sonnenhöhenmodus in diesem Profil oder Standard.",
-              "sun_elevation_open": "Wert fuer Sonnenhöhe zum Öffnen in diesem Profil oder Standard.",
-              "sun_elevation_open_offset": "Wert fuer Offset der Öffnungshöhe in diesem Profil oder Standard.",
-              "sun_time_duration": "Wert fuer Sonnendauer in diesem Profil oder Standard."
-            }
-          },
-          "brightness_settings": {
-            "name": "Helligkeitseinstellungen",
-            "data": {
-              "brightness_close_below": "Helligkeitsschwelle zum Schließen",
-              "brightness_hysteresis": "Helligkeitshysterese",
-              "brightness_open_above": "Helligkeitsschwelle zum Öffnen",
-              "brightness_time_duration": "Helligkeitsdauer",
-              "brightness_sun_operator": "Kombination aus Helligkeit und Sonne"
-            },
-            "data_description": {
-              "brightness_close_below": "Wert fuer Helligkeitsschwelle zum Schließen in diesem Profil oder Standard.",
-              "brightness_hysteresis": "Wert fuer Helligkeitshysterese in diesem Profil oder Standard.",
-              "brightness_open_above": "Wert fuer Helligkeitsschwelle zum Öffnen in diesem Profil oder Standard.",
-              "brightness_time_duration": "Wert fuer Helligkeitsdauer in diesem Profil oder Standard.",
-              "brightness_sun_operator": "Wert fuer Kombination aus Helligkeit und Sonne in diesem Profil oder Standard."
-            }
-          },
-          "calendar_behavior": {
-            "name": "Kalenderverhalten",
-            "data": {
-              "calendar_close_title": "Kalendertitel zum Schließen",
-              "calendar_open_title": "Kalendertitel zum Öffnen"
-            },
-            "data_description": {
-              "calendar_close_title": "Wert fuer Kalendertitel zum Schließen in diesem Profil oder Standard.",
-              "calendar_open_title": "Wert fuer Kalendertitel zum Öffnen in diesem Profil oder Standard."
-            }
-          },
-          "shading_targets": {
-            "name": "Beschattungsziele",
-            "data": {
-              "auto_shading_enabled": "Beschattung aktiv",
-              "shading_position": "Beschattungsposition",
-              "shading_position_alt": "Alternative Beschattungsposition",
-              "shading_tilt_elevation_1": "Lamellenhöhe 1",
-              "shading_tilt_elevation_2": "Lamellenhöhe 2",
-              "shading_tilt_elevation_3": "Lamellenhöhe 3",
-              "shading_tilt_position": "Beschattungslamelle",
-              "shading_tilt_position_0": "Beschattungslamelle 0",
-              "shading_tilt_position_1": "Beschattungslamelle 1",
-              "shading_tilt_position_2": "Beschattungslamelle 2",
-              "shading_tilt_position_3": "Beschattungslamelle 3"
-            },
-            "data_description": {
-              "auto_shading_enabled": "Wert fuer Beschattung aktiv in diesem Profil oder Standard.",
-              "shading_position": "Wert fuer Beschattungsposition in diesem Profil oder Standard.",
-              "shading_position_alt": "Wert fuer Alternative Beschattungsposition in diesem Profil oder Standard.",
-              "shading_tilt_elevation_1": "Wert fuer Lamellenhöhe 1 in diesem Profil oder Standard.",
-              "shading_tilt_elevation_2": "Wert fuer Lamellenhöhe 2 in diesem Profil oder Standard.",
-              "shading_tilt_elevation_3": "Wert fuer Lamellenhöhe 3 in diesem Profil oder Standard.",
-              "shading_tilt_position": "Wert fuer Beschattungslamelle in diesem Profil oder Standard.",
-              "shading_tilt_position_0": "Wert fuer Beschattungslamelle 0 in diesem Profil oder Standard.",
-              "shading_tilt_position_1": "Wert fuer Beschattungslamelle 1 in diesem Profil oder Standard.",
-              "shading_tilt_position_2": "Wert fuer Beschattungslamelle 2 in diesem Profil oder Standard.",
-              "shading_tilt_position_3": "Wert fuer Beschattungslamelle 3 in diesem Profil oder Standard."
-            }
-          },
-          "shading_brightness": {
-            "name": "Beschattungshelligkeit",
-            "data": {
-              "shading_brightness_end": "Endhelligkeit der Beschattung",
-              "shading_brightness_start": "Starthelligkeit der Beschattung",
-              "shading_sun_brightness_hysteresis": "Beschattungs-Helligkeitshysterese"
-            },
-            "data_description": {
-              "shading_brightness_end": "Wert fuer Endhelligkeit der Beschattung in diesem Profil oder Standard.",
-              "shading_brightness_start": "Wert fuer Starthelligkeit der Beschattung in diesem Profil oder Standard.",
-              "shading_sun_brightness_hysteresis": "Wert fuer Beschattungs-Helligkeitshysterese in diesem Profil oder Standard."
-            }
-          },
-          "shading_temperature": {
-            "name": "Beschattungstemperatur",
-            "data": {
-              "cold_protection_temperature": "Kälteschutztemperatur",
-              "shading_independent_temp": "Unabhängige Temperatur",
-              "shading_min_temperatur1": "Mindesttemperatur 1",
-              "shading_min_temperatur2": "Mindesttemperatur 2",
-              "shading_temperature_hysteresis1": "Temperaturhysterese 1",
-              "shading_temperature_hysteresis2": "Temperaturhysterese 2",
-              "temperature_forecast_threshold": "Vorhersagetemperaturschwelle",
-              "temperature_threshold": "Temperaturschwelle",
-              "shading_independent_holds_end": "Unabhängige Temperatur hält Beschattung"
-            },
-            "data_description": {
-              "cold_protection_temperature": "Wert fuer Kälteschutztemperatur in diesem Profil oder Standard.",
-              "shading_independent_temp": "Wert fuer Unabhängige Temperatur in diesem Profil oder Standard.",
-              "shading_min_temperatur1": "Wert fuer Mindesttemperatur 1 in diesem Profil oder Standard.",
-              "shading_min_temperatur2": "Wert fuer Mindesttemperatur 2 in diesem Profil oder Standard.",
-              "shading_temperature_hysteresis1": "Wert fuer Temperaturhysterese 1 in diesem Profil oder Standard.",
-              "shading_temperature_hysteresis2": "Wert fuer Temperaturhysterese 2 in diesem Profil oder Standard.",
-              "temperature_forecast_threshold": "Wert fuer Vorhersagetemperaturschwelle in diesem Profil oder Standard.",
-              "temperature_threshold": "Wert fuer Temperaturschwelle in diesem Profil oder Standard.",
-              "shading_independent_holds_end": "Wert fuer Unabhängige Temperatur hält Beschattung in diesem Profil oder Standard."
-            }
-          },
-          "shading_forecast": {
-            "name": "Forecast",
-            "data": {
-              "shading_config": "Erweiterte Beschattungsregeln",
-              "shading_forecast_temp": "Vorhersagetemperatur",
-              "shading_forecast_temp_hysteresis": "Vorhersagetemperatur-Hysterese",
-              "shading_forecast_type": "Vorhersagetyp",
-              "shading_weather_conditions": "Erlaubte Wetterbedingungen",
-              "use_cold_protection_forecast_sensor": "Kälteschutzvorhersage verwenden",
-              "use_shading_forecast_sensor": "Beschattungsvorhersage verwenden"
-            },
-            "data_description": {
-              "shading_config": "Wert fuer Erweiterte Beschattungsregeln in diesem Profil oder Standard.",
-              "shading_forecast_temp": "Wert fuer Vorhersagetemperatur in diesem Profil oder Standard.",
-              "shading_forecast_temp_hysteresis": "Wert fuer Vorhersagetemperatur-Hysterese in diesem Profil oder Standard.",
-              "shading_forecast_type": "Wert fuer Vorhersagetyp in diesem Profil oder Standard.",
-              "shading_weather_conditions": "Wert fuer Erlaubte Wetterbedingungen in diesem Profil oder Standard.",
-              "use_cold_protection_forecast_sensor": "Wert fuer Kälteschutzvorhersage verwenden in diesem Profil oder Standard.",
-              "use_shading_forecast_sensor": "Wert fuer Beschattungsvorhersage verwenden in diesem Profil oder Standard."
-            }
-          },
-          "shading_conditions": {
-            "name": "Bedingungslogik",
-            "data": {
-              "shading_conditions_end_and": "Endbedingungen — alle",
-              "shading_conditions_end_or": "Endbedingungen — beliebige",
-              "shading_conditions_start_and": "Startbedingungen — alle",
-              "shading_conditions_start_or": "Startbedingungen — beliebige"
-            },
-            "data_description": {
-              "shading_conditions_end_and": "Wert fuer Endbedingungen — alle in diesem Profil oder Standard.",
-              "shading_conditions_end_or": "Wert fuer Endbedingungen — beliebige in diesem Profil oder Standard.",
-              "shading_conditions_start_and": "Wert fuer Startbedingungen — alle in diesem Profil oder Standard.",
-              "shading_conditions_start_or": "Wert fuer Startbedingungen — beliebige in diesem Profil oder Standard."
-            }
-          },
-          "shading_waits": {
-            "name": "Wartezeiten",
-            "data": {
-              "shading_end_immediate_by_sun_position": "Sofortiges Beschattungsende nach Sonne",
-              "shading_end_max_duration": "Maximale Endwartezeit",
-              "shading_start_max_duration": "Maximale Startwartezeit",
-              "shading_waitingtime_end": "Endwartezeit der Beschattung",
-              "shading_waitingtime_start": "Startwartezeit der Beschattung"
-            },
-            "data_description": {
-              "shading_end_immediate_by_sun_position": "Wert fuer Sofortiges Beschattungsende nach Sonne in diesem Profil oder Standard.",
-              "shading_end_max_duration": "Wert fuer Maximale Endwartezeit in diesem Profil oder Standard.",
-              "shading_start_max_duration": "Wert fuer Maximale Startwartezeit in diesem Profil oder Standard.",
-              "shading_waitingtime_end": "Wert fuer Endwartezeit der Beschattung in diesem Profil oder Standard.",
-              "shading_waitingtime_start": "Wert fuer Startwartezeit der Beschattung in diesem Profil oder Standard."
-            }
-          },
-          "positions": {
-            "name": "Bewegungspositionen",
-            "data": {
-              "close_position": "Schließposition",
-              "close_tilt_position": "Schließlamelle",
-              "cover_type": "Cover-Typ",
-              "lockout_position": "Aussperrschutzposition",
-              "open_position": "Öffnungsposition",
-              "open_tilt_position": "Öffnungslamelle",
-              "position_tolerance": "Positionstoleranz",
-              "ventilate_position": "Lüftungsposition",
-              "ventilate_tilt_position": "Lüftungslamelle"
-            },
-            "data_description": {
-              "close_position": "Wert fuer Schließposition in diesem Profil oder Standard.",
-              "close_tilt_position": "Wert fuer Schließlamelle in diesem Profil oder Standard.",
-              "cover_type": "Wert fuer Cover-Typ in diesem Profil oder Standard.",
-              "lockout_position": "Wert fuer Aussperrschutzposition in diesem Profil oder Standard.",
-              "open_position": "Wert fuer Öffnungsposition in diesem Profil oder Standard.",
-              "open_tilt_position": "Wert fuer Öffnungslamelle in diesem Profil oder Standard.",
-              "position_tolerance": "Wert fuer Positionstoleranz in diesem Profil oder Standard.",
-              "ventilate_position": "Wert fuer Lüftungsposition in diesem Profil oder Standard.",
-              "ventilate_tilt_position": "Wert fuer Lüftungslamelle in diesem Profil oder Standard."
-            }
-          },
-          "manual_override": {
-            "name": "Manueller Override",
-            "data": {
-              "manual_override_block_close": "Manueller Override blockiert Schließen",
-              "manual_override_block_open": "Manueller Override blockiert Öffnen",
-              "manual_override_block_shading": "Manueller Override blockiert Beschattung",
-              "manual_override_block_ventilate": "Manueller Override blockiert Lüftung",
-              "manual_override_minutes": "Dauer des manuellen Overrides",
-              "manual_override_reset_mode": "Rücksetzmodus des manuellen Overrides",
-              "manual_override_reset_time": "Rücksetzzeit des manuellen Overrides",
-              "manual_schedule_adoption": "Manuelle Zeitplanübernahme"
-            },
-            "data_description": {
-              "manual_override_block_close": "Wert fuer Manueller Override blockiert Schließen in diesem Profil oder Standard.",
-              "manual_override_block_open": "Wert fuer Manueller Override blockiert Öffnen in diesem Profil oder Standard.",
-              "manual_override_block_shading": "Wert fuer Manueller Override blockiert Beschattung in diesem Profil oder Standard.",
-              "manual_override_block_ventilate": "Wert fuer Manueller Override blockiert Lüftung in diesem Profil oder Standard.",
-              "manual_override_minutes": "Wert fuer Dauer des manuellen Overrides in diesem Profil oder Standard.",
-              "manual_override_reset_mode": "Wert fuer Rücksetzmodus des manuellen Overrides in diesem Profil oder Standard.",
-              "manual_override_reset_time": "Wert fuer Rücksetzzeit des manuellen Overrides in diesem Profil oder Standard.",
-              "manual_schedule_adoption": "Wert fuer Manuelle Zeitplanübernahme in diesem Profil oder Standard."
-            }
-          },
-          "ventilation": {
-            "name": "Lüftung und Sperren",
-            "data": {
-              "auto_ventilate_enabled": "Lüftung aktiv",
-              "contact_status_delay": "Kontakt-Statusverzögerung",
-              "contact_trigger_delay": "Kontakt-Triggerverzögerung",
-              "lockout_tilt_close": "Schließen bei Kippstellung blockieren",
-              "lockout_tilt_shading_end": "Beschattungsende bei Kippstellung blockieren",
-              "lockout_tilt_shading_start": "Beschattungsstart bei Kippstellung blockieren",
-              "shading_over_ventilation": "Beschattung vor Lüftung",
-              "ventilation_allow_higher_position": "Höhere Lüftungsposition erlauben",
-              "ventilation_delay_after_close": "Lüftungsverzögerung nach Schließen",
-              "ventilation_keep_open_on_full_to_tilt": "Bei Wechsel vollständig zu gekippt offen lassen",
-              "ventilation_start_no_delay": "Lüftung ohne Verzögerung starten",
-              "ventilation_use_after_shading": "Nach Beschattung lüften"
-            },
-            "data_description": {
-              "auto_ventilate_enabled": "Wert fuer Lüftung aktiv in diesem Profil oder Standard.",
-              "contact_status_delay": "Wert fuer Kontakt-Statusverzögerung in diesem Profil oder Standard.",
-              "contact_trigger_delay": "Wert fuer Kontakt-Triggerverzögerung in diesem Profil oder Standard.",
-              "lockout_tilt_close": "Wert fuer Schließen bei Kippstellung blockieren in diesem Profil oder Standard.",
-              "lockout_tilt_shading_end": "Wert fuer Beschattungsende bei Kippstellung blockieren in diesem Profil oder Standard.",
-              "lockout_tilt_shading_start": "Wert fuer Beschattungsstart bei Kippstellung blockieren in diesem Profil oder Standard.",
-              "shading_over_ventilation": "Wert fuer Beschattung vor Lüftung in diesem Profil oder Standard.",
-              "ventilation_allow_higher_position": "Wert fuer Höhere Lüftungsposition erlauben in diesem Profil oder Standard.",
-              "ventilation_delay_after_close": "Wert fuer Lüftungsverzögerung nach Schließen in diesem Profil oder Standard.",
-              "ventilation_keep_open_on_full_to_tilt": "Wert fuer Bei Wechsel vollständig zu gekippt offen lassen in diesem Profil oder Standard.",
-              "ventilation_start_no_delay": "Wert fuer Lüftung ohne Verzögerung starten in diesem Profil oder Standard.",
-              "ventilation_use_after_shading": "Wert fuer Nach Beschattung lüften in diesem Profil oder Standard."
-            }
-          },
-          "resident_behavior": {
-            "name": "Bewohnerverhalten",
-            "data": {
-              "resident_allow_open": "Bewohnerstatus erlaubt Öffnen",
-              "resident_allow_shading": "Bewohnerstatus erlaubt Beschattung",
-              "resident_allow_ventilation": "Bewohnerstatus erlaubt Lüftung",
-              "resident_close_enabled": "Bei Bewohnerstatus schließen",
-              "resident_open_enabled": "Nach Bewohnerstatus öffnen",
-              "resident_status_enabled": "Bewohnerverhalten aktiv"
-            },
-            "data_description": {
-              "resident_allow_open": "Wert fuer Bewohnerstatus erlaubt Öffnen in diesem Profil oder Standard.",
-              "resident_allow_shading": "Wert fuer Bewohnerstatus erlaubt Beschattung in diesem Profil oder Standard.",
-              "resident_allow_ventilation": "Wert fuer Bewohnerstatus erlaubt Lüftung in diesem Profil oder Standard.",
-              "resident_close_enabled": "Wert fuer Bei Bewohnerstatus schließen in diesem Profil oder Standard.",
-              "resident_open_enabled": "Wert fuer Nach Bewohnerstatus öffnen in diesem Profil oder Standard.",
-              "resident_status_enabled": "Wert fuer Bewohnerverhalten aktiv in diesem Profil oder Standard."
-            }
-          },
-          "prevention": {
-            "name": "Bewegungsschutz",
-            "data": {
-              "prevent_closing_multiple_times": "Mehrfaches Schließen verhindern",
-              "prevent_default_cover_actions": "Standard-Cover-Aktionen verhindern",
-              "prevent_higher_position_closing": "Höhere Schließposition verhindern",
-              "prevent_lowering_when_closing_if_shaded": "Absenken bei Beschattung verhindern",
-              "prevent_opening_after_shading_end": "Öffnen nach Beschattung verhindern",
-              "prevent_opening_after_ventilation_end": "Öffnen nach Lüftung verhindern",
-              "prevent_opening_multiple_times": "Mehrfaches Öffnen verhindern",
-              "prevent_shading_end_if_closed": "Beschattungsende bei geschlossenem Cover verhindern",
-              "prevent_shading_multiple_times": "Mehrfache Beschattung verhindern"
-            },
-            "data_description": {
-              "prevent_closing_multiple_times": "Wert fuer Mehrfaches Schließen verhindern in diesem Profil oder Standard.",
-              "prevent_default_cover_actions": "Wert fuer Standard-Cover-Aktionen verhindern in diesem Profil oder Standard.",
-              "prevent_higher_position_closing": "Wert fuer Höhere Schließposition verhindern in diesem Profil oder Standard.",
-              "prevent_lowering_when_closing_if_shaded": "Wert fuer Absenken bei Beschattung verhindern in diesem Profil oder Standard.",
-              "prevent_opening_after_shading_end": "Wert fuer Öffnen nach Beschattung verhindern in diesem Profil oder Standard.",
-              "prevent_opening_after_ventilation_end": "Wert fuer Öffnen nach Lüftung verhindern in diesem Profil oder Standard.",
-              "prevent_opening_multiple_times": "Wert fuer Mehrfaches Öffnen verhindern in diesem Profil oder Standard.",
-              "prevent_shading_end_if_closed": "Wert fuer Beschattungsende bei geschlossenem Cover verhindern in diesem Profil oder Standard.",
-              "prevent_shading_multiple_times": "Wert fuer Mehrfache Beschattung verhindern in diesem Profil oder Standard."
-            }
-          },
-          "tilt_wait": {
-            "name": "Lamellenverhalten",
-            "data": {
-              "cover_tilt_wait_mode": "Lamellen-Wartemodus",
-              "cover_tilt_wait_timeout": "Lamellen-Timeout",
-              "enable_logbook_cover": "Cover-Aktionen protokollieren"
-            },
-            "data_description": {
-              "cover_tilt_wait_mode": "Wert fuer Lamellen-Wartemodus in diesem Profil oder Standard.",
-              "cover_tilt_wait_timeout": "Wert fuer Lamellen-Timeout in diesem Profil oder Standard.",
-              "enable_logbook_cover": "Wert fuer Cover-Aktionen protokollieren in diesem Profil oder Standard."
-            }
-          }
+        "menu_option_descriptions": {
+          "profile_setup": "Rename this profile.",
+          "profile_time": "Opening, closing, schedules, and calendar behavior.",
+          "profile_brightness": "Brightness thresholds and sunlight-dependent rules.",
+          "profile_sun": "Sun elevation and azimuth limits.",
+          "profile_shading": "Shading positions, thresholds, waiting times, and shading logic.",
+          "profile_ventilation": "Ventilation behavior and contact-dependent positions.",
+          "profile_resident": "Resident-dependent behavior.",
+          "profile_behavior": "Manual override, lockout, and additional behavior rules."
         }
+      },
+      "profile_time": {
+        "title": "Time",
+        "description": "Edit this section of the unified profile.\n\n{profile_usage}"
+      },
+      "profile_brightness": {
+        "title": "Brightness",
+        "description": "Edit this section of the unified profile.\n\n{profile_usage}"
+      },
+      "profile_sun": {
+        "title": "Sun position",
+        "description": "Edit this section of the unified profile.\n\n{profile_usage}"
+      },
+      "profile_shading": {
+        "title": "Shading",
+        "description": "Edit this section of the unified profile.\n\n{profile_usage}"
+      },
+      "profile_ventilation": {
+        "title": "Ventilation",
+        "description": "Edit this section of the unified profile.\n\n{profile_usage}"
+      },
+      "profile_resident": {
+        "title": "Resident",
+        "description": "Edit this section of the unified profile.\n\n{profile_usage}"
+      },
+      "profile_behavior": {
+        "title": "Behavior",
+        "description": "Edit this section of the unified profile.\n\n{profile_usage}"
       },
       "diagnostics": {
         "title": "Diagnose",
@@ -1077,280 +717,23 @@
       "profiles": {
         "title": "Profile",
         "description": "Profile definieren ausschließlich das Verhalten von Cover Control. Hardware, Fensterkontakte und Raumsensoren werden in den Räumen konfiguriert. Ein Profil kann von mehreren Räumen oder nur von einem einzelnen Raum verwendet werden.",
-        "menu_options": {
-          "time_profiles": "Zeitprofile",
-          "shading_profiles": "Beschattungsprofile",
-          "behavior_profiles": "Verhaltensprofile"
-        },
-        "menu_option_descriptions": {
-          "time_profiles": "Zeitprofile legen fest, wann und unter welchen zeitbezogenen Bedingungen Cover geöffnet oder geschlossen werden. Globale Quellen wie Arbeitstag und Kalender werden separat unter Globale Datenquellen ausgewählt.",
-          "shading_profiles": "Beschattungsprofile definieren Grenzwerte, Zielpositionen, Wartezeiten und weitere Regeln für die Beschattung. Der konkrete Raumtemperatursensor und die physische Fensterausrichtung werden im Raum festgelegt.",
-          "behavior_profiles": "Verhaltensprofile definieren Regeln für manuelle Eingriffe, Bewohnerzustände, Schutzfunktionen und weitere Verhaltensoptionen. Die konkrete Bewohner-Entity wird im jeweiligen Raum ausgewählt."
-        }
-      },
-      "time_profiles": {
-        "title": "Zeitprofile",
-        "description": "Zeitprofile erstellen, bearbeiten, duplizieren oder löschen. {profile_usage}",
         "data": {
-          "profile_action": "Aktion",
-          "profile_id": "Profil"
+          "profile_action": "Action",
+          "profile_id": "Profile"
         },
         "data_description": {
-          "profile_action": "Wähle, ob ein neues Profil erstellt oder das ausgewählte Profil verwaltet wird.",
-          "profile_id": "Profil nach Namen auswählen. Cover Control speichert intern die stabile Profil-ID."
-        }
-      },
-      "shading_profiles": {
-        "title": "Beschattungsprofile",
-        "description": "Beschattungsprofile erstellen, bearbeiten, duplizieren oder löschen. {profile_usage}",
-        "data": {
-          "profile_action": "Aktion",
-          "profile_id": "Profil"
-        },
-        "data_description": {
-          "profile_action": "Wähle, ob ein neues Profil erstellt oder das ausgewählte Profil verwaltet wird.",
-          "profile_id": "Profil nach Namen auswählen. Cover Control speichert intern die stabile Profil-ID."
-        }
-      },
-      "behavior_profiles": {
-        "title": "Verhaltensprofile",
-        "description": "Verhaltensprofile erstellen, bearbeiten, duplizieren oder löschen. {profile_usage}",
-        "data": {
-          "profile_action": "Aktion",
-          "profile_id": "Profil"
-        },
-        "data_description": {
-          "profile_action": "Wähle, ob ein neues Profil erstellt oder das ausgewählte Profil verwaltet wird.",
-          "profile_id": "Profil nach Namen auswählen. Cover Control speichert intern die stabile Profil-ID."
+          "profile_action": "Choose whether to create, edit, duplicate, or delete a unified profile.",
+          "profile_id": "Select the unified profile for this action."
         }
       },
       "profile_setup": {
-        "title": "Profilfunktionen",
-        "description": "Wähle die Verhaltensgruppen dieses Profils. Physische Hardware und Raumsensoren bleiben am Raum. {profile_usage}",
+        "title": "Set up profile",
+        "description": "Set the profile name. Profile functions are managed in the profile sections.\n\n{profile_usage}",
         "data": {
-          "profile_name": "Profilname",
-          "profile_capabilities": "Enthaltene Funktionen"
+          "profile_name": "Profile name"
         },
         "data_description": {
-          "profile_name": "Lesbarer Profilname. Umbenennen ändert keine Raumreferenzen.",
-          "profile_capabilities": "Fachliche Verhaltensgruppen, die in diesem Profil gespeichert werden."
-        }
-      },
-      "profile_edit": {
-        "title": "Profileinstellungen",
-        "description": "Es werden nur Verhaltenseinstellungen der aktiven Profilfunktionen angezeigt. Hardware, Kontakte und Raumsensoren werden in Räumen konfiguriert. {profile_usage}",
-        "data": {
-          "profile_name": "Profilname",
-          "configured_profile_fields": "Im Profil gespeicherte Werte",
-          "configured_override_fields": "In diesem Raum überschriebene Werte"
-        },
-        "sections": {
-          "time_features": {
-            "name": "Zeitfunktionen",
-            "data": {
-              "auto_time_enabled": "Zeitautomatik",
-              "auto_up_enabled": "Automatisches Öffnen",
-              "auto_down_enabled": "Automatisches Schließen",
-              "auto_sun_enabled": "Sonnenautomatik",
-              "auto_brightness_enabled": "Helligkeitsautomatik",
-              "use_workday_sensor": "Werktagsquelle verwenden",
-              "use_brightness_sensor": "Helligkeitsquelle verwenden",
-              "use_sun_elevation_dynamic_open_sensor": "Dynamische Öffnungshöhe verwenden",
-              "use_sun_elevation_dynamic_close_sensor": "Dynamische Schließhöhe verwenden"
-            }
-          },
-          "workday_times": {
-            "name": "Werktagszeiten",
-            "data": {
-              "time_up_early_workday": "Früheste Öffnung",
-              "time_up_late_workday": "Späteste Öffnung",
-              "time_down_early_workday": "Früheste Schließung",
-              "time_down_late_workday": "Späteste Schließung"
-            }
-          },
-          "non_workday_times": {
-            "name": "Freie Tage",
-            "data": {
-              "time_up_early_non_workday": "Früheste Öffnung",
-              "time_up_late_non_workday": "Späteste Öffnung",
-              "time_down_early_non_workday": "Früheste Schließung",
-              "time_down_late_non_workday": "Späteste Schließung"
-            }
-          },
-          "sun_settings": {
-            "name": "Sonne",
-            "data": {
-              "sun_elevation_mode": "Sonnenhöhenmodus",
-              "sun_elevation_open": "Öffnungshöhe",
-              "sun_elevation_close": "Schließhöhe",
-              "sun_elevation_open_offset": "Öffnungs-Offset",
-              "sun_elevation_close_offset": "Schließ-Offset",
-              "sun_time_duration": "Erforderliche Dauer"
-            }
-          },
-          "brightness_settings": {
-            "name": "Helligkeit",
-            "data": {
-              "brightness_open_above": "Öffnen oberhalb",
-              "brightness_close_below": "Schließen unterhalb",
-              "brightness_hysteresis": "Hysterese",
-              "brightness_time_duration": "Erforderliche Dauer",
-              "brightness_sun_operator": "Kombination aus Helligkeit und Sonne"
-            }
-          },
-          "calendar_behavior": {
-            "name": "Kalenderverhalten",
-            "data": {
-              "calendar_open_title": "Titel für Öffnung",
-              "calendar_close_title": "Titel für Schließung"
-            }
-          },
-          "shading_targets": {
-            "name": "Beschattungsziele",
-            "data": {
-              "auto_shading_enabled": "Beschattung aktiv",
-              "shading_position": "Beschattungsposition",
-              "shading_position_alt": "Alternative Beschattungsposition",
-              "shading_tilt_position": "Beschattungslamelle",
-              "shading_tilt_position_0": "Lamelle unter Höhe 1",
-              "shading_tilt_position_1": "Lamelle über Höhe 1",
-              "shading_tilt_position_2": "Lamelle über Höhe 2",
-              "shading_tilt_position_3": "Lamelle über Höhe 3",
-              "shading_tilt_elevation_1": "Höhenschwelle 1",
-              "shading_tilt_elevation_2": "Höhenschwelle 2",
-              "shading_tilt_elevation_3": "Höhenschwelle 3"
-            }
-          },
-          "shading_brightness": {
-            "name": "Beschattungshelligkeit",
-            "data": {
-              "shading_brightness_start": "Starthelligkeit",
-              "shading_brightness_end": "Endhelligkeit",
-              "shading_sun_brightness_hysteresis": "Helligkeitshysterese"
-            }
-          },
-          "shading_temperature": {
-            "name": "Beschattungstemperatur",
-            "data": {
-              "shading_min_temperatur1": "Mindesttemperatur 1",
-              "shading_temperature_hysteresis1": "Temperaturhysterese 1",
-              "shading_min_temperatur2": "Mindesttemperatur 2",
-              "shading_temperature_hysteresis2": "Temperaturhysterese 2",
-              "temperature_threshold": "Temperaturschwelle",
-              "temperature_forecast_threshold": "Vorhersagetemperaturschwelle",
-              "cold_protection_temperature": "Kälteschutztemperatur",
-              "shading_independent_temp": "Unabhängige Temperatur",
-              "shading_independent_holds_end": "Unabhängige Temperatur hält Beschattung"
-            }
-          },
-          "shading_forecast": {
-            "name": "Wetter und Vorhersage",
-            "data": {
-              "use_shading_forecast_sensor": "Beschattungsvorhersage verwenden",
-              "use_cold_protection_forecast_sensor": "Kälteschutzvorhersage verwenden",
-              "shading_forecast_type": "Vorhersagetyp",
-              "shading_forecast_temp": "Vorhersagetemperatur",
-              "shading_forecast_temp_hysteresis": "Vorhersagehysterese",
-              "shading_weather_conditions": "Erlaubte Wetterbedingungen",
-              "shading_config": "Erweiterte Beschattungsregeln"
-            }
-          },
-          "shading_conditions": {
-            "name": "Beschattungsbedingungen",
-            "data": {
-              "shading_conditions_start_and": "Startbedingungen — alle",
-              "shading_conditions_start_or": "Startbedingungen — beliebige",
-              "shading_conditions_end_and": "Endbedingungen — alle",
-              "shading_conditions_end_or": "Endbedingungen — beliebige"
-            }
-          },
-          "shading_waits": {
-            "name": "Beschattungswartezeiten",
-            "data": {
-              "shading_waitingtime_start": "Startwartezeit",
-              "shading_waitingtime_end": "Endwartezeit",
-              "shading_start_max_duration": "Maximale Startwartezeit",
-              "shading_end_max_duration": "Maximale Endwartezeit",
-              "shading_end_immediate_by_sun_position": "Sofort beenden, wenn Sonne Bereich verlässt"
-            }
-          },
-          "positions": {
-            "name": "Positionen",
-            "data": {
-              "cover_type": "Cover-Typ",
-              "open_position": "Öffnungsposition",
-              "close_position": "Schließposition",
-              "ventilate_position": "Lüftungsposition",
-              "lockout_position": "Aussperrschutzposition",
-              "open_tilt_position": "Öffnungslamelle",
-              "close_tilt_position": "Schließlamelle",
-              "ventilate_tilt_position": "Lüftungslamelle",
-              "position_tolerance": "Positionstoleranz"
-            }
-          },
-          "manual_override": {
-            "name": "Manueller Override",
-            "data": {
-              "manual_override_minutes": "Dauer",
-              "manual_override_reset_mode": "Rücksetzmodus",
-              "manual_override_reset_time": "Rücksetzzeit",
-              "manual_override_block_open": "Öffnen blockieren",
-              "manual_override_block_close": "Schließen blockieren",
-              "manual_override_block_ventilate": "Lüftung blockieren",
-              "manual_override_block_shading": "Beschattung blockieren",
-              "manual_schedule_adoption": "Manuelle Zeitplanaktion übernehmen"
-            }
-          },
-          "ventilation": {
-            "name": "Lüftung",
-            "data": {
-              "auto_ventilate_enabled": "Lüftung aktiv",
-              "contact_trigger_delay": "Kontakt-Triggerverzögerung",
-              "contact_status_delay": "Kontakt-Statusverzögerung",
-              "ventilation_delay_after_close": "Verzögerung nach Schließen",
-              "ventilation_allow_higher_position": "Höhere Position erlauben",
-              "ventilation_use_after_shading": "Nach Beschattung lüften",
-              "ventilation_start_no_delay": "Ohne Verzögerung starten",
-              "ventilation_keep_open_on_full_to_tilt": "Bei Wechsel vollständig zu gekippt offen lassen",
-              "shading_over_ventilation": "Beschattung vor Lüftung",
-              "lockout_tilt_close": "Schließen bei Kippstellung blockieren",
-              "lockout_tilt_shading_start": "Beschattungsstart bei Kippstellung blockieren",
-              "lockout_tilt_shading_end": "Beschattungsende bei Kippstellung blockieren"
-            }
-          },
-          "resident_behavior": {
-            "name": "Bewohnerverhalten",
-            "data": {
-              "resident_status_enabled": "Bewohnerverhalten aktiv",
-              "resident_open_enabled": "Bei Ende des Bewohnerstatus öffnen",
-              "resident_close_enabled": "Bei Beginn des Bewohnerstatus schließen",
-              "resident_allow_shading": "Beschattung erlauben",
-              "resident_allow_open": "Öffnen erlauben",
-              "resident_allow_ventilation": "Lüftung erlauben"
-            }
-          },
-          "prevention": {
-            "name": "Schutzregeln",
-            "data": {
-              "prevent_higher_position_closing": "Höhere Schließposition verhindern",
-              "prevent_lowering_when_closing_if_shaded": "Absenken bei Beschattung verhindern",
-              "prevent_shading_end_if_closed": "Beschattungsende bei geschlossenem Cover verhindern",
-              "prevent_opening_after_shading_end": "Öffnen nach Beschattung verhindern",
-              "prevent_opening_after_ventilation_end": "Öffnen nach Lüftung verhindern",
-              "prevent_opening_multiple_times": "Mehrfaches Öffnen verhindern",
-              "prevent_closing_multiple_times": "Mehrfaches Schließen verhindern",
-              "prevent_shading_multiple_times": "Mehrfache Beschattung verhindern",
-              "prevent_default_cover_actions": "Standard-Cover-Aktionen verhindern"
-            }
-          },
-          "tilt_wait": {
-            "name": "Lamellen und Diagnose",
-            "data": {
-              "cover_tilt_wait_mode": "Lamellen-Wartemodus",
-              "cover_tilt_wait_timeout": "Lamellen-Timeout",
-              "enable_logbook_cover": "Cover-Aktionen protokollieren"
-            }
-          }
+          "profile_name": "Human-readable profile name. Renaming does not change room references."
         }
       },
       "room_profiles": {

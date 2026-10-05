@@ -13,9 +13,13 @@ from custom_components.cover_control.const import (
     CONF_GLOBAL_DEFAULTS,
     CONF_GLOBAL_SOURCES,
     CONF_NAME,
+    CONF_PROFILE_ID,
+    CONF_PROFILE_NAME,
     CONF_PROFILE_SELECTIONS,
+    CONF_PROFILE_SETTINGS,
     CONF_PROFILES,
     CONF_ROOM_OVERRIDES,
+    CONF_ROOM_PROFILE_ID,
     CONF_ROOM_SETTINGS,
     CONF_ROOMS,
     CONF_SHADING_POSITION,
@@ -66,13 +70,39 @@ def test_create_and_assign_profile_resolves_values_without_copying() -> None:
     profile_id = model.create_profile(
         PROFILE_TYPE_SHADING,
         "South",
-        {CONF_SHADING_POSITION: 30},
+        {CONF_SHADING_WAITINGTIME_END: 600},
         profile_id="south",
     )
     model.assign_profile("living", PROFILE_TYPE_SHADING, profile_id)
 
-    assert resolve_config_model(model.data, "living")[CONF_SHADING_POSITION] == 30
-    assert CONF_SHADING_POSITION not in model.data[CONF_ROOMS]["living"]
+    assert resolve_config_model(model.data, "living")[CONF_SHADING_WAITINGTIME_END] == 600
+    assert CONF_SHADING_WAITINGTIME_END not in model.data[CONF_ROOMS]["living"]
+
+
+def test_flat_profile_users_index_room_profile_id() -> None:
+    model = ConfigProfileModel(
+        {
+            CONF_GLOBAL: {CONF_GLOBAL_SOURCES: {}, CONF_GLOBAL_DEFAULTS: {}},
+            CONF_PROFILES: {
+                "profile-south": {
+                    CONF_PROFILE_ID: "profile-south",
+                    CONF_PROFILE_NAME: "South",
+                    CONF_PROFILE_SETTINGS: {CONF_SHADING_WAITINGTIME_END: 600},
+                }
+            },
+            CONF_ROOMS: {
+                "living": {
+                    CONF_NAME: "Living",
+                    CONF_ROOM_PROFILE_ID: "profile-south",
+                    CONF_ROOM_SETTINGS: {},
+                    CONF_SOURCE_OVERRIDES: {},
+                    CONF_ROOM_OVERRIDES: {},
+                }
+            },
+        }
+    )
+
+    assert model.profile_users == {("profile", "profile-south"): {"living"}}
 
 
 def test_profile_edit_returns_and_updates_only_affected_rooms() -> None:
@@ -80,17 +110,17 @@ def test_profile_edit_returns_and_updates_only_affected_rooms() -> None:
     model.create_profile(
         PROFILE_TYPE_SHADING,
         "South",
-        {CONF_SHADING_POSITION: 30},
+        {CONF_SHADING_WAITINGTIME_END: 600},
         profile_id="south",
     )
     model.assign_profile("living", PROFILE_TYPE_SHADING, "south")
 
     affected = model.update_profile(
-        PROFILE_TYPE_SHADING, "south", {CONF_SHADING_POSITION: 35}
+        PROFILE_TYPE_SHADING, "south", {CONF_SHADING_WAITINGTIME_END: 900}
     )
 
     assert affected == {"living"}
-    assert resolve_config_model(model.data, "living")[CONF_SHADING_POSITION] == 35
+    assert resolve_config_model(model.data, "living")[CONF_SHADING_WAITINGTIME_END] == 900
 
 
 def test_rename_keeps_room_reference_stable() -> None:
@@ -135,17 +165,18 @@ def test_single_override_keeps_other_profile_values() -> None:
     model.create_profile(
         PROFILE_TYPE_SHADING,
         "South",
-        {CONF_SHADING_POSITION: 30, CONF_SHADING_WAITINGTIME_END: 600},
+        {CONF_SHADING_WAITINGTIME_END: 600},
         profile_id="south",
     )
     model.assign_profile("living", PROFILE_TYPE_SHADING, "south")
-    model.set_override("living", PROFILE_TYPE_SHADING, CONF_SHADING_POSITION, 25)
+    model.set_override("living", PROFILE_TYPE_SHADING, CONF_SHADING_WAITINGTIME_END, 300)
+    model.data[CONF_ROOMS]["living"][CONF_ROOM_SETTINGS]["shading_position"] = 25
 
     resolved = resolve_config_model(model.data, "living")
     assert resolved[CONF_SHADING_POSITION] == 25
-    assert resolved[CONF_SHADING_WAITINGTIME_END] == 600
+    assert resolved[CONF_SHADING_WAITINGTIME_END] == 300
     assert model.data[CONF_ROOMS]["living"][CONF_ROOM_OVERRIDES] == {
-        PROFILE_TYPE_SHADING: {CONF_SHADING_POSITION: 25}
+        PROFILE_TYPE_SHADING: {CONF_SHADING_WAITINGTIME_END: 300}
     }
 
 
@@ -176,12 +207,12 @@ def test_remove_override_falls_back_to_profile_immediately() -> None:
     model.create_profile(
         PROFILE_TYPE_SHADING,
         "South",
-        {CONF_SHADING_POSITION: 30},
+        {CONF_SHADING_WAITINGTIME_END: 600},
         profile_id="south",
     )
     model.assign_profile("living", PROFILE_TYPE_SHADING, "south")
-    model.set_override("living", PROFILE_TYPE_SHADING, CONF_SHADING_POSITION, 25)
+    model.set_override("living", PROFILE_TYPE_SHADING, CONF_SHADING_WAITINGTIME_END, 300)
 
-    model.remove_override("living", PROFILE_TYPE_SHADING, CONF_SHADING_POSITION)
+    model.remove_override("living", PROFILE_TYPE_SHADING, CONF_SHADING_WAITINGTIME_END)
 
-    assert resolve_config_model(model.data, "living")[CONF_SHADING_POSITION] == 30
+    assert resolve_config_model(model.data, "living")[CONF_SHADING_WAITINGTIME_END] == 600

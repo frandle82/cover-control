@@ -96,7 +96,9 @@ def test_profile_change_updates_only_affected_runtime_room() -> None:
 
     assert applied == set()
     manager.controllers["cover.living"].update_config.assert_not_called()
-    assert manager.profile_users[(PROFILE_TYPE_SHADING, "south")] == {"office"}
+    assert manager.profile_users[("profile", "legacy:time=|shading=south|behavior=")] == {
+        "office"
+    }
 
 
 def test_profile_change_refreshes_config_listeners_and_timers() -> None:
@@ -202,7 +204,7 @@ def test_configuration_diagnostics_expose_profile_and_value_origin() -> None:
     diagnostics = manager.configuration_diagnostics()
 
     assert diagnostics["room_name"] == "Living"
-    assert diagnostics["profiles"][PROFILE_TYPE_SHADING] == "South standard"
+    assert diagnostics["profiles"]["profile"] == "South standard"
     assert diagnostics["resolved"][CONF_SHADING_WAITINGTIME_END] == {
         "value": 300,
         "source": "room_override",

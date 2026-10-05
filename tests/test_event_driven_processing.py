@@ -3,7 +3,7 @@
 from __future__ import annotations
 
 import asyncio
-from datetime import datetime, time, timedelta
+from datetime import datetime, time, timedelta, timezone
 import inspect
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
@@ -157,7 +157,7 @@ def test_completed_daily_action_advances_to_tomorrow() -> None:
     """A completed opening exposes the next day's stable schedule window."""
 
     controller = object.__new__(CoverController)
-    now = dt_util.utcnow()
+    now = datetime(2026, 1, 15, 22, tzinfo=timezone.utc)
     controller.hass = SimpleNamespace(
         states=SimpleNamespace(get=lambda _entity_id: None),
         config=SimpleNamespace(latitude=None, longitude=None, time_zone=None),

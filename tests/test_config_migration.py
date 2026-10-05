@@ -15,7 +15,6 @@ from custom_components.cover_control.const import (
     CONF_SHADING_WAITINGTIME_END,
     CONF_PROFILES,
     CONF_ROOMS,
-    PROFILE_TYPE_SHADING,
 )
 
 
@@ -102,12 +101,12 @@ def test_multiple_legacy_rooms_are_consolidated_without_name_deduplication() -> 
     )
 
     assert set(model[CONF_ROOMS]) == {"living", "office"}
-    profiles = model[CONF_PROFILES][PROFILE_TYPE_SHADING]
+    profiles = model[CONF_PROFILES]
     assert len(profiles) == 2
-    assert {profile["settings"][CONF_SHADING_POSITION] for profile in profiles.values()} == {
-        24,
-        26,
-    }
+    assert {
+        room["settings"][CONF_SHADING_POSITION]
+        for room in model[CONF_ROOMS].values()
+    } == {24, 26}
 
 
 def test_collection_migration_is_idempotent_for_canonical_hub_model() -> None:

@@ -54,4 +54,16 @@ async def test_recovery_rejects_invalid_config_without_fallback(hass) -> None:
     await manager.async_initialize()
 
     with pytest.raises(ConfigValidationError):
-        await manager.async_resolve({"profiles": {}, "rooms": {}})
+        await manager.async_resolve(
+            {
+                "profiles": {},
+                "rooms": {
+                    "room": {
+                        "profile_id": "missing",
+                        "settings": {},
+                        "source_overrides": {},
+                        "overrides": {},
+                    }
+                },
+            }
+        )

@@ -1,6 +1,10 @@
 """Tests for hierarchical room configuration resolution."""
 
 from custom_components.cover_control.config_resolver import (
+    PROFILE_FUNCTION_KEYS,
+    ROOM_HARDWARE_KEYS,
+    ROOM_POSITION_KEYS,
+    ROOM_SENSOR_KEYS,
     resolve_config_model,
     resolve_room_config,
 )
@@ -15,16 +19,21 @@ from custom_components.cover_control.const import (
     CONF_NAME,
     CONF_PROFILE_ID,
     CONF_PROFILE_NAME,
+    CONF_PROFILE_FUNCTIONS,
     CONF_PROFILE_SELECTIONS,
     CONF_PROFILE_SETTINGS,
     CONF_PROFILES,
     CONF_ROOM_OVERRIDES,
+    CONF_ROOM_PROFILE_ID,
     CONF_ROOM_SETTINGS,
     CONF_ROOMS,
     CONF_SHADING_POSITION,
     CONF_SHADING_WAITINGTIME_END,
     CONF_SOURCE_OVERRIDES,
     CONFIG_MODEL_VERSION,
+    FUNCTION_BRIGHTNESS,
+    FUNCTION_SHADING,
+    FUNCTION_TIME,
     PROFILE_TYPE_SHADING,
 )
 
@@ -119,7 +128,7 @@ def test_legacy_flat_config_resolves_without_behavior_change() -> None:
     assert resolved[CONF_SHADING_POSITION] == 31
     assert resolved[CONF_SHADING_WAITINGTIME_END] == 90
     assert resolved[CONF_BRIGHTNESS_SENSOR] == "sensor.outdoor"
-    assert resolved.selected_profiles[PROFILE_TYPE_SHADING].startswith("legacy-")
+    assert resolved.selected_profiles["profile"].startswith("legacy:")
 
 
 def test_persisted_model_resolves_profile_reference_without_copying() -> None:
@@ -149,3 +158,85 @@ def test_persisted_model_resolves_profile_reference_without_copying() -> None:
 
     assert resolved[CONF_SHADING_POSITION] == 30
     assert CONF_SHADING_POSITION not in model[CONF_ROOMS]["living"]
+
+
+def test_room_profile_functions_limit_configured_functions() -> None:
+    model = {
+        CONF_CONFIG_VERSION: CONFIG_MODEL_VERSION,
+        CONF_GLOBAL: {
+            CONF_GLOBAL_SOURCES: {},
+            CONF_GLOBAL_DEFAULTS: {},
+        },
+        CONF_PROFILES: {
+            PROFILE_TYPE_SHADING: {
+                "south": {
+                    CONF_PROFILE_ID: "south",
+                    CONF_PROFILE_NAME: "South",
+                    CONF_PROFILE_FUNCTIONS: [FUNCTION_BRIGHTNESS, FUNCTION_SHADING],
+                    CONF_PROFILE_SETTINGS: {
+                        "auto_brightness_enabled": True,
+                        "auto_shading_enabled": True,
+                    },
+                }
+            }
+        },
+        CONF_ROOMS: {
+            "living": {
+                CONF_NAME: "Living",
+                CONF_PROFILE_SELECTIONS: {PROFILE_TYPE_SHADING: "south"},
+                CONF_PROFILE_FUNCTIONS: [FUNCTION_SHADING],
+                CONF_ROOM_SETTINGS: {CONF_COVERS: ["cover.living"]},
+                CONF_SOURCE_OVERRIDES: {},
+                CONF_ROOM_OVERRIDES: {},
+            }
+        },
+    }
+
+    resolved = resolve_config_model(model, "living")
+
+    assert resolved.configured_functions == frozenset({FUNCTION_SHADING})
+
+
+def test_profile_function_keys_do_not_own_room_hardware_positions_or_sensors() -> None:
+    profile_keys = set().union(*PROFILE_FUNCTION_KEYS.values())
+
+    assert profile_keys.isdisjoint(ROOM_HARDWARE_KEYS)
+    assert profile_keys.isdisjoint(ROOM_POSITION_KEYS)
+    assert profile_keys.isdisjoint(ROOM_SENSOR_KEYS)
+
+
+def test_unified_profile_reference_resolves_function_blocks() -> None:
+    model = {
+        CONF_CONFIG_VERSION: CONFIG_MODEL_VERSION,
+        CONF_GLOBAL: {
+            CONF_GLOBAL_SOURCES: {},
+            CONF_GLOBAL_DEFAULTS: {},
+        },
+        CONF_PROFILES: {
+            "profile-living": {
+                CONF_ROOM_PROFILE_ID: "profile-living",
+                CONF_PROFILE_NAME: "Living",
+                FUNCTION_TIME: {"auto_time_enabled": True},
+                FUNCTION_SHADING: {"auto_shading_enabled": True},
+            }
+        },
+        CONF_ROOMS: {
+            "living": {
+                CONF_NAME: "Living",
+                CONF_PROFILE_ID: "profile-living",
+                CONF_PROFILE_FUNCTIONS: [FUNCTION_SHADING],
+                CONF_ROOM_SETTINGS: {
+                    CONF_COVERS: ["cover.living"],
+                    CONF_SHADING_POSITION: 28,
+                },
+                CONF_SOURCE_OVERRIDES: {},
+                CONF_ROOM_OVERRIDES: {},
+            }
+        },
+    }
+
+    resolved = resolve_config_model(model, "living")
+
+    assert resolved["auto_shading_enabled"] is True
+    assert resolved.configured_functions == frozenset({FUNCTION_SHADING})
+    assert resolved[CONF_SHADING_POSITION] == 28

@@ -27,9 +27,9 @@ from .const import (
     PROFILE_TYPES,
 )
 from .config_migration import (
-    has_legacy_config_model,
     is_native_parent_entry,
-    legacy_entry_model,
+    migrate_entry_collection,
+    unify_profile_model,
 )
 from .config_subentries import legacy_model_to_subentry_data, model_from_subentries
 from .hub import CoverControlHub
@@ -126,12 +126,15 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate legacy room entries to one parent with native subentries."""
 
-    if entry.version >= 5:
+    if entry.version >= 6:
         return True
+    if entry.version == 5:
+        return await _async_migrate_parent_to_unified_profiles(hass, entry)
     if entry.version == 4:
-        return await _async_migrate_parent_profiles_to_data(hass, entry)
+        if not await _async_migrate_parent_profiles_to_data(hass, entry):
+            return False
+        return await _async_migrate_parent_to_unified_profiles(hass, entry)
     from homeassistant.util.ulid import ulid_now
-    from .hub import merge_config_models
 
     entries = hass.config_entries.async_entries(DOMAIN)
     native_parent = next(
@@ -161,7 +164,15 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         )
     elif legacy_parents:
         parent = legacy_parents.pop(0)
-        merged = legacy_entry_model(parent.data, parent.options, entry_id=parent.entry_id)
+        migrated_entries = {
+            parent.entry_id: (parent.data, parent.options),
+            **{
+                legacy_entry.entry_id: (legacy_entry.data, legacy_entry.options)
+                for legacy_entry in legacy_parents
+            },
+        }
+        merged = migrate_entry_collection(migrated_entries)
+        legacy_parents = []
     else:
         parent = next(
             (
@@ -177,19 +188,16 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             entry,
             data={"hub_entry_id": parent.entry_id},
             options={},
-            version=5,
+            version=6,
         )
         return True
 
     for legacy_entry in legacy_parents:
-        merged = merge_config_models(
-            merged,
-            legacy_entry_model(
-                legacy_entry.data,
-                legacy_entry.options,
-                entry_id=legacy_entry.entry_id,
-            ),
-            namespace=legacy_entry.entry_id,
+        merged = migrate_entry_collection(
+            {
+                "parent": ({CONF_GLOBAL: merged.get(CONF_GLOBAL, {}), CONF_PROFILES: merged.get(CONF_PROFILES, {}), CONF_ROOMS: merged.get(CONF_ROOMS, {})}, {}),
+                legacy_entry.entry_id: (legacy_entry.data, legacy_entry.options),
+            }
         )
 
     parent_data, payloads = legacy_model_to_subentry_data(merged, ulid_now)
@@ -214,9 +222,50 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             legacy_entry,
             data={"hub_entry_id": parent.entry_id},
             options={},
-            version=5,
+            version=6,
         )
-    return await _async_migrate_parent_profiles_to_data(hass, parent)
+    if not await _async_migrate_parent_profiles_to_data(hass, parent):
+        return False
+    return await _async_migrate_parent_to_unified_profiles(hass, parent)
+
+
+async def _async_migrate_parent_to_unified_profiles(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> bool:
+    """Persist the v6 unified profile catalog and single room profile references."""
+
+    if not is_native_parent_entry(entry.data):
+        hass.config_entries.async_update_entry(entry, version=6)
+        return True
+
+    model = unify_profile_model(
+        model_from_subentries(entry.data, entry.subentries.values())
+    )
+    parent_data = deepcopy(dict(entry.data))
+    parent_data[CONF_PROFILES] = deepcopy(model.get(CONF_PROFILES, {}))
+    for subentry in entry.subentries.values():
+        if subentry.subentry_type != "room":
+            continue
+        room = model.get(CONF_ROOMS, {}).get(subentry.subentry_id)
+        if not isinstance(room, dict):
+            continue
+        room_data = deepcopy(room)
+        room_data.pop("room_id", None)
+        hass.config_entries.async_update_subentry(
+            entry,
+            subentry,
+            data=room_data,
+            title=str(room_data.get(CONF_NAME, subentry.title)),
+        )
+    hass.config_entries.async_update_entry(
+        entry,
+        data=parent_data,
+        options={},
+        title=entry.title or "Cover Control",
+        unique_id=entry.unique_id or DOMAIN,
+        version=6,
+    )
+    return True
 
 
 async def _async_migrate_parent_profiles_to_data(

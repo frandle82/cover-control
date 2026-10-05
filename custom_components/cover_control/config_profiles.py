@@ -8,6 +8,8 @@ from typing import Any
 from uuid import uuid4
 
 from .config_resolver import (
+    effective_profile_id,
+    effective_room_profile_functions,
     GLOBAL_SOURCE_KEYS,
     PROFILE_KEYS,
     ROOM_SOURCE_OVERRIDE_KEYS,
@@ -24,6 +26,7 @@ from .const import (
     CONF_PROFILE_SELECTIONS,
     CONF_PROFILE_SETTINGS,
     CONF_PROFILES,
+    CONF_ROOM_PROFILE_ID,
     CONF_ROOM_OVERRIDES,
     CONF_ROOM_SETTINGS,
     CONF_ROOMS,
@@ -57,7 +60,8 @@ class ConfigProfileModel:
         self.data.setdefault(CONF_GLOBAL, {}).setdefault(CONF_GLOBAL_SOURCES, {})
         self.data[CONF_GLOBAL].setdefault(CONF_GLOBAL_DEFAULTS, {})
         profiles = self.data.setdefault(CONF_PROFILES, {})
-        for profile_type in PROFILE_TYPES:
+        typed_catalogs = any(profile_type in profiles for profile_type in PROFILE_TYPES)
+        for profile_type in PROFILE_TYPES if typed_catalogs else ():
             catalog = profiles.setdefault(profile_type, {})
             from .config_profile_schema import infer_capabilities
 
@@ -69,6 +73,14 @@ class ConfigProfileModel:
                     ),
                 )
         self.data.setdefault(CONF_ROOMS, {})
+        for room in self.data[CONF_ROOMS].values():
+            profile_id = effective_profile_id(room)
+            if profile_id:
+                room.setdefault("profile_id", profile_id)
+                room.setdefault(
+                    "profile_functions",
+                    sorted(effective_room_profile_functions(self.data, room)),
+                )
 
     @property
     def profile_users(self) -> dict[tuple[str, str], set[str]]:
@@ -76,6 +88,9 @@ class ConfigProfileModel:
 
         users: dict[tuple[str, str], set[str]] = {}
         for room_id, room in self.data[CONF_ROOMS].items():
+            profile_id = room.get(CONF_ROOM_PROFILE_ID)
+            if profile_id:
+                users.setdefault(("profile", str(profile_id)), set()).add(room_id)
             for profile_type, profile_id in room.get(
                 CONF_PROFILE_SELECTIONS, {}
             ).items():

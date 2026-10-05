@@ -12,17 +12,29 @@ from custom_components.cover_control.config_subentries import (
 from custom_components.cover_control.config_flow import CoverControlFlow
 from custom_components.cover_control.const import DOMAIN
 from custom_components.cover_control.sensor import ProfileScheduleSensor
+from custom_components.cover_control.sensor import async_setup_entry as async_setup_sensors
+from custom_components.cover_control.switch import async_setup_entry as async_setup_switches
 from custom_components.cover_control.runtime_data import CoverControlRuntime
 from custom_components.cover_control.const import (
+    CONF_AUTO_TIME,
+    CONF_COVERS,
     CONF_GLOBAL,
     CONF_GLOBAL_SOURCES,
     CONF_NAME,
+    CONF_PROFILE_FUNCTIONS,
+    CONF_PROFILE_ID,
+    CONF_PROFILE_NAME,
     CONF_PROFILE_SELECTIONS,
+    CONF_PROFILE_SETTINGS,
     CONF_PROFILES,
     CONF_RESIDENT_SENSOR,
+    CONF_ROOM_PROFILE_ID,
     CONF_ROOM_SETTINGS,
     CONF_ROOMS,
+    CONF_TIME_UP_EARLY_WORKDAY,
+    FUNCTION_TIME,
     PROFILE_TYPE_SHADING,
+    PROFILE_TYPES,
 )
 
 
@@ -62,11 +74,10 @@ def test_parent_profiles_and_room_subentries_build_one_transient_runtime_model()
         ],
     )
 
-    assert set(model[CONF_PROFILES][PROFILE_TYPE_SHADING]) == {"profile-south"}
+    profile_id = model[CONF_ROOMS]["room-living"]["profile_id"]
+    assert profile_id in model[CONF_PROFILES]
     assert model[CONF_ROOMS]["room-living"][CONF_NAME] == "Living"
-    assert model[CONF_ROOMS]["room-living"][CONF_PROFILE_SELECTIONS] == {
-        PROFILE_TYPE_SHADING: "profile-south"
-    }
+    assert model[CONF_ROOMS]["room-living"]["profile_functions"]
 
 
 def test_legacy_conversion_rewrites_profile_references_to_parent_profile_ids() -> None:
@@ -97,9 +108,10 @@ def test_legacy_conversion_rewrites_profile_references_to_parent_profile_ids() -
     )
 
     assert parent[CONF_GLOBAL][CONF_GLOBAL_SOURCES] == {"brightness_sensor": "sensor.lux"}
-    assert set(parent[CONF_PROFILES][PROFILE_TYPE_SHADING]) == {"new-profile"}
+    assert len(parent[CONF_PROFILES]) == 1
     room = next(data for subentry_id, kind, _title, data in subentries if kind == "room")
-    assert room[CONF_PROFILE_SELECTIONS] == {"shading": "new-profile"}
+    assert room["profile_id"] in parent[CONF_PROFILES]
+    assert CONF_PROFILE_SELECTIONS not in room
 
 
 def test_legacy_global_resident_sensor_moves_to_room_settings() -> None:
@@ -157,6 +169,131 @@ def test_profile_schedule_sensor_is_parent_entry_entity(hass) -> None:
 
     assert sensor.unique_id == "profile-profile-time-next_open"
     assert getattr(sensor, "config_subentry_id", None) is None
+
+
+async def test_v6_setup_keeps_runtime_model_flat_and_restart_persistent(hass) -> None:
+    hass.states.async_set("cover.living", "open", {"current_position": 100})
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Cover Control",
+        version=6,
+        data={
+            CONF_NAME: "Cover Control",
+            CONF_GLOBAL: {"sources": {}, "defaults": {}},
+            CONF_PROFILES: {
+                "profile-time": {
+                    CONF_PROFILE_ID: "profile-time",
+                    CONF_PROFILE_NAME: "Weekday",
+                    CONF_PROFILE_FUNCTIONS: [FUNCTION_TIME],
+                    CONF_PROFILE_SETTINGS: {
+                        CONF_AUTO_TIME: True,
+                        CONF_TIME_UP_EARLY_WORKDAY: "07:00:00",
+                    },
+                }
+            },
+        },
+        subentries_data=[
+            {
+                "subentry_id": "room-living",
+                "subentry_type": "room",
+                "title": "Living",
+                "unique_id": "room-living",
+                "data": {
+                    CONF_NAME: "Living",
+                    CONF_ROOM_SETTINGS: {CONF_COVERS: ["cover.living"]},
+                    CONF_ROOM_PROFILE_ID: "profile-time",
+                    CONF_PROFILE_FUNCTIONS: [FUNCTION_TIME],
+                    "source_overrides": {},
+                    "overrides": {},
+                },
+            }
+        ],
+    )
+    entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    runtime = entry.runtime_data
+    assert isinstance(runtime, CoverControlRuntime)
+    assert not (set(runtime.model[CONF_PROFILES]) & set(PROFILE_TYPES))
+    assert not (set(entry.data[CONF_PROFILES]) & set(PROFILE_TYPES))
+
+    assert await hass.config_entries.async_unload(entry.entry_id)
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+
+    runtime = entry.runtime_data
+    assert isinstance(runtime, CoverControlRuntime)
+    assert not (set(runtime.model[CONF_PROFILES]) & set(PROFILE_TYPES))
+    assert entry.subentries["room-living"].data[CONF_ROOM_PROFILE_ID] == "profile-time"
+    assert CONF_PROFILE_SELECTIONS not in entry.subentries["room-living"].data
+
+
+async def test_entity_registry_cleanup_uses_v6_desired_entities(hass) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Cover Control",
+        version=6,
+        data={
+            CONF_NAME: "Cover Control",
+            CONF_GLOBAL: {"sources": {}, "defaults": {}},
+            CONF_PROFILES: {
+                "profile-time": {
+                    CONF_PROFILE_ID: "profile-time",
+                    CONF_PROFILE_NAME: "Weekday",
+                    CONF_PROFILE_FUNCTIONS: [FUNCTION_TIME],
+                    CONF_PROFILE_SETTINGS: {CONF_AUTO_TIME: True},
+                }
+            },
+        },
+        subentries_data=[
+            {
+                "subentry_id": "room-living",
+                "subentry_type": "room",
+                "title": "Living",
+                "unique_id": "room-living",
+                "data": {
+                    CONF_NAME: "Living",
+                    CONF_ROOM_SETTINGS: {CONF_COVERS: ["cover.living"]},
+                    CONF_ROOM_PROFILE_ID: "profile-time",
+                    CONF_PROFILE_FUNCTIONS: [FUNCTION_TIME],
+                    "source_overrides": {},
+                    "overrides": {},
+                },
+            }
+        ],
+    )
+    entry.add_to_hass(hass)
+    registry = er.async_get(hass)
+    registry.async_get_or_create(
+        "switch",
+        DOMAIN,
+        "room-living-auto_brightness_enabled",
+        config_entry=entry,
+    )
+    registry.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        "profile-stale-next_open",
+        config_entry=entry,
+    )
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    added = []
+    await async_setup_switches(hass, entry, added.extend)
+    await async_setup_sensors(hass, entry, added.extend)
+
+    added_unique_ids = {entity.unique_id for entity in added}
+    registry_unique_ids = {
+        entity.unique_id
+        for entity in er.async_entries_for_config_entry(registry, entry.entry_id)
+    }
+    assert "room-living-auto_time_enabled" in added_unique_ids
+    assert "profile-profile-time-next_open" in added_unique_ids
+    assert "room-living-auto_brightness_enabled" not in registry_unique_ids
+    assert "profile-stale-next_open" not in registry_unique_ids
 
 
 async def test_parent_runtime_owns_room_managers(hass) -> None:
@@ -222,14 +359,14 @@ async def test_legacy_entry_migrates_to_parent_and_native_subentries(hass) -> No
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert entry.version == 5
+    assert entry.version == 6
     assert entry.title == "Cover Control"
     assert entry.unique_id == DOMAIN
     assert "config_model" not in entry.data
     assert {subentry.subentry_type for subentry in entry.subentries.values()} == {
         "room",
     }
-    assert set(entry.data[CONF_PROFILES][PROFILE_TYPE_SHADING])
+    assert entry.data[CONF_PROFILES]
     assert isinstance(entry.runtime_data, CoverControlRuntime)
     assert len(entry.runtime_data.room_managers) == 1
     assert await hass.config_entries.async_unload(entry.entry_id)
@@ -272,14 +409,15 @@ async def test_v4_profile_subentries_migrate_to_parent_profiles(hass) -> None:
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert entry.version == 5
-    assert set(entry.data[CONF_PROFILES][PROFILE_TYPE_SHADING]) == {"profile-south"}
-    assert entry.data[CONF_PROFILES][PROFILE_TYPE_SHADING]["profile-south"]["name"] == "South"
+    assert entry.version == 6
+    assert len(entry.data[CONF_PROFILES]) == 1
+    profile = next(iter(entry.data[CONF_PROFILES].values()))
+    assert profile["name"] == "South"
     assert {subentry.subentry_type for subentry in entry.subentries.values()} == {
         "room"
     }
     room = next(iter(entry.subentries.values()))
-    assert room.data[CONF_PROFILE_SELECTIONS] == {"shading": "profile-south"}
+    assert room.data["profile_id"] in entry.data[CONF_PROFILES]
 
 
 async def test_multiple_legacy_entries_consolidate_into_one_parent(hass) -> None:
@@ -303,7 +441,7 @@ async def test_multiple_legacy_entries_consolidate_into_one_parent(hass) -> None
 
     entries = hass.config_entries.async_entries(DOMAIN)
     assert [entry.entry_id for entry in entries] == [first.entry_id]
-    assert second.version == 5
+    assert second.version == 6
     assert second.data == {"hub_entry_id": first.entry_id}
     room_subentries = [
         subentry

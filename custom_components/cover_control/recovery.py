@@ -10,6 +10,7 @@ from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
 
 from .const import (
+    CONF_ROOM_PROFILE_ID,
     CONF_PROFILE_SELECTIONS,
     CONF_PROFILES,
     CONF_ROOMS,
@@ -53,6 +54,20 @@ class RecoveryManager:
         rooms = model.get(CONF_ROOMS)
         if not isinstance(profiles, Mapping) or not isinstance(rooms, Mapping):
             raise ConfigValidationError("missing profiles or rooms catalog")
+        legacy_catalog = any(profile_type in profiles for profile_type in PROFILE_TYPES)
+        if not legacy_catalog:
+            for profile_id, profile in profiles.items():
+                if not isinstance(profile, Mapping):
+                    raise ConfigValidationError(f"invalid profile: {profile_id}")
+            for room_id, room in rooms.items():
+                if not isinstance(room, Mapping):
+                    raise ConfigValidationError(f"invalid room: {room_id}")
+                profile_id = room.get(CONF_ROOM_PROFILE_ID)
+                if profile_id and profile_id not in profiles:
+                    raise ConfigValidationError(
+                        f"missing profile reference: {room_id}:profile:{profile_id}"
+                    )
+            return
         for profile_type in PROFILE_TYPES:
             if not isinstance(profiles.get(profile_type), Mapping):
                 raise ConfigValidationError(f"invalid {profile_type} profile catalog")

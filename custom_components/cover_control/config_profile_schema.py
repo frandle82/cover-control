@@ -19,7 +19,6 @@ from .config_resolver import PROFILE_KEYS
 CONF_PROFILE_FIELDS = "configured_profile_fields"
 CONF_OVERRIDE_FIELDS = "configured_override_fields"
 CONF_GLOBAL_DEFAULT_FIELDS = "configured_global_default_fields"
-CONF_PROFILE_CAPABILITIES_FIELD = "profile_capabilities"
 
 _SHADING_CONDITIONS = [
     c.SHADING_CONDITION_AZIMUTH,
@@ -301,13 +300,6 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
             "shading_targets",
             (
                 c.CONF_AUTO_SHADING,
-                c.CONF_SHADING_POSITION,
-                c.CONF_SHADING_POSITION_ALT,
-                c.CONF_SHADING_TILT_POSITION,
-                c.CONF_SHADING_TILT_POSITION_0,
-                c.CONF_SHADING_TILT_POSITION_1,
-                c.CONF_SHADING_TILT_POSITION_2,
-                c.CONF_SHADING_TILT_POSITION_3,
                 c.CONF_SHADING_TILT_ELEVATION_1,
                 c.CONF_SHADING_TILT_ELEVATION_2,
                 c.CONF_SHADING_TILT_ELEVATION_3,
@@ -369,20 +361,6 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
     ),
     c.PROFILE_TYPE_BEHAVIOR: (
         (
-            "positions",
-            (
-                c.CONF_COVER_TYPE,
-                c.CONF_OPEN_POSITION,
-                c.CONF_CLOSE_POSITION,
-                c.CONF_VENTILATE_POSITION,
-                c.CONF_LOCKOUT_POSITION,
-                c.CONF_OPEN_TILT_POSITION,
-                c.CONF_CLOSE_TILT_POSITION,
-                c.CONF_VENTILATE_TILT_POSITION,
-                c.CONF_POSITION_TOLERANCE,
-            ),
-        ),
-        (
             "manual_override",
             (
                 c.CONF_MANUAL_OVERRIDE_MINUTES,
@@ -440,8 +418,6 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
         (
             "tilt_wait",
             (
-                c.CONF_COVER_TILT_WAIT_MODE,
-                c.CONF_COVER_TILT_WAIT_TIMEOUT,
                 c.CONF_ENABLE_LOGBOOK_COVER,
             ),
         ),
@@ -504,8 +480,6 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
         "positioning": frozenset(
             {
                 c.CONF_AUTO_SHADING,
-                c.CONF_SHADING_POSITION,
-                c.CONF_SHADING_POSITION_ALT,
             }
         ),
         "brightness": frozenset(
@@ -557,11 +531,6 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
         ),
         "tilt": frozenset(
             {
-                c.CONF_SHADING_TILT_POSITION,
-                c.CONF_SHADING_TILT_POSITION_0,
-                c.CONF_SHADING_TILT_POSITION_1,
-                c.CONF_SHADING_TILT_POSITION_2,
-                c.CONF_SHADING_TILT_POSITION_3,
                 c.CONF_SHADING_TILT_ELEVATION_1,
                 c.CONF_SHADING_TILT_ELEVATION_2,
                 c.CONF_SHADING_TILT_ELEVATION_3,
@@ -575,16 +544,6 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
         ),
     },
     c.PROFILE_TYPE_BEHAVIOR: {
-        "cover_positions": frozenset(
-            {
-                c.CONF_COVER_TYPE,
-                c.CONF_OPEN_POSITION,
-                c.CONF_CLOSE_POSITION,
-                c.CONF_VENTILATE_POSITION,
-                c.CONF_LOCKOUT_POSITION,
-                c.CONF_POSITION_TOLERANCE,
-            }
-        ),
         "manual_override": frozenset(
             {
                 c.CONF_MANUAL_OVERRIDE_MINUTES,
@@ -638,11 +597,6 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
         ),
         "tilt_behavior": frozenset(
             {
-                c.CONF_OPEN_TILT_POSITION,
-                c.CONF_CLOSE_TILT_POSITION,
-                c.CONF_VENTILATE_TILT_POSITION,
-                c.CONF_COVER_TILT_WAIT_MODE,
-                c.CONF_COVER_TILT_WAIT_TIMEOUT,
                 c.CONF_ENABLE_LOGBOOK_COVER,
             }
         ),
@@ -944,7 +898,7 @@ def extract_sparse_settings(
         if key not in PROFILE_KEYS[profile_type]
     }
     for key in selected:
-        if key in user_input:
+        if key in user_input and user_input[key] is not None:
             values[key] = _json_safe(user_input[key])
     return values
 
