@@ -16,10 +16,6 @@ from homeassistant.util import dt as dt_util
 from . import const as c
 from .config_resolver import PROFILE_KEYS
 
-CONF_PROFILE_FIELDS = "configured_profile_fields"
-CONF_OVERRIDE_FIELDS = "configured_override_fields"
-CONF_GLOBAL_DEFAULT_FIELDS = "configured_global_default_fields"
-
 _SHADING_CONDITIONS = [
     c.SHADING_CONDITION_AZIMUTH,
     c.SHADING_CONDITION_ELEVATION,
@@ -820,7 +816,7 @@ def build_profile_schema(
     fallbacks: Mapping[str, Any],
     *,
     profile_name: str | None = None,
-    field_selection: str | None = CONF_PROFILE_FIELDS,
+    field_selection: str | None = None,
     allowed_keys: Iterable[str] | None = None,
 ) -> vol.Schema:
     """Build typed, grouped schema while keeping persistence sparse."""
@@ -843,7 +839,6 @@ def build_profile_schema(
             selector.SelectSelectorConfig(
                 options=sorted(allowed),
                 multiple=True,
-                translation_key="profile_field",
             )
         )
     for group_name, keys in profile_groups(profile_type):
@@ -870,7 +865,7 @@ def extract_sparse_settings(
     profile_type: str,
     existing: Mapping[str, Any],
     *,
-    field_selection: str | None = CONF_PROFILE_FIELDS,
+    field_selection: str | None = None,
     allowed_keys: Iterable[str] | None = None,
 ) -> dict[str, Any]:
     """Keep selected known keys plus unknown legacy keys, never display defaults."""

@@ -366,7 +366,7 @@ class ProfileScheduleSensor(_BaseCoverControlSensor):
         self._attr_translation_key = f"profile_{key}"
         hub = self._hub()
         profile_name = (
-            hub.profile_name("profile", profile_id)
+            hub.profile_name(profile_id)
             if hub is not None
             else profile_id
         )

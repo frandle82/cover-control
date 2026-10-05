@@ -13,17 +13,20 @@ from custom_components.cover_control.const import (
     CONF_GLOBAL_DEFAULTS,
     CONF_GLOBAL_SOURCES,
     CONF_NAME,
-    CONF_PROFILE_SELECTIONS,
+    CONF_PROFILE_FUNCTIONS,
+    CONF_PROFILE_ID,
+    CONF_PROFILE_NAME,
+    CONF_PROFILE_SETTINGS,
     CONF_PROFILES,
+    CONF_ROOM_PROFILE_ID,
     CONF_ROOM_OVERRIDES,
     CONF_ROOM_SETTINGS,
     CONF_ROOMS,
     CONF_SHADING_WAITINGTIME_END,
     CONF_SOURCE_OVERRIDES,
     CONFIG_MODEL_VERSION,
-    PROFILE_TYPE_BEHAVIOR,
+    FUNCTION_SHADING,
     PROFILE_TYPE_SHADING,
-    PROFILE_TYPE_TIME,
 )
 from custom_components.cover_control.runtime.controller import CoverController
 from custom_components.cover_control.runtime.manager import ControllerManager
@@ -41,24 +44,29 @@ def _model() -> ConfigProfileModel:
                 CONF_GLOBAL_DEFAULTS: {},
             },
             CONF_PROFILES: {
-                PROFILE_TYPE_TIME: {},
-                PROFILE_TYPE_SHADING: {},
-                PROFILE_TYPE_BEHAVIOR: {},
+                "south": {
+                    CONF_PROFILE_ID: "south",
+                    CONF_PROFILE_NAME: "South",
+                    CONF_PROFILE_SETTINGS: {
+                        CONF_SHADING_WAITINGTIME_END: 60,
+                    },
+                    CONF_PROFILE_FUNCTIONS: [FUNCTION_SHADING],
+                },
             },
             CONF_ROOMS: {
                 "living": {
                     CONF_NAME: "Living",
-                    CONF_PROFILE_SELECTIONS: {},
+                    CONF_ROOM_PROFILE_ID: "south",
+                    CONF_PROFILE_FUNCTIONS: [FUNCTION_SHADING],
                     CONF_ROOM_SETTINGS: {},
                     CONF_SOURCE_OVERRIDES: {},
-                    CONF_ROOM_OVERRIDES: {},
                 },
                 "office": {
                     CONF_NAME: "Office",
-                    CONF_PROFILE_SELECTIONS: {},
+                    CONF_ROOM_PROFILE_ID: "south",
+                    CONF_PROFILE_FUNCTIONS: [FUNCTION_SHADING],
                     CONF_ROOM_SETTINGS: {},
                     CONF_SOURCE_OVERRIDES: {},
-                    CONF_ROOM_OVERRIDES: {},
                 },
             },
         }
@@ -78,45 +86,29 @@ def _manager() -> ControllerManager:
 
 def test_profile_change_updates_only_affected_runtime_room() -> None:
     model = _model()
-    model.create_profile(
-        PROFILE_TYPE_SHADING,
-        "South",
-        {CONF_SHADING_WAITINGTIME_END: 60},
-        profile_id="south",
-    )
-    model.assign_profile("office", PROFILE_TYPE_SHADING, "south")
+    model.data[CONF_ROOMS]["living"].pop(CONF_ROOM_PROFILE_ID)
+    model.data[CONF_ROOMS]["living"][CONF_PROFILE_FUNCTIONS] = []
     manager = _manager()
 
-    affected = model.update_profile(
-        PROFILE_TYPE_SHADING,
-        "south",
-        {CONF_SHADING_WAITINGTIME_END: 90},
-    )
+    model.data[CONF_PROFILES]["south"][CONF_PROFILE_SETTINGS][
+        CONF_SHADING_WAITINGTIME_END
+    ] = 90
+    affected = set(model.profile_users.get(("profile", "south"), set()))
     applied = manager.apply_config_model(model.data, affected)
 
     assert applied == set()
     manager.controllers["cover.living"].update_config.assert_not_called()
-    assert manager.profile_users[("profile", "legacy:time=|shading=south|behavior=")] == {
-        "office"
-    }
+    assert manager.profile_users[("profile", "south")] == {"office"}
 
 
 def test_profile_change_refreshes_config_listeners_and_timers() -> None:
     model = _model()
-    model.create_profile(
-        PROFILE_TYPE_SHADING,
-        "South",
-        {CONF_SHADING_WAITINGTIME_END: 60},
-        profile_id="south",
-    )
-    model.assign_profile("living", PROFILE_TYPE_SHADING, "south")
     manager = _manager()
 
-    affected = model.update_profile(
-        PROFILE_TYPE_SHADING,
-        "south",
-        {CONF_SHADING_WAITINGTIME_END: 90},
-    )
+    model.data[CONF_PROFILES]["south"][CONF_PROFILE_SETTINGS][
+        CONF_SHADING_WAITINGTIME_END
+    ] = 90
+    affected = set(model.profile_users.get(("profile", "south"), set()))
     applied = manager.apply_config_model(model.data, affected)
 
     assert applied == {"living"}
@@ -188,16 +180,13 @@ def test_profile_waiting_time_reschedules_existing_pending_timer() -> None:
 
 def test_configuration_diagnostics_expose_profile_and_value_origin() -> None:
     model = _model()
-    model.create_profile(
-        PROFILE_TYPE_SHADING,
-        "South standard",
-        {CONF_SHADING_WAITINGTIME_END: 600},
-        profile_id="south",
-    )
-    model.assign_profile("living", PROFILE_TYPE_SHADING, "south")
-    model.set_override(
-        "living", PROFILE_TYPE_SHADING, CONF_SHADING_WAITINGTIME_END, 300
-    )
+    model.data[CONF_PROFILES]["south"][CONF_PROFILE_NAME] = "South standard"
+    model.data[CONF_PROFILES]["south"][CONF_PROFILE_SETTINGS][
+        CONF_SHADING_WAITINGTIME_END
+    ] = 600
+    model.data[CONF_ROOMS]["living"][CONF_ROOM_SETTINGS][
+        CONF_SHADING_WAITINGTIME_END
+    ] = 300
     manager = object.__new__(ControllerManager)
     manager._resolved_config = resolve_config_model(model.data, "living")
 
@@ -207,6 +196,6 @@ def test_configuration_diagnostics_expose_profile_and_value_origin() -> None:
     assert diagnostics["profiles"]["profile"] == "South standard"
     assert diagnostics["resolved"][CONF_SHADING_WAITINGTIME_END] == {
         "value": 300,
-        "source": "room_override",
-        "source_name": "Room override",
+        "source": "room_setting",
+        "source_name": "Room setting",
     }

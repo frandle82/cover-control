@@ -15,7 +15,6 @@ from homeassistant.helpers.event import (
 )
 
 from .config_profiles import ConfigProfileModel
-from .config_profile_schema import infer_capabilities
 from .config_resolver import (
     GLOBAL_SOURCE_KEYS,
     configured_functions_from_profile,
@@ -28,13 +27,7 @@ from .const import (
     CONF_GLOBAL,
     CONF_GLOBAL_DEFAULTS,
     CONF_GLOBAL_SOURCES,
-    CONF_NAME,
-    CONF_ROOM_ID,
-    CONF_PROFILE_ID,
-    CONF_PROFILE_CAPABILITIES,
     CONF_PROFILE_NAME,
-    CONF_PROFILE_SETTINGS,
-    CONF_PROFILE_SELECTIONS,
     CONF_PROFILES,
     CONF_ROOMS,
     CONF_ROOM_OVERRIDES,
@@ -65,51 +58,6 @@ class ProfileEvaluation:
     brightness_eligible: bool | None = None
     forecast_eligible: bool | None = None
     weather_eligible: bool | None = None
-
-
-def merge_config_models(
-    base: Mapping[str, Any], incoming: Mapping[str, Any], *, namespace: str
-) -> dict[str, Any]:
-    """Merge room entries without unsafe profile-name deduplication."""
-
-    merged = ConfigProfileModel(base).data
-    other = ConfigProfileModel(incoming).data
-    for layer in (CONF_GLOBAL_SOURCES, CONF_GLOBAL_DEFAULTS):
-        target = merged[CONF_GLOBAL][layer]
-        for key, value in other[CONF_GLOBAL][layer].items():
-            target.setdefault(key, deepcopy(value))
-
-    remapped: dict[tuple[str, str], str] = {}
-    suffix = namespace.replace("-", "")[:8] or "imported"
-    for profile_type in PROFILE_TYPES:
-        target_catalog = merged[CONF_PROFILES][profile_type]
-        for profile_id, profile in other[CONF_PROFILES][profile_type].items():
-            new_id = profile_id
-            existing = target_catalog.get(profile_id)
-            if existing is not None and existing != profile:
-                new_id = f"{profile_id}-{suffix}"
-                counter = 2
-                while new_id in target_catalog:
-                    new_id = f"{profile_id}-{suffix}-{counter}"
-                    counter += 1
-            if new_id not in target_catalog:
-                copied = deepcopy(profile)
-                copied[CONF_PROFILE_ID] = new_id
-                target_catalog[new_id] = copied
-            remapped[(profile_type, profile_id)] = new_id
-
-    for room_id, room in other[CONF_ROOMS].items():
-        copied_room = deepcopy(room)
-        selections = copied_room.setdefault(CONF_PROFILE_SELECTIONS, {})
-        for profile_type, profile_id in tuple(selections.items()):
-            selections[profile_type] = remapped.get(
-                (profile_type, profile_id), profile_id
-            )
-        candidate = room_id
-        if candidate in merged[CONF_ROOMS] and merged[CONF_ROOMS][candidate] != copied_room:
-            candidate = f"{room_id}-{suffix}"
-        merged[CONF_ROOMS][candidate] = copied_room
-    return merged
 
 
 class CoverControlHub:
@@ -291,7 +239,6 @@ class CoverControlHub:
             next_open, next_close = evaluate_time_profile(
                 self.hass,
                 config,
-                capabilities=profile.get(CONF_PROFILE_CAPABILITIES, ()),
             )
             evaluations[profile_key] = ProfileEvaluation(
                 next_open=next_open,
@@ -361,7 +308,7 @@ class CoverControlHub:
             and not room.get(CONF_ROOM_OVERRIDES)
         )
 
-    def profile_name(self, profile_type: str, profile_id: str) -> str:
+    def profile_name(self, profile_id: str) -> str:
         profile = effective_profile(self.model, {"profile_id": profile_id})
         if not profile:
             for room in self.model.get(CONF_ROOMS, {}).values():

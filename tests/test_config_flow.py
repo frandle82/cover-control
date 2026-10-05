@@ -20,8 +20,6 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.cover_control.config_flow import INITIAL_FEATURE_KEYS
 from custom_components.cover_control.config_profile_schema import (
-    CONF_OVERRIDE_FIELDS,
-    CONF_PROFILE_FIELDS,
     PROFILE_CAPABILITY_KEYS,
 )
 from custom_components.cover_control.config_resolver import (
@@ -60,6 +58,8 @@ from custom_components.cover_control.const import (
     DEFAULT_NAME,
     DOMAIN,
 )
+
+LEGACY_PROFILE_FIELDS = "configured_profile_fields"
 
 
 def test_resident_sensor_is_room_only_source() -> None:
@@ -135,9 +135,8 @@ def test_parent_reconfigure_steps_have_runtime_translations() -> None:
         assert set(steps["global_sources"]["data"]) == GLOBAL_SOURCE_KEYS
         assert set(steps["global_sources"]["data_description"]) == GLOBAL_SOURCE_KEYS
         assert GLOBAL_DEFAULT_KEYS == frozenset()
-        assert "configured_global_default_fields" not in str(
-            steps["reconfigure"]["menu_options"]
-        )
+        assert "global_defaults" not in steps
+        assert "configured_global_default_fields" not in json.dumps(document)
         assert {"profile_action", "profile_id"} <= set(steps["profiles"]["data"])
         assert {"profile_name"} <= set(steps["profile_setup"]["data"])
         assert set(steps["profile_sections"]["menu_options"]) == {
@@ -156,7 +155,6 @@ def test_parent_reconfigure_steps_have_runtime_translations() -> None:
         assert "reconfigure_successful" in document["config"]["abort"]
         assert "single_instance_allowed" in document["config"]["abort"]
         assert {
-            "no_profile_for_overrides",
             "profile_required_for_functions",
             "profile_has_no_functions",
         } <= set(document["config_subentries"]["room"]["abort"])
@@ -177,7 +175,22 @@ def test_active_room_steps_have_runtime_translations() -> None:
         "profile_references",
         "profile_functions",
         "source_overrides",
+        "controls",
         "diagnostics",
+    }
+    legacy_room_steps = {
+        "time",
+        "brightness",
+        "sun",
+        "shading",
+        "ventilation",
+        "resident",
+        "behavior",
+        "functions",
+        "overrides",
+        "override_time",
+        "override_shading",
+        "override_behavior",
     }
     menu_steps = {
         "reconfigure",
@@ -191,6 +204,7 @@ def test_active_room_steps_have_runtime_translations() -> None:
         document = json.loads(path.read_text())
         steps = document["config_subentries"]["room"]["step"]
         assert active_room_steps <= set(steps)
+        assert legacy_room_steps.isdisjoint(steps)
         for step in active_room_steps:
             assert "title" in steps[step]
             assert "description" in steps[step]
@@ -201,8 +215,6 @@ def test_active_room_steps_have_runtime_translations() -> None:
         room_abort = document["config_subentries"]["room"]["abort"]
         assert {
             "reconfigure_successful",
-            "missing_profile_reference",
-            "no_profile_for_overrides",
             "profile_required_for_functions",
             "profile_has_no_functions",
         } <= set(room_abort)
@@ -302,8 +314,76 @@ def test_active_v6_translation_details_are_covered() -> None:
         "fuer",
     ):
         assert forbidden not in de_text
-    assert "Kein Profil" in de_text
     assert "Azimut" not in de_document["config"]["step"]["profile_sun"]["description"]
+
+
+def test_legacy_config_flow_methods_are_not_active() -> None:
+    """Removed legacy UI steps must not remain directly addressable."""
+
+    from custom_components.cover_control.config_flow import (
+        CoverControlFlow,
+        RoomSubentryFlow,
+    )
+
+    assert not hasattr(CoverControlFlow, "async_step_global_defaults")
+    parent_steps = {
+        name.removeprefix("async_step_")
+        for name in CoverControlFlow.__dict__
+        if name.startswith("async_step_")
+    }
+    assert parent_steps == {
+        "user",
+        "global_sources",
+        "reconfigure",
+        "profiles",
+        "profile_setup",
+        "profile_sections",
+        "profile_time",
+        "profile_brightness",
+        "profile_sun",
+        "profile_shading",
+        "profile_ventilation",
+        "profile_resident",
+        "profile_behavior",
+        "diagnostics",
+        "recovery",
+    }
+    room_steps = {
+        name.removeprefix("async_step_")
+        for name in RoomSubentryFlow.__dict__
+        if name.startswith("async_step_")
+    }
+    assert room_steps == {
+        "user",
+        "reconfigure",
+        "general",
+        "hardware",
+        "positions",
+        "contacts",
+        "room_sensors",
+        "geometry",
+        "profile_references",
+        "profile_functions",
+        "source_overrides",
+        "controls",
+        "diagnostics",
+    }
+    for method in (
+        "async_step_time",
+        "async_step_brightness",
+        "async_step_sun",
+        "async_step_shading",
+        "async_step_ventilation",
+        "async_step_resident",
+        "async_step_behavior",
+        "async_step_overrides",
+        "async_step_override_time",
+        "async_step_override_shading",
+        "async_step_override_behavior",
+        "_async_function_step",
+        "_async_override_step",
+    ):
+        assert not hasattr(RoomSubentryFlow, method)
 
 
 def _frontend_initial_data(data_schema) -> dict:
@@ -424,7 +504,7 @@ async def _create_profile(hass, entry, profile_type: str, data: dict):
         result["flow_id"], {"profile_action": "create"}
     )
     assert result["step_id"] == "profile_setup"
-    data.pop(CONF_PROFILE_FIELDS, None)
+    data.pop(LEGACY_PROFILE_FIELDS, None)
     profile_name = data.pop("profile_name")
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"profile_name": profile_name}
@@ -731,7 +811,7 @@ async def test_time_profile_can_be_created_with_native_fields(hass):
         c.PROFILE_TYPE_TIME,
         {
             "profile_name": "Weekday",
-            CONF_PROFILE_FIELDS: [c.CONF_AUTO_TIME, c.CONF_TIME_UP_EARLY_WORKDAY],
+            LEGACY_PROFILE_FIELDS: [c.CONF_AUTO_TIME, c.CONF_TIME_UP_EARLY_WORKDAY],
             "time_features": {c.CONF_AUTO_TIME: True},
             "workday_times": {c.CONF_TIME_UP_EARLY_WORKDAY: "06:30:00"},
         },
@@ -760,7 +840,7 @@ async def test_shading_profile_can_be_created_with_native_fields(hass):
         c.PROFILE_TYPE_SHADING,
         {
             "profile_name": "South",
-            CONF_PROFILE_FIELDS: selected,
+            LEGACY_PROFILE_FIELDS: selected,
             "shading_forecast": {c.CONF_SHADING_FORECAST_TYPE: "hourly"},
             "shading_conditions": {
                 c.CONF_SHADING_CONDITIONS_START_AND: [
@@ -795,7 +875,7 @@ async def test_behavior_profile_can_be_created_with_native_fields(hass):
         c.PROFILE_TYPE_BEHAVIOR,
         {
             "profile_name": "Standard",
-            CONF_PROFILE_FIELDS: [
+            LEGACY_PROFILE_FIELDS: [
                 c.CONF_MANUAL_OVERRIDE_MINUTES,
                 c.CONF_MANUAL_OVERRIDE_RESET_MODE,
                 c.CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
@@ -1190,7 +1270,7 @@ async def test_room_profile_clear_removes_reference_and_function_selection(hass)
 
     result = await _open_room_step(hass, entry, "profile_references")
     result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], {c.CONF_ROOM_PROFILE_ID: ""}
+        result["flow_id"], {}
     )
 
     assert result["type"] is FlowResultType.ABORT
