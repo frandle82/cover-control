@@ -16,6 +16,7 @@ from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
 from ..config_resolver import (
+    effective_profile_id,
     ResolvedRoomConfig,
     resolve_config_model,
 )
@@ -598,10 +599,9 @@ class ControllerManager:
 
         users: dict[tuple[str, str], set[str]] = {}
         for room_id, room in self._config_model.get(CONF_ROOMS, {}).items():
-            for profile_type, profile_id in room.get(
-                CONF_PROFILE_SELECTIONS, {}
-            ).items():
-                users.setdefault((profile_type, profile_id), set()).add(room_id)
+            profile_id = effective_profile_id(room)
+            if profile_id:
+                users.setdefault(("profile", profile_id), set()).add(room_id)
         self.profile_users = users
 
     def set_manual_override(self, cover: str, minutes: int) -> bool:

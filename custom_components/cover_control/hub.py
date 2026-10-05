@@ -16,7 +16,13 @@ from homeassistant.helpers.event import (
 
 from .config_profiles import ConfigProfileModel
 from .config_profile_schema import infer_capabilities
-from .config_resolver import GLOBAL_SOURCE_KEYS, resolve_profile_config
+from .config_resolver import (
+    GLOBAL_SOURCE_KEYS,
+    effective_profile,
+    effective_profile_id,
+    effective_room_profile_functions,
+    resolve_profile_config,
+)
 from .const import (
     CONF_GLOBAL,
     CONF_GLOBAL_DEFAULTS,
@@ -36,6 +42,11 @@ from .const import (
     PROFILE_TYPE_SHADING,
     PROFILE_TYPE_BEHAVIOR,
     SIGNAL_HUB_STATE_UPDATED,
+    FUNCTION_BRIGHTNESS,
+    FUNCTION_RESIDENT,
+    FUNCTION_SHADING,
+    FUNCTION_SUN,
+    FUNCTION_TIME,
 )
 from .runtime.profile_evaluation import evaluate_time_profile
 from .shared_input import SharedInputCoordinator
@@ -157,10 +168,9 @@ class CoverControlHub:
     def _rebuild_dependencies(self) -> None:
         users: dict[tuple[str, str], set[str]] = {}
         for room_id, room in self.model.get(CONF_ROOMS, {}).items():
-            for profile_type, profile_id in room.get(
-                CONF_PROFILE_SELECTIONS, {}
-            ).items():
-                users.setdefault((profile_type, profile_id), set()).add(room_id)
+            profile_id = effective_profile_id(room)
+            if profile_id:
+                users.setdefault(("profile", profile_id), set()).add(room_id)
         self.profile_users = users
 
         profile_routes: dict[str, set[tuple[str, str]]] = {}
@@ -172,10 +182,10 @@ class CoverControlHub:
             if key not in GLOBAL_SOURCE_KEYS or not isinstance(entity_id, str):
                 continue
             for profile_key, rooms in users.items():
-                profile = self.model[CONF_PROFILES][profile_key[0]].get(
-                    profile_key[1], {}
-                )
-                if not self._profile_uses_source(profile_key[0], profile, key):
+                if not any(
+                    self._room_uses_source(self.model[CONF_ROOMS][room_id], key)
+                    for room_id in rooms
+                ):
                     continue
                 profile_routes.setdefault(entity_id, set()).add(profile_key)
                 room_routes.setdefault(entity_id, set()).update(rooms)
@@ -185,33 +195,25 @@ class CoverControlHub:
         self.entity_profile_routes = profile_routes
         self.entity_room_routes = room_routes
 
-    @staticmethod
-    def _profile_uses_source(
-        profile_type: str, profile: Mapping[str, Any], source_key: str
-    ) -> bool:
-        capability_by_source = {
-            "workday_sensor": (PROFILE_TYPE_TIME, "workday"),
-            "workday_tomorrow_sensor": (PROFILE_TYPE_TIME, "workday"),
-            "calendar_entity": (PROFILE_TYPE_TIME, "calendar"),
-            "brightness_sensor": (PROFILE_TYPE_TIME, "brightness"),
-            "sun_elevation_dynamic_open_sensor": (PROFILE_TYPE_TIME, "sun"),
-            "sun_elevation_dynamic_close_sensor": (PROFILE_TYPE_TIME, "sun"),
-            "shading_brightness_sensor": (PROFILE_TYPE_SHADING, "brightness"),
-            "temperature_sensor_outdoor": (PROFILE_TYPE_SHADING, "temperature"),
-            "cold_protection_forecast_sensor": (PROFILE_TYPE_SHADING, "temperature"),
-            "shading_forecast_sensor": (PROFILE_TYPE_SHADING, "forecast"),
-            "shading_forecast_temp_sensor": (PROFILE_TYPE_SHADING, "forecast"),
-            "resident_sensor": (PROFILE_TYPE_BEHAVIOR, "resident"),
+    def _room_uses_source(self, room: Mapping[str, Any], source_key: str) -> bool:
+        function_by_source = {
+            "workday_sensor": FUNCTION_TIME,
+            "workday_tomorrow_sensor": FUNCTION_TIME,
+            "calendar_entity": FUNCTION_TIME,
+            "brightness_sensor": FUNCTION_BRIGHTNESS,
+            "sun_elevation_dynamic_open_sensor": FUNCTION_SUN,
+            "sun_elevation_dynamic_close_sensor": FUNCTION_SUN,
+            "shading_brightness_sensor": FUNCTION_SHADING,
+            "temperature_sensor_outdoor": FUNCTION_SHADING,
+            "cold_protection_forecast_sensor": FUNCTION_SHADING,
+            "shading_forecast_sensor": FUNCTION_SHADING,
+            "shading_forecast_temp_sensor": FUNCTION_SHADING,
+            "resident_sensor": FUNCTION_RESIDENT,
         }
-        required = capability_by_source.get(source_key)
-        if required is None or required[0] != profile_type:
+        function = function_by_source.get(source_key)
+        if function is None:
             return False
-        capabilities = profile.get(CONF_PROFILE_CAPABILITIES)
-        if not isinstance(capabilities, list):
-            capabilities = infer_capabilities(
-                profile_type, profile.get(CONF_PROFILE_SETTINGS, {})
-            )
-        return required[1] in capabilities
+        return function in effective_room_profile_functions(self.model, room)
 
     @callback
     def refresh_shared_listener(self) -> None:
@@ -257,17 +259,34 @@ class CoverControlHub:
         if profile_keys is None:
             evaluations = {}
         for profile_key in candidates:
-            if profile_key[0] != PROFILE_TYPE_TIME:
-                continue
             if profile_key not in self.profile_users:
                 evaluations.pop(profile_key, None)
                 continue
+            rooms = self.profile_users.get(profile_key, set())
+            known_rooms = self.model.get(CONF_ROOMS, {})
+            if not any(
+                FUNCTION_TIME
+                in effective_room_profile_functions(self.model, known_rooms[room_id])
+                for room_id in rooms
+                if room_id in known_rooms
+            ):
+                if known_rooms:
+                    evaluations.pop(profile_key, None)
+                    continue
             config = resolve_profile_config(
                 self.model, profile_key[0], profile_key[1]
             )
-            profile = self.model[CONF_PROFILES][profile_key[0]].get(
-                profile_key[1], {}
-            )
+            profile = effective_profile(self.model, {"profile_id": profile_key[1]})
+            if not profile:
+                room = next(
+                    (
+                        room
+                        for room in self.model.get(CONF_ROOMS, {}).values()
+                        if effective_profile_id(room) == profile_key[1]
+                    ),
+                    {},
+                )
+                profile = effective_profile(self.model, room)
             next_open, next_close = evaluate_time_profile(
                 self.hass,
                 config,
@@ -314,7 +333,7 @@ class CoverControlHub:
             def _handle(_now: datetime, key=timer_key) -> None:
                 self._profile_timer_unsubs.pop(key, None)
                 self._profile_timer_at.pop(key, None)
-                rooms = self.profile_users.get((PROFILE_TYPE_TIME, key[0]), set())
+                rooms = self.profile_users.get(("profile", key[0]), set())
                 for manager in self.managers.values():
                     if manager.room_id in rooms:
                         manager.request_evaluate_all(f"profile_{key[1]}")
@@ -334,14 +353,20 @@ class CoverControlHub:
 
     def room_uses_shared_time_timer(self, room_id: str) -> bool:
         room = self.model.get(CONF_ROOMS, {}).get(room_id, {})
-        profile_id = room.get(CONF_PROFILE_SELECTIONS, {}).get(PROFILE_TYPE_TIME)
-        overrides = room.get(CONF_ROOM_OVERRIDES, {}).get(PROFILE_TYPE_TIME, {})
-        return bool(profile_id and not overrides)
+        profile_id = effective_profile_id(room)
+        return bool(
+            profile_id
+            and FUNCTION_TIME in effective_room_profile_functions(self.model, room)
+            and not room.get(CONF_ROOM_OVERRIDES)
+        )
 
     def profile_name(self, profile_type: str, profile_id: str) -> str:
-        profile = self.model.get(CONF_PROFILES, {}).get(profile_type, {}).get(
-            profile_id, {}
-        )
+        profile = effective_profile(self.model, {"profile_id": profile_id})
+        if not profile:
+            for room in self.model.get(CONF_ROOMS, {}).values():
+                if effective_profile_id(room) == profile_id:
+                    profile = effective_profile(self.model, room)
+                    break
         return str(profile.get(CONF_PROFILE_NAME, profile_id))
 
     def diagnostics(self) -> dict[str, Any]:

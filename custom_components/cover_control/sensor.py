@@ -12,7 +12,6 @@ from homeassistant.helpers.dispatcher import async_dispatcher_connect
 from homeassistant.helpers.entity import DeviceInfo, EntityCategory
 from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import (
-    CONF_PROFILE_CAPABILITIES,
     CONF_PROFILES,
     CONF_NAME,
     CONF_RESIDENT_STATUS,
@@ -20,7 +19,12 @@ from .const import (
     DOMAIN,
     SIGNAL_ENTRY_STATE_UPDATED,
     SIGNAL_HUB_STATE_UPDATED,
-    PROFILE_TYPE_TIME,
+    FUNCTION_TIME,
+)
+from .config_resolver import (
+    configured_functions_from_profile,
+    effective_profile,
+    effective_profile_id,
 )
 from .controller import ControllerManager
 from .hub import CoverControlHub
@@ -47,13 +51,22 @@ async def async_setup_entry(
                 resolved.get(CONF_RESIDENT_STATUS)
             ):
                 entities.append(ResidentStatusSensor(hass, entry, room_id))
-        for profile_id, profile in runtime.model.get(CONF_PROFILES, {}).get(
-            PROFILE_TYPE_TIME, {}
-        ).items():
-            capabilities = profile.get(CONF_PROFILE_CAPABILITIES, [])
-            if "opening" in capabilities:
+        profile_ids: set[str] = set()
+        for room in runtime.model.get("rooms", {}).values():
+            profile_id = effective_profile_id(room)
+            if profile_id:
+                profile_ids.add(profile_id)
+        for profile_id in sorted(profile_ids):
+            profile = effective_profile(runtime.model, {"profile_id": profile_id})
+            if not profile:
+                room = next(
+                    room
+                    for room in runtime.model.get("rooms", {}).values()
+                    if effective_profile_id(room) == profile_id
+                )
+                profile = effective_profile(runtime.model, room)
+            if FUNCTION_TIME in configured_functions_from_profile(profile):
                 entities.append(ProfileScheduleSensor(hass, entry, profile_id, "next_open"))
-            if "closing" in capabilities:
                 entities.append(ProfileScheduleSensor(hass, entry, profile_id, "next_close"))
         desired = {entity.unique_id for entity in entities}
         registry = er.async_get(hass)
@@ -352,7 +365,7 @@ class ProfileScheduleSensor(_BaseCoverControlSensor):
         self._attr_translation_key = f"profile_{key}"
         hub = self._hub()
         profile_name = (
-            hub.profile_name(PROFILE_TYPE_TIME, profile_id)
+            hub.profile_name("profile", profile_id)
             if hub is not None
             else profile_id
         )
@@ -383,7 +396,7 @@ class ProfileScheduleSensor(_BaseCoverControlSensor):
         previous = self._value
         hub = self._hub()
         evaluation = (
-            hub.profile_evaluations.get((PROFILE_TYPE_TIME, self.profile_id))
+            hub.profile_evaluations.get(("profile", self.profile_id))
             if hub is not None
             else None
         )
@@ -400,7 +413,7 @@ class ProfileScheduleSensor(_BaseCoverControlSensor):
         return {
             "profile_id": self.profile_id,
             "rooms": sorted(
-                hub.profile_users.get((PROFILE_TYPE_TIME, self.profile_id), ())
+                hub.profile_users.get(("profile", self.profile_id), ())
             )
             if hub is not None
             else [],

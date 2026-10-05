@@ -16,6 +16,7 @@ from custom_components.cover_control.const import (
     CONF_ROOM_OVERRIDES,
     CONF_ROOM_SETTINGS,
     CONF_ROOMS,
+    CONF_SHADING_WAITINGTIME_END,
     CONF_SOURCE_OVERRIDES,
     PROFILE_TYPE_BEHAVIOR,
     PROFILE_TYPE_SHADING,
@@ -52,9 +53,9 @@ def _model(room_id: str, profile_id: str, position: int) -> dict:
     model.create_profile(
         PROFILE_TYPE_SHADING,
         "Same visible name",
-        {"shading_position": position},
+        {CONF_SHADING_WAITINGTIME_END: position},
         profile_id=profile_id,
-        capabilities=["positioning"],
+        capabilities=["waiting"],
     )
     model.assign_profile(room_id, PROFILE_TYPE_SHADING, profile_id)
     return model.data
@@ -73,7 +74,7 @@ def test_merge_keeps_same_name_profiles_separate_when_values_differ() -> None:
         PROFILE_TYPE_SHADING
     ]
     assert office_id != "south"
-    assert catalog[office_id]["settings"]["shading_position"] == 35
+    assert catalog[office_id]["settings"][CONF_SHADING_WAITINGTIME_END] == 35
 
 
 def test_merge_reuses_identical_stable_profile_id() -> None:

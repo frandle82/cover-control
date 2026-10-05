@@ -13,6 +13,7 @@ from copy import deepcopy
 from typing import Any
 
 from .config_profiles import ConfigProfileModel
+from .config_migration import unify_profile_model
 from .const import (
     CONF_GLOBAL,
     CONF_GLOBAL_DEFAULTS,
@@ -65,10 +66,7 @@ def model_from_subentries(
             CONF_GLOBAL_SOURCES: deepcopy(global_data.get(CONF_GLOBAL_SOURCES, {})),
             CONF_GLOBAL_DEFAULTS: deepcopy(global_data.get(CONF_GLOBAL_DEFAULTS, {})),
         },
-        CONF_PROFILES: {
-            profile_type: deepcopy(parent_profiles.get(profile_type, {}))
-            for profile_type in PROFILE_TYPES
-        },
+        CONF_PROFILES: deepcopy(parent_profiles),
         CONF_ROOMS: {},
     }
     for subentry in subentries:
@@ -87,7 +85,7 @@ def model_from_subentries(
             model[CONF_ROOMS][subentry_id] = room
             continue
     _migrate_legacy_global_resident_source(model)
-    return ConfigProfileModel(model).data
+    return ConfigProfileModel(unify_profile_model(model)).data
 
 
 def legacy_model_to_subentry_data(
@@ -96,35 +94,21 @@ def legacy_model_to_subentry_data(
 ) -> tuple[dict[str, Any], list[tuple[str, str, str, dict[str, Any]]]]:
     """Convert legacy catalog model to parent data and room subentry payloads."""
 
-    canonical = ConfigProfileModel(model).data
+    canonical = unify_profile_model(model)
     _migrate_legacy_global_resident_source(canonical)
     parent_data = {
         CONF_GLOBAL: deepcopy(canonical[CONF_GLOBAL]),
-        CONF_PROFILES: {profile_type: {} for profile_type in PROFILE_TYPES},
+        CONF_PROFILES: {
+            profile_id: deepcopy(profile)
+            for profile_id, profile in canonical[CONF_PROFILES].items()
+            if profile_id not in PROFILE_TYPES
+        },
     }
-    profile_ids: dict[tuple[str, str], str] = {}
-    for profile_type in PROFILE_TYPES:
-        for legacy_id, profile in canonical[CONF_PROFILES][profile_type].items():
-            new_id = subentry_id()
-            profile_ids[(profile_type, legacy_id)] = new_id
-            parent_data[CONF_PROFILES][profile_type][new_id] = {
-                CONF_PROFILE_ID: new_id,
-                CONF_PROFILE_NAME: str(profile.get(CONF_PROFILE_NAME, legacy_id)),
-                CONF_PROFILE_CAPABILITIES: deepcopy(
-                    profile.get(CONF_PROFILE_CAPABILITIES, [])
-                ),
-                CONF_PROFILE_SETTINGS: deepcopy(
-                    profile.get(CONF_PROFILE_SETTINGS, {})
-                ),
-            }
 
     rooms: list[tuple[str, str, str, dict[str, Any]]] = []
     for _legacy_id, room in canonical[CONF_ROOMS].items():
         room_id = subentry_id()
         room_data = deepcopy(room)
-        selections = room_data.setdefault(CONF_PROFILE_SELECTIONS, {})
-        for profile_type, legacy_profile_id in tuple(selections.items()):
-            selections[profile_type] = profile_ids[(profile_type, legacy_profile_id)]
         room_data.pop(CONF_ROOM_ID, None)
         rooms.append(
             (
@@ -142,10 +126,14 @@ def model_to_native_payloads(
 ) -> tuple[dict[str, Any], list[tuple[str, str, str, dict[str, Any]]]]:
     """Serialize runtime model while preserving native subentry IDs."""
 
-    canonical = ConfigProfileModel(model).data
+    canonical = ConfigProfileModel(unify_profile_model(model)).data
     parent_data = {
         CONF_GLOBAL: deepcopy(canonical[CONF_GLOBAL]),
-        CONF_PROFILES: deepcopy(canonical[CONF_PROFILES]),
+        CONF_PROFILES: {
+            profile_id: deepcopy(profile)
+            for profile_id, profile in canonical[CONF_PROFILES].items()
+            if profile_id not in PROFILE_TYPES
+        },
     }
     payloads: list[tuple[str, str, str, dict[str, Any]]] = []
     for room_id, room in canonical[CONF_ROOMS].items():

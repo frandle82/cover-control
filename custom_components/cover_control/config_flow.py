@@ -16,11 +16,10 @@ from homeassistant.data_entry_flow import FlowResult, section
 from homeassistant.helpers import selector
 from homeassistant.util import dt as dt_util
 
-from .config_profiles import ConfigProfileModel, ProfileError, ProfileInUseError
+from .config_profiles import ConfigProfileModel
 from .config_profile_schema import (
     CONF_GLOBAL_DEFAULT_FIELDS,
     CONF_OVERRIDE_FIELDS,
-    CONF_PROFILE_CAPABILITIES_FIELD,
     PROFILE_CAPABILITY_KEYS,
     build_profile_schema,
     capability_keys,
@@ -33,6 +32,8 @@ from .config_resolver import (
     GLOBAL_SOURCE_KEYS,
     PROFILE_KEYS,
     ROOM_SOURCE_OVERRIDE_KEYS,
+    configured_functions_from_profile,
+    effective_profile,
     resolve_config_model,
     system_defaults,
 )
@@ -100,10 +101,13 @@ from .const import (
     CONF_MANUAL_OVERRIDE_RESET_TIME,
     CONF_NAME,
     CONF_PROFILE_CAPABILITIES,
+    CONF_PROFILE_FUNCTIONS,
+    CONF_PROFILE_ID,
     CONF_PROFILE_NAME,
     CONF_PROFILES,
     CONF_PROFILE_SETTINGS,
     CONF_OPEN_POSITION,
+    CONF_ROOM_PROFILE_ID,
     CONF_OPEN_TILT_POSITION,
     CONF_ROOM,
     CONF_ROOMS,
@@ -286,6 +290,7 @@ from .const import (
     PROFILE_TYPE_BEHAVIOR,
     PROFILE_TYPE_SHADING,
     PROFILE_TYPE_TIME,
+    PROFILE_FUNCTIONS,
     PROFILE_TYPES,
     MANUAL_OVERRIDE_RESET_NONE,
     MANUAL_OVERRIDE_RESET_TIME,
@@ -489,11 +494,10 @@ def _normalize_position_fields(data: dict[str, Any]) -> dict[str, Any]:
 class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the config flow."""
 
-    VERSION = 5
+    VERSION = 6
 
     def __init__(self) -> None:
         self._data: dict = {}
-        self._profile_type = PROFILE_TYPE_TIME
 
     async def async_step_user(self, user_input=None) -> FlowResult:
         """Create exactly one global parent entry without requiring a room."""
@@ -1449,7 +1453,11 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         entry = self._entry()
         new_data = deepcopy(dict(entry.data))
         new_data[CONF_GLOBAL] = deepcopy(model.data[CONF_GLOBAL])
-        new_data[CONF_PROFILES] = deepcopy(model.data[CONF_PROFILES])
+        new_data[CONF_PROFILES] = {
+            profile_id: deepcopy(profile)
+            for profile_id, profile in model.data[CONF_PROFILES].items()
+            if profile_id not in PROFILE_TYPES
+        }
         self.hass.config_entries.async_update_entry(
             entry,
             data=new_data,
@@ -1543,11 +1551,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     data={
                         CONF_NAME: DEFAULT_NAME,
                         CONF_GLOBAL: self._data[CONF_GLOBAL],
-                        CONF_PROFILES: {
-                            PROFILE_TYPE_TIME: {},
-                            PROFILE_TYPE_SHADING: {},
-                            PROFILE_TYPE_BEHAVIOR: {},
-                        },
+                        CONF_PROFILES: {},
                     },
                 )
             return self.async_show_form(
@@ -1636,13 +1640,14 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_diagnostics(self, user_input=None) -> FlowResult:
         model = self._model()
         usage = []
-        for profile_type in PROFILE_TYPES:
-            for profile_id, profile in model.data[CONF_PROFILES][profile_type].items():
-                rooms = sorted(model.profile_users.get((profile_type, profile_id), ()))
-                usage.append(
-                    f"{profile.get(CONF_PROFILE_NAME, profile_id)}: "
-                    f"{', '.join(self._room_names(model, rooms)) or '—'}"
-                )
+        for profile_id, profile in model.data[CONF_PROFILES].items():
+            if profile_id in PROFILE_TYPES:
+                continue
+            rooms = sorted(model.profile_users.get(("profile", profile_id), ()))
+            usage.append(
+                f"{profile.get(CONF_PROFILE_NAME, profile_id)}: "
+                f"{', '.join(self._room_names(model, rooms)) or '—'}"
+            )
         return self.async_show_form(
             step_id="diagnostics",
             data_schema=vol.Schema({}),
@@ -1650,32 +1655,12 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_profiles(self, user_input=None) -> FlowResult:
-        return self.async_show_menu(
-            step_id="profiles",
-            menu_options=[
-                "time_profiles",
-                "shading_profiles",
-                "behavior_profiles",
-            ],
-        )
-
-    async def async_step_time_profiles(self, user_input=None) -> FlowResult:
-        self._profile_type = PROFILE_TYPE_TIME
-        return await self._async_profile_manager("time_profiles", user_input)
-
-    async def async_step_shading_profiles(self, user_input=None) -> FlowResult:
-        self._profile_type = PROFILE_TYPE_SHADING
-        return await self._async_profile_manager("shading_profiles", user_input)
-
-    async def async_step_behavior_profiles(self, user_input=None) -> FlowResult:
-        self._profile_type = PROFILE_TYPE_BEHAVIOR
-        return await self._async_profile_manager("behavior_profiles", user_input)
-
-    async def _async_profile_manager(
-        self, step_id: str, user_input: dict | None
-    ) -> FlowResult:
         model = self._model()
-        catalog = model.data[CONF_PROFILES][self._profile_type]
+        catalog = {
+            profile_id: profile
+            for profile_id, profile in model.data[CONF_PROFILES].items()
+            if profile_id not in PROFILE_TYPES
+        }
         errors: dict[str, str] = {}
         if user_input is not None:
             action = user_input["profile_action"]
@@ -1687,23 +1672,30 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 errors["base"] = "profile_required"
             elif action == "edit":
                 self._editing_profile_id = profile_id
-                return await self.async_step_profile_setup()
+                return await self.async_step_profile_sections()
             elif action == "duplicate":
-                name = catalog[profile_id].get(CONF_PROFILE_NAME, profile_id)
-                model.duplicate_profile(self._profile_type, profile_id, f"{name} 2")
+                from homeassistant.util.ulid import ulid_now
+
+                copied = deepcopy(catalog[profile_id])
+                new_id = ulid_now()
+                copied[CONF_PROFILE_ID] = new_id
+                copied[CONF_PROFILE_NAME] = f"{copied.get(CONF_PROFILE_NAME, profile_id)} 2"
+                model.data[CONF_PROFILES][new_id] = copied
                 self._save_parent_model(model)
-                return await self._async_profile_manager(step_id, None)
+                return await self.async_step_profiles()
             elif action == "delete":
-                try:
-                    model.delete_profile(self._profile_type, profile_id)
-                except ProfileInUseError as err:
-                    self._blocked_profile_rooms = self._room_names(
-                        model, sorted(err.rooms)
-                    )
+                users = [
+                    room_id
+                    for room_id, room in model.data[CONF_ROOMS].items()
+                    if room.get("profile_id") == profile_id
+                ]
+                if users:
+                    self._blocked_profile_rooms = self._room_names(model, users)
                     errors["base"] = "profile_in_use"
                 else:
+                    model.data[CONF_PROFILES].pop(profile_id, None)
                     self._save_parent_model(model)
-                    return await self._async_profile_manager(step_id, None)
+                    return await self.async_step_profiles()
 
         profile_options = [
             {"value": profile_id, "label": profile.get(CONF_PROFILE_NAME, profile_id)}
@@ -1722,36 +1714,41 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 selector.SelectSelectorConfig(options=profile_options)
             )
         return self.async_show_form(
-            step_id=step_id,
+            step_id="profiles",
             data_schema=vol.Schema(schema),
             errors=errors,
             description_placeholders={
                 "profile_usage": "; ".join(
                     f"{profile.get(CONF_PROFILE_NAME, profile_id)}: "
-                    f"{', '.join(self._room_names(model, sorted(model.profile_users.get((self._profile_type, profile_id), ())))) or '—'}"
+                    f"{', '.join(self._room_names(model, sorted(model.profile_users.get(('profile', profile_id), ())))) or '—'}"
                     for profile_id, profile in catalog.items()
                 )
                 or "—",
-                "blocked_rooms": ", ".join(
-                    getattr(self, "_blocked_profile_rooms", [])
-                ),
+                "blocked_rooms": ", ".join(getattr(self, "_blocked_profile_rooms", [])),
             },
         )
 
     async def async_step_profile_setup(self, user_input=None) -> FlowResult:
         model = self._model()
         profile_id = getattr(self, "_editing_profile_id", None)
-        profile = model.data[CONF_PROFILES][self._profile_type].get(profile_id, {})
-        existing = profile.get(CONF_PROFILE_SETTINGS, {})
-        capabilities = profile.get(CONF_PROFILE_CAPABILITIES)
-        if not capabilities:
-            capabilities = infer_capabilities(self._profile_type, existing)
+        profile = model.data[CONF_PROFILES].get(profile_id, {})
         if user_input is not None:
-            self._editing_profile_name = str(user_input["profile_name"]).strip()
-            self._editing_capabilities = list(
-                user_input.get(CONF_PROFILE_CAPABILITIES_FIELD, ())
-            )
-            return await self.async_step_profile_edit()
+            name = str(user_input["profile_name"]).strip()
+            if profile_id:
+                profile[CONF_PROFILE_NAME] = name
+            else:
+                from homeassistant.util.ulid import ulid_now
+
+                profile_id = ulid_now()
+                model.data[CONF_PROFILES][profile_id] = {
+                    CONF_PROFILE_ID: profile_id,
+                    CONF_PROFILE_NAME: name,
+                    CONF_PROFILE_SETTINGS: {},
+                    CONF_PROFILE_FUNCTIONS: [],
+                }
+                self._editing_profile_id = profile_id
+            self._save_parent_model(model)
+            return await self.async_step_profile_sections()
         return self.async_show_form(
             step_id="profile_setup",
             data_schema=vol.Schema(
@@ -1760,83 +1757,124 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         "profile_name",
                         default=profile.get(CONF_PROFILE_NAME, ""),
                     ): selector.TextSelector(),
-                    vol.Required(
-                        CONF_PROFILE_CAPABILITIES_FIELD,
-                        default=capabilities,
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=list(PROFILE_CAPABILITY_KEYS[self._profile_type]),
-                            multiple=True,
-                            translation_key="profile_capability",
-                        )
-                    ),
                 }
             ),
             description_placeholders={
-                "profile_usage": self._profile_usage_text(model, self._profile_type, profile_id)
+                "profile_usage": self._profile_usage_text(model, "profile", profile_id)
             },
         )
 
-    async def async_step_profile_edit(self, user_input=None) -> FlowResult:
+    async def async_step_profile_sections(self, user_input=None) -> FlowResult:
+        return self.async_show_menu(
+            step_id="profile_sections",
+            menu_options=[
+                "profile_setup",
+                "profile_time",
+                "profile_brightness",
+                "profile_sun",
+                "profile_shading",
+                "profile_ventilation",
+                "profile_resident",
+                "profile_behavior",
+            ],
+        )
+
+    async def _async_unified_profile_function_step(
+        self,
+        profile_type: str,
+        step_id: str,
+        user_input,
+        *,
+        capabilities: tuple[str, ...],
+    ) -> FlowResult:
         model = self._model()
         profile_id = getattr(self, "_editing_profile_id", None)
-        profile = model.data[CONF_PROFILES][self._profile_type].get(profile_id, {})
-        existing = profile.get(CONF_PROFILE_SETTINGS, {})
-        capabilities = list(
-            getattr(
-                self,
-                "_editing_capabilities",
-                profile.get(CONF_PROFILE_CAPABILITIES)
-                or infer_capabilities(self._profile_type, existing),
-            )
-        )
-        errors: dict[str, str] = {}
+        if not profile_id or profile_id not in model.data[CONF_PROFILES]:
+            return await self.async_step_profiles()
+        profile = model.data[CONF_PROFILES][profile_id]
+        existing = dict(profile.get(CONF_PROFILE_SETTINGS, {}))
+        allowed = capability_keys(profile_type, capabilities)
         if user_input is not None:
-            try:
-                settings = extract_sparse_settings(
-                    flatten_section_input(user_input),
-                    self._profile_type,
-                    existing,
-                    allowed_keys=capability_keys(self._profile_type, capabilities),
-                )
-                if profile_id:
-                    model.rename_profile(
-                        self._profile_type,
-                        profile_id,
-                        getattr(self, "_editing_profile_name", profile.get(CONF_PROFILE_NAME, "")),
-                    )
-                    model.set_capabilities(self._profile_type, profile_id, capabilities)
-                    model.update_profile(self._profile_type, profile_id, settings)
-                else:
-                    from homeassistant.util.ulid import ulid_now
+            selected = extract_sparse_settings(
+                flatten_section_input(user_input),
+                profile_type,
+                {key: value for key, value in existing.items() if key in allowed},
+                field_selection=None,
+                allowed_keys=allowed,
+            )
+            profile[CONF_PROFILE_SETTINGS] = {
+                **{key: value for key, value in existing.items() if key not in allowed},
+                **selected,
+            }
+            from .config_resolver import configured_functions_from_profile
 
-                    model.create_profile(
-                        self._profile_type,
-                        getattr(self, "_editing_profile_name", ""),
-                        settings,
-                        profile_id=ulid_now(),
-                        capabilities=capabilities,
-                    )
-                self._save_parent_model(model)
-                if self._profile_type == PROFILE_TYPE_TIME:
-                    return await self.async_step_time_profiles()
-                if self._profile_type == PROFILE_TYPE_SHADING:
-                    return await self.async_step_shading_profiles()
-                return await self.async_step_behavior_profiles()
-            except (ValueError, ProfileError):
-                errors["base"] = "invalid_profile_settings"
+            profile[CONF_PROFILE_FUNCTIONS] = sorted(
+                configured_functions_from_profile(profile)
+            )
+            self._save_parent_model(model)
+            return await self.async_step_profile_sections()
         return self.async_show_form(
-            step_id="profile_edit",
+            step_id=step_id,
             data_schema=build_profile_schema(
-                self._profile_type,
+                profile_type,
                 existing,
                 system_defaults(),
-                allowed_keys=capability_keys(self._profile_type, capabilities),
+                field_selection=None,
+                allowed_keys=allowed,
             ),
-            errors=errors,
-            description_placeholders={
-                "profile_usage": self._profile_usage_text(model, self._profile_type, profile_id)
-            },
+        )
+
+    async def async_step_profile_time(self, user_input=None) -> FlowResult:
+        return await self._async_unified_profile_function_step(
+            PROFILE_TYPE_TIME,
+            "profile_time",
+            user_input,
+            capabilities=("opening", "closing", "workday", "calendar"),
+        )
+
+    async def async_step_profile_brightness(self, user_input=None) -> FlowResult:
+        return await self._async_unified_profile_function_step(
+            PROFILE_TYPE_TIME,
+            "profile_brightness",
+            user_input,
+            capabilities=("brightness",),
+        )
+
+    async def async_step_profile_sun(self, user_input=None) -> FlowResult:
+        return await self._async_unified_profile_function_step(
+            PROFILE_TYPE_TIME, "profile_sun", user_input, capabilities=("sun",)
+        )
+
+    async def async_step_profile_shading(self, user_input=None) -> FlowResult:
+        return await self._async_unified_profile_function_step(
+            PROFILE_TYPE_SHADING,
+            "profile_shading",
+            user_input,
+            capabilities=tuple(PROFILE_CAPABILITY_KEYS[PROFILE_TYPE_SHADING]),
+        )
+
+    async def async_step_profile_ventilation(self, user_input=None) -> FlowResult:
+        return await self._async_unified_profile_function_step(
+            PROFILE_TYPE_BEHAVIOR,
+            "profile_ventilation",
+            user_input,
+            capabilities=("ventilation",),
+        )
+
+    async def async_step_profile_resident(self, user_input=None) -> FlowResult:
+        return await self._async_unified_profile_function_step(
+            PROFILE_TYPE_BEHAVIOR,
+            "profile_resident",
+            user_input,
+            capabilities=("resident",),
+        )
+
+    async def async_step_profile_behavior(self, user_input=None) -> FlowResult:
+        return await self._async_unified_profile_function_step(
+            PROFILE_TYPE_BEHAVIOR,
+            "profile_behavior",
+            user_input,
+            capabilities=("manual_override", "movement_protection", "tilt_behavior"),
         )
 
     def _profile_usage_text(
@@ -1871,7 +1909,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                 title=title,
                 data={
                     CONF_NAME: title,
-                    CONF_PROFILE_SELECTIONS: {},
+                    CONF_PROFILE_FUNCTIONS: [],
                     CONF_ROOM_SETTINGS: {
                         CONF_ROOM: user_input[CONF_ROOM],
                         CONF_COVERS: list(user_input[CONF_COVERS]),
@@ -1901,13 +1939,13 @@ class RoomSubentryFlow(ConfigSubentryFlow):
             menu_options=[
                 "general",
                 "hardware",
+                "positions",
                 "contacts",
                 "room_sensors",
                 "geometry",
-                "functions",
                 "profile_references",
+                "profile_functions",
                 "source_overrides",
-                "overrides",
                 "diagnostics",
             ],
         )
@@ -1937,20 +1975,6 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                     ): selector.AreaSelector(),
                 }
             ),
-        )
-
-    async def async_step_functions(self, user_input=None) -> FlowResult:
-        return self.async_show_menu(
-            step_id="functions",
-            menu_options=[
-                "time",
-                "brightness",
-                "sun",
-                "shading",
-                "ventilation",
-                "resident",
-                "behavior",
-            ],
         )
 
     async def async_step_contacts(self, user_input=None) -> FlowResult:
@@ -2067,15 +2091,11 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         selections = data.get(CONF_PROFILE_SELECTIONS, {})
         profiles = entry.data.get(CONF_PROFILES, {})
         profile_labels = []
-        for profile_type in (PROFILE_TYPE_TIME, PROFILE_TYPE_SHADING, PROFILE_TYPE_BEHAVIOR):
-            profile_id = selections.get(profile_type)
-            profile = profiles.get(profile_type, {}).get(profile_id) if profile_id else None
-            name = (
-                profile.get(CONF_PROFILE_NAME)
-                if isinstance(profile, dict)
-                else "—"
-            )
-            profile_labels.append(str(name))
+        profile_id = data.get("profile_id")
+        profile = profiles.get(profile_id) if profile_id else None
+        profile_labels.append(
+            str(profile.get(CONF_PROFILE_NAME)) if isinstance(profile, dict) else "—"
+        )
         snapshot = self._room_entry_snapshot(entry, subentry.subentry_id)
 
         return self.async_show_form(
@@ -2226,6 +2246,131 @@ class RoomSubentryFlow(ConfigSubentryFlow):
             ),
         )
 
+    async def async_step_positions(self, user_input=None) -> FlowResult:
+        """Edit room-owned physical cover and tilt positions."""
+
+        subentry = self._get_reconfigure_subentry()
+        data = dict(subentry.data)
+        settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
+        if user_input is not None:
+            submitted: dict[str, Any] = {}
+            for value in user_input.values():
+                if isinstance(value, dict):
+                    submitted.update(value)
+            keys = {
+                CONF_OPEN_POSITION,
+                CONF_CLOSE_POSITION,
+                CONF_SHADING_POSITION,
+                CONF_SHADING_POSITION_ALT,
+                CONF_SHADING_POSITION_ALT_ENTITY,
+                CONF_VENTILATE_POSITION,
+                CONF_LOCKOUT_POSITION,
+                CONF_OPEN_TILT_POSITION,
+                CONF_CLOSE_TILT_POSITION,
+                CONF_SHADING_TILT_POSITION,
+                CONF_VENTILATE_TILT_POSITION,
+                CONF_SHADING_TILT_POSITION_0,
+                CONF_SHADING_TILT_POSITION_1,
+                CONF_SHADING_TILT_POSITION_2,
+                CONF_SHADING_TILT_POSITION_3,
+            }
+            normalized = _normalize_position_fields(
+                {key: value for key, value in submitted.items() if key in keys}
+            )
+            optional_keys = {CONF_LOCKOUT_POSITION, CONF_SHADING_POSITION_ALT}
+            for key in keys:
+                if key in normalized and normalized[key] not in (None, ""):
+                    settings[key] = normalized[key]
+                elif key in submitted or key in optional_keys:
+                    settings.pop(key, None)
+            data[CONF_ROOM_SETTINGS] = settings
+            return self.async_update_and_abort(self._get_entry(), subentry, data=data)
+
+        return self.async_show_form(
+            step_id="positions",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional("positions"): section(
+                        vol.Schema(
+                            {
+                                vol.Required(
+                                    CONF_OPEN_POSITION,
+                                    default=_position_default(settings, CONF_OPEN_POSITION),
+                                ): _position_number_selector(),
+                                vol.Required(
+                                    CONF_CLOSE_POSITION,
+                                    default=_position_default(settings, CONF_CLOSE_POSITION),
+                                ): _position_number_selector(),
+                                vol.Required(
+                                    CONF_SHADING_POSITION,
+                                    default=_position_default(settings, CONF_SHADING_POSITION),
+                                ): _position_number_selector(),
+                                vol.Optional(
+                                    CONF_SHADING_POSITION_ALT,
+                                    default=_selector_default(settings.get(CONF_SHADING_POSITION_ALT)),
+                                ): vol.Any(_position_number_selector(), None),
+                                vol.Optional(
+                                    CONF_SHADING_POSITION_ALT_ENTITY,
+                                    default=_selector_default(settings.get(CONF_SHADING_POSITION_ALT_ENTITY)),
+                                ): selector.EntitySelector(
+                                    selector.EntitySelectorConfig(
+                                        domain=["binary_sensor", "input_boolean"]
+                                    )
+                                ),
+                                vol.Required(
+                                    CONF_VENTILATE_POSITION,
+                                    default=_position_default(settings, CONF_VENTILATE_POSITION),
+                                ): _position_number_selector(),
+                                vol.Optional(
+                                    CONF_LOCKOUT_POSITION,
+                                    default=_selector_default(settings.get(CONF_LOCKOUT_POSITION)),
+                                ): vol.Any(_position_number_selector(), None),
+                            }
+                        ),
+                        {"collapsed": False},
+                    ),
+                    vol.Optional("tilt_positions"): section(
+                        vol.Schema(
+                            {
+                                vol.Required(
+                                    CONF_OPEN_TILT_POSITION,
+                                    default=_position_default(settings, CONF_OPEN_TILT_POSITION),
+                                ): _position_number_selector(),
+                                vol.Required(
+                                    CONF_CLOSE_TILT_POSITION,
+                                    default=_position_default(settings, CONF_CLOSE_TILT_POSITION),
+                                ): _position_number_selector(),
+                                vol.Required(
+                                    CONF_SHADING_TILT_POSITION,
+                                    default=_position_default(settings, CONF_SHADING_TILT_POSITION),
+                                ): _position_number_selector(),
+                                vol.Required(
+                                    CONF_VENTILATE_TILT_POSITION,
+                                    default=_position_default(settings, CONF_VENTILATE_TILT_POSITION),
+                                ): _position_number_selector(),
+                                vol.Required(
+                                    CONF_SHADING_TILT_POSITION_0,
+                                    default=_position_default(settings, CONF_SHADING_TILT_POSITION_0),
+                                ): _position_number_selector(),
+                                vol.Required(
+                                    CONF_SHADING_TILT_POSITION_1,
+                                    default=_position_default(settings, CONF_SHADING_TILT_POSITION_1),
+                                ): _position_number_selector(),
+                                vol.Required(
+                                    CONF_SHADING_TILT_POSITION_2,
+                                    default=_position_default(settings, CONF_SHADING_TILT_POSITION_2),
+                                ): _position_number_selector(),
+                                vol.Required(
+                                    CONF_SHADING_TILT_POSITION_3,
+                                    default=_position_default(settings, CONF_SHADING_TILT_POSITION_3),
+                                ): _position_number_selector(),
+                            }
+                        ),
+                    ),
+                }
+            ),
+        )
+
     async def _async_function_step(
         self,
         profile_type: str,
@@ -2234,6 +2379,8 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         *,
         capabilities: tuple[str, ...] | None = None,
     ) -> FlowResult:
+        """Legacy direct room behavior editor kept outside native v6 navigation."""
+
         subentry = self._get_reconfigure_subentry()
         data = dict(subentry.data)
         settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
@@ -2351,44 +2498,103 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         entry = self._get_entry()
         subentry = self._get_reconfigure_subentry()
         data = dict(subentry.data)
-        references = dict(data.get(CONF_PROFILE_SELECTIONS, {}))
         profiles = entry.data.get(CONF_PROFILES, {})
         if user_input is not None:
-            data[CONF_PROFILE_SELECTIONS] = {
-                profile_type: profile_id
-                for profile_type, profile_id in user_input.items()
-                if profile_id not in (None, "")
-            }
+            profile_id = user_input.get(CONF_ROOM_PROFILE_ID)
+            if profile_id in (None, ""):
+                data.pop(CONF_ROOM_PROFILE_ID, None)
+                data[CONF_PROFILE_FUNCTIONS] = []
+            else:
+                data[CONF_ROOM_PROFILE_ID] = profile_id
+                profile = profiles.get(profile_id, {})
+                available = configured_functions_from_profile(profile)
+                selected = data.get(CONF_PROFILE_FUNCTIONS, [])
+                if isinstance(selected, dict):
+                    selected = [
+                        function
+                        for function, enabled in selected.items()
+                        if enabled
+                    ]
+                data[CONF_PROFILE_FUNCTIONS] = sorted(
+                    function for function in selected if function in available
+                )
+            data.pop(CONF_PROFILE_SELECTIONS, None)
             return self.async_update_and_abort(
                 entry, subentry, data=data
             )
-        schema = {}
-        for profile_type in (
-            PROFILE_TYPE_TIME,
-            PROFILE_TYPE_SHADING,
-            PROFILE_TYPE_BEHAVIOR,
-        ):
-            options = [
+        options = [
+            {"value": "", "label": "No profile"},
+            *[
                 {
                     "value": profile_id,
                     "label": profile.get(CONF_PROFILE_NAME, profile_id),
                 }
-                for profile_id, profile in profiles.get(profile_type, {}).items()
-            ]
-            current = references.get(profile_type)
-            schema[
-                vol.Optional(
-                    profile_type,
-                    description={"suggested_value": current} if current else None,
-                )
-            ] = selector.SelectSelector(
-                selector.SelectSelectorConfig(options=options)
-            )
+                for profile_id, profile in profiles.items()
+                if profile_id not in PROFILE_TYPES
+            ],
+        ]
+        current = data.get(CONF_ROOM_PROFILE_ID)
+        schema = {
+            vol.Optional(
+                CONF_ROOM_PROFILE_ID,
+                description={"suggested_value": current} if current else None,
+            ): selector.SelectSelector(selector.SelectSelectorConfig(options=options))
+        }
         return self.async_show_form(
             step_id="profile_references", data_schema=vol.Schema(schema)
         )
 
+    async def async_step_profile_functions(self, user_input=None) -> FlowResult:
+        entry = self._get_entry()
+        subentry = self._get_reconfigure_subentry()
+        data = dict(subentry.data)
+        profile_id = data.get(CONF_ROOM_PROFILE_ID)
+        if not profile_id:
+            return self.async_abort(reason="profile_required_for_functions")
+        profile = effective_profile(
+            {CONF_PROFILES: entry.data.get(CONF_PROFILES, {})},
+            {CONF_ROOM_PROFILE_ID: profile_id},
+        )
+        available = configured_functions_from_profile(profile)
+        if not available:
+            return self.async_abort(reason="profile_has_no_functions")
+        selected = data.get(CONF_PROFILE_FUNCTIONS, [])
+        if isinstance(selected, dict):
+            selected = [
+                function for function, enabled in selected.items() if enabled
+            ]
+        current = sorted(function for function in selected if function in available)
+        if user_input is not None:
+            submitted = user_input.get(CONF_PROFILE_FUNCTIONS, [])
+            data[CONF_PROFILE_FUNCTIONS] = sorted(
+                function for function in submitted if function in available
+            )
+            return self.async_update_and_abort(entry, subentry, data=data)
+        options = [
+            function for function in PROFILE_FUNCTIONS if function in available
+        ]
+        return self.async_show_form(
+            step_id="profile_functions",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_PROFILE_FUNCTIONS,
+                        default=current,
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=options,
+                            multiple=True,
+                            mode=selector.SelectSelectorMode.LIST,
+                            translation_key="profile_functions",
+                        )
+                    )
+                }
+            ),
+        )
+
     async def async_step_overrides(self, user_input=None) -> FlowResult:
+        """Legacy direct typed override menu kept outside native v6 navigation."""
+
         subentry = self._get_reconfigure_subentry()
         selected = subentry.data.get(CONF_PROFILE_SELECTIONS, {})
         options = [

@@ -53,14 +53,15 @@ def test_capabilities_partition_every_profile_key_exactly_once() -> None:
 
 
 def test_metadata_drives_basic_and_advanced_ui_levels() -> None:
-    position = PROFILE_FIELD_METADATA[c.CONF_SHADING_POSITION]
+    brightness = PROFILE_FIELD_METADATA[c.CONF_AUTO_SHADING]
     waiting = PROFILE_FIELD_METADATA[c.CONF_SHADING_WAITINGTIME_START]
 
-    assert position.owner == "PROFILE"
-    assert position.feature == c.PROFILE_TYPE_SHADING
-    assert position.ui_level == "basic"
+    assert brightness.owner == "PROFILE"
+    assert brightness.feature == c.PROFILE_TYPE_SHADING
+    assert brightness.ui_level == "basic"
     assert waiting.ui_level == "advanced"
-    assert position.selector == position.value_type
+    assert brightness.selector == brightness.value_type
+    assert c.CONF_SHADING_POSITION not in PROFILE_FIELD_METADATA
 
 
 def test_capability_removal_discards_disabled_known_values() -> None:
@@ -123,7 +124,7 @@ def test_normal_options_flow_contains_no_free_json_fields() -> None:
 
 
 def test_every_profile_field_has_selector_translations() -> None:
-    """The sparse field picker exposes translated labels for every key."""
+    """Legacy sparse field labels remain available for every active profile key."""
 
     expected = set().union(*PROFILE_KEYS.values())
     for path in (
@@ -132,4 +133,4 @@ def test_every_profile_field_has_selector_translations() -> None:
         "custom_components/cover_control/translations/de.json",
     ):
         document = json.loads(Path(path).read_text())
-        assert set(document["selector"]["profile_field"]["options"]) == expected
+        assert expected <= set(document["selector"]["profile_field"]["options"])
