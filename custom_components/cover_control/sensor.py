@@ -14,15 +14,16 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import (
     CONF_PROFILES,
     CONF_NAME,
-    CONF_RESIDENT_STATUS,
     DEFAULT_NAME,
     DOMAIN,
+    FUNCTION_RESIDENT,
     SIGNAL_ENTRY_STATE_UPDATED,
     SIGNAL_HUB_STATE_UPDATED,
     FUNCTION_TIME,
 )
 from .config_resolver import (
     configured_functions_from_profile,
+    effective_room_profile_functions,
     effective_profile,
     effective_profile_id,
 )
@@ -46,9 +47,9 @@ async def async_setup_entry(
                     ControlStateSensor(hass, entry, room_id),
                 ]
             )
-            resolved = manager._resolved_config or {}
-            if CONF_RESIDENT_STATUS in resolved and bool(
-                resolved.get(CONF_RESIDENT_STATUS)
+            room = runtime.model.get("rooms", {}).get(room_id, {})
+            if FUNCTION_RESIDENT in effective_room_profile_functions(
+                runtime.model, room
             ):
                 entities.append(ResidentStatusSensor(hass, entry, room_id))
         profile_ids: set[str] = set()

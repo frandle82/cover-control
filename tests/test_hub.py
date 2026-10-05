@@ -11,13 +11,21 @@ from custom_components.cover_control.const import (
     CONF_GLOBAL_DEFAULTS,
     CONF_GLOBAL_SOURCES,
     CONF_NAME,
+    CONF_PROFILE_FUNCTIONS,
+    CONF_PROFILE_ID,
+    CONF_PROFILE_NAME,
+    CONF_PROFILE_SETTINGS,
     CONF_PROFILE_SELECTIONS,
     CONF_PROFILES,
+    CONF_ROOM_PROFILE_ID,
     CONF_ROOM_OVERRIDES,
     CONF_ROOM_SETTINGS,
     CONF_ROOMS,
     CONF_SHADING_WAITINGTIME_END,
     CONF_SOURCE_OVERRIDES,
+    FUNCTION_RESIDENT,
+    FUNCTION_SHADING,
+    FUNCTION_TIME,
     PROFILE_TYPE_BEHAVIOR,
     PROFILE_TYPE_SHADING,
     PROFILE_TYPE_TIME,
@@ -184,3 +192,57 @@ def test_room_override_keeps_its_time_timer_local() -> None:
 
     assert hub.room_uses_shared_time_timer("living")
     assert not hub.room_uses_shared_time_timer("office")
+
+
+def test_hub_diagnostics_reports_unified_profiles_without_typed_catalogs() -> None:
+    hub = CoverControlHub(Mock())
+    hub.set_parent_model(
+        {
+            CONF_GLOBAL: {CONF_GLOBAL_SOURCES: {}, CONF_GLOBAL_DEFAULTS: {}},
+            CONF_PROFILES: {
+                "profile-living": {
+                    CONF_PROFILE_ID: "profile-living",
+                    CONF_PROFILE_NAME: "Wohnen",
+                    CONF_PROFILE_FUNCTIONS: [FUNCTION_TIME, FUNCTION_SHADING],
+                    CONF_PROFILE_SETTINGS: {"auto_time_enabled": True},
+                },
+                "profile-sleep": {
+                    CONF_PROFILE_ID: "profile-sleep",
+                    CONF_PROFILE_NAME: "Schlafen",
+                    CONF_PROFILE_FUNCTIONS: [FUNCTION_RESIDENT],
+                    CONF_PROFILE_SETTINGS: {"resident_status_enabled": True},
+                },
+            },
+            CONF_ROOMS: {
+                "living": {
+                    CONF_NAME: "Living",
+                    CONF_ROOM_PROFILE_ID: "profile-living",
+                    CONF_PROFILE_FUNCTIONS: [FUNCTION_TIME],
+                    CONF_ROOM_SETTINGS: {},
+                    CONF_SOURCE_OVERRIDES: {},
+                },
+                "bedroom": {
+                    CONF_NAME: "Bedroom",
+                    CONF_ROOM_PROFILE_ID: "profile-sleep",
+                    CONF_PROFILE_FUNCTIONS: [FUNCTION_RESIDENT],
+                    CONF_ROOM_SETTINGS: {},
+                    CONF_SOURCE_OVERRIDES: {},
+                },
+            },
+        }
+    )
+
+    diagnostics = hub.diagnostics()
+
+    assert set(diagnostics["profiles"]) == {"profile-living", "profile-sleep"}
+    assert PROFILE_TYPE_TIME not in diagnostics["profiles"]
+    assert diagnostics["profiles"]["profile-living"]["name"] == "Wohnen"
+    assert diagnostics["profiles"]["profile-living"]["users"] == ["living"]
+    assert diagnostics["profiles"]["profile-living"]["functions"] == [
+        FUNCTION_TIME
+    ]
+    assert diagnostics["profiles"]["profile-sleep"]["name"] == "Schlafen"
+    assert diagnostics["profiles"]["profile-sleep"]["users"] == ["bedroom"]
+    assert diagnostics["profiles"]["profile-sleep"]["functions"] == [
+        FUNCTION_RESIDENT
+    ]

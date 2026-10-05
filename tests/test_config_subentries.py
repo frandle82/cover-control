@@ -17,9 +17,11 @@ from custom_components.cover_control.switch import async_setup_entry as async_se
 from custom_components.cover_control.runtime_data import CoverControlRuntime
 from custom_components.cover_control.const import (
     CONF_AUTO_TIME,
+    CONF_CLOSE_POSITION,
     CONF_COVERS,
     CONF_GLOBAL,
     CONF_GLOBAL_SOURCES,
+    CONF_OPEN_POSITION,
     CONF_NAME,
     CONF_PROFILE_FUNCTIONS,
     CONF_PROFILE_ID,
@@ -28,10 +30,15 @@ from custom_components.cover_control.const import (
     CONF_PROFILE_SETTINGS,
     CONF_PROFILES,
     CONF_RESIDENT_SENSOR,
+    CONF_RESIDENT_STATUS,
     CONF_ROOM_PROFILE_ID,
     CONF_ROOM_SETTINGS,
     CONF_ROOMS,
+    CONF_SOURCE_OVERRIDES,
+    CONF_SHADING_POSITION,
+    CONF_VENTILATE_POSITION,
     CONF_TIME_UP_EARLY_WORKDAY,
+    FUNCTION_RESIDENT,
     FUNCTION_TIME,
     PROFILE_TYPE_SHADING,
     PROFILE_TYPES,
@@ -296,6 +303,91 @@ async def test_entity_registry_cleanup_uses_v6_desired_entities(hass) -> None:
     assert "profile-stale-next_open" not in registry_unique_ids
 
 
+async def test_resident_entities_follow_selected_profile_function(hass) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Cover Control",
+        version=6,
+        data={
+            CONF_NAME: "Cover Control",
+            CONF_GLOBAL: {"sources": {}, "defaults": {}},
+            CONF_PROFILES: {
+                "profile-resident": {
+                    CONF_PROFILE_ID: "profile-resident",
+                    CONF_PROFILE_NAME: "Resident",
+                    CONF_PROFILE_FUNCTIONS: [FUNCTION_TIME, FUNCTION_RESIDENT],
+                    CONF_PROFILE_SETTINGS: {
+                        CONF_AUTO_TIME: True,
+                        CONF_RESIDENT_STATUS: True,
+                    },
+                }
+            },
+        },
+        subentries_data=[
+            {
+                "subentry_id": "room-living",
+                "subentry_type": "room",
+                "title": "Living",
+                "unique_id": "room-living",
+                "data": {
+                    CONF_NAME: "Living",
+                    CONF_ROOM_SETTINGS: {CONF_COVERS: ["cover.living"]},
+                    CONF_ROOM_PROFILE_ID: "profile-resident",
+                    CONF_PROFILE_FUNCTIONS: [FUNCTION_TIME],
+                    CONF_SOURCE_OVERRIDES: {},
+                },
+            }
+        ],
+    )
+    entry.add_to_hass(hass)
+    registry = er.async_get(hass)
+    registry.async_get_or_create(
+        "switch",
+        DOMAIN,
+        "room-living-resident_status_enabled",
+        config_entry=entry,
+    )
+    registry.async_get_or_create(
+        "sensor",
+        DOMAIN,
+        "room-living-resident_status",
+        config_entry=entry,
+    )
+
+    assert await hass.config_entries.async_setup(entry.entry_id)
+    await hass.async_block_till_done()
+    added = []
+    await async_setup_switches(hass, entry, added.extend)
+    await async_setup_sensors(hass, entry, added.extend)
+
+    added_unique_ids = {entity.unique_id for entity in added}
+    registry_unique_ids = {
+        entity.unique_id
+        for entity in er.async_entries_for_config_entry(registry, entry.entry_id)
+    }
+    assert "room-living-auto_time_enabled" in added_unique_ids
+    assert "room-living-resident_status_enabled" not in added_unique_ids
+    assert "room-living-resident_status" not in added_unique_ids
+    assert "room-living-resident_status_enabled" not in registry_unique_ids
+    assert "room-living-resident_status" not in registry_unique_ids
+
+    subentry = entry.subentries["room-living"]
+    hass.config_entries.async_update_subentry(
+        entry,
+        subentry,
+        data={**subentry.data, CONF_PROFILE_FUNCTIONS: [FUNCTION_TIME, FUNCTION_RESIDENT]},
+    )
+    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.async_block_till_done()
+    added = []
+    await async_setup_switches(hass, entry, added.extend)
+    await async_setup_sensors(hass, entry, added.extend)
+
+    added_unique_ids = {entity.unique_id for entity in added}
+    assert "room-living-resident_status_enabled" in added_unique_ids
+    assert "room-living-resident_status" in added_unique_ids
+
+
 async def test_parent_runtime_owns_room_managers(hass) -> None:
     hass.states.async_set("cover.living", "open", {"current_position": 100})
     entry = MockConfigEntry(
@@ -386,7 +478,12 @@ async def test_v4_profile_subentries_migrate_to_parent_profiles(hass) -> None:
                 "unique_id": "profile-south",
                 "data": {
                     "capabilities": ["positioning"],
-                    "settings": {"shading_position": 25},
+                    "settings": {
+                        CONF_OPEN_POSITION: 100,
+                        CONF_CLOSE_POSITION: 0,
+                        CONF_SHADING_POSITION: 25,
+                        CONF_VENTILATE_POSITION: 35,
+                    },
                 },
             },
             {
@@ -410,6 +507,13 @@ async def test_v4_profile_subentries_migrate_to_parent_profiles(hass) -> None:
     await hass.async_block_till_done()
 
     assert entry.version == 6
+    room = entry.subentries["room-living"].data
+    profile = entry.data[CONF_PROFILES][room[CONF_ROOM_PROFILE_ID]]
+    assert CONF_SHADING_POSITION not in profile[CONF_PROFILE_SETTINGS]
+    assert room[CONF_ROOM_SETTINGS][CONF_SHADING_POSITION] == 25
+    assert room[CONF_ROOM_SETTINGS][CONF_OPEN_POSITION] == 100
+    assert room[CONF_ROOM_SETTINGS][CONF_CLOSE_POSITION] == 0
+    assert room[CONF_ROOM_SETTINGS][CONF_VENTILATE_POSITION] == 35
     assert len(entry.data[CONF_PROFILES]) == 1
     profile = next(iter(entry.data[CONF_PROFILES].values()))
     assert profile["name"] == "South"

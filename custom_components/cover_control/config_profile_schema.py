@@ -415,12 +415,6 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_PREVENT_DEFAULT_COVER_ACTIONS,
             ),
         ),
-        (
-            "tilt_wait",
-            (
-                c.CONF_ENABLE_LOGBOOK_COVER,
-            ),
-        ),
     ),
 }
 
@@ -593,11 +587,6 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
                 c.CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
                 c.CONF_PREVENT_SHADING_MULTIPLE_TIMES,
                 c.CONF_PREVENT_DEFAULT_COVER_ACTIONS,
-            }
-        ),
-        "tilt_behavior": frozenset(
-            {
-                c.CONF_ENABLE_LOGBOOK_COVER,
             }
         ),
     },

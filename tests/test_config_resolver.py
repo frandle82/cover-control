@@ -5,6 +5,8 @@ from custom_components.cover_control.config_resolver import (
     ROOM_HARDWARE_KEYS,
     ROOM_POSITION_KEYS,
     ROOM_SENSOR_KEYS,
+    ROOM_GEOMETRY_KEYS,
+    ROOM_CONTROL_KEYS,
     configured_functions_from_profile,
     resolve_config_model,
     resolve_room_config,
@@ -14,6 +16,10 @@ from custom_components.cover_control.const import (
     CONF_BRIGHTNESS_SENSOR,
     CONF_CONFIG_VERSION,
     CONF_COVERS,
+    CONF_COVER_TYPE,
+    CONF_DRIVE_TIME,
+    CONF_ENABLE_LOGBOOK_COVER,
+    CONF_ENABLE_RECALIBRATE_BUTTON,
     CONF_GLOBAL,
     CONF_GLOBAL_DEFAULTS,
     CONF_GLOBAL_SOURCES,
@@ -28,7 +34,14 @@ from custom_components.cover_control.const import (
     CONF_ROOM_PROFILE_ID,
     CONF_ROOM_SETTINGS,
     CONF_ROOMS,
+    CONF_RESIDENT_ALLOW_OPEN,
+    CONF_RESIDENT_OPEN_ENABLED,
+    CONF_RESIDENT_SENSOR,
+    CONF_RESIDENT_STATUS,
     CONF_SHADING_POSITION,
+    CONF_SUN_AZIMUTH_END,
+    CONF_SUN_AZIMUTH_START,
+    CONF_TEMPERATURE_SENSOR_INDOOR,
     CONF_SHADING_WAITINGTIME_END,
     CONF_SOURCE_OVERRIDES,
     CONFIG_MODEL_VERSION,
@@ -199,6 +212,143 @@ def test_room_profile_functions_limit_configured_functions() -> None:
     assert resolved.configured_functions == frozenset({FUNCTION_SHADING})
 
 
+def test_native_profile_settings_are_filtered_to_selected_functions() -> None:
+    model = {
+        CONF_CONFIG_VERSION: CONFIG_MODEL_VERSION,
+        CONF_GLOBAL: {
+            CONF_GLOBAL_SOURCES: {},
+            CONF_GLOBAL_DEFAULTS: {},
+        },
+        CONF_PROFILES: {
+            "profile-living": {
+                CONF_PROFILE_ID: "profile-living",
+                CONF_PROFILE_NAME: "Living",
+                CONF_PROFILE_FUNCTIONS: [FUNCTION_TIME, FUNCTION_RESIDENT],
+                CONF_PROFILE_SETTINGS: {
+                    "auto_time_enabled": True,
+                    CONF_RESIDENT_STATUS: True,
+                    CONF_RESIDENT_OPEN_ENABLED: True,
+                    CONF_RESIDENT_ALLOW_OPEN: True,
+                },
+            }
+        },
+        CONF_ROOMS: {
+            "living": {
+                CONF_NAME: "Living",
+                CONF_ROOM_PROFILE_ID: "profile-living",
+                CONF_PROFILE_FUNCTIONS: [FUNCTION_TIME],
+                CONF_ROOM_SETTINGS: {CONF_COVERS: ["cover.living"]},
+                CONF_SOURCE_OVERRIDES: {},
+            }
+        },
+    }
+
+    resolved = resolve_config_model(model, "living")
+
+    assert resolved.configured_functions == frozenset({FUNCTION_TIME})
+    assert resolved["auto_time_enabled"] is True
+    assert resolved.sources["auto_time_enabled"] == "profile:profile-living"
+    assert resolved[CONF_RESIDENT_STATUS] is False
+    assert resolved.sources[CONF_RESIDENT_STATUS] == "system_default"
+    assert resolved.sources[CONF_RESIDENT_OPEN_ENABLED] == "system_default"
+
+
+def test_native_profile_settings_block_room_owned_values() -> None:
+    model = {
+        CONF_CONFIG_VERSION: CONFIG_MODEL_VERSION,
+        CONF_GLOBAL: {
+            CONF_GLOBAL_SOURCES: {},
+            CONF_GLOBAL_DEFAULTS: {},
+        },
+        CONF_PROFILES: {
+            "profile-shading": {
+                CONF_PROFILE_ID: "profile-shading",
+                CONF_PROFILE_NAME: "Shading",
+                CONF_PROFILE_FUNCTIONS: [FUNCTION_SHADING],
+                CONF_PROFILE_SETTINGS: {
+                    "auto_shading_enabled": True,
+                    CONF_SHADING_POSITION: 10,
+                    CONF_RESIDENT_SENSOR: "binary_sensor.profile_resident",
+                    CONF_TEMPERATURE_SENSOR_INDOOR: "sensor.profile_temp",
+                    CONF_SUN_AZIMUTH_START: 111,
+                    CONF_SUN_AZIMUTH_END: 222,
+                    CONF_COVER_TYPE: "awning",
+                    CONF_DRIVE_TIME: 99,
+                    CONF_ENABLE_LOGBOOK_COVER: True,
+                    CONF_ENABLE_RECALIBRATE_BUTTON: True,
+                },
+            }
+        },
+        CONF_ROOMS: {
+            "living": {
+                CONF_NAME: "Living",
+                CONF_ROOM_PROFILE_ID: "profile-shading",
+                CONF_PROFILE_FUNCTIONS: [FUNCTION_SHADING],
+                CONF_ROOM_SETTINGS: {
+                    CONF_COVERS: ["cover.living"],
+                    CONF_SHADING_POSITION: 42,
+                    CONF_RESIDENT_SENSOR: "binary_sensor.room_resident",
+                    CONF_TEMPERATURE_SENSOR_INDOOR: "sensor.room_temp",
+                    CONF_SUN_AZIMUTH_START: 120,
+                    CONF_SUN_AZIMUTH_END: 240,
+                },
+                CONF_SOURCE_OVERRIDES: {},
+            }
+        },
+    }
+
+    resolved = resolve_config_model(model, "living")
+
+    assert resolved[CONF_SHADING_POSITION] == 42
+    assert resolved.sources[CONF_SHADING_POSITION] == "room_setting"
+    assert resolved[CONF_RESIDENT_SENSOR] == "binary_sensor.room_resident"
+    assert resolved.sources[CONF_RESIDENT_SENSOR] == "room_setting"
+    assert resolved[CONF_TEMPERATURE_SENSOR_INDOOR] == "sensor.room_temp"
+    assert resolved.sources[CONF_TEMPERATURE_SENSOR_INDOOR] == "room_setting"
+    assert resolved[CONF_SUN_AZIMUTH_START] == 120
+    assert resolved.sources[CONF_SUN_AZIMUTH_START] == "room_setting"
+    assert resolved[CONF_COVER_TYPE] != "awning"
+    assert resolved.sources[CONF_COVER_TYPE] == "system_default"
+    assert CONF_DRIVE_TIME not in resolved
+    assert CONF_DRIVE_TIME not in resolved.sources
+    assert resolved[CONF_ENABLE_LOGBOOK_COVER] is False
+    assert resolved.sources[CONF_ENABLE_LOGBOOK_COVER] == "system_default"
+    assert resolved[CONF_ENABLE_RECALIBRATE_BUTTON] is False
+    assert resolved.sources[CONF_ENABLE_RECALIBRATE_BUTTON] == "system_default"
+
+
+def test_native_profile_position_without_room_value_uses_system_default() -> None:
+    model = {
+        CONF_CONFIG_VERSION: CONFIG_MODEL_VERSION,
+        CONF_GLOBAL: {CONF_GLOBAL_SOURCES: {}, CONF_GLOBAL_DEFAULTS: {}},
+        CONF_PROFILES: {
+            "profile-shading": {
+                CONF_PROFILE_ID: "profile-shading",
+                CONF_PROFILE_NAME: "Shading",
+                CONF_PROFILE_FUNCTIONS: [FUNCTION_SHADING],
+                CONF_PROFILE_SETTINGS: {
+                    "auto_shading_enabled": True,
+                    CONF_SHADING_POSITION: 10,
+                },
+            }
+        },
+        CONF_ROOMS: {
+            "living": {
+                CONF_NAME: "Living",
+                CONF_ROOM_PROFILE_ID: "profile-shading",
+                CONF_PROFILE_FUNCTIONS: [FUNCTION_SHADING],
+                CONF_ROOM_SETTINGS: {CONF_COVERS: ["cover.living"]},
+                CONF_SOURCE_OVERRIDES: {},
+            }
+        },
+    }
+
+    resolved = resolve_config_model(model, "living")
+
+    assert resolved[CONF_SHADING_POSITION] != 10
+    assert resolved.sources[CONF_SHADING_POSITION] == "system_default"
+
+
 def test_native_profile_functions_are_derived_from_current_content() -> None:
     profile = {
         CONF_PROFILE_NAME: "Wohnen",
@@ -292,6 +442,8 @@ def test_profile_function_keys_do_not_own_room_hardware_positions_or_sensors() -
     assert profile_keys.isdisjoint(ROOM_HARDWARE_KEYS)
     assert profile_keys.isdisjoint(ROOM_POSITION_KEYS)
     assert profile_keys.isdisjoint(ROOM_SENSOR_KEYS)
+    assert profile_keys.isdisjoint(ROOM_GEOMETRY_KEYS)
+    assert profile_keys.isdisjoint(ROOM_CONTROL_KEYS)
 
 
 def test_unified_profile_reference_resolves_function_blocks() -> None:

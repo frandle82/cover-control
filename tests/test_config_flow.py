@@ -565,6 +565,7 @@ async def test_parent_reconfigure_menu_exposes_hierarchical_sections(hass):
         "profile_references",
         "profile_functions",
         "source_overrides",
+        "controls",
         "diagnostics",
     ]
 
@@ -646,6 +647,7 @@ async def test_room_subentry_menu_has_no_parallel_profile_editors(hass):
         "profile_references",
         "profile_functions",
         "source_overrides",
+        "controls",
         "diagnostics",
     ]
     assert "functions" not in result["menu_options"]
@@ -821,6 +823,10 @@ async def test_existing_profile_round_trip_is_sparse_and_keeps_stable_id(hass):
     room_id = _room_id(entry)
     model = _native_model(entry)
     profile_id = model["rooms"][room_id]["profile_id"]
+    model["rooms"][room_id][c.CONF_PROFILE_FUNCTIONS] = [
+        c.FUNCTION_TIME,
+        c.FUNCTION_SHADING,
+    ]
     settings = model["profiles"][profile_id]["settings"]
     settings.clear()
     settings.update(
@@ -1201,6 +1207,10 @@ async def test_room_position_can_be_removed_without_copying_profile_values(hass)
     room_id = _room_id(entry)
     model = _native_model(entry)
     profile_id = model["rooms"][room_id]["profile_id"]
+    model["rooms"][room_id][c.CONF_PROFILE_FUNCTIONS] = [
+        c.FUNCTION_TIME,
+        c.FUNCTION_SHADING,
+    ]
     model["profiles"][profile_id]["settings"] = {
         c.CONF_SHADING_WAITINGTIME_END: 500,
     }

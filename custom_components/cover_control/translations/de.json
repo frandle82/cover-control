@@ -1817,7 +1817,8 @@
             "geometry": "Geometrie",
             "profile_references": "Profil",
             "profile_functions": "Profilfunktionen",
-            "source_overrides": "Lokale Abweichungen",
+            "source_overrides": "Lokale Datenquellen",
+            "controls": "Bedienelemente",
             "diagnostics": "Diagnose",
             "positions": "Positionen"
           },
@@ -1829,9 +1830,19 @@
             "geometry": "Physische Fensterausrichtung beschreiben, die mit Sonne und Beschattungsregeln ausgewertet wird.",
             "profile_references": "Das zentrale Profil für diesen Raum auswählen.",
             "profile_functions": "Auswählen, welche Funktionen des gewählten Profils in diesem Raum verwendet werden.",
-            "source_overrides": "Globale Quellen nur für diesen Raum überschreiben.",
+            "source_overrides": "Wähle nur dann eine lokale Datenquelle, wenn dieser Raum eine andere Quelle als die global konfigurierte verwenden soll.",
+            "controls": "Lege fest, welche optionalen Bedienelemente und Raumfunktionen Cover Control für diesen Raum bereitstellt.",
             "diagnostics": "Raumstruktur und ausgewählte Profilreferenzen prüfen.",
             "positions": "Physische Zielpositionen und Lamellenpositionen dieses Raums konfigurieren."
+          }
+        },
+        "controls": {
+          "title": "Bedienelemente",
+          "description": "Lege fest, welche optionalen Bedienelemente und Raumfunktionen Cover Control für diesen Raum bereitstellt.",
+          "data": {
+            "enable_recalibrate_button": "Rekalibrierungs-Schaltfläche aktivieren",
+            "enable_clear_manual_override_button": "Schaltfläche zum Löschen des manuellen Overrides aktivieren",
+            "enable_logbook_cover": "Cover-Aktionen im Logbuch protokollieren"
           }
         },
         "functions": {
@@ -5888,6 +5899,9 @@
       },
       "auto_shading": {
         "name": "Beschattung"
+      },
+      "resident_status": {
+        "name": "Bewohnerautomatik"
       }
     },
     "button": {

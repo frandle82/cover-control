@@ -1938,7 +1938,6 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                         CONF_COVERS: list(user_input[CONF_COVERS]),
                     },
                     CONF_SOURCE_OVERRIDES: {},
-                    CONF_ROOM_OVERRIDES: {},
                 },
             )
         return self.async_show_form(
@@ -1969,8 +1968,46 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                 "profile_references",
                 "profile_functions",
                 "source_overrides",
+                "controls",
                 "diagnostics",
             ],
+        )
+
+    async def async_step_controls(self, user_input=None) -> FlowResult:
+        subentry = self._get_reconfigure_subentry()
+        data = dict(subentry.data)
+        settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
+        if user_input is not None:
+            settings.pop(CONF_MANUAL_CONTROL, None)
+            for key in (
+                CONF_ENABLE_RECALIBRATE_BUTTON,
+                CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON,
+                CONF_ENABLE_LOGBOOK_COVER,
+            ):
+                settings[key] = bool(user_input.get(key, False))
+            data[CONF_ROOM_SETTINGS] = settings
+            return self.async_update_and_abort(self._get_entry(), subentry, data=data)
+        merged = {**DEFAULT_BUTTON_SETTINGS, **settings}
+        return self.async_show_form(
+            step_id="controls",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_ENABLE_RECALIBRATE_BUTTON,
+                        default=bool(merged.get(CONF_ENABLE_RECALIBRATE_BUTTON)),
+                    ): bool,
+                    vol.Optional(
+                        CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON,
+                        default=bool(
+                            merged.get(CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON)
+                        ),
+                    ): bool,
+                    vol.Optional(
+                        CONF_ENABLE_LOGBOOK_COVER,
+                        default=bool(settings.get(CONF_ENABLE_LOGBOOK_COVER, False)),
+                    ): bool,
+                }
+            ),
         )
 
     async def async_step_general(self, user_input=None) -> FlowResult:

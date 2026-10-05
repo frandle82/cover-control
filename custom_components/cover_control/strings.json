@@ -1817,7 +1817,8 @@
             "geometry": "Geometry",
             "profile_references": "Profile",
             "profile_functions": "Profile functions",
-            "source_overrides": "Local deviations",
+            "source_overrides": "Local data sources",
+            "controls": "Controls",
             "diagnostics": "Diagnostics",
             "positions": "Positions"
           },
@@ -1829,9 +1830,19 @@
             "geometry": "Describe the physical window orientation evaluated with sun and shading rules.",
             "profile_references": "Choose which central behavior profile this room uses.",
             "profile_functions": "Choose which functions from the selected profile are used in this room.",
-            "source_overrides": "Override shared global sources only for this room.",
+            "source_overrides": "Choose a local data source only when this room should use a different source than the globally configured one.",
+            "controls": "Choose which optional controls and room functions Cover Control provides for this room.",
             "diagnostics": "Inspect the room structure and selected profile references.",
             "positions": "Configure this room's physical target positions and tilt positions."
+          }
+        },
+        "controls": {
+          "title": "Controls",
+          "description": "Choose which optional controls and room functions Cover Control provides for this room.",
+          "data": {
+            "enable_recalibrate_button": "Enable recalibration button",
+            "enable_clear_manual_override_button": "Enable clear manual override button",
+            "enable_logbook_cover": "Log cover actions"
           }
         },
         "functions": {
@@ -5888,6 +5899,9 @@
       },
       "auto_shading": {
         "name": "Shading"
+      },
+      "resident_status": {
+        "name": "Resident behavior"
       }
     },
     "button": {

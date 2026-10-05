@@ -217,6 +217,7 @@ BEHAVIOR_PROFILE_KEYS = frozenset(
         CONF_RESIDENT_ALLOW_VENTILATION,
     }
 ) - ROOM_HARDWARE_KEYS - ROOM_POSITION_KEYS - ROOM_SENSOR_KEYS - ROOM_GEOMETRY_KEYS
+BEHAVIOR_PROFILE_KEYS = BEHAVIOR_PROFILE_KEYS - ROOM_CONTROL_KEYS
 
 VENTILATION_PROFILE_KEYS = frozenset({CONF_AUTO_VENTILATE, *DEFAULT_CONTACT_SETTINGS})
 
@@ -363,6 +364,41 @@ def profile_settings(profile: Mapping[str, Any]) -> dict[str, Any]:
         if isinstance(block, Mapping):
             settings.update(block)
     return settings
+
+
+NATIVE_PROFILE_BLOCKED_KEYS = (
+    ROOM_HARDWARE_KEYS
+    | ROOM_POSITION_KEYS
+    | ROOM_SENSOR_KEYS
+    | ROOM_GEOMETRY_KEYS
+    | ROOM_CONTROL_KEYS
+)
+
+
+def sanitize_native_profile_settings(settings: Mapping[str, Any]) -> dict[str, Any]:
+    """Remove room-owned values from native v6 profile settings."""
+
+    return {
+        key: value
+        for key, value in settings.items()
+        if key not in NATIVE_PROFILE_BLOCKED_KEYS
+    }
+
+
+def profile_settings_for_functions(
+    profile: Mapping[str, Any], selected_functions: frozenset[str]
+) -> dict[str, Any]:
+    """Return native profile settings owned by selected profile functions."""
+
+    allowed_keys: set[str] = set()
+    for function in selected_functions:
+        allowed_keys.update(PROFILE_FUNCTION_KEYS.get(function, frozenset()))
+    settings = sanitize_native_profile_settings(profile_settings(profile))
+    return {
+        key: value
+        for key, value in settings.items()
+        if key in allowed_keys
+    }
 
 
 def effective_profile_id(room: Mapping[str, Any]) -> str | None:
@@ -543,7 +579,16 @@ def resolve_room_config(
         if not isinstance(profile, Mapping):
             continue
         profile_id = str(profile.get(CONF_PROFILE_ID, ""))
-        settings = profile_settings(profile)
+        if selected_profile_functions is None:
+            settings = profile_settings(profile)
+        else:
+            profile_available_functions = configured_functions_from_profile(profile)
+            selected_for_profile = frozenset(
+                function
+                for function in selected_profile_functions
+                if function in profile_available_functions
+            )
+            settings = profile_settings_for_functions(profile, selected_for_profile)
         if not isinstance(settings, Mapping):
             continue
         resolved_settings = dict(settings)
@@ -556,7 +601,10 @@ def resolve_room_config(
         profile_names[profile_type] = str(
             profile.get(CONF_PROFILE_NAME, profile_id)
         )
-        profile_functions.update(configured_functions_from_profile(profile))
+        if selected_profile_functions is None:
+            profile_functions.update(configured_functions_from_profile(profile))
+        else:
+            profile_functions.update(selected_for_profile)
     if selected_profile_functions is not None:
         profile_functions &= set(selected_profile_functions)
     merge(room_settings, "room_setting")
@@ -590,7 +638,11 @@ def resolve_config_model(
     room = rooms.get(room_id, {}) if isinstance(rooms, Mapping) else {}
     profile = effective_profile(model, room)
     selected = {"profile": profile} if profile else {}
-    selected_functions = effective_room_profile_functions(model, room)
+    selected_functions = (
+        effective_room_profile_functions(model, room)
+        if room_selected_functions(room) is not None
+        else None
+    )
     return resolve_room_config(
         system_defaults(),
         global_config.get(CONF_GLOBAL_SOURCES, {}),

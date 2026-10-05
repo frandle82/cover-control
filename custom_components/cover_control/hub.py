@@ -18,6 +18,7 @@ from .config_profiles import ConfigProfileModel
 from .config_profile_schema import infer_capabilities
 from .config_resolver import (
     GLOBAL_SOURCE_KEYS,
+    configured_functions_from_profile,
     effective_profile,
     effective_profile_id,
     effective_room_profile_functions,
@@ -370,24 +371,20 @@ class CoverControlHub:
         return str(profile.get(CONF_PROFILE_NAME, profile_id))
 
     def diagnostics(self) -> dict[str, Any]:
+        profiles = {
+            profile_id: {
+                "name": profile.get(CONF_PROFILE_NAME, profile_id),
+                "functions": sorted(configured_functions_from_profile(profile)),
+                "users": sorted(self.profile_users.get(("profile", profile_id), ())),
+            }
+            for profile_id, profile in self.model.get(CONF_PROFILES, {}).items()
+            if profile_id not in PROFILE_TYPES and isinstance(profile, Mapping)
+        }
         return {
             "global_sources": deepcopy(
                 self.model.get(CONF_GLOBAL, {}).get(CONF_GLOBAL_SOURCES, {})
             ),
-            "profiles": {
-                profile_type: {
-                    profile_id: {
-                        "name": profile.get(CONF_PROFILE_NAME, profile_id),
-                        "users": sorted(
-                            self.profile_users.get((profile_type, profile_id), ())
-                        ),
-                    }
-                    for profile_id, profile in catalog.items()
-                }
-                for profile_type, catalog in self.model.get(
-                    CONF_PROFILES, {}
-                ).items()
-            },
+            "profiles": profiles,
             "profile_evaluation": {
                 f"{profile_type}:{profile_id}": {
                     "next_open": evaluation.next_open,
