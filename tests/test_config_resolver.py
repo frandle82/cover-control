@@ -32,6 +32,7 @@ from custom_components.cover_control.const import (
     CONF_SOURCE_OVERRIDES,
     CONFIG_MODEL_VERSION,
     FUNCTION_BRIGHTNESS,
+    FUNCTION_RESIDENT,
     FUNCTION_SHADING,
     FUNCTION_TIME,
     PROFILE_TYPE_SHADING,
@@ -185,6 +186,73 @@ def test_room_profile_functions_limit_configured_functions() -> None:
                 CONF_NAME: "Living",
                 CONF_PROFILE_SELECTIONS: {PROFILE_TYPE_SHADING: "south"},
                 CONF_PROFILE_FUNCTIONS: [FUNCTION_SHADING],
+                CONF_ROOM_SETTINGS: {CONF_COVERS: ["cover.living"]},
+                CONF_SOURCE_OVERRIDES: {},
+                CONF_ROOM_OVERRIDES: {},
+            }
+        },
+    }
+
+    resolved = resolve_config_model(model, "living")
+
+    assert resolved.configured_functions == frozenset({FUNCTION_SHADING})
+
+
+def test_native_v6_room_without_profile_functions_selects_none() -> None:
+    model = {
+        CONF_CONFIG_VERSION: CONFIG_MODEL_VERSION,
+        CONF_GLOBAL: {
+            CONF_GLOBAL_SOURCES: {},
+            CONF_GLOBAL_DEFAULTS: {},
+        },
+        CONF_PROFILES: {
+            "profile-living": {
+                CONF_PROFILE_ID: "profile-living",
+                CONF_PROFILE_NAME: "Living",
+                CONF_PROFILE_FUNCTIONS: [FUNCTION_TIME, FUNCTION_RESIDENT],
+                CONF_PROFILE_SETTINGS: {
+                    "auto_time_enabled": True,
+                    "resident_status": True,
+                },
+            }
+        },
+        CONF_ROOMS: {
+            "living": {
+                CONF_NAME: "Living",
+                CONF_ROOM_PROFILE_ID: "profile-living",
+                CONF_ROOM_SETTINGS: {CONF_COVERS: ["cover.living"]},
+                CONF_SOURCE_OVERRIDES: {},
+                CONF_ROOM_OVERRIDES: {},
+            }
+        },
+    }
+
+    resolved = resolve_config_model(model, "living")
+
+    assert resolved.configured_functions == frozenset()
+
+
+def test_legacy_room_without_profile_functions_uses_compatibility_fallback() -> None:
+    model = {
+        CONF_CONFIG_VERSION: CONFIG_MODEL_VERSION,
+        CONF_GLOBAL: {
+            CONF_GLOBAL_SOURCES: {},
+            CONF_GLOBAL_DEFAULTS: {},
+        },
+        CONF_PROFILES: {
+            PROFILE_TYPE_SHADING: {
+                "south": {
+                    CONF_PROFILE_ID: "south",
+                    CONF_PROFILE_NAME: "South",
+                    CONF_PROFILE_FUNCTIONS: [FUNCTION_SHADING],
+                    CONF_PROFILE_SETTINGS: {"auto_shading_enabled": True},
+                }
+            }
+        },
+        CONF_ROOMS: {
+            "living": {
+                CONF_NAME: "Living",
+                CONF_PROFILE_SELECTIONS: {PROFILE_TYPE_SHADING: "south"},
                 CONF_ROOM_SETTINGS: {CONF_COVERS: ["cover.living"]},
                 CONF_SOURCE_OVERRIDES: {},
                 CONF_ROOM_OVERRIDES: {},

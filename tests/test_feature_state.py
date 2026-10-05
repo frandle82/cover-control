@@ -11,7 +11,9 @@ from custom_components.cover_control.const import (
     CONF_ROOM_PROFILE_ID,
     CONF_ROOMS,
     FUNCTION_BRIGHTNESS,
+    FUNCTION_RESIDENT,
     FUNCTION_SHADING,
+    FUNCTION_TIME,
     PROFILE_TYPE_TIME,
 )
 
@@ -97,3 +99,28 @@ def test_flat_profile_setting_is_configured() -> None:
     }
 
     assert feature_configured(model, "room", "shading_waitingtime_end")
+
+
+def test_selected_room_functions_gate_profile_behavior() -> None:
+    model = {
+        CONF_PROFILES: {
+            "profile-living": {
+                CONF_PROFILE_ID: "profile-living",
+                CONF_PROFILE_NAME: "Living",
+                CONF_PROFILE_FUNCTIONS: [FUNCTION_TIME, FUNCTION_RESIDENT],
+                CONF_PROFILE_SETTINGS: {
+                    "auto_time_enabled": True,
+                    "resident_status_enabled": True,
+                },
+            }
+        },
+        CONF_ROOMS: {
+            "room": {
+                CONF_ROOM_PROFILE_ID: "profile-living",
+                CONF_PROFILE_FUNCTIONS: [FUNCTION_TIME],
+            }
+        },
+    }
+
+    assert feature_configured(model, "room", "auto_time_enabled")
+    assert not feature_configured(model, "room", "resident_status_enabled")

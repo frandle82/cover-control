@@ -75,7 +75,7 @@ class ConfigProfileModel:
         self.data.setdefault(CONF_ROOMS, {})
         for room in self.data[CONF_ROOMS].values():
             profile_id = effective_profile_id(room)
-            if profile_id:
+            if profile_id and not profile_id.startswith("legacy:"):
                 room.setdefault("profile_id", profile_id)
                 room.setdefault(
                     "profile_functions",

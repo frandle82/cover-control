@@ -1170,6 +1170,17 @@
         "tilt_behavior": "Tilt behavior"
       }
     },
+    "profile_functions": {
+      "options": {
+        "time": "Time automation",
+        "brightness": "Brightness automation",
+        "sun": "Sun automation",
+        "shading": "Shading",
+        "ventilation": "Ventilation",
+        "resident": "Resident behavior",
+        "behavior": "Manual behavior"
+      }
+    },
     "position_source": {
       "options": {
         "current_position_attr": "current_position attribute",
@@ -1401,10 +1412,9 @@
             "contacts": "Window contacts",
             "room_sensors": "Room sensors",
             "geometry": "Geometry",
-            "functions": "Functions",
-            "profile_references": "Profiles",
+            "profile_references": "Profile",
+            "profile_functions": "Profile functions",
             "source_overrides": "Local deviations",
-            "overrides": "Profile overrides",
             "diagnostics": "Diagnostics"
           },
           "menu_option_descriptions": {
@@ -1413,10 +1423,9 @@
             "contacts": "Assign window contacts to the covers for ventilation and protection functions.",
             "room_sensors": "Select sensors that belong only to this room.",
             "geometry": "Describe the physical window orientation evaluated with sun and shading rules.",
-            "functions": "Configure room-local feature switches and behavior without editing global profiles.",
-            "profile_references": "Choose which central behavior profiles this room uses.",
+            "profile_references": "Choose which central behavior profile this room uses.",
+            "profile_functions": "Choose which functions from the selected profile are used in this room.",
             "source_overrides": "Override shared global sources only for this room.",
-            "overrides": "Store sparse local deviations from the selected profiles.",
             "diagnostics": "Inspect the room structure and selected profile references."
           }
         },
@@ -4203,17 +4212,23 @@
           }
         },
         "profile_references": {
-          "title": "Profiles",
-          "description": "Choose the behavior profiles for this room. Profiles are created and edited centrally under Cover Control configuration > Profiles.",
+          "title": "Profile",
+          "description": "Choose the central behavior profile for this room. The profile itself is created and edited centrally under Cover Control configuration > Profiles.",
           "data": {
-            "time": "Time profile",
-            "shading": "Shading profile",
-            "behavior": "Behavior profile"
+            "profile_id": "Profile"
           },
           "data_description": {
-            "time": "The time profile is edited globally; this room only selects the reference.",
-            "shading": "The shading profile is edited globally; this room only selects the reference.",
-            "behavior": "The behavior profile is edited globally; this room only selects the reference."
+            "profile_id": "The selected profile defines the available behavior; this room only stores the reference."
+          }
+        },
+        "profile_functions": {
+          "title": "Profile functions",
+          "description": "Choose which functions of the selected profile are used in this room. Only selected functions are set up for this room and receive their own switches where applicable.",
+          "data": {
+            "profile_functions": "Used profile functions"
+          },
+          "data_description": {
+            "profile_functions": "Functions configured by the selected profile and enabled for this room."
           }
         },
         "overrides": {
@@ -5366,7 +5381,9 @@
       "abort": {
         "reconfigure_successful": "Room updated",
         "missing_profile_reference": "Referenced profile no longer exists",
-        "no_profile_for_overrides": "No profile selected for overrides"
+        "no_profile_for_overrides": "No profile selected for overrides",
+        "profile_required_for_functions": "Choose a profile before selecting profile functions",
+        "profile_has_no_functions": "The selected profile has no configured functions"
       }
     }
   },

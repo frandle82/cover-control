@@ -106,6 +106,7 @@ def unify_profile_model(model: Mapping[str, Any]) -> dict[str, Any]:
                 legacy_functions = legacy_profile.get(CONF_PROFILE_FUNCTIONS)
                 if isinstance(legacy_functions, (list, tuple, set, frozenset)):
                     functions.update(str(function) for function in legacy_functions)
+                functions.update(configured_functions_from_profile(legacy_profile))
             name = " / ".join(dict.fromkeys(name for name in names if name))
             unified_profiles[profile_id] = {
                 CONF_PROFILE_ID: profile_id,

@@ -32,6 +32,8 @@ from .config_resolver import (
     GLOBAL_SOURCE_KEYS,
     PROFILE_KEYS,
     ROOM_SOURCE_OVERRIDE_KEYS,
+    configured_functions_from_profile,
+    effective_profile,
     resolve_config_model,
     system_defaults,
 )
@@ -105,6 +107,7 @@ from .const import (
     CONF_PROFILES,
     CONF_PROFILE_SETTINGS,
     CONF_OPEN_POSITION,
+    CONF_ROOM_PROFILE_ID,
     CONF_OPEN_TILT_POSITION,
     CONF_ROOM,
     CONF_ROOMS,
@@ -287,6 +290,7 @@ from .const import (
     PROFILE_TYPE_BEHAVIOR,
     PROFILE_TYPE_SHADING,
     PROFILE_TYPE_TIME,
+    PROFILE_FUNCTIONS,
     PROFILE_TYPES,
     MANUAL_OVERRIDE_RESET_NONE,
     MANUAL_OVERRIDE_RESET_TIME,
@@ -1905,7 +1909,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                 title=title,
                 data={
                     CONF_NAME: title,
-                    CONF_PROFILE_SELECTIONS: {},
+                    CONF_PROFILE_FUNCTIONS: [],
                     CONF_ROOM_SETTINGS: {
                         CONF_ROOM: user_input[CONF_ROOM],
                         CONF_COVERS: list(user_input[CONF_COVERS]),
@@ -1939,10 +1943,9 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                 "contacts",
                 "room_sensors",
                 "geometry",
-                "functions",
                 "profile_references",
+                "profile_functions",
                 "source_overrides",
-                "overrides",
                 "diagnostics",
             ],
         )
@@ -1972,20 +1975,6 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                     ): selector.AreaSelector(),
                 }
             ),
-        )
-
-    async def async_step_functions(self, user_input=None) -> FlowResult:
-        return self.async_show_menu(
-            step_id="functions",
-            menu_options=[
-                "time",
-                "brightness",
-                "sun",
-                "shading",
-                "ventilation",
-                "resident",
-                "behavior",
-            ],
         )
 
     async def async_step_contacts(self, user_input=None) -> FlowResult:
@@ -2390,6 +2379,8 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         *,
         capabilities: tuple[str, ...] | None = None,
     ) -> FlowResult:
+        """Legacy direct room behavior editor kept outside native v6 navigation."""
+
         subentry = self._get_reconfigure_subentry()
         data = dict(subentry.data)
         settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
@@ -2509,27 +2500,43 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         data = dict(subentry.data)
         profiles = entry.data.get(CONF_PROFILES, {})
         if user_input is not None:
-            profile_id = user_input.get("profile_id")
+            profile_id = user_input.get(CONF_ROOM_PROFILE_ID)
             if profile_id in (None, ""):
-                data.pop("profile_id", None)
+                data.pop(CONF_ROOM_PROFILE_ID, None)
+                data[CONF_PROFILE_FUNCTIONS] = []
             else:
-                data["profile_id"] = profile_id
+                data[CONF_ROOM_PROFILE_ID] = profile_id
+                profile = profiles.get(profile_id, {})
+                available = configured_functions_from_profile(profile)
+                selected = data.get(CONF_PROFILE_FUNCTIONS, [])
+                if isinstance(selected, dict):
+                    selected = [
+                        function
+                        for function, enabled in selected.items()
+                        if enabled
+                    ]
+                data[CONF_PROFILE_FUNCTIONS] = sorted(
+                    function for function in selected if function in available
+                )
             data.pop(CONF_PROFILE_SELECTIONS, None)
             return self.async_update_and_abort(
                 entry, subentry, data=data
             )
         options = [
-            {
-                "value": profile_id,
-                "label": profile.get(CONF_PROFILE_NAME, profile_id),
-            }
-            for profile_id, profile in profiles.items()
-            if profile_id not in PROFILE_TYPES
+            {"value": "", "label": "No profile"},
+            *[
+                {
+                    "value": profile_id,
+                    "label": profile.get(CONF_PROFILE_NAME, profile_id),
+                }
+                for profile_id, profile in profiles.items()
+                if profile_id not in PROFILE_TYPES
+            ],
         ]
-        current = data.get("profile_id")
+        current = data.get(CONF_ROOM_PROFILE_ID)
         schema = {
             vol.Optional(
-                "profile_id",
+                CONF_ROOM_PROFILE_ID,
                 description={"suggested_value": current} if current else None,
             ): selector.SelectSelector(selector.SelectSelectorConfig(options=options))
         }
@@ -2537,7 +2544,57 @@ class RoomSubentryFlow(ConfigSubentryFlow):
             step_id="profile_references", data_schema=vol.Schema(schema)
         )
 
+    async def async_step_profile_functions(self, user_input=None) -> FlowResult:
+        entry = self._get_entry()
+        subentry = self._get_reconfigure_subentry()
+        data = dict(subentry.data)
+        profile_id = data.get(CONF_ROOM_PROFILE_ID)
+        if not profile_id:
+            return self.async_abort(reason="profile_required_for_functions")
+        profile = effective_profile(
+            {CONF_PROFILES: entry.data.get(CONF_PROFILES, {})},
+            {CONF_ROOM_PROFILE_ID: profile_id},
+        )
+        available = configured_functions_from_profile(profile)
+        if not available:
+            return self.async_abort(reason="profile_has_no_functions")
+        selected = data.get(CONF_PROFILE_FUNCTIONS, [])
+        if isinstance(selected, dict):
+            selected = [
+                function for function, enabled in selected.items() if enabled
+            ]
+        current = sorted(function for function in selected if function in available)
+        if user_input is not None:
+            submitted = user_input.get(CONF_PROFILE_FUNCTIONS, [])
+            data[CONF_PROFILE_FUNCTIONS] = sorted(
+                function for function in submitted if function in available
+            )
+            return self.async_update_and_abort(entry, subentry, data=data)
+        options = [
+            function for function in PROFILE_FUNCTIONS if function in available
+        ]
+        return self.async_show_form(
+            step_id="profile_functions",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        CONF_PROFILE_FUNCTIONS,
+                        default=current,
+                    ): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=options,
+                            multiple=True,
+                            mode=selector.SelectSelectorMode.LIST,
+                            translation_key="profile_functions",
+                        )
+                    )
+                }
+            ),
+        )
+
     async def async_step_overrides(self, user_input=None) -> FlowResult:
+        """Legacy direct typed override menu kept outside native v6 navigation."""
+
         subentry = self._get_reconfigure_subentry()
         selected = subentry.data.get(CONF_PROFILE_SELECTIONS, {})
         options = [

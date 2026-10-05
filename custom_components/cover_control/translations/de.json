@@ -1170,6 +1170,17 @@
         "tilt_behavior": "Lamellenverhalten"
       }
     },
+    "profile_functions": {
+      "options": {
+        "time": "Zeitsteuerung",
+        "brightness": "Helligkeitssteuerung",
+        "sun": "Sonnenstandssteuerung",
+        "shading": "Beschattung",
+        "ventilation": "Lüftung",
+        "resident": "Bewohnerverhalten",
+        "behavior": "Manuelles Verhalten"
+      }
+    },
     "position_source": {
       "options": {
         "current_position_attr": "Attribut current_position",
@@ -1401,10 +1412,9 @@
             "contacts": "Fensterkontakte",
             "room_sensors": "Raumsensoren",
             "geometry": "Geometrie",
-            "functions": "Funktionen",
-            "profile_references": "Profile",
+            "profile_references": "Profil",
+            "profile_functions": "Profilfunktionen",
             "source_overrides": "Lokale Abweichungen",
-            "overrides": "Profilabweichungen",
             "diagnostics": "Diagnose"
           },
           "menu_option_descriptions": {
@@ -1413,10 +1423,9 @@
             "contacts": "Fensterkontakte den Covern für Lüftung und Schutzfunktionen zuordnen.",
             "room_sensors": "Sensoren auswählen, die ausschließlich zu diesem Raum gehören.",
             "geometry": "Physische Fensterausrichtung beschreiben, die mit Sonne und Beschattungsregeln ausgewertet wird.",
-            "functions": "Raumlokale Funktionen konfigurieren, ohne globale Profile zu bearbeiten.",
-            "profile_references": "Zentrale Verhaltensprofile für diesen Raum auswählen.",
+            "profile_references": "Das zentrale Verhaltensprofil für diesen Raum auswählen.",
+            "profile_functions": "Auswählen, welche Funktionen des gewählten Profils in diesem Raum verwendet werden.",
             "source_overrides": "Globale Quellen nur für diesen Raum überschreiben.",
-            "overrides": "Sparsame lokale Abweichungen von gewählten Profilen speichern.",
             "diagnostics": "Raumstruktur und ausgewählte Profilreferenzen prüfen."
           }
         },
@@ -4203,17 +4212,23 @@
           }
         },
         "profile_references": {
-          "title": "Profile",
-          "description": "Wähle die Verhaltensprofile für diesen Raum. Die Profile werden zentral unter Cover Control konfigurieren > Profile erstellt und bearbeitet.",
+          "title": "Profil",
+          "description": "Wähle das zentrale Verhaltensprofil für diesen Raum. Das Profil selbst wird zentral unter Cover Control konfigurieren > Profile erstellt und bearbeitet.",
           "data": {
-            "time": "Zeitprofil",
-            "shading": "Beschattungsprofil",
-            "behavior": "Verhaltensprofil"
+            "profile_id": "Profil"
           },
           "data_description": {
-            "time": "Zeitprofil wird global bearbeitet; dieser Raum wählt nur die Referenz.",
-            "shading": "Beschattungsprofil wird global bearbeitet; dieser Raum wählt nur die Referenz.",
-            "behavior": "Verhaltensprofil wird global bearbeitet; dieser Raum wählt nur die Referenz."
+            "profile_id": "Das gewählte Profil definiert das verfügbare Verhalten; dieser Raum speichert nur die Referenz."
+          }
+        },
+        "profile_functions": {
+          "title": "Profilfunktionen",
+          "description": "Wähle, welche Funktionen des ausgewählten Profils in diesem Raum verwendet werden sollen. Nur ausgewählte Funktionen werden für diesen Raum eingerichtet und erhalten - sofern vorgesehen - eigene Schalter.",
+          "data": {
+            "profile_functions": "Verwendete Profilfunktionen"
+          },
+          "data_description": {
+            "profile_functions": "Im gewählten Profil konfigurierte Funktionen, die in diesem Raum verwendet werden."
           }
         },
         "overrides": {
@@ -5366,7 +5381,9 @@
       "abort": {
         "reconfigure_successful": "Raum aktualisiert",
         "missing_profile_reference": "Das referenzierte Profil existiert nicht mehr",
-        "no_profile_for_overrides": "Kein Profil für Abweichungen ausgewählt"
+        "no_profile_for_overrides": "Kein Profil für Abweichungen ausgewählt",
+        "profile_required_for_functions": "Wähle zuerst ein Profil für diesen Raum aus",
+        "profile_has_no_functions": "Das gewählte Profil enthält keine konfigurierten Funktionen"
       }
     }
   },

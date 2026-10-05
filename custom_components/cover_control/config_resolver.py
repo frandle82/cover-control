@@ -432,7 +432,14 @@ def room_selected_functions(room: Mapping[str, Any]) -> frozenset[str] | None:
 
     selected = room.get(CONF_PROFILE_FUNCTIONS)
     if selected is None:
-        return None
+        selections = room.get(CONF_PROFILE_SELECTIONS)
+        if (
+            isinstance(selections, Mapping)
+            and selections
+            and not (room.get(CONF_ROOM_PROFILE_ID) or room.get(CONF_PROFILE_ID))
+        ):
+            return None
+        return frozenset()
     if isinstance(selected, Mapping):
         return frozenset(
             function
