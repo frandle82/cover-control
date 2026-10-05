@@ -338,6 +338,12 @@ def _selector_default(value: Any) -> Any:
     return value
 
 
+def _no_profile_label(language: str | None) -> str:
+    """Return the localized empty profile label for the active UI language."""
+
+    return "Kein Profil" if str(language or "").lower().startswith("de") else "No profile"
+
+
 LOGGER = logging.getLogger(__name__)
 
 
@@ -529,7 +535,16 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 },
                 CONF_GLOBAL_DEFAULTS: {},
             }
-            return await self.async_step_global_defaults()
+            await self.async_set_unique_id(DOMAIN)
+            self._abort_if_unique_id_configured()
+            return self.async_create_entry(
+                title=DEFAULT_NAME,
+                data={
+                    CONF_NAME: DEFAULT_NAME,
+                    CONF_GLOBAL: self._data[CONF_GLOBAL],
+                    CONF_PROFILES: {},
+                },
+            )
         fields = {}
         for key in sorted(GLOBAL_SOURCE_KEYS):
             fields[vol.Optional(key)] = (
@@ -1469,7 +1484,6 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="reconfigure",
             menu_options=[
                 "global_sources",
-                "global_defaults",
                 "profiles",
                 "diagnostics",
                 "recovery",
@@ -1487,7 +1501,16 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     },
                     CONF_GLOBAL_DEFAULTS: {},
                 }
-                return await self.async_step_global_defaults()
+                await self.async_set_unique_id(DOMAIN)
+                self._abort_if_unique_id_configured()
+                return self.async_create_entry(
+                    title=DEFAULT_NAME,
+                    data={
+                        CONF_NAME: DEFAULT_NAME,
+                        CONF_GLOBAL: self._data[CONF_GLOBAL],
+                        CONF_PROFILES: {},
+                    },
+                )
             fields = {}
             for key in sorted(GLOBAL_SOURCE_KEYS):
                 fields[vol.Optional(key)] = (
@@ -2523,7 +2546,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                 entry, subentry, data=data
             )
         options = [
-            {"value": "", "label": "No profile"},
+            {"value": "", "label": _no_profile_label(self.hass.config.language)},
             *[
                 {
                     "value": profile_id,

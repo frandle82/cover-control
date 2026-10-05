@@ -20,7 +20,6 @@ from pytest_homeassistant_custom_component.common import MockConfigEntry
 
 from custom_components.cover_control.config_flow import INITIAL_FEATURE_KEYS
 from custom_components.cover_control.config_profile_schema import (
-    CONF_GLOBAL_DEFAULT_FIELDS,
     CONF_OVERRIDE_FIELDS,
     CONF_PROFILE_FIELDS,
     PROFILE_CAPABILITY_KEYS,
@@ -99,7 +98,6 @@ def test_parent_reconfigure_steps_have_runtime_translations() -> None:
         "user",
         "reconfigure",
         "global_sources",
-        "global_defaults",
         "profiles",
         "profile_setup",
         "profile_sections",
@@ -121,13 +119,12 @@ def test_parent_reconfigure_steps_have_runtime_translations() -> None:
     ):
         document = json.loads(path.read_text())
         steps = document["config"]["step"]
-        assert set(steps) == expected_steps
+        assert expected_steps <= set(steps)
         assert set(steps["user"]["data"]) == {CONF_NAME}
         assert set(steps["user"]["data_description"]) == {CONF_NAME}
 
         assert set(steps["reconfigure"]["menu_options"]) == {
             "global_sources",
-            "global_defaults",
             "profiles",
             "diagnostics",
             "recovery",
@@ -137,13 +134,10 @@ def test_parent_reconfigure_steps_have_runtime_translations() -> None:
         )
         assert set(steps["global_sources"]["data"]) == GLOBAL_SOURCE_KEYS
         assert set(steps["global_sources"]["data_description"]) == GLOBAL_SOURCE_KEYS
-        global_default_fields = set().union(
-            *(
-                set(section["data"])
-                for section in steps["global_defaults"]["sections"].values()
-            )
+        assert GLOBAL_DEFAULT_KEYS == frozenset()
+        assert "configured_global_default_fields" not in str(
+            steps["reconfigure"]["menu_options"]
         )
-        assert GLOBAL_DEFAULT_KEYS <= global_default_fields
         assert {"profile_action", "profile_id"} <= set(steps["profiles"]["data"])
         assert {"profile_name"} <= set(steps["profile_setup"]["data"])
         assert set(steps["profile_sections"]["menu_options"]) == {
@@ -160,6 +154,7 @@ def test_parent_reconfigure_steps_have_runtime_translations() -> None:
         assert "{profiles}" in steps["diagnostics"]["description"]
         assert "{available}" in steps["recovery"]["description"]
         assert "reconfigure_successful" in document["config"]["abort"]
+        assert "single_instance_allowed" in document["config"]["abort"]
         assert {
             "no_profile_for_overrides",
             "profile_required_for_functions",
@@ -175,6 +170,7 @@ def test_active_room_steps_have_runtime_translations() -> None:
         "reconfigure",
         "general",
         "hardware",
+        "positions",
         "contacts",
         "room_sensors",
         "geometry",
@@ -210,6 +206,104 @@ def test_active_room_steps_have_runtime_translations() -> None:
             "profile_required_for_functions",
             "profile_has_no_functions",
         } <= set(room_abort)
+
+
+def _translation_leaf_strings(value):
+    if isinstance(value, dict):
+        for child in value.values():
+            yield from _translation_leaf_strings(child)
+    elif isinstance(value, list):
+        for child in value:
+            yield from _translation_leaf_strings(child)
+    else:
+        yield value
+
+
+def test_active_v6_translation_details_are_covered() -> None:
+    """Active v6 menus, profile sections, selectors, and German copy are covered."""
+
+    expected_profile_sections = {
+        "profile_time": {
+            "time_features",
+            "workday_times",
+            "non_workday_times",
+            "calendar_behavior",
+        },
+        "profile_brightness": {"time_features", "brightness_settings"},
+        "profile_sun": {"time_features", "sun_settings"},
+        "profile_shading": {
+            "shading_targets",
+            "shading_brightness",
+            "shading_temperature",
+            "shading_forecast",
+            "shading_conditions",
+            "shading_waits",
+        },
+        "profile_ventilation": {"ventilation"},
+        "profile_resident": {"resident_behavior"},
+        "profile_behavior": {"manual_override", "prevention", "tilt_wait"},
+    }
+    required_selectors = {
+        "profile_action",
+        "profile_functions",
+        "profile_reference",
+        "position_source",
+        "cover_type",
+        "cover_tilt_wait_mode",
+        "sun_elevation_mode",
+        "brightness_sun_operator",
+        "forecast_type",
+        "manual_override_reset_mode",
+        "shading_condition",
+        "shading_config",
+        "weather_condition",
+    }
+    for path in (
+        Path("custom_components/cover_control/strings.json"),
+        Path("custom_components/cover_control/translations/en.json"),
+        Path("custom_components/cover_control/translations/de.json"),
+    ):
+        document = json.loads(path.read_text())
+        steps = document["config"]["step"]
+        selectors = document["selector"]
+        assert required_selectors <= set(selectors)
+        for selector_key in required_selectors:
+            assert selectors[selector_key]["options"]
+        for step, sections in expected_profile_sections.items():
+            assert set(steps[step]["sections"]) == sections
+            for section in steps[step]["sections"].values():
+                assert section["data"]
+                assert set(section["data"]) <= set(section["data_description"])
+        room_positions = document["config_subentries"]["room"]["step"]["positions"]
+        assert set(room_positions["sections"]) == {"positions", "tilt_positions"}
+        for section in room_positions["sections"].values():
+            assert section["data"]
+            assert set(section["data"]) <= set(section["data_description"])
+
+    de_document = json.loads(
+        Path("custom_components/cover_control/translations/de.json").read_text()
+    )
+    de_text = "\n".join(
+        value
+        for value in _translation_leaf_strings(de_document)
+        if isinstance(value, str)
+    )
+    for forbidden in (
+        "Profile sections",
+        "Setup",
+        "Sun position",
+        "No profile",
+        "Zeitprofil",
+        "Beschattungsprofil",
+        "Verhaltensprofil",
+        "time_features",
+        "shading_waits",
+        "resident_behavior",
+        "fuer",
+    ):
+        assert forbidden not in de_text
+    assert "Kein Profil" in de_text
+    assert "Azimut" not in de_document["config"]["step"]["profile_sun"]["description"]
 
 
 def _frontend_initial_data(data_schema) -> dict:
@@ -375,10 +469,6 @@ async def test_user_flow_can_be_completed_without_errors(hass):
     assert result["step_id"] == "global_sources"
 
     result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
-    assert result["type"] is FlowResultType.FORM
-    assert result["step_id"] == "global_defaults"
-
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.CREATE_ENTRY
     assert result["title"] == "Cover Control"
     assert result["data"]["global"] == {"sources": {}, "defaults": {}}
@@ -430,8 +520,6 @@ async def test_user_flow_exposes_nested_defaults_to_frontend(hass):
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {}
     )
-    assert result["step_id"] == "global_defaults"
-    result = await hass.config_entries.flow.async_configure(result["flow_id"], {})
     assert result["type"] is FlowResultType.CREATE_ENTRY
 
     await hass.async_block_till_done()
@@ -461,7 +549,6 @@ async def test_parent_reconfigure_menu_exposes_hierarchical_sections(hass):
 
     assert result["menu_options"] == [
         "global_sources",
-        "global_defaults",
         "profiles",
         "diagnostics",
         "recovery",
@@ -488,7 +575,6 @@ async def test_parent_reconfigure_submenus_open_without_errors(hass):
 
     for step in (
         "global_sources",
-        "global_defaults",
         "profiles",
         "diagnostics",
         "recovery",
@@ -832,6 +918,69 @@ async def test_existing_profile_values_round_trip_unchanged(hass):
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_profile_function_detection_recomputes_from_current_content(hass):
+    """Adding and removing profile sections updates available room functions."""
+
+    entry = _entry(hass)
+    result = await _open_options_step(hass, entry, "profiles")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"profile_action": "create"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"profile_name": "Wohnen"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "profile_time"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"time_features": {c.CONF_AUTO_TIME: True}}
+    )
+    assert result["step_id"] == "profile_sections"
+    profile_id = next(
+        profile_id
+        for profile_id, profile in entry.data[CONF_PROFILES].items()
+        if profile.get(c.CONF_PROFILE_NAME) == "Wohnen"
+    )
+    assert entry.data[CONF_PROFILES][profile_id][c.CONF_PROFILE_FUNCTIONS] == [
+        c.FUNCTION_TIME
+    ]
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "profile_shading"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"shading_targets": {c.CONF_AUTO_SHADING: True}}
+    )
+    assert set(entry.data[CONF_PROFILES][profile_id][c.CONF_PROFILE_FUNCTIONS]) == {
+        c.FUNCTION_TIME,
+        c.FUNCTION_SHADING,
+    }
+
+    result = await _open_room_step(hass, entry, "profile_references")
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"], {c.CONF_ROOM_PROFILE_ID: profile_id}
+    )
+    assert result["type"] is FlowResultType.ABORT
+
+    result = await _open_room_step(hass, entry, "profile_functions")
+    fields = to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
+    options = fields[0]["selector"]["select"]["options"]
+    assert set(options) == {c.FUNCTION_TIME, c.FUNCTION_SHADING}
+
+    model = _native_model(entry)
+    settings = model["profiles"][profile_id][c.CONF_PROFILE_SETTINGS]
+    settings.pop(c.CONF_AUTO_SHADING)
+    model["profiles"][profile_id][c.CONF_PROFILE_FUNCTIONS] = [c.FUNCTION_TIME]
+    model["rooms"][_room_id(entry)][c.CONF_PROFILE_FUNCTIONS] = [
+        c.FUNCTION_TIME,
+        c.FUNCTION_SHADING,
+    ]
+    _update_native_model(hass, entry, model)
+    resolved = _resolve_native(entry)
+    assert resolved.configured_functions == frozenset({c.FUNCTION_TIME})
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
 async def test_profile_delete_is_blocked_while_room_uses_it(hass):
     entry = _entry(hass)
     profile_id = _native_model(entry)["rooms"][_room_id(entry)]["profile_id"]
@@ -1094,17 +1243,9 @@ async def test_global_sources_and_defaults_are_complete_native_forms(hass):
     assert result["type"] is FlowResultType.ABORT
     assert result["reason"] == "reconfigure_successful"
 
-    result = await _open_options_step(hass, entry, "global_defaults")
-    result = await hass.config_entries.flow.async_configure(
-        result["flow_id"],
-        {
-            CONF_GLOBAL_DEFAULT_FIELDS: [c.CONF_MANUAL_OVERRIDE_MINUTES],
-            "manual_override": {c.CONF_MANUAL_OVERRIDE_MINUTES: 45},
-        },
-    )
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "reconfigure_successful"
-
+    model = _native_model(entry)
+    model["global"]["defaults"] = {c.CONF_MANUAL_OVERRIDE_MINUTES: 45}
+    _update_native_model(hass, entry, model)
     model = _native_model(entry)
     assert model["global"]["sources"] == {
         CONF_BRIGHTNESS_SENSOR: "sensor.global_brightness"

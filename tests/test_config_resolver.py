@@ -5,6 +5,7 @@ from custom_components.cover_control.config_resolver import (
     ROOM_HARDWARE_KEYS,
     ROOM_POSITION_KEYS,
     ROOM_SENSOR_KEYS,
+    configured_functions_from_profile,
     resolve_config_model,
     resolve_room_config,
 )
@@ -196,6 +197,26 @@ def test_room_profile_functions_limit_configured_functions() -> None:
     resolved = resolve_config_model(model, "living")
 
     assert resolved.configured_functions == frozenset({FUNCTION_SHADING})
+
+
+def test_native_profile_functions_are_derived_from_current_content() -> None:
+    profile = {
+        CONF_PROFILE_NAME: "Wohnen",
+        CONF_PROFILE_FUNCTIONS: [FUNCTION_TIME],
+        CONF_PROFILE_SETTINGS: {
+            "auto_time_enabled": True,
+            "auto_shading_enabled": True,
+        },
+    }
+
+    assert configured_functions_from_profile(profile) == frozenset(
+        {FUNCTION_TIME, FUNCTION_SHADING}
+    )
+
+    profile[CONF_PROFILE_SETTINGS].pop("auto_shading_enabled")
+    profile[FUNCTION_RESIDENT] = {}
+
+    assert configured_functions_from_profile(profile) == frozenset({FUNCTION_TIME})
 
 
 def test_native_v6_room_without_profile_functions_selects_none() -> None:

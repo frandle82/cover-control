@@ -42,13 +42,7 @@ ROOM_SOURCE_OVERRIDE_KEYS = frozenset(
     }
 )
 
-GLOBAL_DEFAULT_KEYS = frozenset(
-    {
-        CONF_MANUAL_OVERRIDE_MINUTES,
-        CONF_MANUAL_SCHEDULE_ADOPTION,
-        CONF_ENABLE_LOGBOOK_COVER,
-    }
-)
+GLOBAL_DEFAULT_KEYS = frozenset()
 
 ROOM_HARDWARE_KEYS = frozenset(
     {
@@ -275,8 +269,8 @@ TOGGLE_FUNCTION_KEYS = {
 }
 
 
-def configured_functions_from_profile(profile: Mapping[str, Any]) -> frozenset[str]:
-    """Return behavior functions that are explicitly configured in a profile."""
+def stored_profile_functions(profile: Mapping[str, Any]) -> frozenset[str]:
+    """Return legacy persisted function hints from a profile."""
 
     functions = profile.get(CONF_PROFILE_FUNCTIONS)
     if isinstance(functions, Mapping):
@@ -285,14 +279,42 @@ def configured_functions_from_profile(profile: Mapping[str, Any]) -> frozenset[s
             for function, enabled in functions.items()
             if enabled and function in PROFILE_FUNCTIONS
         )
-        if configured:
-            return configured
+        return configured
     if isinstance(functions, (list, tuple, set, frozenset)):
         configured = frozenset(
             function for function in functions if function in PROFILE_FUNCTIONS
         )
-        if configured:
-            return configured
+        return configured
+    return frozenset()
+
+
+def configured_functions_from_profile_content(
+    profile: Mapping[str, Any],
+) -> frozenset[str]:
+    """Derive native v6 profile functions from stored settings and blocks."""
+
+    settings = profile.get(CONF_PROFILE_SETTINGS, {})
+    if not isinstance(settings, Mapping):
+        settings = profile
+    configured: set[str] = set()
+    for function, keys in PROFILE_FUNCTION_KEYS.items():
+        block = profile.get(function)
+        if (
+            isinstance(block, Mapping)
+            and block
+            or any(key in settings for key in keys)
+        ):
+            configured.add(function)
+    return frozenset(configured)
+
+
+def configured_functions_from_profile(profile: Mapping[str, Any]) -> frozenset[str]:
+    """Return behavior functions that are explicitly configured in a profile."""
+
+    configured = configured_functions_from_profile_content(profile)
+    if configured:
+        return configured
+
     capabilities = profile.get(CONF_PROFILE_CAPABILITIES)
     if isinstance(capabilities, (list, tuple, set, frozenset)):
         configured: set[str] = set()
@@ -326,19 +348,7 @@ def configured_functions_from_profile(profile: Mapping[str, Any]) -> frozenset[s
         if configured:
             return frozenset(configured)
 
-    settings = profile.get(CONF_PROFILE_SETTINGS, {})
-    if not isinstance(settings, Mapping):
-        settings = profile
-    configured: set[str] = set()
-    for function, keys in PROFILE_FUNCTION_KEYS.items():
-        block = profile.get(function)
-        if (
-            isinstance(block, Mapping)
-            and block
-            or any(key in settings for key in keys)
-        ):
-            configured.add(function)
-    return frozenset(configured)
+    return stored_profile_functions(profile)
 
 
 def profile_settings(profile: Mapping[str, Any]) -> dict[str, Any]:
