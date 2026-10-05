@@ -11,6 +11,11 @@ from .config_profiles import ConfigProfileModel
 from .config_resolver import (
     GLOBAL_SOURCE_KEYS,
     PROFILE_KEYS,
+    ROOM_CONTROL_KEYS,
+    ROOM_GEOMETRY_KEYS,
+    ROOM_HARDWARE_KEYS,
+    ROOM_POSITION_KEYS,
+    ROOM_SENSOR_KEYS,
     configured_functions_from_profile,
 )
 from .const import (
@@ -35,6 +40,14 @@ from .const import (
     CONF_SOURCE_OVERRIDES,
     DEFAULT_NAME,
     PROFILE_TYPES,
+)
+
+ROOM_OWNED_PROFILE_MIGRATION_KEYS = (
+    ROOM_HARDWARE_KEYS
+    | ROOM_POSITION_KEYS
+    | ROOM_SENSOR_KEYS
+    | ROOM_GEOMETRY_KEYS
+    | ROOM_CONTROL_KEYS
 )
 
 
@@ -102,7 +115,13 @@ def unify_profile_model(model: Mapping[str, Any]) -> dict[str, Any]:
                 names.append(str(legacy_profile.get(CONF_PROFILE_NAME, legacy_id)))
                 legacy_settings = legacy_profile.get(CONF_PROFILE_SETTINGS, {})
                 if isinstance(legacy_settings, Mapping):
-                    settings.update(deepcopy(dict(legacy_settings)))
+                    room_settings = room.setdefault(CONF_ROOM_SETTINGS, {})
+                    for key, value in legacy_settings.items():
+                        if key in ROOM_OWNED_PROFILE_MIGRATION_KEYS:
+                            if isinstance(room_settings, dict):
+                                room_settings.setdefault(key, deepcopy(value))
+                            continue
+                        settings[key] = deepcopy(value)
                 legacy_functions = legacy_profile.get(CONF_PROFILE_FUNCTIONS)
                 if isinstance(legacy_functions, (list, tuple, set, frozenset)):
                     functions.update(str(function) for function in legacy_functions)

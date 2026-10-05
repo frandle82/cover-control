@@ -45,6 +45,7 @@ from .const import (
     CONF_AUTO_TIME,
     CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
+    CONF_RESIDENT_STATUS,
     CONF_VENTILATE_POSITION,
     CONF_BRIGHTNESS_OPEN_ABOVE,
     CONF_BRIGHTNESS_CLOSE_BELOW,
@@ -100,6 +101,7 @@ AUTOMATION_TOGGLES: tuple[tuple[str, str], ...] = (
     (CONF_AUTO_BRIGHTNESS, "auto_brightness"),
     (CONF_AUTO_SUN, "auto_sun"),
     (CONF_AUTO_SHADING, "auto_shading"),
+    (CONF_RESIDENT_STATUS, "resident_status"),
 )
 
 TOGGLE_ICONS: dict[str, str] = {
@@ -108,6 +110,7 @@ TOGGLE_ICONS: dict[str, str] = {
     CONF_AUTO_BRIGHTNESS: "mdi:brightness-auto",
     CONF_AUTO_SUN: "mdi:weather-sunset",
     CONF_AUTO_SHADING: "mdi:theme-light-dark",
+    CONF_RESIDENT_STATUS: "mdi:bed",
 }
 
 DEFAULT_LOOKUP = {

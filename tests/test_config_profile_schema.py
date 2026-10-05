@@ -1,6 +1,5 @@
 """Tests for native profile and override schemas."""
 
-import json
 from datetime import time
 from pathlib import Path
 
@@ -10,7 +9,6 @@ from homeassistant.helpers import config_validation as cv
 
 from custom_components.cover_control import const as c
 from custom_components.cover_control.config_profile_schema import (
-    CONF_PROFILE_FIELDS,
     PROFILE_CAPABILITY_KEYS,
     PROFILE_FIELD_METADATA,
     build_profile_schema,
@@ -91,7 +89,7 @@ def test_sparse_extraction_normalizes_selectors_and_preserves_unknown_keys() -> 
 
     submitted = flatten_section_input(
         {
-            CONF_PROFILE_FIELDS: [
+            LEGACY_PROFILE_FIELDS: [
                 c.CONF_AUTO_TIME,
                 c.CONF_TIME_UP_EARLY_WORKDAY,
             ],
@@ -104,6 +102,7 @@ def test_sparse_extraction_normalizes_selectors_and_preserves_unknown_keys() -> 
         submitted,
         c.PROFILE_TYPE_TIME,
         {"future_profile_key": {"nested": True}},
+        field_selection=LEGACY_PROFILE_FIELDS,
     )
 
     assert settings == {
@@ -123,14 +122,28 @@ def test_normal_options_flow_contains_no_free_json_fields() -> None:
     assert "json.dumps" not in source
 
 
-def test_every_profile_field_has_selector_translations() -> None:
-    """Legacy sparse field labels remain available for every active profile key."""
+def test_native_profile_schema_uses_sections_without_legacy_field_selector() -> None:
+    """Native profile editing no longer exposes a sparse field picker."""
 
-    expected = set().union(*PROFILE_KEYS.values())
-    for path in (
-        "custom_components/cover_control/strings.json",
-        "custom_components/cover_control/translations/en.json",
-        "custom_components/cover_control/translations/de.json",
-    ):
-        document = json.loads(Path(path).read_text())
-        assert expected <= set(document["selector"]["profile_field"]["options"])
+    schema = build_profile_schema(
+        c.PROFILE_TYPE_SHADING,
+        {},
+        system_defaults(),
+        field_selection=None,
+        allowed_keys=capability_keys(c.PROFILE_TYPE_SHADING, ["brightness"]),
+    )
+
+    serialized = to_field_list(schema, custom_serializer=cv.custom_serializer)
+
+    assert all(field["name"] != LEGACY_PROFILE_FIELDS for field in serialized)
+    assert {
+        nested["name"]
+        for field in serialized
+        if field.get("type") == "expandable"
+        for nested in field["schema"]
+    } == {
+        c.CONF_SHADING_BRIGHTNESS_START,
+        c.CONF_SHADING_BRIGHTNESS_END,
+        c.CONF_SHADING_BRIGHTNESS_HYSTERESIS,
+    }
+LEGACY_PROFILE_FIELDS = "configured_profile_fields"

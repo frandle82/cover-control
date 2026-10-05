@@ -19,7 +19,6 @@ from .const import (
     CONF_GLOBAL_DEFAULTS,
     CONF_GLOBAL_SOURCES,
     CONF_NAME,
-    CONF_PROFILE_CAPABILITIES,
     CONF_PROFILE_ID,
     CONF_PROFILE_NAME,
     CONF_PROFILE_SELECTIONS,
@@ -78,10 +77,8 @@ def model_from_subentries(
             room = deepcopy(dict(data))
             room[CONF_ROOM_ID] = subentry_id
             room.setdefault(CONF_NAME, getattr(subentry, "title", subentry_id))
-            room.setdefault(CONF_PROFILE_SELECTIONS, {})
             room.setdefault(CONF_ROOM_SETTINGS, {})
             room.setdefault(CONF_SOURCE_OVERRIDES, {})
-            room.setdefault(CONF_ROOM_OVERRIDES, {})
             model[CONF_ROOMS][subentry_id] = room
             continue
     _migrate_legacy_global_resident_source(model)
@@ -139,6 +136,10 @@ def model_to_native_payloads(
     for room_id, room in canonical[CONF_ROOMS].items():
         room_data = deepcopy(room)
         room_data.pop(CONF_ROOM_ID, None)
+        if not room_data.get(CONF_PROFILE_SELECTIONS):
+            room_data.pop(CONF_PROFILE_SELECTIONS, None)
+        if not room_data.get(CONF_ROOM_OVERRIDES):
+            room_data.pop(CONF_ROOM_OVERRIDES, None)
         payloads.append(
             (
                 room_id,
