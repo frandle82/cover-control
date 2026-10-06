@@ -26,11 +26,13 @@ from custom_components.cover_control.const import (
     CONF_SOURCE_OVERRIDES,
     CONFIG_MODEL_VERSION,
     FUNCTION_SHADING,
+    FUNCTION_TIME,
     PROFILE_TYPE_SHADING,
 )
 from custom_components.cover_control.runtime.controller import CoverController
 from custom_components.cover_control.runtime.manager import ControllerManager
 from custom_components.cover_control.config_resolver import resolve_config_model
+from custom_components.cover_control.sensor import _profile_time_selected_by_any_room
 
 
 def _model() -> ConfigProfileModel:
@@ -181,6 +183,11 @@ def test_profile_waiting_time_reschedules_existing_pending_timer() -> None:
 def test_configuration_diagnostics_expose_profile_and_value_origin() -> None:
     model = _model()
     model.data[CONF_PROFILES]["south"][CONF_PROFILE_NAME] = "South standard"
+    model.data[CONF_PROFILES]["south"][CONF_PROFILE_FUNCTIONS] = [
+        FUNCTION_TIME,
+        FUNCTION_SHADING,
+    ]
+    model.data[CONF_ROOMS]["living"][CONF_PROFILE_FUNCTIONS] = [FUNCTION_SHADING]
     model.data[CONF_PROFILES]["south"][CONF_PROFILE_SETTINGS][
         CONF_SHADING_WAITINGTIME_END
     ] = 600
@@ -188,14 +195,36 @@ def test_configuration_diagnostics_expose_profile_and_value_origin() -> None:
         CONF_SHADING_WAITINGTIME_END
     ] = 300
     manager = object.__new__(ControllerManager)
+    manager._config_model = model.data
     manager._resolved_config = resolve_config_model(model.data, "living")
+    manager._runtime_toggles = {}
 
     diagnostics = manager.configuration_diagnostics()
 
     assert diagnostics["room_name"] == "Living"
+    assert diagnostics["profile_id"] == "south"
     assert diagnostics["profiles"]["profile"] == "South standard"
+    assert diagnostics["selected_profile_functions"] == [FUNCTION_SHADING]
+    assert diagnostics["configured_functions"] == [FUNCTION_SHADING]
     assert diagnostics["resolved"][CONF_SHADING_WAITINGTIME_END] == {
         "value": 300,
         "source": "room_setting",
         "source_name": "Room setting",
     }
+
+
+def test_profile_time_sensor_requires_room_selected_time_function() -> None:
+    model = _model()
+    model.data[CONF_PROFILES]["south"][CONF_PROFILE_FUNCTIONS] = [
+        FUNCTION_TIME,
+        FUNCTION_SHADING,
+    ]
+    model.data[CONF_PROFILES]["south"][CONF_PROFILE_SETTINGS]["auto_time_enabled"] = True
+    model.data[CONF_ROOMS]["living"][CONF_PROFILE_FUNCTIONS] = [FUNCTION_SHADING]
+    model.data[CONF_ROOMS]["office"][CONF_PROFILE_FUNCTIONS] = [FUNCTION_SHADING]
+
+    assert not _profile_time_selected_by_any_room(model.data, "south")
+
+    model.data[CONF_ROOMS]["office"][CONF_PROFILE_FUNCTIONS] = [FUNCTION_TIME]
+
+    assert _profile_time_selected_by_any_room(model.data, "south")

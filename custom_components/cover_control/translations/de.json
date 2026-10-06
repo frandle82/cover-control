@@ -82,7 +82,7 @@
         }
       },
       "profile_setup": {
-        "title": "Profil bearbeiten",
+        "title": "Profil \"{profile_name}\"",
         "description": "Lege den Namen des Profils fest.\n\n{profile_usage}",
         "data": {
           "profile_name": "Profilname"
@@ -92,7 +92,7 @@
         }
       },
       "profile_sections": {
-        "title": "Profilbereiche",
+        "title": "Profil \"{profile_name}\"",
         "description": "Bearbeite einen Bereich dieses Profils.\n\n{profile_usage}",
         "menu_options": {
           "profile_setup": "Allgemein",
@@ -116,8 +116,8 @@
         }
       },
       "profile_time": {
-        "title": "Zeit",
-        "description": "Bearbeite einen Bereich dieses Profils.\n\n{profile_usage}",
+        "title": "Profil \"{profile_name}\" - Zeit",
+        "description": "Bearbeite das Zeitverhalten dieses Profils.\n\n{profile_usage}",
         "sections": {
           "time_features": {
             "name": "Zeitsteuerung",
@@ -188,8 +188,8 @@
         }
       },
       "profile_brightness": {
-        "title": "Helligkeit",
-        "description": "Bearbeite einen Bereich dieses Profils.\n\n{profile_usage}",
+        "title": "Profil \"{profile_name}\" - Helligkeit",
+        "description": "Bearbeite das Helligkeitsverhalten dieses Profils.\n\n{profile_usage}",
         "sections": {
           "time_features": {
             "name": "Zeitsteuerung",
@@ -236,7 +236,7 @@
         }
       },
       "profile_sun": {
-        "title": "Sonnenstand",
+        "title": "Profil \"{profile_name}\" - Sonnenstand",
         "description": "Sonnenhöhe, Öffnungs-/Schließschwellen, Modus, Offsets und Zeitbedingungen konfigurieren.\n\n{profile_usage}",
         "sections": {
           "time_features": {
@@ -288,7 +288,7 @@
         }
       },
       "profile_shading": {
-        "title": "Beschattung",
+        "title": "Profil \"{profile_name}\" - Beschattung",
         "description": "Bedingungen, Grenzwerte, Wartezeiten, Temperatur-, Helligkeits- und Forecast-Regeln der Beschattung konfigurieren.\n\n{profile_usage}",
         "sections": {
           "shading_targets": {
@@ -414,7 +414,7 @@
         }
       },
       "profile_ventilation": {
-        "title": "Lüftung",
+        "title": "Profil \"{profile_name}\" - Lüftung",
         "description": "Verhalten bei Fensterkontakten, Verzögerungen, Prioritäten und Lüftungsregeln konfigurieren.\n\n{profile_usage}",
         "sections": {
           "ventilation": {
@@ -451,8 +451,8 @@
         }
       },
       "profile_resident": {
-        "title": "Bewohner",
-        "description": "Bearbeite einen Bereich dieses Profils.\n\n{profile_usage}",
+        "title": "Profil \"{profile_name}\" - Bewohner",
+        "description": "Bearbeite das Bewohnerverhalten dieses Profils.\n\n{profile_usage}",
         "sections": {
           "resident_behavior": {
             "name": "Bewohnerverhalten",
@@ -476,8 +476,8 @@
         }
       },
       "profile_behavior": {
-        "title": "Manuelles Verhalten",
-        "description": "Bearbeite einen Bereich dieses Profils.\n\n{profile_usage}",
+        "title": "Profil \"{profile_name}\" - Manuelles Verhalten",
+        "description": "Bearbeite das manuelle Verhalten dieses Profils.\n\n{profile_usage}",
         "sections": {
           "manual_override": {
             "name": "Manuelles Verhalten",
@@ -1252,20 +1252,19 @@
           }
         },
         "reconfigure": {
-          "title": "Raum konfigurieren",
-          "description": "Konfiguriere die reale Installation dieses Raums: Cover, Fensterkontakte, Raumsensoren und Geometrie. Profile werden hier nur ausgewählt; ihre Inhalte werden zentral in der globalen Cover-Control-Instanz bearbeitet.",
+          "title": "Raum \"{room_name}\"",
+          "description": "Home-Assistant-Bereich: {area}\nCover: {cover_count}\nProfil: {profile_name}\nVerwendete Profilfunktionen: {profile_function_count}",
           "menu_options": {
             "general": "Allgemein",
             "hardware": "Cover & Hardware",
             "contacts": "Fensterkontakte",
             "room_sensors": "Raumsensoren",
             "geometry": "Geometrie",
-            "profile_references": "Profil",
-            "profile_functions": "Profilfunktionen",
             "source_overrides": "Lokale Datenquellen",
             "controls": "Bedienelemente",
             "diagnostics": "Diagnose",
-            "positions": "Positionen"
+            "positions": "Positionen",
+            "profile_assignment": "Profil & Automatik"
           },
           "menu_option_descriptions": {
             "general": "Raum umbenennen und die Home-Assistant-Bereichszuordnung lesbar halten.",
@@ -1273,16 +1272,15 @@
             "contacts": "Fensterkontakte den Covern für Lüftung und Schutzfunktionen zuordnen.",
             "room_sensors": "Sensoren auswählen, die ausschließlich zu diesem Raum gehören.",
             "geometry": "Physische Fensterausrichtung beschreiben, die mit Sonne und Beschattungsregeln ausgewertet wird.",
-            "profile_references": "Das zentrale Profil für diesen Raum auswählen.",
-            "profile_functions": "Auswählen, welche Funktionen des gewählten Profils in diesem Raum verwendet werden.",
             "source_overrides": "Wähle nur dann eine lokale Datenquelle, wenn dieser Raum eine andere Quelle als die global konfigurierte verwenden soll.",
             "controls": "Lege fest, welche optionalen Bedienelemente und Raumfunktionen Cover Control für diesen Raum bereitstellt.",
             "diagnostics": "Raumstruktur und ausgewählte Profilreferenzen prüfen.",
-            "positions": "Physische Zielpositionen und Lamellenpositionen dieses Raums konfigurieren."
+            "positions": "Physische Zielpositionen und Lamellenpositionen dieses Raums konfigurieren.",
+            "profile_assignment": "Profil für diesen Raum und die daraus verwendeten Funktionen auswählen."
           }
         },
         "controls": {
-          "title": "Bedienelemente",
+          "title": "Raum \"{room_name}\" - Bedienelemente",
           "description": "Lege fest, welche optionalen Bedienelemente und Raumfunktionen Cover Control für diesen Raum bereitstellt.",
           "data": {
             "enable_recalibrate_button": "Rekalibrierungs-Schaltfläche aktivieren",
@@ -1291,7 +1289,7 @@
           }
         },
         "hardware": {
-          "title": "Cover & Hardware",
+          "title": "Raum \"{room_name}\" - Cover & Hardware",
           "description": "Ordne diesem Raum die gesteuerten Cover zu und lege hardwarebezogene Eigenschaften wie Cover-Typ, Positionsermittlung und Fahrzeit fest.",
           "data": {
             "covers": "Cover",
@@ -1315,7 +1313,7 @@
           }
         },
         "contacts": {
-          "title": "Fensterkontakte",
+          "title": "Raum \"{room_name}\" - Fensterkontakte",
           "description": "Ordne jedem Cover die zugehörigen Fensterkontakte zu. Cover Control verwendet diese Zuordnung für Lüftung, Aussperrschutz und weitere kontaktabhängige Funktionen.",
           "data": {
             "cover_0_full": "Cover 1: vollständig geöffnet",
@@ -1403,7 +1401,7 @@
           }
         },
         "room_sensors": {
-          "title": "Raumsensoren",
+          "title": "Raum \"{room_name}\" - Raumsensoren",
           "description": "Raumsensoren für Temperaturgrenzen und Bewohnerverhalten im gewählten Profil auswählen.",
           "data": {
             "temperature_sensor_indoor": "Raumtemperatursensor",
@@ -1415,7 +1413,7 @@
           }
         },
         "geometry": {
-          "title": "Geometrie",
+          "title": "Raum \"{room_name}\" - Geometrie",
           "description": "Beschreibe die physische Ausrichtung der Fenster dieses Raums. Diese Werte werden zusammen mit Sonnenstand und Profil ausgewertet.",
           "data": {
             "shading_azimuth_start": "Azimut von",
@@ -1427,7 +1425,7 @@
           }
         },
         "source_overrides": {
-          "title": "Lokale Quellenabweichungen",
+          "title": "Raum \"{room_name}\" - Lokale Datenquellen",
           "description": "Wähle hier nur eine andere Datenquelle, wenn dieser Raum bewusst von der globalen Quelle abweichen soll.",
           "data": {
             "brightness_sensor": "Helligkeitsquelle",
@@ -1448,7 +1446,7 @@
         },
         "profile_references": {
           "title": "Profil",
-          "description": "Wähle das zentrale Profil für diesen Raum. Das Profil selbst wird zentral unter Cover Control konfigurieren > Profile erstellt und bearbeitet.",
+          "description": "Wähle das zentrale Profil für Raum \"{room_name}\". Das Profil selbst wird zentral unter Cover-Control-Konfiguration > Profile erstellt und bearbeitet.",
           "data": {
             "profile_id": "Profil"
           },
@@ -1458,7 +1456,7 @@
         },
         "profile_functions": {
           "title": "Profilfunktionen",
-          "description": "Wähle, welche Funktionen des ausgewählten Profils in diesem Raum verwendet werden sollen. Nur ausgewählte Funktionen werden für diesen Raum eingerichtet und erhalten - sofern vorgesehen - eigene Schalter.",
+          "description": "Wähle aus, welche Funktionen des gewählten Profils in Raum \"{room_name}\" verwendet werden. Nur ausgewählte Funktionen werden für diesen Raum eingerichtet und erhalten gegebenenfalls eigene Schalter.",
           "data": {
             "profile_functions": "Verwendete Profilfunktionen"
           },
@@ -1467,7 +1465,7 @@
           }
         },
         "general": {
-          "title": "Allgemein",
+          "title": "Raum \"{room_name}\" - Allgemein",
           "description": "Benenne den Raum und ordne ihn einem Home-Assistant-Bereich zu.",
           "data": {
             "name": "Name",
@@ -1479,11 +1477,11 @@
           }
         },
         "diagnostics": {
-          "title": "Raumdiagnose",
-          "description": "Raum: {room}\nCover-Anzahl: {cover_count}\nProfile: {profiles}\nResident-Sensor: {resident_sensor}\nRaumtemperatursensor: {temperature_sensor}\nNächste Öffnung: {next_open}\nNächste Schließung: {next_close}"
+          "title": "Raum \"{room_name}\" - Diagnose",
+          "description": "Home-Assistant-Bereich: {area}\nCover: {cover_count}\nProfil: {profile_name}\nVerwendete Profilfunktionen: {profile_function_count}\nBewohnersensor: {resident_sensor}\nRaumtemperatursensor: {temperature_sensor}\nNächste Öffnung: {next_open}\nNächste Schließung: {next_close}"
         },
         "positions": {
-          "title": "Positionen",
+          "title": "Raum \"{room_name}\" - Positionen",
           "description": "Physische Zielpositionen und Lamellenpositionen dieses Raums konfigurieren.",
           "sections": {
             "positions": {
@@ -1530,6 +1528,18 @@
                 "shading_tilt_position_3": "Beschattungs-Lamellenstufe 3 dieses Raums festlegen."
               }
             }
+          }
+        },
+        "profile_assignment": {
+          "title": "Raum \"{room_name}\" - Profil & Automatik",
+          "description": "Wähle das Profil für diesen Raum und welche konfigurierten Funktionen dieses Profils hier verwendet werden. Wähle zuerst ein Profil. Danach kannst du festlegen, welche Funktionen dieses Profils in diesem Raum verwendet werden.\n\nWähle zuerst ein Profil. Danach kannst du festlegen, welche Funktionen dieses Profils in diesem Raum verwendet werden.",
+          "data": {
+            "profile_id": "Profil",
+            "profile_functions": "Verwendete Profilfunktionen"
+          },
+          "data_description": {
+            "profile_id": "Das für diesen Raum ausgewählte Profil.",
+            "profile_functions": "Im gewählten Profil konfigurierte Funktionen, die in diesem Raum verwendet werden."
           }
         }
       },
