@@ -82,7 +82,7 @@
         }
       },
       "profile_setup": {
-        "title": "Edit profile",
+        "title": "Profile \"{profile_name}\"",
         "description": "Set the profile name.\n\n{profile_usage}",
         "data": {
           "profile_name": "Profile name"
@@ -92,7 +92,7 @@
         }
       },
       "profile_sections": {
-        "title": "Profile sections",
+        "title": "Profile \"{profile_name}\"",
         "description": "Edit one section of this profile.\n\n{profile_usage}",
         "menu_options": {
           "profile_setup": "Setup",
@@ -116,8 +116,8 @@
         }
       },
       "profile_time": {
-        "title": "Time",
-        "description": "Edit one section of this profile.\n\n{profile_usage}",
+        "title": "Profile \"{profile_name}\" - Time",
+        "description": "Edit the time behavior for this profile.\n\n{profile_usage}",
         "sections": {
           "time_features": {
             "name": "Time features",
@@ -188,8 +188,8 @@
         }
       },
       "profile_brightness": {
-        "title": "Brightness",
-        "description": "Edit one section of this profile.\n\n{profile_usage}",
+        "title": "Profile \"{profile_name}\" - Brightness",
+        "description": "Edit the brightness behavior for this profile.\n\n{profile_usage}",
         "sections": {
           "time_features": {
             "name": "Time features",
@@ -236,7 +236,7 @@
         }
       },
       "profile_sun": {
-        "title": "Sun position",
+        "title": "Profile \"{profile_name}\" - Sun position",
         "description": "Configure sun elevation, opening and closing thresholds, mode, offsets, and time conditions.\n\n{profile_usage}",
         "sections": {
           "time_features": {
@@ -288,7 +288,7 @@
         }
       },
       "profile_shading": {
-        "title": "Shading",
+        "title": "Profile \"{profile_name}\" - Shading",
         "description": "Configure shading conditions, thresholds, waits, temperature, brightness, and forecast rules.\n\n{profile_usage}",
         "sections": {
           "shading_targets": {
@@ -414,7 +414,7 @@
         }
       },
       "profile_ventilation": {
-        "title": "Ventilation",
+        "title": "Profile \"{profile_name}\" - Ventilation",
         "description": "Configure behavior for window contacts, delays, priorities, and ventilation rules.\n\n{profile_usage}",
         "sections": {
           "ventilation": {
@@ -451,8 +451,8 @@
         }
       },
       "profile_resident": {
-        "title": "Resident behavior",
-        "description": "Edit one section of this profile.\n\n{profile_usage}",
+        "title": "Profile \"{profile_name}\" - Resident behavior",
+        "description": "Edit resident behavior for this profile.\n\n{profile_usage}",
         "sections": {
           "resident_behavior": {
             "name": "Resident behavior",
@@ -476,8 +476,8 @@
         }
       },
       "profile_behavior": {
-        "title": "Manual behavior",
-        "description": "Edit one section of this profile.\n\n{profile_usage}",
+        "title": "Profile \"{profile_name}\" - Manual behavior",
+        "description": "Edit manual behavior for this profile.\n\n{profile_usage}",
         "sections": {
           "manual_override": {
             "name": "Manual override",
@@ -1252,20 +1252,19 @@
           }
         },
         "reconfigure": {
-          "title": "Configure room",
-          "description": "Configure the real installation of this room: covers, window contacts, room sensors, and geometry. Behavior profiles are only selected here; their contents are edited centrally in the global Cover Control entry.",
+          "title": "Room \"{room_name}\"",
+          "description": "Home Assistant area: {area}\nCovers: {cover_count}\nProfile: {profile_name}\nUsed profile functions: {profile_function_count}",
           "menu_options": {
             "general": "General",
             "hardware": "Cover & hardware",
             "contacts": "Window contacts",
             "room_sensors": "Room sensors",
             "geometry": "Geometry",
-            "profile_references": "Profile",
-            "profile_functions": "Profile functions",
             "source_overrides": "Local data sources",
             "controls": "Controls",
             "diagnostics": "Diagnostics",
-            "positions": "Positions"
+            "positions": "Positions",
+            "profile_assignment": "Profile & automation"
           },
           "menu_option_descriptions": {
             "general": "Rename the room and keep its Home Assistant area assignment readable.",
@@ -1273,16 +1272,15 @@
             "contacts": "Assign window contacts to the covers for ventilation and protection functions.",
             "room_sensors": "Select sensors that belong only to this room.",
             "geometry": "Describe the physical window orientation evaluated with sun and shading rules.",
-            "profile_references": "Choose which central behavior profile this room uses.",
-            "profile_functions": "Choose which functions from the selected profile are used in this room.",
             "source_overrides": "Choose a local data source only when this room should use a different source than the globally configured one.",
             "controls": "Choose which optional controls and room functions Cover Control provides for this room.",
             "diagnostics": "Inspect the room structure and selected profile references.",
-            "positions": "Configure this room's physical target positions and tilt positions."
+            "positions": "Configure this room's physical target positions and tilt positions.",
+            "profile_assignment": "Choose the profile for this room and the functions used from it."
           }
         },
         "controls": {
-          "title": "Controls",
+          "title": "Room \"{room_name}\" - Controls",
           "description": "Choose which optional controls and room functions Cover Control provides for this room.",
           "data": {
             "enable_recalibrate_button": "Enable recalibration button",
@@ -1291,7 +1289,7 @@
           }
         },
         "hardware": {
-          "title": "Cover & hardware",
+          "title": "Room \"{room_name}\" - Cover & hardware",
           "description": "Assign controlled covers to this room and configure hardware-related properties such as cover type, position source, and drive time.",
           "data": {
             "covers": "Covers",
@@ -1315,7 +1313,7 @@
           }
         },
         "contacts": {
-          "title": "Window contacts",
+          "title": "Room \"{room_name}\" - Window contacts",
           "description": "Assign each cover its related window contacts. Cover Control uses this mapping for ventilation, lockout protection, and contact-dependent behavior.",
           "data": {
             "cover_0_full": "Cover 1: fully open",
@@ -1403,7 +1401,7 @@
           }
         },
         "room_sensors": {
-          "title": "Room sensors",
+          "title": "Room \"{room_name}\" - Room sensors",
           "description": "Choose room-local sensors for temperature limits and resident behavior in the selected profile.",
           "data": {
             "temperature_sensor_indoor": "Room temperature sensor",
@@ -1415,7 +1413,7 @@
           }
         },
         "geometry": {
-          "title": "Geometry",
+          "title": "Room \"{room_name}\" - Geometry",
           "description": "Describe the physical orientation of this room's windows. These values are evaluated together with sun position and the assigned shading profile.",
           "data": {
             "shading_azimuth_start": "Azimuth from",
@@ -1427,7 +1425,7 @@
           }
         },
         "source_overrides": {
-          "title": "Local source deviations",
+          "title": "Room \"{room_name}\" - Local data sources",
           "description": "Only choose a different source here when this room intentionally differs from the global source.",
           "data": {
             "brightness_sensor": "Brightness source",
@@ -1448,7 +1446,7 @@
         },
         "profile_references": {
           "title": "Profile",
-          "description": "Choose the central behavior profile for this room. The profile itself is created and edited centrally under Cover Control configuration > Profiles.",
+          "description": "Choose the central behavior profile for room \"{room_name}\". The profile itself is created and edited centrally under Cover Control configuration > Profiles.",
           "data": {
             "profile_id": "Profile"
           },
@@ -1458,7 +1456,7 @@
         },
         "profile_functions": {
           "title": "Profile functions",
-          "description": "Choose which functions of the selected profile are used in this room. Only selected functions are set up for this room and receive their own switches where applicable.",
+          "description": "Choose which functions of the selected profile are used in room \"{room_name}\". Only selected functions are set up for this room and receive their own switches where applicable.",
           "data": {
             "profile_functions": "Used profile functions"
           },
@@ -1467,7 +1465,7 @@
           }
         },
         "general": {
-          "title": "General",
+          "title": "Room \"{room_name}\" - General",
           "description": "Name the room and assign its Home Assistant area.",
           "data": {
             "name": "Name",
@@ -1479,11 +1477,11 @@
           }
         },
         "diagnostics": {
-          "title": "Room diagnostics",
-          "description": "Room: {room}\nCover count: {cover_count}\nProfiles: {profiles}\nResident sensor: {resident_sensor}\nRoom temperature sensor: {temperature_sensor}\nNext open: {next_open}\nNext close: {next_close}"
+          "title": "Room \"{room_name}\" - Diagnostics",
+          "description": "Home Assistant area: {area}\nCovers: {cover_count}\nProfile: {profile_name}\nUsed profile functions: {profile_function_count}\nResident sensor: {resident_sensor}\nRoom temperature sensor: {temperature_sensor}\nNext open: {next_open}\nNext close: {next_close}"
         },
         "positions": {
-          "title": "Cover positions",
+          "title": "Room \"{room_name}\" - Positions",
           "description": "Configure this room's physical target positions and tilt positions.",
           "sections": {
             "positions": {
@@ -1530,6 +1528,18 @@
                 "shading_tilt_position_3": "Set the room-owned shading tilt level 3."
               }
             }
+          }
+        },
+        "profile_assignment": {
+          "title": "Room \"{room_name}\" - Profile & automation",
+          "description": "Choose the profile for this room and which configured functions of that profile are used here. Select a profile first; then choose the functions this room should use.\n\nSelect a profile first. Then you can choose which functions of that profile are used in this room.",
+          "data": {
+            "profile_id": "Profile",
+            "profile_functions": "Used profile functions"
+          },
+          "data_description": {
+            "profile_id": "The profile selected for this room.",
+            "profile_functions": "Functions configured by the selected profile and enabled for this room."
           }
         }
       },

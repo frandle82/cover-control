@@ -828,6 +828,8 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_profile_sections(self, user_input=None) -> FlowResult:
+        model = self._model()
+        profile_id = getattr(self, "_editing_profile_id", None)
         return self.async_show_menu(
             step_id="profile_sections",
             menu_options=[
@@ -840,6 +842,9 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "profile_resident",
                 "profile_behavior",
             ],
+            description_placeholders=self._profile_context_placeholders(
+                model, profile_id
+            ),
         )
 
     async def _async_unified_profile_function_step(
@@ -885,7 +890,29 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 field_selection=None,
                 allowed_keys=allowed,
             ),
+            description_placeholders=self._profile_context_placeholders(
+                model, profile_id
+            ),
         )
+
+    def _profile_context_placeholders(
+        self, model: ConfigProfileModel, profile_id: str | None
+    ) -> dict[str, str]:
+        name = self._profile_display_name(model, profile_id)
+        return {
+            "profile_name": name,
+            "profile_context": f'Profile "{name}"',
+            "profile_usage": self._profile_usage_text(model, "profile", profile_id),
+        }
+
+    @staticmethod
+    def _profile_display_name(
+        model: ConfigProfileModel, profile_id: str | None
+    ) -> str:
+        if not profile_id:
+            return "—"
+        profile = model.data[CONF_PROFILES].get(profile_id, {})
+        return str(profile.get(CONF_PROFILE_NAME) or profile_id)
 
     async def async_step_profile_time(self, user_input=None) -> FlowResult:
         return await self._async_unified_profile_function_step(
@@ -944,13 +971,13 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, model: ConfigProfileModel, profile_type: str, profile_id: str | None
     ) -> str:
         if not profile_id:
-            return "—"
+            return "This profile is currently not used by any room."
         rooms = self._room_names(
             model, sorted(model.profile_users.get((profile_type, profile_id), ()))
         )
         if not rooms:
-            return "—"
-        return ", ".join(rooms)
+            return "This profile is currently not used by any room."
+        return f"Used by: {', '.join(rooms)}"
 
     @staticmethod
     def _room_names(model: ConfigProfileModel, room_ids: list[str]) -> list[str]:
@@ -962,6 +989,33 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
 class RoomSubentryFlow(ConfigSubentryFlow):
     """Create or edit room-local hardware data on a native subentry."""
+
+    def _room_context_placeholders(self) -> dict[str, str]:
+        entry = self._get_entry()
+        subentry = self._get_reconfigure_subentry()
+        data = dict(subentry.data)
+        settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
+        profiles = entry.data.get(CONF_PROFILES, {})
+        profile_id = data.get(CONF_ROOM_PROFILE_ID)
+        profile = profiles.get(profile_id, {}) if profile_id else {}
+        profile_name = str(profile.get(CONF_PROFILE_NAME) or "—")
+        covers = settings.get(CONF_COVERS, [])
+        selected = data.get(CONF_PROFILE_FUNCTIONS, [])
+        if isinstance(selected, dict):
+            selected = [
+                function for function, enabled in selected.items() if enabled
+            ]
+        return {
+            "room_name": str(
+                data.get(CONF_NAME) or subentry.title or subentry.subentry_id
+            ),
+            "area": str(settings.get(CONF_ROOM) or "—"),
+            "cover_count": str(len(covers) if isinstance(covers, list) else 0),
+            "profile_name": profile_name,
+            "profile_function_count": str(
+                len(selected) if isinstance(selected, list) else 0
+            ),
+        }
 
     async def async_step_user(self, user_input=None) -> FlowResult:
         """Create one room without duplicating parent global settings."""
@@ -1005,12 +1059,12 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                 "contacts",
                 "room_sensors",
                 "geometry",
-                "profile_references",
-                "profile_functions",
+                "profile_assignment",
                 "source_overrides",
                 "controls",
                 "diagnostics",
             ],
+            description_placeholders=self._room_context_placeholders(),
         )
 
     async def async_step_controls(self, user_input=None) -> FlowResult:
@@ -1048,6 +1102,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                     ): bool,
                 }
             ),
+            description_placeholders=self._room_context_placeholders(),
         )
 
     async def async_step_general(self, user_input=None) -> FlowResult:
@@ -1075,6 +1130,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                     ): selector.AreaSelector(),
                 }
             ),
+            description_placeholders=self._room_context_placeholders(),
         )
 
     async def async_step_contacts(self, user_input=None) -> FlowResult:
@@ -1107,7 +1163,9 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                 vol.Optional(key_map[(cover, "tilt")], default=tilt.get(cover, []))
             ] = multi_selector
         return self.async_show_form(
-            step_id="contacts", data_schema=vol.Schema(schema)
+            step_id="contacts",
+            data_schema=vol.Schema(schema),
+            description_placeholders=self._room_context_placeholders(),
         )
 
     @staticmethod
@@ -1151,6 +1209,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                     ),
                 }
             ),
+            description_placeholders=self._room_context_placeholders(),
         )
 
     async def async_step_geometry(self, user_input=None) -> FlowResult:
@@ -1181,6 +1240,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                     ): vol.Coerce(float),
                 }
             ),
+            description_placeholders=self._room_context_placeholders(),
         )
 
     async def async_step_diagnostics(self, user_input=None) -> FlowResult:
@@ -1203,8 +1263,15 @@ class RoomSubentryFlow(ConfigSubentryFlow):
             data_schema=vol.Schema({}),
             description_placeholders={
                 "room": str(data.get(CONF_NAME, subentry.title)),
+                "area": str(settings.get(CONF_ROOM) or "—"),
                 "cover_count": str(len(settings.get(CONF_COVERS, []))),
                 "profiles": "; ".join(profile_labels),
+                "profile_name": "; ".join(profile_labels),
+                "profile_function_count": str(
+                    len(data.get(CONF_PROFILE_FUNCTIONS, []))
+                    if isinstance(data.get(CONF_PROFILE_FUNCTIONS, []), list)
+                    else 0
+                ),
                 "resident_sensor": self._entity_name(settings.get(CONF_RESIDENT_SENSOR)),
                 "temperature_sensor": self._entity_name(settings.get(CONF_TEMPERATURE_SENSOR_INDOOR)),
                 "next_open": self._format_schedule_event(snapshot.get("next_open")),
@@ -1344,6 +1411,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                     ): _position_number_selector(CONF_POSITION_TOLERANCE),
                 }
             ),
+            description_placeholders=self._room_context_placeholders(),
         )
 
     async def async_step_positions(self, user_input=None) -> FlowResult:
@@ -1469,6 +1537,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                     ),
                 }
             ),
+            description_placeholders=self._room_context_placeholders(),
         )
 
     async def async_step_source_overrides(self, user_input=None) -> FlowResult:
@@ -1493,7 +1562,93 @@ class RoomSubentryFlow(ConfigSubentryFlow):
             )
             schema[marker] = selector.EntitySelector(selector.EntitySelectorConfig())
         return self.async_show_form(
-            step_id="source_overrides", data_schema=vol.Schema(schema)
+            step_id="source_overrides",
+            data_schema=vol.Schema(schema),
+            description_placeholders=self._room_context_placeholders(),
+        )
+
+    def _store_profile_assignment(
+        self,
+        data: dict[str, Any],
+        profiles: dict[str, Any],
+        user_input: dict[str, Any],
+    ) -> None:
+        profile_id = user_input.get(CONF_ROOM_PROFILE_ID)
+        if profile_id in (None, ""):
+            data.pop(CONF_ROOM_PROFILE_ID, None)
+            data[CONF_PROFILE_FUNCTIONS] = []
+            data.pop(CONF_PROFILE_SELECTIONS, None)
+            return
+        data[CONF_ROOM_PROFILE_ID] = profile_id
+        profile = profiles.get(profile_id, {})
+        available = configured_functions_from_profile(profile)
+        submitted = user_input.get(
+            CONF_PROFILE_FUNCTIONS, data.get(CONF_PROFILE_FUNCTIONS, [])
+        )
+        if isinstance(submitted, dict):
+            submitted = [
+                function for function, enabled in submitted.items() if enabled
+            ]
+        data[CONF_PROFILE_FUNCTIONS] = sorted(
+            function for function in submitted if function in available
+        )
+        data.pop(CONF_PROFILE_SELECTIONS, None)
+
+    async def async_step_profile_assignment(self, user_input=None) -> FlowResult:
+        entry = self._get_entry()
+        subentry = self._get_reconfigure_subentry()
+        data = dict(subentry.data)
+        profiles = entry.data.get(CONF_PROFILES, {})
+        if user_input is not None:
+            self._store_profile_assignment(data, profiles, user_input)
+            return self.async_update_and_abort(entry, subentry, data=data)
+
+        profile_options = [{"value": "", "label": "—"}]
+        profile_options.extend(
+            {
+                "value": profile_id,
+                "label": profile.get(CONF_PROFILE_NAME, profile_id),
+            }
+            for profile_id, profile in profiles.items()
+            if profile_id not in PROFILE_TYPES
+        )
+        profile_id = data.get(CONF_ROOM_PROFILE_ID)
+        profile = profiles.get(profile_id, {}) if profile_id else {}
+        available = configured_functions_from_profile(profile)
+        selected = data.get(CONF_PROFILE_FUNCTIONS, [])
+        if isinstance(selected, dict):
+            selected = [
+                function for function, enabled in selected.items() if enabled
+            ]
+        current = sorted(function for function in selected if function in available)
+        schema: dict = {
+            vol.Optional(
+                CONF_ROOM_PROFILE_ID,
+                default=profile_id or "",
+            ): selector.SelectSelector(
+                selector.SelectSelectorConfig(options=profile_options)
+            )
+        }
+        if available:
+            schema[
+                vol.Optional(
+                    CONF_PROFILE_FUNCTIONS,
+                    default=current,
+                )
+            ] = selector.SelectSelector(
+                selector.SelectSelectorConfig(
+                    options=[
+                        function for function in PROFILE_FUNCTIONS if function in available
+                    ],
+                    multiple=True,
+                    mode=selector.SelectSelectorMode.LIST,
+                    translation_key="profile_functions",
+                )
+            )
+        return self.async_show_form(
+            step_id="profile_assignment",
+            data_schema=vol.Schema(schema),
+            description_placeholders=self._room_context_placeholders(),
         )
 
     async def async_step_profile_references(self, user_input=None) -> FlowResult:
@@ -1502,25 +1657,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         data = dict(subentry.data)
         profiles = entry.data.get(CONF_PROFILES, {})
         if user_input is not None:
-            profile_id = user_input.get(CONF_ROOM_PROFILE_ID)
-            if profile_id in (None, ""):
-                data.pop(CONF_ROOM_PROFILE_ID, None)
-                data[CONF_PROFILE_FUNCTIONS] = []
-            else:
-                data[CONF_ROOM_PROFILE_ID] = profile_id
-                profile = profiles.get(profile_id, {})
-                available = configured_functions_from_profile(profile)
-                selected = data.get(CONF_PROFILE_FUNCTIONS, [])
-                if isinstance(selected, dict):
-                    selected = [
-                        function
-                        for function, enabled in selected.items()
-                        if enabled
-                    ]
-                data[CONF_PROFILE_FUNCTIONS] = sorted(
-                    function for function in selected if function in available
-                )
-            data.pop(CONF_PROFILE_SELECTIONS, None)
+            self._store_profile_assignment(data, profiles, user_input)
             return self.async_update_and_abort(
                 entry, subentry, data=data
             )
@@ -1540,7 +1677,9 @@ class RoomSubentryFlow(ConfigSubentryFlow):
             ): selector.SelectSelector(selector.SelectSelectorConfig(options=options))
         }
         return self.async_show_form(
-            step_id="profile_references", data_schema=vol.Schema(schema)
+            step_id="profile_references",
+            data_schema=vol.Schema(schema),
+            description_placeholders=self._room_context_placeholders(),
         )
 
     async def async_step_profile_functions(self, user_input=None) -> FlowResult:
@@ -1589,4 +1728,5 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                     )
                 }
             ),
+            description_placeholders=self._room_context_placeholders(),
         )

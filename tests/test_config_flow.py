@@ -172,11 +172,14 @@ def test_active_room_steps_have_runtime_translations() -> None:
         "contacts",
         "room_sensors",
         "geometry",
-        "profile_references",
-        "profile_functions",
+        "profile_assignment",
         "source_overrides",
         "controls",
         "diagnostics",
+    }
+    compatibility_room_steps = {
+        "profile_references",
+        "profile_functions",
     }
     legacy_room_steps = {
         "time",
@@ -203,7 +206,7 @@ def test_active_room_steps_have_runtime_translations() -> None:
     ):
         document = json.loads(path.read_text())
         steps = document["config_subentries"]["room"]["step"]
-        assert active_room_steps <= set(steps)
+        assert active_room_steps | compatibility_room_steps <= set(steps)
         assert legacy_room_steps.isdisjoint(steps)
         for step in active_room_steps:
             assert "title" in steps[step]
@@ -362,6 +365,7 @@ def test_legacy_config_flow_methods_are_not_active() -> None:
         "contacts",
         "room_sensors",
         "geometry",
+        "profile_assignment",
         "profile_references",
         "profile_functions",
         "source_overrides",
@@ -642,8 +646,7 @@ async def test_parent_reconfigure_menu_exposes_hierarchical_sections(hass):
         "contacts",
         "room_sensors",
         "geometry",
-        "profile_references",
-        "profile_functions",
+        "profile_assignment",
         "source_overrides",
         "controls",
         "diagnostics",
@@ -681,8 +684,7 @@ async def test_room_reconfigure_submenus_open_without_errors(hass):
         "contacts",
         "room_sensors",
         "geometry",
-        "profile_references",
-        "profile_functions",
+        "profile_assignment",
         "source_overrides",
         "diagnostics",
     ):
@@ -697,7 +699,7 @@ async def test_room_reconfigure_submenus_open_without_errors(hass):
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
-async def test_room_profile_functions_step_serializes_without_errors(hass):
+async def test_room_profile_assignment_step_serializes_without_errors(hass):
     entry = _entry(hass)
     model = _native_model(entry)
     room_id = _room_id(entry)
@@ -706,7 +708,7 @@ async def test_room_profile_functions_step_serializes_without_errors(hass):
     model["rooms"][room_id][c.CONF_PROFILE_FUNCTIONS] = [c.FUNCTION_TIME]
     _update_native_model(hass, entry, model)
 
-    result = await _open_room_step(hass, entry, "profile_functions")
+    result = await _open_room_step(hass, entry, "profile_assignment")
 
     assert result["type"] is FlowResultType.FORM
     to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
@@ -724,12 +726,13 @@ async def test_room_subentry_menu_has_no_parallel_profile_editors(hass):
         "contacts",
         "room_sensors",
         "geometry",
-        "profile_references",
-        "profile_functions",
+        "profile_assignment",
         "source_overrides",
         "controls",
         "diagnostics",
     ]
+    assert "profile_references" not in result["menu_options"]
+    assert "profile_functions" not in result["menu_options"]
     assert "functions" not in result["menu_options"]
     assert "overrides" not in result["menu_options"]
     assert not {
@@ -1042,15 +1045,15 @@ async def test_profile_function_detection_recomputes_from_current_content(hass):
         c.FUNCTION_SHADING,
     }
 
-    result = await _open_room_step(hass, entry, "profile_references")
+    result = await _open_room_step(hass, entry, "profile_assignment")
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"], {c.CONF_ROOM_PROFILE_ID: profile_id}
     )
     assert result["type"] is FlowResultType.ABORT
 
-    result = await _open_room_step(hass, entry, "profile_functions")
+    result = await _open_room_step(hass, entry, "profile_assignment")
     fields = to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
-    options = fields[0]["selector"]["select"]["options"]
+    options = fields[1]["selector"]["select"]["options"]
     assert set(options) == {c.FUNCTION_TIME, c.FUNCTION_SHADING}
 
     model = _native_model(entry)
@@ -1092,7 +1095,7 @@ async def test_room_positions_and_source_override_are_persisted(hass):
         },
     )
 
-    result = await _open_room_step(hass, entry, "profile_references")
+    result = await _open_room_step(hass, entry, "profile_assignment")
     profile_id = _native_model(entry)["rooms"][_room_id(entry)]["profile_id"]
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"],
@@ -1204,7 +1207,7 @@ async def test_room_profile_functions_persist_selected_subset(hass):
     model["rooms"][room_id][c.CONF_PROFILE_FUNCTIONS] = [c.FUNCTION_TIME]
     _update_native_model(hass, entry, model)
 
-    result = await _open_room_step(hass, entry, "profile_functions")
+    result = await _open_room_step(hass, entry, "profile_assignment")
     assert result["type"] is FlowResultType.FORM
 
     result = await hass.config_entries.subentries.async_configure(
@@ -1218,6 +1221,44 @@ async def test_room_profile_functions_persist_selected_subset(hass):
         c.FUNCTION_RESIDENT,
         c.FUNCTION_TIME,
     ]
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_room_profile_assignment_combines_profile_and_functions(hass):
+    entry = _entry(hass)
+    model = _native_model(entry)
+    room_id = _room_id(entry)
+    profile_id = model["rooms"][room_id]["profile_id"]
+    model["profiles"][profile_id][c.CONF_PROFILE_FUNCTIONS] = [
+        c.FUNCTION_TIME,
+        c.FUNCTION_RESIDENT,
+    ]
+    model["rooms"][room_id][c.CONF_PROFILE_FUNCTIONS] = [c.FUNCTION_TIME]
+    _update_native_model(hass, entry, model)
+
+    result = await _open_room_step(hass, entry, "profile_assignment")
+    assert result["type"] is FlowResultType.FORM
+    fields = to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
+
+    assert [field["name"] for field in fields] == [
+        c.CONF_ROOM_PROFILE_ID,
+        c.CONF_PROFILE_FUNCTIONS,
+    ]
+    function_options = fields[1]["selector"]["select"]["options"]
+    assert set(function_options) == {c.FUNCTION_TIME, c.FUNCTION_RESIDENT}
+
+    result = await hass.config_entries.subentries.async_configure(
+        result["flow_id"],
+        {
+            c.CONF_ROOM_PROFILE_ID: profile_id,
+            c.CONF_PROFILE_FUNCTIONS: [c.FUNCTION_RESIDENT],
+        },
+    )
+
+    assert result["type"] is FlowResultType.ABORT
+    room = _native_model(entry)["rooms"][room_id]
+    assert room[c.CONF_ROOM_PROFILE_ID] == profile_id
+    assert room[c.CONF_PROFILE_FUNCTIONS] == [c.FUNCTION_RESIDENT]
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
@@ -1249,7 +1290,7 @@ async def test_room_profile_change_intersects_existing_function_selection(hass):
     ]
     _update_native_model(hass, entry, model)
 
-    result = await _open_room_step(hass, entry, "profile_references")
+    result = await _open_room_step(hass, entry, "profile_assignment")
     result = await hass.config_entries.subentries.async_configure(
         result["flow_id"], {c.CONF_ROOM_PROFILE_ID: second_profile_id}
     )
@@ -1268,9 +1309,9 @@ async def test_room_profile_clear_removes_reference_and_function_selection(hass)
     entry = _entry(hass)
     room_id = _room_id(entry)
 
-    result = await _open_room_step(hass, entry, "profile_references")
+    result = await _open_room_step(hass, entry, "profile_assignment")
     result = await hass.config_entries.subentries.async_configure(
-        result["flow_id"], {}
+        result["flow_id"], {c.CONF_ROOM_PROFILE_ID: ""}
     )
 
     assert result["type"] is FlowResultType.ABORT
