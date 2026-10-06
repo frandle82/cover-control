@@ -293,6 +293,17 @@ async def test_entity_registry_cleanup_uses_v6_desired_entities(hass) -> None:
     await async_setup_sensors(hass, entry, added.extend)
 
     added_unique_ids = {entity.unique_id for entity in added}
+    room_entities = [
+        entity for entity in added if entity.unique_id.startswith("room-living-")
+    ]
+    assert room_entities
+    assert {
+        getattr(entity, "_attr_config_subentry_id", None) for entity in room_entities
+    } == {"room-living"}
+    assert all(
+        entity.device_info["identifiers"] == {(DOMAIN, entry.entry_id, "room-living")}
+        for entity in room_entities
+    )
     registry_unique_ids = {
         entity.unique_id
         for entity in er.async_entries_for_config_entry(registry, entry.entry_id)

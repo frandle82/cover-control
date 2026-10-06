@@ -82,8 +82,8 @@
         }
       },
       "profile_setup": {
-        "title": "Profile \"{profile_name}\"",
-        "description": "Set the profile name.\n\n{profile_usage}",
+        "title": "Profile",
+        "description": "Set the profile name.\n\nUsed by: {profile_usage}",
         "data": {
           "profile_name": "Profile name"
         },
@@ -92,8 +92,8 @@
         }
       },
       "profile_sections": {
-        "title": "Profile \"{profile_name}\"",
-        "description": "Edit one section of this profile.\n\n{profile_usage}",
+        "title": "Profile sections",
+        "description": "Edit one section of this profile.\n\nUsed by: {profile_usage}",
         "menu_options": {
           "profile_setup": "Setup",
           "profile_time": "Time",
@@ -116,8 +116,8 @@
         }
       },
       "profile_time": {
-        "title": "Profile \"{profile_name}\" - Time",
-        "description": "Edit the time behavior for this profile.\n\n{profile_usage}",
+        "title": "Profile time",
+        "description": "Edit the time behavior for this profile.\n\nUsed by: {profile_usage}",
         "sections": {
           "time_features": {
             "name": "Time features",
@@ -188,8 +188,8 @@
         }
       },
       "profile_brightness": {
-        "title": "Profile \"{profile_name}\" - Brightness",
-        "description": "Edit the brightness behavior for this profile.\n\n{profile_usage}",
+        "title": "Profile brightness",
+        "description": "Edit the brightness behavior for this profile.\n\nUsed by: {profile_usage}",
         "sections": {
           "time_features": {
             "name": "Time features",
@@ -236,8 +236,8 @@
         }
       },
       "profile_sun": {
-        "title": "Profile \"{profile_name}\" - Sun position",
-        "description": "Configure sun elevation, opening and closing thresholds, mode, offsets, and time conditions.\n\n{profile_usage}",
+        "title": "Profile sun position",
+        "description": "Configure sun elevation, opening and closing thresholds, mode, offsets, and time conditions.\n\nUsed by: {profile_usage}",
         "sections": {
           "time_features": {
             "name": "Time features",
@@ -288,8 +288,8 @@
         }
       },
       "profile_shading": {
-        "title": "Profile \"{profile_name}\" - Shading",
-        "description": "Configure shading conditions, thresholds, waits, temperature, brightness, and forecast rules.\n\n{profile_usage}",
+        "title": "Profile shading",
+        "description": "Configure shading conditions, thresholds, waits, temperature, brightness, and forecast rules.\n\nUsed by: {profile_usage}",
         "sections": {
           "shading_targets": {
             "name": "Shading control",
@@ -414,8 +414,8 @@
         }
       },
       "profile_ventilation": {
-        "title": "Profile \"{profile_name}\" - Ventilation",
-        "description": "Configure behavior for window contacts, delays, priorities, and ventilation rules.\n\n{profile_usage}",
+        "title": "Profile ventilation",
+        "description": "Configure behavior for window contacts, delays, priorities, and ventilation rules.\n\nUsed by: {profile_usage}",
         "sections": {
           "ventilation": {
             "name": "Ventilation",
@@ -451,8 +451,8 @@
         }
       },
       "profile_resident": {
-        "title": "Profile \"{profile_name}\" - Resident behavior",
-        "description": "Edit resident behavior for this profile.\n\n{profile_usage}",
+        "title": "Profile resident behavior",
+        "description": "Edit resident behavior for this profile.\n\nUsed by: {profile_usage}",
         "sections": {
           "resident_behavior": {
             "name": "Resident behavior",
@@ -476,8 +476,8 @@
         }
       },
       "profile_behavior": {
-        "title": "Profile \"{profile_name}\" - Manual behavior",
-        "description": "Edit manual behavior for this profile.\n\n{profile_usage}",
+        "title": "Profile manual behavior",
+        "description": "Edit manual behavior for this profile.\n\nUsed by: {profile_usage}",
         "sections": {
           "manual_override": {
             "name": "Manual override",
@@ -1142,6 +1142,23 @@
         "ventilation": "Ventilation",
         "resident": "Resident behavior",
         "behavior": "Manual behavior"
+      }
+    },
+    "shading_condition": {
+      "options": {
+        "cond_azimuth": "Sun azimuth",
+        "cond_elevation": "Sun elevation",
+        "cond_brightness": "Brightness",
+        "cond_temp1": "Temperature 1",
+        "cond_temp2": "Temperature 2",
+        "cond_forecast_temp": "Forecast temperature",
+        "cond_forecast_weather": "Forecast weather"
+      }
+    },
+    "shading_config": {
+      "options": {
+        "shading_temp_comparison_independent": "Independent temperature start",
+        "shading_compare_forecast_with_sensor2": "Compare forecast with temperature 2"
       }
     },
     "position_source": {
