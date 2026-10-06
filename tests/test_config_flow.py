@@ -1407,6 +1407,34 @@ async def test_diagnostics_use_profile_names_and_readable_values(hass):
     assert c.CONF_SHADING_POSITION not in text
 
 
+def test_profile_translation_context_does_not_require_title_placeholders() -> None:
+    """Profile context belongs in descriptions, where flow data supplies it."""
+
+    for filename in (
+        "strings.json",
+        "translations/en.json",
+        "translations/de.json",
+    ):
+        payload = json.loads(
+            (Path(__file__).parents[1] / "custom_components/cover_control" / filename)
+            .read_text()
+        )
+        steps = payload["config"]["step"]
+        for step_id in (
+            "profile_setup",
+            "profile_sections",
+            "profile_time",
+            "profile_brightness",
+            "profile_sun",
+            "profile_shading",
+            "profile_ventilation",
+            "profile_resident",
+            "profile_behavior",
+        ):
+            assert "{profile_name}" not in steps[step_id]["title"]
+            assert "{profile_usage}" in steps[step_id]["description"]
+
+
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
 async def test_room_diagnostics_use_runtime_schedule_snapshot(hass):
     entry = _entry(

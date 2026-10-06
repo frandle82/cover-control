@@ -397,23 +397,23 @@ def _time_default(value, fallback: str | None = None):
 
 
 SHADING_CONDITION_OPTIONS = [
-    {"value": SHADING_CONDITION_AZIMUTH, "label": "Sun azimuth"},
-    {"value": SHADING_CONDITION_ELEVATION, "label": "Sun elevation"},
-    {"value": SHADING_CONDITION_BRIGHTNESS, "label": "Brightness"},
-    {"value": SHADING_CONDITION_TEMP_1, "label": "Temperature sensor 1"},
-    {"value": SHADING_CONDITION_TEMP_2, "label": "Temperature sensor 2"},
-    {"value": SHADING_CONDITION_FORECAST_TEMP, "label": "Forecast temperature"},
-    {"value": SHADING_CONDITION_FORECAST_WEATHER, "label": "Forecast weather"},
+    {"value": SHADING_CONDITION_AZIMUTH, "label": "cond_azimuth"},
+    {"value": SHADING_CONDITION_ELEVATION, "label": "cond_elevation"},
+    {"value": SHADING_CONDITION_BRIGHTNESS, "label": "cond_brightness"},
+    {"value": SHADING_CONDITION_TEMP_1, "label": "cond_temp1"},
+    {"value": SHADING_CONDITION_TEMP_2, "label": "cond_temp2"},
+    {"value": SHADING_CONDITION_FORECAST_TEMP, "label": "cond_forecast_temp"},
+    {"value": SHADING_CONDITION_FORECAST_WEATHER, "label": "cond_forecast_weather"},
 ]
 
 SHADING_CONFIG_OPTIONS = [
     {
         "value": SHADING_CONFIG_TEMP_INDEPENDENT,
-        "label": "Allow forecast temperature to start shading independently",
+        "label": "shading_temp_comparison_independent",
     },
     {
         "value": SHADING_CONFIG_COMPARE_FORECAST_SENSOR2,
-        "label": "Compare forecast threshold with temperature sensor 2",
+        "label": "shading_compare_forecast_with_sensor2",
     },
 ]
 
@@ -975,9 +975,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         rooms = self._room_names(
             model, sorted(model.profile_users.get((profile_type, profile_id), ()))
         )
-        if not rooms:
-            return "This profile is currently not used by any room."
-        return f"Used by: {', '.join(rooms)}"
+        return ", ".join(rooms) or "—"
 
     @staticmethod
     def _room_names(model: ConfigProfileModel, room_ids: list[str]) -> list[str]:
