@@ -1278,8 +1278,6 @@ async def test_room_profile_change_intersects_existing_function_selection(hass):
         c.CONF_PROFILE_NAME: "Second",
         c.CONF_PROFILE_FUNCTIONS: [
             c.FUNCTION_TIME,
-            c.FUNCTION_SUN,
-            c.FUNCTION_SHADING,
             c.FUNCTION_RESIDENT,
         ],
         c.CONF_PROFILE_SETTINGS: {},
@@ -1298,10 +1296,7 @@ async def test_room_profile_change_intersects_existing_function_selection(hass):
     assert result["type"] is FlowResultType.ABORT
     room = _native_model(entry)["rooms"][room_id]
     assert room[c.CONF_ROOM_PROFILE_ID] == second_profile_id
-    assert room[c.CONF_PROFILE_FUNCTIONS] == [
-        c.FUNCTION_SHADING,
-        c.FUNCTION_TIME,
-    ]
+    assert room[c.CONF_PROFILE_FUNCTIONS] == [c.FUNCTION_TIME]
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")

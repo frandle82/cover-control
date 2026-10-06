@@ -28,7 +28,9 @@ from ..const import (
     CONF_AUTO_TIME,
     CONF_AUTO_VENTILATE,
     CONF_COVERS,
+    CONF_PROFILE_FUNCTIONS,
     CONF_PROFILE_SELECTIONS,
+    CONF_RESIDENT_STATUS,
     CONF_RESIDENT_SENSOR,
     CONF_ROOMS,
     CONF_ROOM_OVERRIDES,
@@ -427,17 +429,24 @@ class ControllerManager:
             resolved.room_id, {}
         )
         runtime_toggles = getattr(self, "_runtime_toggles", {})
+        profile_id = effective_profile_id(room)
         toggle_keys = (
             CONF_AUTO_TIME,
             CONF_AUTO_VENTILATE,
             CONF_AUTO_BRIGHTNESS,
             CONF_AUTO_SUN,
             CONF_AUTO_SHADING,
+            CONF_RESIDENT_STATUS,
         )
         return {
             "room_id": resolved.room_id,
             "room_name": resolved.room_name,
+            "profile_id": profile_id,
             "profiles": dict(resolved.profile_names),
+            "selected_profile_functions": sorted(
+                room.get(CONF_PROFILE_FUNCTIONS, ())
+            ),
+            "configured_functions": sorted(resolved.configured_functions),
             "resolved": {
                 key: {
                     "value": resolved.get(key),

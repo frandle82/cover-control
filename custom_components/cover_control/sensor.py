@@ -58,6 +58,8 @@ async def async_setup_entry(
             if profile_id:
                 profile_ids.add(profile_id)
         for profile_id in sorted(profile_ids):
+            if not _profile_time_selected_by_any_room(runtime.model, profile_id):
+                continue
             profile = effective_profile(runtime.model, {"profile_id": profile_id})
             if not profile:
                 room = next(
@@ -80,6 +82,16 @@ async def async_setup_entry(
                 registry.async_remove(entity_entry.entity_id)
         async_add_entities(entities)
         return
+
+
+def _profile_time_selected_by_any_room(model: dict[str, Any], profile_id: str) -> bool:
+    """Return whether any room using a profile selected the time function."""
+
+    return any(
+        effective_profile_id(room) == profile_id
+        and FUNCTION_TIME in effective_room_profile_functions(model, room)
+        for room in model.get("rooms", {}).values()
+    )
 
 
 class _BaseCoverControlSensor(SensorEntity):
