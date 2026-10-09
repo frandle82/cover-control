@@ -14,8 +14,11 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import (
     CONF_PROFILES,
     CONF_NAME,
+    CONF_CONTROLLER_ENTRY_ID,
+    CONF_ENTRY_TYPE,
     DEFAULT_NAME,
     DOMAIN,
+    ENTRY_TYPE_ROOM,
     FUNCTION_RESIDENT,
     SIGNAL_ENTRY_STATE_UPDATED,
     SIGNAL_HUB_STATE_UPDATED,
@@ -107,7 +110,9 @@ class _BaseCoverControlSensor(SensorEntity):
         self.hass = hass
         self.entry = entry
         self.room_id = room_id
-        self._attr_config_subentry_id = room_id
+        self._attr_config_subentry_id = (
+            None if entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM else room_id
+        )
 
     @property
     def device_info(self) -> DeviceInfo:
@@ -115,7 +120,13 @@ class _BaseCoverControlSensor(SensorEntity):
             runtime = getattr(self.entry, "runtime_data", None)
             room = runtime.model.get("rooms", {}).get(self.room_id, {}) if isinstance(runtime, CoverControlRuntime) else {}
             return DeviceInfo(
-                identifiers={(DOMAIN, self.entry.entry_id, self.room_id)},
+                identifiers={
+                    (
+                        DOMAIN,
+                        self.entry.data.get(CONF_CONTROLLER_ENTRY_ID, self.entry.entry_id),
+                        self.room_id,
+                    )
+                },
                 name=str(room.get(CONF_NAME, self.room_id)),
                 manufacturer="CCA-derived",
             )

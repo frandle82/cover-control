@@ -11,6 +11,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import (
     CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON,
     CONF_ENABLE_RECALIBRATE_BUTTON,
+    CONF_CONTROLLER_ENTRY_ID,
+    CONF_ENTRY_TYPE,
     CONF_FULL_OPEN_POSITION,
     CONF_MANUAL_CONTROL,
     CONF_NAME,
@@ -18,6 +20,7 @@ from .const import (
     DEFAULT_NAME,
     DEFAULT_OPEN_POSITION,
     DOMAIN,
+    ENTRY_TYPE_ROOM,
 )
 from .controller import ControllerManager
 from .runtime_data import CoverControlRuntime
@@ -76,7 +79,9 @@ class _BaseCoverControlButton(ButtonEntity):
         self.entry = entry
         self.room_id = room_id
         self._attr_unique_id = f"{room_id or entry.entry_id}-{key}"
-        self._attr_config_subentry_id = room_id
+        self._attr_config_subentry_id = (
+            None if entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM else room_id
+        )
         self._attr_translation_key = key
 
     @property
@@ -85,7 +90,13 @@ class _BaseCoverControlButton(ButtonEntity):
             runtime = getattr(self.entry, "runtime_data", None)
             room = runtime.model.get("rooms", {}).get(self.room_id, {}) if isinstance(runtime, CoverControlRuntime) else {}
             return DeviceInfo(
-                identifiers={(DOMAIN, self.entry.entry_id, self.room_id)},
+                identifiers={
+                    (
+                        DOMAIN,
+                        self.entry.data.get(CONF_CONTROLLER_ENTRY_ID, self.entry.entry_id),
+                        self.room_id,
+                    )
+                },
                 name=str(room.get(CONF_NAME, self.room_id)),
                 manufacturer="CCA-derived",
             )

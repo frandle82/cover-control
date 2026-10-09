@@ -11,6 +11,8 @@ from homeassistant.helpers.entity_platform import AddEntitiesCallback
 from .const import (
     CONF_MANUAL_OVERRIDE_MINUTES,
     CONF_MANUAL_OVERRIDE_RESET_TIME,
+    CONF_CONTROLLER_ENTRY_ID,
+    CONF_ENTRY_TYPE,
     CONF_CLOSE_POSITION,
     CONF_OPEN_POSITION,
     CONF_POSITION_TOLERANCE,
@@ -90,6 +92,7 @@ from .const import (
     DEFAULT_TEMPERATURE_FORECAST_THRESHOLD,
     DEFAULT_COLD_PROTECTION_THRESHOLD,
     DOMAIN,
+    ENTRY_TYPE_ROOM,
 )
 from .feature_state import feature_configured
 from .runtime_data import CoverControlRuntime
@@ -233,7 +236,9 @@ class AutomationToggleSwitch(SwitchEntity):
         self._key = key
         owner_id = room_id or entry.entry_id
         self._attr_unique_id = f"{owner_id}-{key}"
-        self._attr_config_subentry_id = room_id
+        self._attr_config_subentry_id = (
+            None if entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM else room_id
+        )
         self._attr_translation_key = translation_key
         self._attr_icon = TOGGLE_ICONS.get(key)
         self._attr_friendly_name = translation_key
@@ -257,7 +262,13 @@ class AutomationToggleSwitch(SwitchEntity):
             runtime = getattr(self.entry, "runtime_data", None)
             room = runtime.model.get("rooms", {}).get(self.room_id, {}) if isinstance(runtime, CoverControlRuntime) else {}
             return DeviceInfo(
-                identifiers={(DOMAIN, self.entry.entry_id, self.room_id)},
+                identifiers={
+                    (
+                        DOMAIN,
+                        self.entry.data.get(CONF_CONTROLLER_ENTRY_ID, self.entry.entry_id),
+                        self.room_id,
+                    )
+                },
                 name=str(room.get(CONF_NAME, self.room_id)),
                 manufacturer="CCA-derived",
             )

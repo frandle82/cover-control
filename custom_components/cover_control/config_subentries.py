@@ -15,6 +15,8 @@ from typing import Any
 from .config_profiles import ConfigProfileModel
 from .config_migration import unify_profile_model
 from .const import (
+    CONF_CONTROLLER_ENTRY_ID,
+    CONF_ENTRY_TYPE,
     CONF_GLOBAL,
     CONF_GLOBAL_DEFAULTS,
     CONF_GLOBAL_SOURCES,
@@ -30,6 +32,8 @@ from .const import (
     CONF_ROOM_SETTINGS,
     CONF_ROOMS,
     CONF_SOURCE_OVERRIDES,
+    ENTRY_TYPE_CONTROLLER,
+    ENTRY_TYPE_ROOM,
     PROFILE_TYPES,
     SUBENTRY_TYPE_ROOM,
 )
@@ -94,6 +98,7 @@ def legacy_model_to_subentry_data(
     canonical = unify_profile_model(model)
     _migrate_legacy_global_resident_source(canonical)
     parent_data = {
+        CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
         CONF_GLOBAL: deepcopy(canonical[CONF_GLOBAL]),
         CONF_PROFILES: {
             profile_id: deepcopy(profile)
@@ -125,6 +130,7 @@ def model_to_native_payloads(
 
     canonical = ConfigProfileModel(unify_profile_model(model)).data
     parent_data = {
+        CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
         CONF_GLOBAL: deepcopy(canonical[CONF_GLOBAL]),
         CONF_PROFILES: {
             profile_id: deepcopy(profile)
@@ -149,6 +155,58 @@ def model_to_native_payloads(
             )
         )
     return parent_data, payloads
+
+
+def model_from_entries(
+    controller_entry_id: str,
+    controller_data: Mapping[str, Any],
+    room_entries: Iterable[Any],
+) -> dict[str, Any]:
+    """Build transient resolver model from a controller entry and room entries."""
+
+    global_data = controller_data.get(CONF_GLOBAL, {})
+    model: dict[str, Any] = {
+        CONF_GLOBAL: {
+            CONF_GLOBAL_SOURCES: deepcopy(global_data.get(CONF_GLOBAL_SOURCES, {})),
+            CONF_GLOBAL_DEFAULTS: deepcopy(global_data.get(CONF_GLOBAL_DEFAULTS, {})),
+        },
+        CONF_PROFILES: deepcopy(controller_data.get(CONF_PROFILES, {})),
+        CONF_ROOMS: {},
+    }
+    for entry in room_entries:
+        data = getattr(entry, "data", {})
+        if not isinstance(data, Mapping):
+            continue
+        if data.get(CONF_ENTRY_TYPE) != ENTRY_TYPE_ROOM:
+            continue
+        if controller_entry_id and data.get(CONF_CONTROLLER_ENTRY_ID) != controller_entry_id:
+            continue
+        room_id = str(data.get(CONF_ROOM_ID) or getattr(entry, "entry_id", ""))
+        room = deepcopy(dict(data))
+        room.pop(CONF_ENTRY_TYPE, None)
+        room.pop(CONF_CONTROLLER_ENTRY_ID, None)
+        room[CONF_ROOM_ID] = room_id
+        room.setdefault(CONF_NAME, getattr(entry, "title", room_id))
+        room.setdefault(CONF_ROOM_SETTINGS, {})
+        room.setdefault(CONF_SOURCE_OVERRIDES, {})
+        model[CONF_ROOMS][room_id] = room
+    _migrate_legacy_global_resident_source(model)
+    return ConfigProfileModel(unify_profile_model(model)).data
+
+
+def room_entry_data_from_subentry(
+    controller_entry_id: str, room_id: str, data: Mapping[str, Any], title: str
+) -> dict[str, Any]:
+    """Return canonical room ConfigEntry data for a legacy room subentry."""
+
+    room = deepcopy(dict(data))
+    room[CONF_ENTRY_TYPE] = ENTRY_TYPE_ROOM
+    room[CONF_CONTROLLER_ENTRY_ID] = controller_entry_id
+    room[CONF_ROOM_ID] = room_id
+    room.setdefault(CONF_NAME, title or room_id)
+    room.setdefault(CONF_ROOM_SETTINGS, {})
+    room.setdefault(CONF_SOURCE_OVERRIDES, {})
+    return room
 
 
 def _migrate_legacy_global_resident_source(model: dict[str, Any]) -> None:

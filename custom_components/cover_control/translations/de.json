@@ -93,7 +93,7 @@
       },
       "profile_sections": {
         "title": "Profilbereiche",
-        "description": "Bearbeite einen Bereich dieses Profils.\n\nVerwendet von: {profile_usage}",
+        "description": "Bearbeite einen Bereich dieses Profils.\n\nKonfigurierte Funktionen: {profile_configured_functions}\n\nProfil-Zusammenfassung: {profile_summary}\n\nVerwendet von: {profile_usage}",
         "menu_options": {
           "profile_setup": "Allgemein",
           "profile_time": "Zeit",
@@ -117,7 +117,7 @@
       },
       "profile_time": {
         "title": "Profilzeit",
-        "description": "Bearbeite das Zeitverhalten dieses Profils.\n\nVerwendet von: {profile_usage}",
+        "description": "Bearbeite das Zeitverhalten dieses Profils.\n\nAktuelle Zeit-Zusammenfassung: {profile_time_summary}\n\nVerwendet von: {profile_usage}",
         "sections": {
           "time_features": {
             "name": "Zeitsteuerung",
@@ -189,7 +189,7 @@
       },
       "profile_brightness": {
         "title": "Profilhelligkeit",
-        "description": "Bearbeite das Helligkeitsverhalten dieses Profils.\n\nVerwendet von: {profile_usage}",
+        "description": "Bearbeite das Helligkeitsverhalten dieses Profils.\n\nAktuelle Helligkeits-Zusammenfassung: {profile_brightness_summary}\n\nVerwendet von: {profile_usage}",
         "sections": {
           "time_features": {
             "name": "Zeitsteuerung",
@@ -237,7 +237,7 @@
       },
       "profile_sun": {
         "title": "Profilsonnenstand",
-        "description": "Sonnenhöhe, Öffnungs-/Schließschwellen, Modus, Offsets und Zeitbedingungen konfigurieren.\n\nVerwendet von: {profile_usage}",
+        "description": "Sonnenhöhe, Öffnungs-/Schließschwellen, Modus, Offsets und Zeitbedingungen konfigurieren.\n\nAktuelle Sonnen-Zusammenfassung: {profile_sun_summary}\n\nVerwendet von: {profile_usage}",
         "sections": {
           "time_features": {
             "name": "Zeitsteuerung",
@@ -289,7 +289,7 @@
       },
       "profile_shading": {
         "title": "Profilbeschattung",
-        "description": "Bedingungen, Grenzwerte, Wartezeiten, Temperatur-, Helligkeits- und Forecast-Regeln der Beschattung konfigurieren.\n\nVerwendet von: {profile_usage}",
+        "description": "Bedingungen, Grenzwerte, Wartezeiten, Temperatur-, Helligkeits- und Forecast-Regeln der Beschattung konfigurieren.\n\nAktuelle Beschattungs-Zusammenfassung: {profile_shading_summary}\n\nVerwendet von: {profile_usage}",
         "sections": {
           "shading_targets": {
             "name": "Beschattungssteuerung",
@@ -415,7 +415,7 @@
       },
       "profile_ventilation": {
         "title": "Profillüftung",
-        "description": "Verhalten bei Fensterkontakten, Verzögerungen, Prioritäten und Lüftungsregeln konfigurieren.\n\nVerwendet von: {profile_usage}",
+        "description": "Verhalten bei Fensterkontakten, Verzögerungen, Prioritäten und Lüftungsregeln konfigurieren.\n\nAktuelle Lüftungs-Zusammenfassung: {profile_ventilation_summary}\n\nVerwendet von: {profile_usage}",
         "sections": {
           "ventilation": {
             "name": "Lüftung",
@@ -452,7 +452,7 @@
       },
       "profile_resident": {
         "title": "Profilbewohnerverhalten",
-        "description": "Bearbeite das Bewohnerverhalten dieses Profils.\n\nVerwendet von: {profile_usage}",
+        "description": "Bearbeite das Bewohnerverhalten dieses Profils.\n\nAktuelle Bewohner-Zusammenfassung: {profile_resident_summary}\n\nVerwendet von: {profile_usage}",
         "sections": {
           "resident_behavior": {
             "name": "Bewohnerverhalten",
@@ -477,7 +477,7 @@
       },
       "profile_behavior": {
         "title": "Profilmanuelles Verhalten",
-        "description": "Bearbeite das manuelle Verhalten dieses Profils.\n\nVerwendet von: {profile_usage}",
+        "description": "Bearbeite das manuelle Verhalten dieses Profils.\n\nAktuelle Zusammenfassung des manuellen Verhaltens: {profile_behavior_summary}\n\nVerwendet von: {profile_usage}",
         "sections": {
           "manual_override": {
             "name": "Manuelles Verhalten",

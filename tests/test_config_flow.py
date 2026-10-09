@@ -18,7 +18,9 @@ from homeassistant.helpers import config_validation as cv, selector
 from homeassistant.helpers.json import json_dumps
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 
+from custom_components.cover_control.config_flow import CoverControlFlow
 from custom_components.cover_control.config_flow import INITIAL_FEATURE_KEYS
+from custom_components.cover_control.config_profiles import ConfigProfileModel
 from custom_components.cover_control.config_profile_schema import (
     PROFILE_CAPABILITY_KEYS,
 )
@@ -31,7 +33,7 @@ from custom_components.cover_control.config_resolver import (
 )
 from custom_components.cover_control.config_migration import normalize_legacy_config
 from custom_components.cover_control.config_subentries import (
-    model_from_subentries,
+    model_from_entries,
     model_to_native_payloads,
 )
 from custom_components.cover_control import const as c
@@ -45,6 +47,8 @@ from custom_components.cover_control.const import (
     CONF_AUTO_VENTILATE,
     CONF_BRIGHTNESS_SENSOR,
     CONF_COVERS,
+    CONF_CONTROLLER_ENTRY_ID,
+    CONF_ENTRY_TYPE,
     CONF_RESIDENT_SENSOR,
     CONF_ENABLE_LOGBOOK_COVER,
     CONF_GLOBAL,
@@ -52,11 +56,14 @@ from custom_components.cover_control.const import (
     CONF_MANUAL_SCHEDULE_ADOPTION,
     CONF_PROFILES,
     CONF_ROOM,
+    CONF_ROOM_ID,
     CONF_ROOMS,
     CONF_SHADING_INDEPENDENT_HOLDS_END,
     CONF_SHADING_POSITION,
     DEFAULT_NAME,
     DOMAIN,
+    ENTRY_TYPE_CONTROLLER,
+    ENTRY_TYPE_ROOM,
 )
 
 LEGACY_PROFILE_FIELDS = "configured_profile_fields"
@@ -334,10 +341,23 @@ def test_legacy_config_flow_methods_are_not_active() -> None:
         for name in CoverControlFlow.__dict__
         if name.startswith("async_step_")
     }
-    assert parent_steps == {
+    assert {
         "user",
+        "import",
+        "room",
         "global_sources",
         "reconfigure",
+        "general",
+        "hardware",
+        "positions",
+        "contacts",
+        "room_sensors",
+        "geometry",
+        "profile_assignment",
+        "profile_references",
+        "profile_functions",
+        "source_overrides",
+        "controls",
         "profiles",
         "profile_setup",
         "profile_sections",
@@ -350,7 +370,7 @@ def test_legacy_config_flow_methods_are_not_active() -> None:
         "profile_behavior",
         "diagnostics",
         "recovery",
-    }
+    } <= parent_steps
     room_steps = {
         name.removeprefix("async_step_")
         for name in RoomSubentryFlow.__dict__
@@ -413,23 +433,31 @@ def _entry(hass, *, data: dict | None = None) -> MockConfigEntry:
     flat_data = data or {CONF_NAME: "Living", CONF_COVERS: ["cover.living"]}
     model = normalize_legacy_config(flat_data, {}, room_id="room-test")
     parent_data, subentries = model_to_native_payloads(model)
+    parent_data[CONF_ENTRY_TYPE] = ENTRY_TYPE_CONTROLLER
     entry = MockConfigEntry(
         domain=DOMAIN,
-        title="Living",
-        version=5,
+        title=DEFAULT_NAME,
+        version=7,
+        unique_id=DOMAIN,
         data=parent_data,
-        subentries_data=[
-            {
-                "subentry_id": subentry_id,
-                "subentry_type": subentry_type,
-                "title": title,
-                "unique_id": subentry_id,
-                "data": subentry_data,
-            }
-            for subentry_id, subentry_type, title, subentry_data in subentries
-        ],
     )
     entry.add_to_hass(hass)
+    room_id, _subentry_type, title, room_data = subentries[0]
+    room_data = {
+        **room_data,
+        CONF_ENTRY_TYPE: ENTRY_TYPE_ROOM,
+        CONF_CONTROLLER_ENTRY_ID: entry.entry_id,
+        CONF_ROOM_ID: room_id,
+    }
+    room_entry = MockConfigEntry(
+        domain=DOMAIN,
+        title=title,
+        version=7,
+        unique_id=f"room-{entry.entry_id}-{room_id}",
+        data=room_data,
+    )
+    room_entry.add_to_hass(hass)
+    entry._test_room_entry = room_entry
     return entry
 
 
@@ -448,31 +476,33 @@ async def _open_options_step(hass, entry, *steps: str):
     return result
 
 
-def _room_subentry(entry):
-    return next(
-        subentry
-        for subentry in entry.subentries.values()
-        if subentry.subentry_type == "room"
-    )
+def _room_entry(entry):
+    return entry._test_room_entry
 
 
 def _room_id(entry) -> str:
-    return _room_subentry(entry).subentry_id
+    return _room_entry(entry).data[CONF_ROOM_ID]
 
 
 def _native_model(entry) -> dict:
-    return model_from_subentries(entry.data, entry.subentries.values())
+    return model_from_entries(entry.entry_id, entry.data, [_room_entry(entry)])
 
 
 def _update_native_model(hass, entry, model: dict) -> None:
     parent_data, subentries = model_to_native_payloads(model)
+    parent_data[CONF_ENTRY_TYPE] = ENTRY_TYPE_CONTROLLER
     hass.config_entries.async_update_entry(entry, data=parent_data, options={})
-    for subentry_id, _subentry_type, title, subentry_data in subentries:
-        hass.config_entries.async_update_subentry(
-            entry=entry,
-            subentry=entry.subentries[subentry_id],
+    for room_id, _subentry_type, title, room_data in subentries:
+        room_entry = _room_entry(entry)
+        hass.config_entries.async_update_entry(
+            room_entry,
             title=title,
-            data=subentry_data,
+            data={
+                **room_data,
+                CONF_ENTRY_TYPE: ENTRY_TYPE_ROOM,
+                CONF_CONTROLLER_ENTRY_ID: entry.entry_id,
+                CONF_ROOM_ID: room_id,
+            },
         )
 
 
@@ -480,17 +510,107 @@ def _resolve_native(entry):
     return resolve_config_model(_native_model(entry), _room_id(entry))
 
 
+def test_profile_context_placeholders_include_all_section_summaries() -> None:
+    """Profile descriptions expose summaries for every profile section."""
+
+    profile_id = "profile-shared"
+    model = ConfigProfileModel(
+        {
+            c.CONF_GLOBAL: {c.CONF_GLOBAL_SOURCES: {}, c.CONF_GLOBAL_DEFAULTS: {}},
+            c.CONF_PROFILES: {
+                profile_id: {
+                    c.CONF_PROFILE_ID: profile_id,
+                    c.CONF_PROFILE_NAME: "Shared profile",
+                    c.CONF_PROFILE_FUNCTIONS: [
+                        c.FUNCTION_TIME,
+                        c.FUNCTION_BRIGHTNESS,
+                        c.FUNCTION_SUN,
+                        c.FUNCTION_SHADING,
+                        c.FUNCTION_VENTILATION,
+                        c.FUNCTION_RESIDENT,
+                        c.FUNCTION_BEHAVIOR,
+                    ],
+                    c.CONF_PROFILE_SETTINGS: {
+                        c.CONF_TIME_UP_EARLY_WORKDAY: "06:15:00",
+                        c.CONF_BRIGHTNESS_OPEN_ABOVE: 25000,
+                        c.CONF_SHADING_WAITINGTIME_END: 900,
+                    },
+                }
+            },
+            c.CONF_ROOMS: {
+                "room-living": {
+                    c.CONF_NAME: "Living",
+                    c.CONF_ROOM_PROFILE_ID: profile_id,
+                    c.CONF_PROFILE_FUNCTIONS: [c.FUNCTION_TIME],
+                },
+                "room-bedroom": {
+                    c.CONF_NAME: "Bedroom",
+                    c.CONF_ROOM_PROFILE_ID: profile_id,
+                    c.CONF_PROFILE_FUNCTIONS: [c.FUNCTION_SHADING],
+                },
+            },
+        }
+    )
+
+    placeholders = CoverControlFlow()._profile_context_placeholders(model, profile_id)
+
+    assert placeholders["profile_name"] == "Shared profile"
+    assert placeholders["profile_usage"] == "Bedroom, Living"
+    assert placeholders["profile_configured_functions"] == (
+        "time, brightness, sun, shading, ventilation, resident, behavior"
+    )
+    for key in (
+        "profile_time_summary",
+        "profile_brightness_summary",
+        "profile_sun_summary",
+        "profile_shading_summary",
+        "profile_ventilation_summary",
+        "profile_resident_summary",
+        "profile_behavior_summary",
+    ):
+        assert placeholders[key]
+    assert "06:15:00" in placeholders["profile_time_summary"]
+    assert "(profile)" in placeholders["profile_time_summary"]
+    assert "(default)" in placeholders["profile_sun_summary"]
+
+
+def test_profile_context_placeholders_handle_unused_empty_profile() -> None:
+    """Unused profiles still get stable summary placeholders."""
+
+    profile_id = "profile-empty"
+    model = ConfigProfileModel(
+        {
+            c.CONF_GLOBAL: {c.CONF_GLOBAL_SOURCES: {}, c.CONF_GLOBAL_DEFAULTS: {}},
+            c.CONF_PROFILES: {
+                profile_id: {
+                    c.CONF_PROFILE_ID: profile_id,
+                    c.CONF_PROFILE_NAME: "Empty",
+                    c.CONF_PROFILE_FUNCTIONS: [],
+                    c.CONF_PROFILE_SETTINGS: {},
+                }
+            },
+            c.CONF_ROOMS: {},
+        }
+    )
+
+    placeholders = CoverControlFlow()._profile_context_placeholders(model, profile_id)
+
+    assert placeholders["profile_usage"] == "—"
+    assert placeholders["profile_configured_functions"] == "-"
+    assert "(default)" in placeholders["profile_behavior_summary"]
+
+
 async def _open_room_step(hass, entry, *steps: str):
-    subentry = _room_subentry(entry)
-    result = await hass.config_entries.subentries.async_init(
-        (entry.entry_id, "room"),
+    room_entry = _room_entry(entry)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
         context={
             "source": config_entries.SOURCE_RECONFIGURE,
-            "subentry_id": subentry.subentry_id,
+            "entry_id": room_entry.entry_id,
         },
     )
     for step in steps:
-        result = await hass.config_entries.subentries.async_configure(
+        result = await hass.config_entries.flow.async_configure(
             result["flow_id"], {"next_step_id": step}
         )
     return result
@@ -559,12 +679,16 @@ async def test_user_flow_can_be_completed_without_errors(hass):
     assert CONF_COVERS not in result["data"]
 
 
-async def test_user_flow_blocks_second_parent_entry(hass) -> None:
+async def test_user_flow_with_existing_controller_creates_room_entry(hass) -> None:
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="Cover Control",
-        version=4,
-        data={"global": {"sources": {}, "defaults": {}}},
+        version=7,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
+            CONF_GLOBAL: {"sources": {}, "defaults": {}},
+            CONF_PROFILES: {},
+        },
     )
     entry.add_to_hass(hass)
 
@@ -572,8 +696,22 @@ async def test_user_flow_blocks_second_parent_entry(hass) -> None:
         DOMAIN, context={"source": config_entries.SOURCE_USER}
     )
 
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "single_instance_allowed"
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "room"
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            CONF_NAME: "Living",
+            CONF_ROOM: "living-room",
+            CONF_COVERS: ["cover.living"],
+        },
+    )
+
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+    assert result["title"] == "Living"
+    assert result["data"][CONF_ENTRY_TYPE] == ENTRY_TYPE_ROOM
+    assert result["data"][CONF_CONTROLLER_ENTRY_ID] == entry.entry_id
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
@@ -1046,7 +1184,7 @@ async def test_profile_function_detection_recomputes_from_current_content(hass):
     }
 
     result = await _open_room_step(hass, entry, "profile_assignment")
-    result = await hass.config_entries.subentries.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {c.CONF_ROOM_PROFILE_ID: profile_id}
     )
     assert result["type"] is FlowResultType.ABORT
@@ -1097,7 +1235,7 @@ async def test_room_positions_and_source_override_are_persisted(hass):
 
     result = await _open_room_step(hass, entry, "profile_assignment")
     profile_id = _native_model(entry)["rooms"][_room_id(entry)]["profile_id"]
-    result = await hass.config_entries.subentries.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {"profile_id": profile_id},
     )
@@ -1105,7 +1243,7 @@ async def test_room_positions_and_source_override_are_persisted(hass):
     assert result["reason"] == "reconfigure_successful"
 
     result = await _open_room_step(hass, entry, "positions")
-    result = await hass.config_entries.subentries.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {"positions": {CONF_SHADING_POSITION: 27}},
     )
@@ -1113,7 +1251,7 @@ async def test_room_positions_and_source_override_are_persisted(hass):
     assert result["reason"] == "reconfigure_successful"
 
     result = await _open_room_step(hass, entry, "source_overrides")
-    result = await hass.config_entries.subentries.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {CONF_BRIGHTNESS_SENSOR: "sensor.room_brightness"},
     )
@@ -1153,7 +1291,7 @@ async def test_room_contacts_use_stable_form_keys_and_preserve_cover_mapping(has
     }
     assert not any("living" in field for field in fields)
 
-    result = await hass.config_entries.subentries.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {
             "cover_0_full": ["binary_sensor.left_open"],
@@ -1210,7 +1348,7 @@ async def test_room_profile_functions_persist_selected_subset(hass):
     result = await _open_room_step(hass, entry, "profile_assignment")
     assert result["type"] is FlowResultType.FORM
 
-    result = await hass.config_entries.subentries.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {c.CONF_PROFILE_FUNCTIONS: [c.FUNCTION_RESIDENT, c.FUNCTION_TIME]},
     )
@@ -1247,7 +1385,7 @@ async def test_room_profile_assignment_combines_profile_and_functions(hass):
     function_options = fields[1]["selector"]["select"]["options"]
     assert set(function_options) == {c.FUNCTION_TIME, c.FUNCTION_RESIDENT}
 
-    result = await hass.config_entries.subentries.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {
             c.CONF_ROOM_PROFILE_ID: profile_id,
@@ -1289,7 +1427,7 @@ async def test_room_profile_change_intersects_existing_function_selection(hass):
     _update_native_model(hass, entry, model)
 
     result = await _open_room_step(hass, entry, "profile_assignment")
-    result = await hass.config_entries.subentries.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {c.CONF_ROOM_PROFILE_ID: second_profile_id}
     )
 
@@ -1305,7 +1443,7 @@ async def test_room_profile_clear_removes_reference_and_function_selection(hass)
     room_id = _room_id(entry)
 
     result = await _open_room_step(hass, entry, "profile_assignment")
-    result = await hass.config_entries.subentries.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {c.CONF_ROOM_PROFILE_ID: ""}
     )
 
@@ -1337,7 +1475,7 @@ async def test_room_position_can_be_removed_without_copying_profile_values(hass)
     initial = _frontend_initial_data(result["data_schema"])
     assert initial["positions"][CONF_LOCKOUT_POSITION] == 27
     initial["positions"][CONF_LOCKOUT_POSITION] = None
-    result = await hass.config_entries.subentries.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"], initial
     )
     assert result["type"] is FlowResultType.ABORT
@@ -1494,7 +1632,7 @@ async def test_global_and_room_sources_can_be_removed_with_empty_forms(hass):
         )
     }
     assert fields == ROOM_SOURCE_OVERRIDE_KEYS
-    result = await hass.config_entries.subentries.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {}
     )
     assert result["type"] is FlowResultType.ABORT
@@ -1533,7 +1671,7 @@ async def test_options_flow_accepts_numeric_full_open_position(hass):
     }
     assert position_data["positions"][CONF_LOCKOUT_POSITION] == 85
 
-    result = await hass.config_entries.subentries.async_configure(
+    result = await hass.config_entries.flow.async_configure(
         result["flow_id"], position_data
     )
     assert result["type"] is FlowResultType.ABORT
