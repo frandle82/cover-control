@@ -24,6 +24,7 @@ from custom_components.cover_control.config_profiles import ConfigProfileModel
 from custom_components.cover_control.config_profile_schema import (
     PROFILE_CAPABILITY_KEYS,
 )
+from custom_components.cover_control.config_profile_summary import profile_summary
 from custom_components.cover_control.config_resolver import (
     GLOBAL_DEFAULT_KEYS,
     GLOBAL_SOURCE_KEYS,
@@ -480,6 +481,14 @@ def _room_entry(entry):
     return entry._test_room_entry
 
 
+def _room_entry_for_controller(hass, entry):
+    return next(
+        candidate
+        for candidate in hass.config_entries.async_entries(DOMAIN)
+        if candidate.data.get(c.CONF_CONTROLLER_ENTRY_ID) == entry.entry_id
+    )
+
+
 def _room_id(entry) -> str:
     return _room_entry(entry).data[CONF_ROOM_ID]
 
@@ -557,7 +566,7 @@ def test_profile_context_placeholders_include_all_section_summaries() -> None:
     assert placeholders["profile_name"] == "Shared profile"
     assert placeholders["profile_usage"] == "Bedroom, Living"
     assert placeholders["profile_configured_functions"] == (
-        "time, brightness, sun, shading, ventilation, resident, behavior"
+        "Time · Brightness · Sun position · Shading · Ventilation · Resident · Manual behavior"
     )
     for key in (
         "profile_time_summary",
@@ -569,9 +578,10 @@ def test_profile_context_placeholders_include_all_section_summaries() -> None:
         "profile_behavior_summary",
     ):
         assert placeholders[key]
-    assert "06:15:00" in placeholders["profile_time_summary"]
-    assert "(profile)" in placeholders["profile_time_summary"]
-    assert "(default)" in placeholders["profile_sun_summary"]
+    assert "Open: 06:15-" in placeholders["profile_time_summary"]
+    assert "profile value" in placeholders["profile_time_summary"]
+    assert "default value" in placeholders["profile_sun_summary"]
+    assert "workday_open" not in placeholders["profile_time_summary"]
 
 
 def test_profile_context_placeholders_handle_unused_empty_profile() -> None:
@@ -597,11 +607,37 @@ def test_profile_context_placeholders_handle_unused_empty_profile() -> None:
 
     assert placeholders["profile_usage"] == "—"
     assert placeholders["profile_configured_functions"] == "-"
-    assert "(default)" in placeholders["profile_behavior_summary"]
+    assert "default value" in placeholders["profile_behavior_summary"]
+
+
+def test_profile_summary_uses_localized_readable_labels() -> None:
+    """German summaries avoid internal keys and English source labels."""
+
+    summary = profile_summary(
+        {
+            c.CONF_PROFILE_FUNCTIONS: [c.FUNCTION_TIME, c.FUNCTION_SHADING],
+            c.CONF_PROFILE_SETTINGS: {
+                c.CONF_TIME_UP_EARLY_WORKDAY: "06:30:00",
+                c.CONF_TIME_UP_LATE_WORKDAY: "07:00:00",
+            },
+        },
+        {
+            c.CONF_TIME_DOWN_EARLY_WORKDAY: "21:30:00",
+            c.CONF_TIME_DOWN_LATE_WORKDAY: "22:00:00",
+        },
+        language="de",
+    )
+
+    assert summary["profile_configured_functions"] == "Zeit · Beschattung"
+    assert "Öffnen: 06:30-07:00 · Profilwert" in summary["profile_time_summary"]
+    assert "Schließen: 21:30-22:00 · Standardwert" in summary["profile_time_summary"]
+    assert "workday_open" not in summary["profile_time_summary"]
+    assert "profile" not in summary["profile_time_summary"]
+    assert "default" not in summary["profile_time_summary"]
 
 
 async def _open_room_step(hass, entry, *steps: str):
-    room_entry = _room_entry(entry)
+    room_entry = _room_entry_for_controller(hass, entry)
     result = await hass.config_entries.flow.async_init(
         DOMAIN,
         context={
@@ -926,7 +962,8 @@ async def test_selected_function_switches_exist_even_when_initial_state_is_off(h
 
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
-    await async_setup_switch_entry(hass, entry, entities.extend)
+    room_entry = _room_entry_for_controller(hass, entry)
+    await async_setup_switch_entry(hass, room_entry, entities.extend)
 
     assert {entity._key for entity in entities} == {
         c.CONF_AUTO_TIME,
@@ -938,6 +975,7 @@ async def test_selected_function_switches_exist_even_when_initial_state_is_off(h
     states = {entity._key: entity.is_on for entity in entities}
     assert states[c.CONF_AUTO_BRIGHTNESS] is True
     assert states[c.CONF_AUTO_TIME] is False
+    assert await hass.config_entries.async_unload(room_entry.entry_id)
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -1721,12 +1759,16 @@ async def test_entry_setup_and_unload_on_home_assistant_2026_9(hass):
     entry.add_to_hass(hass)
 
     assert await hass.config_entries.async_setup(entry.entry_id)
-    runtime = entry.runtime_data
+    await hass.async_block_till_done()
+    room_entry = _room_entry_for_controller(hass, entry)
+    runtime = room_entry.runtime_data
     manager = next(iter(runtime.room_managers.values()))
-    assert manager._evaluation_task in entry._background_tasks
+    assert manager._evaluation_task in room_entry._background_tasks
     await hass.async_block_till_done()
     assert entry.state is config_entries.ConfigEntryState.LOADED
+    assert room_entry.state is config_entries.ConfigEntryState.LOADED
 
+    assert await hass.config_entries.async_unload(room_entry.entry_id)
     assert await hass.config_entries.async_unload(entry.entry_id)
     await hass.async_block_till_done()
     assert entry.state is config_entries.ConfigEntryState.NOT_LOADED

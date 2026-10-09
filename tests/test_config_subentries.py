@@ -4,7 +4,7 @@ from types import MappingProxyType
 from types import SimpleNamespace
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
-from homeassistant.config_entries import ConfigSubentry
+from homeassistant.config_entries import ConfigEntryState, ConfigSubentry
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 
@@ -15,7 +15,6 @@ from custom_components.cover_control.config_subentries import (
 from custom_components.cover_control.config_flow import CoverControlFlow
 from custom_components.cover_control import async_migrate_entry
 from custom_components.cover_control.const import DOMAIN
-from custom_components.cover_control.sensor import ProfileScheduleSensor
 from custom_components.cover_control.sensor import async_setup_entry as async_setup_sensors
 from custom_components.cover_control.switch import async_setup_entry as async_setup_switches
 from custom_components.cover_control.runtime_data import CoverControlRuntime
@@ -196,14 +195,6 @@ def test_config_flow_exposes_only_native_room_subentry_type() -> None:
     assert supported == {}
 
 
-def test_profile_schedule_sensor_is_parent_entry_entity(hass) -> None:
-    entry = MockConfigEntry(domain=DOMAIN, title="Cover Control", data={})
-    sensor = ProfileScheduleSensor(hass, entry, "profile-time", "next_open")
-
-    assert sensor.unique_id == "profile-profile-time-next_open"
-    assert getattr(sensor, "config_subentry_id", None) is None
-
-
 async def test_v6_setup_keeps_runtime_model_flat_and_restart_persistent(hass) -> None:
     hass.states.async_set("cover.living", "open", {"current_position": 100})
     entry = MockConfigEntry(
@@ -252,6 +243,8 @@ async def test_v6_setup_keeps_runtime_model_flat_and_restart_persistent(hass) ->
     assert not (set(runtime.model[CONF_PROFILES]) & set(PROFILE_TYPES))
     assert not (set(entry.data[CONF_PROFILES]) & set(PROFILE_TYPES))
 
+    room_entry = _room_entry(hass, entry)
+    assert await hass.config_entries.async_unload(room_entry.entry_id)
     assert await hass.config_entries.async_unload(entry.entry_id)
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
@@ -262,6 +255,8 @@ async def test_v6_setup_keeps_runtime_model_flat_and_restart_persistent(hass) ->
     room_entry = _room_entry(hass, entry)
     assert room_entry.data[CONF_ROOM_PROFILE_ID] == "profile-time"
     assert CONF_PROFILE_SELECTIONS not in room_entry.data
+    assert await hass.config_entries.async_unload(room_entry.entry_id)
+    assert await hass.config_entries.async_unload(entry.entry_id)
 
 
 async def test_v6_room_subentry_migration_preserves_registry_links(hass) -> None:
@@ -402,9 +397,13 @@ async def test_entity_registry_cleanup_uses_v6_desired_entities(hass) -> None:
 
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
+    room_entry = _room_entry(hass, entry)
+    if room_entry.state is not ConfigEntryState.LOADED:
+        assert await hass.config_entries.async_setup(room_entry.entry_id)
+        await hass.async_block_till_done()
     added = []
-    await async_setup_switches(hass, entry, added.extend)
-    await async_setup_sensors(hass, entry, added.extend)
+    await async_setup_switches(hass, room_entry, added.extend)
+    await async_setup_sensors(hass, room_entry, added.extend)
 
     added_unique_ids = {entity.unique_id for entity in added}
     room_entities = [
@@ -413,19 +412,20 @@ async def test_entity_registry_cleanup_uses_v6_desired_entities(hass) -> None:
     assert room_entities
     assert {
         getattr(entity, "_attr_config_subentry_id", None) for entity in room_entities
-    } == {"room-living"}
+    } == {None}
     assert all(
         entity.device_info["identifiers"] == {(DOMAIN, entry.entry_id, "room-living")}
         for entity in room_entities
     )
     registry_unique_ids = {
         entity.unique_id
-        for entity in er.async_entries_for_config_entry(registry, entry.entry_id)
+        for entity in er.async_entries_for_config_entry(registry, room_entry.entry_id)
     }
     assert "room-living-auto_time_enabled" in added_unique_ids
-    assert "profile-profile-time-next_open" in added_unique_ids
     assert "room-living-auto_brightness_enabled" not in registry_unique_ids
     assert "profile-stale-next_open" not in registry_unique_ids
+    assert await hass.config_entries.async_unload(room_entry.entry_id)
+    assert await hass.config_entries.async_unload(entry.entry_id)
 
 
 async def test_resident_entities_follow_selected_profile_function(hass) -> None:
@@ -481,14 +481,18 @@ async def test_resident_entities_follow_selected_profile_function(hass) -> None:
 
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
+    room_entry = _room_entry(hass, entry)
+    if room_entry.state is not ConfigEntryState.LOADED:
+        assert await hass.config_entries.async_setup(room_entry.entry_id)
+        await hass.async_block_till_done()
     added = []
-    await async_setup_switches(hass, entry, added.extend)
-    await async_setup_sensors(hass, entry, added.extend)
+    await async_setup_switches(hass, room_entry, added.extend)
+    await async_setup_sensors(hass, room_entry, added.extend)
 
     added_unique_ids = {entity.unique_id for entity in added}
     registry_unique_ids = {
         entity.unique_id
-        for entity in er.async_entries_for_config_entry(registry, entry.entry_id)
+        for entity in er.async_entries_for_config_entry(registry, room_entry.entry_id)
     }
     assert "room-living-auto_time_enabled" in added_unique_ids
     assert "room-living-resident_status_enabled" not in added_unique_ids
@@ -496,7 +500,6 @@ async def test_resident_entities_follow_selected_profile_function(hass) -> None:
     assert "room-living-resident_status_enabled" not in registry_unique_ids
     assert "room-living-resident_status" not in registry_unique_ids
 
-    room_entry = _room_entry(hass, entry)
     hass.config_entries.async_update_entry(
         room_entry,
         data={
@@ -504,19 +507,22 @@ async def test_resident_entities_follow_selected_profile_function(hass) -> None:
             CONF_PROFILE_FUNCTIONS: [FUNCTION_TIME, FUNCTION_RESIDENT],
         },
     )
-    await hass.config_entries.async_reload(entry.entry_id)
+    await hass.config_entries.async_reload(room_entry.entry_id)
     await hass.async_block_till_done()
     added = []
-    await async_setup_switches(hass, entry, added.extend)
-    await async_setup_sensors(hass, entry, added.extend)
+    await async_setup_switches(hass, room_entry, added.extend)
+    await async_setup_sensors(hass, room_entry, added.extend)
 
     added_unique_ids = {entity.unique_id for entity in added}
     assert "room-living-resident_status_enabled" in added_unique_ids
     assert "room-living-resident_status" in added_unique_ids
+    assert await hass.config_entries.async_unload(room_entry.entry_id)
+    assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_parent_runtime_owns_room_managers(hass) -> None:
+async def test_room_entries_own_room_managers_and_entities(hass) -> None:
     hass.states.async_set("cover.living", "open", {"current_position": 100})
+    hass.states.async_set("cover.office", "open", {"current_position": 100})
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="Cover Control",
@@ -528,7 +534,7 @@ async def test_parent_runtime_owns_room_managers(hass) -> None:
         },
     )
     entry.add_to_hass(hass)
-    room = MockConfigEntry(
+    room_living = MockConfigEntry(
         domain=DOMAIN,
         title="Living",
         version=7,
@@ -545,20 +551,46 @@ async def test_parent_runtime_owns_room_managers(hass) -> None:
             "overrides": {},
         },
     )
-    room.add_to_hass(hass)
+    room_living.add_to_hass(hass)
+    room_office = MockConfigEntry(
+        domain=DOMAIN,
+        title="Office",
+        version=7,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_ROOM,
+            CONF_CONTROLLER_ENTRY_ID: entry.entry_id,
+            CONF_ROOM_ID: "room-office",
+            "name": "Office",
+            "settings": {
+                "covers": ["cover.office"],
+                "auto_time_enabled": True,
+            },
+            "source_overrides": {},
+            "overrides": {},
+        },
+    )
+    room_office.add_to_hass(hass)
 
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
+    if room_living.state is not ConfigEntryState.LOADED:
+        assert await hass.config_entries.async_setup(room_living.entry_id)
+    if room_office.state is not ConfigEntryState.LOADED:
+        assert await hass.config_entries.async_setup(room_office.entry_id)
+    await hass.async_block_till_done()
 
     assert isinstance(entry.runtime_data, CoverControlRuntime)
-    assert set(entry.runtime_data.room_managers) == {"room-living"}
-    assert set(entry.runtime_data.room_managers["room-living"].controllers) == {
+    assert entry.runtime_data.room_managers == {}
+    assert set(entry.runtime_data.hub.managers) == {"room-living", "room-office"}
+    assert set(room_living.runtime_data.room_managers) == {"room-living"}
+    assert set(room_living.runtime_data.room_managers["room-living"].controllers) == {
         "cover.living"
     }
+    assert set(room_office.runtime_data.room_managers) == {"room-office"}
     switches = [
         entity
         for entity in er.async_entries_for_config_entry(
-            er.async_get(hass), entry.entry_id
+            er.async_get(hass), room_living.entry_id
         )
         if entity.domain == "switch"
     ]
@@ -566,6 +598,14 @@ async def test_parent_runtime_owns_room_managers(hass) -> None:
         "room-living-auto_time_enabled"
     ]
     assert hass.states.get(switches[0].entity_id).state == "off"
+    assert not er.async_entries_for_config_entry(er.async_get(hass), entry.entry_id)
+
+    assert await hass.config_entries.async_unload(room_living.entry_id)
+    await hass.async_block_till_done()
+
+    assert "room-living" not in entry.runtime_data.hub.managers
+    assert "room-office" in entry.runtime_data.hub.managers
+    assert await hass.config_entries.async_unload(room_office.entry_id)
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
@@ -591,7 +631,7 @@ async def test_legacy_entry_migrates_to_parent_and_native_subentries(hass) -> No
     assert len(_room_entries(hass, entry)) == 1
     assert entry.data[CONF_PROFILES]
     assert isinstance(entry.runtime_data, CoverControlRuntime)
-    assert len(entry.runtime_data.room_managers) == 1
+    assert entry.runtime_data.room_managers == {}
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 

@@ -95,6 +95,14 @@ class CoverControlHub:
         self.refresh_shared_listener()
         self.refresh_profile_evaluations()
 
+    async def async_unregister_room(self, room_id: str) -> None:
+        """Unregister one room manager while keeping the parent hub alive."""
+
+        self.managers.pop(room_id, None)
+        self._rebuild_dependencies()
+        self.refresh_shared_listener()
+        self.refresh_profile_evaluations()
+
     async def async_unload_parent(self) -> None:
         """Release parent-owned listeners and shared timers."""
 

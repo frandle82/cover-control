@@ -1027,7 +1027,12 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             "profile_name": name,
             "profile_context": f'Profile "{name}"',
             "profile_usage": self._profile_usage_text(model, "profile", profile_id),
-            **profile_summary(profile, system_defaults()),
+            **profile_summary(
+                profile,
+                system_defaults(),
+                language=getattr(getattr(self, "hass", None), "config", None)
+                and getattr(self.hass.config, "language", None),
+            ),
         }
 
     @staticmethod

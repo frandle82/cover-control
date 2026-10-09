@@ -6,7 +6,12 @@ from copy import deepcopy
 from types import MappingProxyType
 from typing import TYPE_CHECKING
 
-from homeassistant.config_entries import ConfigEntryError, ConfigEntryNotReady, ConfigSubentry
+from homeassistant.config_entries import (
+    ConfigEntryError,
+    ConfigEntryNotReady,
+    ConfigEntryState,
+    ConfigSubentry,
+)
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
@@ -168,6 +173,16 @@ def _load_controller_manager():
     return ControllerManager
 
 
+async def _async_load_room_entry(hass: HomeAssistant, room_entry: ConfigEntry) -> None:
+    """Ask Home Assistant to load a dependent room entry."""
+
+    if room_entry.state is ConfigEntryState.NOT_LOADED:
+        await hass.config_entries.async_setup(room_entry.entry_id)
+        return
+    if room_entry.state is ConfigEntryState.SETUP_RETRY:
+        await hass.config_entries.async_reload(room_entry.entry_id)
+
+
 async def async_setup(hass: HomeAssistant, config: ConfigType) -> bool:
     """Initialize integration-level storage."""
 
@@ -233,10 +248,16 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         hass.data.setdefault(DOMAIN, {}).setdefault("controllers", {})[
             entry.entry_id
         ] = entry
-        for room_entry in _room_entries_for_controller(hass, entry.entry_id):
-            await _setup_room_manager(controller_manager, hass, entry, hub, runtime, room_entry)
         await recovery.async_mark_good(model)
-        await hass.config_entries.async_forward_entry_setups(entry, PLATFORMS)
+        for room_entry in _room_entries_for_controller(hass, entry.entry_id):
+            if room_entry.state in {
+                ConfigEntryState.NOT_LOADED,
+                ConfigEntryState.SETUP_RETRY,
+            }:
+                hass.async_create_task(
+                    _async_load_room_entry(hass, room_entry),
+                    "load Cover Control room entry",
+                )
         entry.async_on_unload(entry.add_update_listener(_handle_options_update))
         return True
 
@@ -604,10 +625,17 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
     runtime = getattr(entry, "runtime_data", None)
     if isinstance(runtime, CoverControlRuntime):
-        for room_manager in runtime.room_managers.values():
+        if _is_room_entry(entry):
+            room_id = str(entry.data.get(CONF_ROOM_ID) or entry.entry_id)
+            room_manager = runtime.room_managers.pop(room_id, None)
+            if room_manager is not None:
+                await room_manager.async_unload()
+            await runtime.hub.async_unregister_room(room_id)
+            return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+        for room_manager in list(runtime.hub.managers.values()):
             await room_manager.async_unload()
         await runtime.hub.async_unload_parent()
-        return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
+        return True
     return True
 
 

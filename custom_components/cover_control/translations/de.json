@@ -1585,12 +1585,6 @@
       "next_close": {
         "name": "Nächste Schließung"
       },
-      "profile_next_open": {
-        "name": "{profile} – Nächste Profilöffnung"
-      },
-      "profile_next_close": {
-        "name": "{profile} – Nächste Profilschließung"
-      },
       "control_state": {
         "name": "Aktive Steuerung"
       },

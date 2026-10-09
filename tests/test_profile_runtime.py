@@ -32,7 +32,6 @@ from custom_components.cover_control.const import (
 from custom_components.cover_control.runtime.controller import CoverController
 from custom_components.cover_control.runtime.manager import ControllerManager
 from custom_components.cover_control.config_resolver import resolve_config_model
-from custom_components.cover_control.sensor import _profile_time_selected_by_any_room
 
 
 def _model() -> ConfigProfileModel:
@@ -211,20 +210,3 @@ def test_configuration_diagnostics_expose_profile_and_value_origin() -> None:
         "source": "room_setting",
         "source_name": "Room setting",
     }
-
-
-def test_profile_time_sensor_requires_room_selected_time_function() -> None:
-    model = _model()
-    model.data[CONF_PROFILES]["south"][CONF_PROFILE_FUNCTIONS] = [
-        FUNCTION_TIME,
-        FUNCTION_SHADING,
-    ]
-    model.data[CONF_PROFILES]["south"][CONF_PROFILE_SETTINGS]["auto_time_enabled"] = True
-    model.data[CONF_ROOMS]["living"][CONF_PROFILE_FUNCTIONS] = [FUNCTION_SHADING]
-    model.data[CONF_ROOMS]["office"][CONF_PROFILE_FUNCTIONS] = [FUNCTION_SHADING]
-
-    assert not _profile_time_selected_by_any_room(model.data, "south")
-
-    model.data[CONF_ROOMS]["office"][CONF_PROFILE_FUNCTIONS] = [FUNCTION_TIME]
-
-    assert _profile_time_selected_by_any_room(model.data, "south")
