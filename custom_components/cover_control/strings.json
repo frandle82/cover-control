@@ -93,7 +93,7 @@
       },
       "profile_sections": {
         "title": "Profile sections",
-        "description": "Edit one section of this profile.\n\nUsed by: {profile_usage}",
+        "description": "Edit one section of this profile.\n\nConfigured functions: {profile_configured_functions}\n\nProfile summary: {profile_summary}\n\nUsed by: {profile_usage}",
         "menu_options": {
           "profile_setup": "Setup",
           "profile_time": "Time",
@@ -117,7 +117,7 @@
       },
       "profile_time": {
         "title": "Profile time",
-        "description": "Edit the time behavior for this profile.\n\nUsed by: {profile_usage}",
+        "description": "Edit the time behavior for this profile.\n\nCurrent time summary: {profile_time_summary}\n\nUsed by: {profile_usage}",
         "sections": {
           "time_features": {
             "name": "Time features",
@@ -189,7 +189,7 @@
       },
       "profile_brightness": {
         "title": "Profile brightness",
-        "description": "Edit the brightness behavior for this profile.\n\nUsed by: {profile_usage}",
+        "description": "Edit the brightness behavior for this profile.\n\nCurrent brightness summary: {profile_brightness_summary}\n\nUsed by: {profile_usage}",
         "sections": {
           "time_features": {
             "name": "Time features",
@@ -237,7 +237,7 @@
       },
       "profile_sun": {
         "title": "Profile sun position",
-        "description": "Configure sun elevation, opening and closing thresholds, mode, offsets, and time conditions.\n\nUsed by: {profile_usage}",
+        "description": "Configure sun elevation, opening and closing thresholds, mode, offsets, and time conditions.\n\nCurrent sun summary: {profile_sun_summary}\n\nUsed by: {profile_usage}",
         "sections": {
           "time_features": {
             "name": "Time features",
@@ -289,7 +289,7 @@
       },
       "profile_shading": {
         "title": "Profile shading",
-        "description": "Configure shading conditions, thresholds, waits, temperature, brightness, and forecast rules.\n\nUsed by: {profile_usage}",
+        "description": "Configure shading conditions, thresholds, waits, temperature, brightness, and forecast rules.\n\nCurrent shading summary: {profile_shading_summary}\n\nUsed by: {profile_usage}",
         "sections": {
           "shading_targets": {
             "name": "Shading control",
@@ -415,7 +415,7 @@
       },
       "profile_ventilation": {
         "title": "Profile ventilation",
-        "description": "Configure behavior for window contacts, delays, priorities, and ventilation rules.\n\nUsed by: {profile_usage}",
+        "description": "Configure behavior for window contacts, delays, priorities, and ventilation rules.\n\nCurrent ventilation summary: {profile_ventilation_summary}\n\nUsed by: {profile_usage}",
         "sections": {
           "ventilation": {
             "name": "Ventilation",
@@ -452,7 +452,7 @@
       },
       "profile_resident": {
         "title": "Profile resident behavior",
-        "description": "Edit resident behavior for this profile.\n\nUsed by: {profile_usage}",
+        "description": "Edit resident behavior for this profile.\n\nCurrent resident summary: {profile_resident_summary}\n\nUsed by: {profile_usage}",
         "sections": {
           "resident_behavior": {
             "name": "Resident behavior",
@@ -477,7 +477,7 @@
       },
       "profile_behavior": {
         "title": "Profile manual behavior",
-        "description": "Edit manual behavior for this profile.\n\nUsed by: {profile_usage}",
+        "description": "Edit manual behavior for this profile.\n\nCurrent manual behavior summary: {profile_behavior_summary}\n\nUsed by: {profile_usage}",
         "sections": {
           "manual_override": {
             "name": "Manual override",
@@ -1584,12 +1584,6 @@
       },
       "next_close": {
         "name": "Next closing"
-      },
-      "profile_next_open": {
-        "name": "{profile} – Next profile opening"
-      },
-      "profile_next_close": {
-        "name": "{profile} – Next profile closing"
       },
       "control_state": {
         "name": "Active control"

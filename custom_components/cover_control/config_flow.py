@@ -24,6 +24,7 @@ from .config_profile_schema import (
     extract_sparse_settings,
     flatten_section_input,
 )
+from .config_profile_summary import profile_summary
 from .config_resolver import (
     GLOBAL_SOURCE_KEYS,
     PROFILE_KEYS,
@@ -57,6 +58,8 @@ from .const import (
     CONF_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_COLD_PROTECTION_THRESHOLD,
     CONF_GLOBAL,
+    CONF_CONTROLLER_ENTRY_ID,
+    CONF_ENTRY_TYPE,
     CONF_GLOBAL_DEFAULTS,
     CONF_GLOBAL_SOURCES,
     CONF_CALENDAR_CLOSE_TITLE,
@@ -282,6 +285,8 @@ from .const import (
     DEFAULT_CONTACT_STATUS_DELAY,
     DEFAULT_VENTILATION_DELAY_AFTER_CLOSE,
     DOMAIN,
+    ENTRY_TYPE_CONTROLLER,
+    ENTRY_TYPE_ROOM,
     PROFILE_TYPE_BEHAVIOR,
     PROFILE_TYPE_SHADING,
     PROFILE_TYPE_TIME,
@@ -334,6 +339,26 @@ def _selector_default(value: Any) -> Any:
 
 
 LOGGER = logging.getLogger(__name__)
+
+
+def controller_entry_for_room(
+    hass, room_entry: config_entries.ConfigEntry
+) -> config_entries.ConfigEntry | None:
+    """Return the controller entry referenced by a room entry."""
+
+    controller_entry_id = room_entry.data.get(CONF_CONTROLLER_ENTRY_ID)
+    if not controller_entry_id:
+        return None
+    return next(
+        (
+            entry
+            for entry in hass.config_entries.async_entries(DOMAIN)
+            if entry.entry_id == controller_entry_id
+            and entry.domain == DOMAIN
+            and entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_CONTROLLER
+        ),
+        None,
+    )
 
 
 CLEARABLE_ENTITY_SELECTOR_KEYS = {
@@ -489,7 +514,7 @@ def _normalize_position_fields(data: dict[str, Any]) -> dict[str, Any]:
 class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the config flow."""
 
-    VERSION = 6
+    VERSION = 7
 
     def __init__(self) -> None:
         self._data: dict = {}
@@ -497,8 +522,10 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_user(self, user_input=None) -> FlowResult:
         """Create exactly one global parent entry without requiring a room."""
 
-        if self._async_current_entries():
-            return self.async_abort(reason="single_instance_allowed")
+        controller_entry = self._controller_entry()
+        if controller_entry is not None:
+            self._data[CONF_CONTROLLER_ENTRY_ID] = controller_entry.entry_id
+            return await self.async_step_room()
         if user_input is not None:
             self._data[CONF_NAME] = str(user_input.get(CONF_NAME, DEFAULT_NAME))
             return await self.async_step_global_sources()
@@ -529,6 +556,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_create_entry(
                 title=DEFAULT_NAME,
                 data={
+                    CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
                     CONF_NAME: DEFAULT_NAME,
                     CONF_GLOBAL: self._data[CONF_GLOBAL],
                     CONF_PROFILES: {},
@@ -550,19 +578,111 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def async_get_supported_subentry_types(
         cls, config_entry: config_entries.ConfigEntry
     ) -> dict[str, type[ConfigSubentryFlow]]:
-        """Expose only physical rooms as native ConfigSubentries."""
+        """Do not expose new native ConfigSubentries in v7."""
 
-        return {"room": RoomSubentryFlow}
+        return {}
 
     def _entry(self) -> config_entries.ConfigEntry:
         """Return the parent entry attached to this reconfigure flow."""
 
         return self._get_reconfigure_entry()
 
+    def _controller_entry(self) -> config_entries.ConfigEntry | None:
+        """Return the existing central controller entry."""
+
+        return next(
+            (
+                entry
+                for entry in self._async_current_entries()
+                if entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_CONTROLLER
+                or (
+                    CONF_ENTRY_TYPE not in entry.data
+                    and CONF_GLOBAL in entry.data
+                    and CONF_PROFILES in entry.data
+                )
+            ),
+            None,
+        )
+
+    async def async_step_import(self, user_input=None) -> FlowResult:
+        """Create imported controller or room entries."""
+
+        data = dict(user_input or {})
+        entry_type = data.get(CONF_ENTRY_TYPE)
+        if entry_type == ENTRY_TYPE_ROOM:
+            room_id = str(data[CONF_ROOM_ID])
+            await self.async_set_unique_id(
+                f"room-{data[CONF_CONTROLLER_ENTRY_ID]}-{room_id}"
+            )
+            self._abort_if_unique_id_configured()
+            return self.async_create_entry(
+                title=str(data.get(CONF_NAME) or room_id),
+                data=data,
+            )
+        if entry_type == ENTRY_TYPE_CONTROLLER:
+            await self.async_set_unique_id(DOMAIN)
+            self._abort_if_unique_id_configured()
+            return self.async_create_entry(title=DEFAULT_NAME, data=data)
+        return self.async_abort(reason="invalid_import")
+
+    async def async_step_room(self, user_input=None) -> FlowResult:
+        """Create one standalone room ConfigEntry."""
+
+        controller_entry_id = self._data.get(CONF_CONTROLLER_ENTRY_ID)
+        if not controller_entry_id:
+            controller = self._controller_entry()
+            if controller is None:
+                return await self.async_step_user()
+            controller_entry_id = controller.entry_id
+        if user_input is not None:
+            from homeassistant.util.ulid import ulid_now
+
+            title = str(user_input[CONF_NAME]).strip()
+            room_id = ulid_now()
+            await self.async_set_unique_id(f"room-{controller_entry_id}-{room_id}")
+            self._abort_if_unique_id_configured()
+            return self.async_create_entry(
+                title=title,
+                data={
+                    CONF_ENTRY_TYPE: ENTRY_TYPE_ROOM,
+                    CONF_CONTROLLER_ENTRY_ID: controller_entry_id,
+                    CONF_ROOM_ID: room_id,
+                    CONF_NAME: title,
+                    CONF_PROFILE_FUNCTIONS: [],
+                    CONF_ROOM_SETTINGS: {
+                        CONF_ROOM: user_input[CONF_ROOM],
+                        CONF_COVERS: list(user_input[CONF_COVERS]),
+                    },
+                    CONF_SOURCE_OVERRIDES: {},
+                },
+            )
+        return self.async_show_form(
+            step_id="room",
+            data_schema=vol.Schema(
+                {
+                    vol.Required(CONF_NAME): selector.TextSelector(),
+                    vol.Required(CONF_ROOM): selector.AreaSelector(),
+                    vol.Required(CONF_COVERS): selector.EntitySelector(
+                        selector.EntitySelectorConfig(domain=["cover"], multiple=True)
+                    ),
+                }
+            ),
+        )
+
     def _model(self) -> ConfigProfileModel:
-        from .config_subentries import model_from_subentries
+        from .config_subentries import model_from_entries, model_from_subentries
 
         entry = self._entry()
+        if entry.version >= 7:
+            room_entries = [
+                candidate
+                for candidate in self.hass.config_entries.async_entries(DOMAIN)
+                if candidate.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM
+                and candidate.data.get(CONF_CONTROLLER_ENTRY_ID) == entry.entry_id
+            ]
+            return ConfigProfileModel(
+                model_from_entries(entry.entry_id, entry.data, room_entries)
+            )
         return ConfigProfileModel(
             model_from_subentries(entry.data, entry.subentries.values())
         )
@@ -583,6 +703,8 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_reconfigure(self, user_input=None) -> FlowResult:
+        if self._entry().data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM:
+            return await self.async_step_room_reconfigure(user_input)
         return self.async_show_menu(
             step_id="reconfigure",
             menu_options=[
@@ -609,6 +731,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 return self.async_create_entry(
                     title=DEFAULT_NAME,
                     data={
+                        CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
                         CONF_NAME: DEFAULT_NAME,
                         CONF_GLOBAL: self._data[CONF_GLOBAL],
                         CONF_PROFILES: {},
@@ -899,10 +1022,17 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         self, model: ConfigProfileModel, profile_id: str | None
     ) -> dict[str, str]:
         name = self._profile_display_name(model, profile_id)
+        profile = model.data[CONF_PROFILES].get(profile_id, {}) if profile_id else {}
         return {
             "profile_name": name,
             "profile_context": f'Profile "{name}"',
             "profile_usage": self._profile_usage_text(model, "profile", profile_id),
+            **profile_summary(
+                profile,
+                system_defaults(),
+                language=getattr(getattr(self, "hass", None), "config", None)
+                and getattr(self.hass.config, "language", None),
+            ),
         }
 
     @staticmethod
@@ -988,12 +1118,84 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
 class RoomSubentryFlow(ConfigSubentryFlow):
     """Create or edit room-local hardware data on a native subentry."""
 
-    def _room_context_placeholders(self) -> dict[str, str]:
-        entry = self._get_entry()
+    def _room_entry(self) -> config_entries.ConfigEntry:
+        """Return the room ConfigEntry or legacy parent entry for subentries."""
+
+        if hasattr(self, "_get_reconfigure_entry"):
+            return self._get_reconfigure_entry()
+        return self._get_entry()
+
+    def _is_room_config_entry(self) -> bool:
+        """Return whether this flow is editing a standalone v7 room entry."""
+
+        entry = self._room_entry()
+        return entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM
+
+    def _room_id(self) -> str:
+        """Return the stable room id for this flow."""
+
+        if self._is_room_config_entry():
+            entry = self._room_entry()
+            return str(entry.data.get(CONF_ROOM_ID) or entry.entry_id)
+        return str(self._get_reconfigure_subentry().subentry_id)
+
+    def _room_title(self) -> str:
+        """Return the current room title."""
+
+        if self._is_room_config_entry():
+            entry = self._room_entry()
+            return str(entry.data.get(CONF_NAME) or entry.title or self._room_id())
         subentry = self._get_reconfigure_subentry()
-        data = dict(subentry.data)
+        return str(subentry.title or subentry.subentry_id)
+
+    def _room_data(self) -> dict[str, Any]:
+        """Return a mutable copy of persisted room data."""
+
+        if self._is_room_config_entry():
+            return deepcopy(dict(self._room_entry().data))
+        return deepcopy(dict(self._get_reconfigure_subentry().data))
+
+    def _controller_entry_for_room(self) -> config_entries.ConfigEntry | None:
+        """Return the controller entry that owns this room."""
+
+        if self._is_room_config_entry():
+            return controller_entry_for_room(self.hass, self._room_entry())
+        return self._get_entry()
+
+    def _controller_profiles(self) -> dict[str, Any]:
+        """Return central profile catalog for this room."""
+
+        controller_entry = self._controller_entry_for_room()
+        if controller_entry is None:
+            return {}
+        return dict(controller_entry.data.get(CONF_PROFILES, {}))
+
+    def _save_room(
+        self, data: dict[str, Any], *, title: str | None = None
+    ) -> FlowResult:
+        """Persist room data through the owning Home Assistant API."""
+
+        if self._is_room_config_entry():
+            entry = self._room_entry()
+            saved = deepcopy(dict(data))
+            saved[CONF_ENTRY_TYPE] = ENTRY_TYPE_ROOM
+            saved[CONF_CONTROLLER_ENTRY_ID] = entry.data[CONF_CONTROLLER_ENTRY_ID]
+            saved[CONF_ROOM_ID] = entry.data.get(CONF_ROOM_ID, entry.entry_id)
+            return self.async_update_reload_and_abort(
+                entry,
+                data=saved,
+                title=title or str(saved.get(CONF_NAME, entry.title)),
+                reload_even_if_entry_is_unchanged=False,
+            )
+        subentry = self._get_reconfigure_subentry()
+        return self.async_update_and_abort(
+            self._get_entry(), subentry, title=title, data=data
+        )
+
+    def _room_context_placeholders(self) -> dict[str, str]:
+        data = self._room_data()
         settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
-        profiles = entry.data.get(CONF_PROFILES, {})
+        profiles = self._controller_profiles()
         profile_id = data.get(CONF_ROOM_PROFILE_ID)
         profile = profiles.get(profile_id, {}) if profile_id else {}
         profile_name = str(profile.get(CONF_PROFILE_NAME) or "—")
@@ -1004,9 +1206,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                 function for function, enabled in selected.items() if enabled
             ]
         return {
-            "room_name": str(
-                data.get(CONF_NAME) or subentry.title or subentry.subentry_id
-            ),
+            "room_name": str(data.get(CONF_NAME) or self._room_title()),
             "area": str(settings.get(CONF_ROOM) or "—"),
             "cover_count": str(len(covers) if isinstance(covers, list) else 0),
             "profile_name": profile_name,
@@ -1066,8 +1266,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         )
 
     async def async_step_controls(self, user_input=None) -> FlowResult:
-        subentry = self._get_reconfigure_subentry()
-        data = dict(subentry.data)
+        data = self._room_data()
         settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
         if user_input is not None:
             settings.pop(CONF_MANUAL_CONTROL, None)
@@ -1078,7 +1277,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
             ):
                 settings[key] = bool(user_input.get(key, False))
             data[CONF_ROOM_SETTINGS] = settings
-            return self.async_update_and_abort(self._get_entry(), subentry, data=data)
+            return self._save_room(data)
         merged = {**DEFAULT_BUTTON_SETTINGS, **settings}
         return self.async_show_form(
             step_id="controls",
@@ -1104,25 +1303,19 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         )
 
     async def async_step_general(self, user_input=None) -> FlowResult:
-        subentry = self._get_reconfigure_subentry()
-        data = dict(subentry.data)
+        data = self._room_data()
         settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
         if user_input is not None:
             title = str(user_input[CONF_NAME]).strip()
             data[CONF_NAME] = title
             settings[CONF_ROOM] = user_input[CONF_ROOM]
             data[CONF_ROOM_SETTINGS] = settings
-            return self.async_update_and_abort(
-                self._get_entry(),
-                subentry,
-                title=title,
-                data=data,
-            )
+            return self._save_room(data, title=title)
         return self.async_show_form(
             step_id="general",
             data_schema=vol.Schema(
                 {
-                    vol.Required(CONF_NAME, default=subentry.title): selector.TextSelector(),
+                    vol.Required(CONF_NAME, default=self._room_title()): selector.TextSelector(),
                     vol.Required(
                         CONF_ROOM, default=settings.get(CONF_ROOM)
                     ): selector.AreaSelector(),
@@ -1132,8 +1325,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         )
 
     async def async_step_contacts(self, user_input=None) -> FlowResult:
-        subentry = self._get_reconfigure_subentry()
-        data = dict(subentry.data)
+        data = self._room_data()
         settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
         covers = settings.get(CONF_COVERS, [])
         key_map = self._contact_key_map(covers)
@@ -1146,7 +1338,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
             settings[CONF_WINDOW_SENSOR_FULL] = full_map
             settings[CONF_WINDOW_SENSOR_TILT] = tilt_map
             data[CONF_ROOM_SETTINGS] = settings
-            return self.async_update_and_abort(self._get_entry(), subentry, data=data)
+            return self._save_room(data)
         multi_selector = selector.EntitySelector(
             selector.EntitySelectorConfig(domain=["binary_sensor"], multiple=True)
         )
@@ -1178,8 +1370,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         }
 
     async def async_step_room_sensors(self, user_input=None) -> FlowResult:
-        subentry = self._get_reconfigure_subentry()
-        data = dict(subentry.data)
+        data = self._room_data()
         settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
         if user_input is not None:
             for key, value in user_input.items():
@@ -1188,7 +1379,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                 else:
                     settings[key] = value
             data[CONF_ROOM_SETTINGS] = settings
-            return self.async_update_and_abort(self._get_entry(), subentry, data=data)
+            return self._save_room(data)
         return self.async_show_form(
             step_id="room_sensors",
             data_schema=vol.Schema(
@@ -1211,15 +1402,14 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         )
 
     async def async_step_geometry(self, user_input=None) -> FlowResult:
-        subentry = self._get_reconfigure_subentry()
-        data = dict(subentry.data)
+        data = self._room_data()
         settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
         keys = (CONF_SUN_AZIMUTH_START, CONF_SUN_AZIMUTH_END)
         if user_input is not None:
             for key in keys:
                 settings[key] = user_input[key]
             data[CONF_ROOM_SETTINGS] = settings
-            return self.async_update_and_abort(self._get_entry(), subentry, data=data)
+            return self._save_room(data)
         return self.async_show_form(
             step_id="geometry",
             data_schema=vol.Schema(
@@ -1242,25 +1432,23 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         )
 
     async def async_step_diagnostics(self, user_input=None) -> FlowResult:
-        entry = self._get_entry()
-        subentry = self._get_reconfigure_subentry()
-        data = dict(subentry.data)
+        entry = self._room_entry()
+        data = self._room_data()
         settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
-        selections = data.get(CONF_PROFILE_SELECTIONS, {})
-        profiles = entry.data.get(CONF_PROFILES, {})
+        profiles = self._controller_profiles()
         profile_labels = []
         profile_id = data.get("profile_id")
         profile = profiles.get(profile_id) if profile_id else None
         profile_labels.append(
             str(profile.get(CONF_PROFILE_NAME)) if isinstance(profile, dict) else "—"
         )
-        snapshot = self._room_entry_snapshot(entry, subentry.subentry_id)
+        snapshot = self._room_entry_snapshot(entry, self._room_id())
 
         return self.async_show_form(
             step_id="diagnostics",
             data_schema=vol.Schema({}),
             description_placeholders={
-                "room": str(data.get(CONF_NAME, subentry.title)),
+                "room": str(data.get(CONF_NAME, self._room_title())),
                 "area": str(settings.get(CONF_ROOM) or "—"),
                 "cover_count": str(len(settings.get(CONF_COVERS, []))),
                 "profiles": "; ".join(profile_labels),
@@ -1283,6 +1471,11 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         runtime = getattr(entry, "runtime_data", None)
         managers = getattr(runtime, "room_managers", {})
         manager = managers.get(subentry_id) if isinstance(managers, dict) else None
+        if manager is None and entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM:
+            controller_entry = controller_entry_for_room(self.hass, entry)
+            runtime = getattr(controller_entry, "runtime_data", None)
+            managers = getattr(runtime, "room_managers", {})
+            manager = managers.get(subentry_id) if isinstance(managers, dict) else None
         if manager is None:
             return {}
         snapshot = manager.entry_snapshot()
@@ -1309,17 +1502,16 @@ class RoomSubentryFlow(ConfigSubentryFlow):
     async def async_step_hardware(self, user_input=None) -> FlowResult:
         """Edit room-local hardware while retaining function configuration."""
 
-        subentry = self._get_reconfigure_subentry()
-        settings = subentry.data.get(CONF_ROOM_SETTINGS, {})
+        data = self._room_data()
+        settings = data.get(CONF_ROOM_SETTINGS, {})
         if user_input is not None:
-            data = dict(subentry.data)
             settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
             settings.update(_normalize_position_fields(dict(user_input)))
             settings[CONF_COVERS] = list(user_input[CONF_COVERS])
             if settings.get(CONF_POSITION_SOURCE) != CONF_POSITION_SOURCE_CUSTOM_SENSOR:
                 settings.pop(CONF_CUSTOM_POSITION_SENSOR, None)
             data[CONF_ROOM_SETTINGS] = settings
-            return self.async_update_and_abort(self._get_entry(), subentry, data=data)
+            return self._save_room(data)
         return self.async_show_form(
             step_id="hardware",
             data_schema=vol.Schema(
@@ -1415,8 +1607,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
     async def async_step_positions(self, user_input=None) -> FlowResult:
         """Edit room-owned physical cover and tilt positions."""
 
-        subentry = self._get_reconfigure_subentry()
-        data = dict(subentry.data)
+        data = self._room_data()
         settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
         if user_input is not None:
             submitted: dict[str, Any] = {}
@@ -1450,7 +1641,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                 elif key in submitted or key in optional_keys:
                     settings.pop(key, None)
             data[CONF_ROOM_SETTINGS] = settings
-            return self.async_update_and_abort(self._get_entry(), subentry, data=data)
+            return self._save_room(data)
 
         return self.async_show_form(
             step_id="positions",
@@ -1539,8 +1730,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         )
 
     async def async_step_source_overrides(self, user_input=None) -> FlowResult:
-        subentry = self._get_reconfigure_subentry()
-        data = dict(subentry.data)
+        data = self._room_data()
         overrides = dict(data.get(CONF_SOURCE_OVERRIDES, {}))
         if user_input is not None:
             data[CONF_SOURCE_OVERRIDES] = {
@@ -1548,9 +1738,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
                 for key, value in user_input.items()
                 if value not in (None, "")
             }
-            return self.async_update_and_abort(
-                self._get_entry(), subentry, data=data
-            )
+            return self._save_room(data)
         schema = {}
         for key in sorted(ROOM_SOURCE_OVERRIDE_KEYS):
             current = overrides.get(key)
@@ -1593,13 +1781,11 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         data.pop(CONF_PROFILE_SELECTIONS, None)
 
     async def async_step_profile_assignment(self, user_input=None) -> FlowResult:
-        entry = self._get_entry()
-        subentry = self._get_reconfigure_subentry()
-        data = dict(subentry.data)
-        profiles = entry.data.get(CONF_PROFILES, {})
+        data = self._room_data()
+        profiles = self._controller_profiles()
         if user_input is not None:
             self._store_profile_assignment(data, profiles, user_input)
-            return self.async_update_and_abort(entry, subentry, data=data)
+            return self._save_room(data)
 
         profile_options = [{"value": "", "label": "—"}]
         profile_options.extend(
@@ -1650,15 +1836,11 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         )
 
     async def async_step_profile_references(self, user_input=None) -> FlowResult:
-        entry = self._get_entry()
-        subentry = self._get_reconfigure_subentry()
-        data = dict(subentry.data)
-        profiles = entry.data.get(CONF_PROFILES, {})
+        data = self._room_data()
+        profiles = self._controller_profiles()
         if user_input is not None:
             self._store_profile_assignment(data, profiles, user_input)
-            return self.async_update_and_abort(
-                entry, subentry, data=data
-            )
+            return self._save_room(data)
         options = [
             {
                 "value": profile_id,
@@ -1681,14 +1863,12 @@ class RoomSubentryFlow(ConfigSubentryFlow):
         )
 
     async def async_step_profile_functions(self, user_input=None) -> FlowResult:
-        entry = self._get_entry()
-        subentry = self._get_reconfigure_subentry()
-        data = dict(subentry.data)
+        data = self._room_data()
         profile_id = data.get(CONF_ROOM_PROFILE_ID)
         if not profile_id:
             return self.async_abort(reason="profile_required_for_functions")
         profile = effective_profile(
-            {CONF_PROFILES: entry.data.get(CONF_PROFILES, {})},
+            {CONF_PROFILES: self._controller_profiles()},
             {CONF_ROOM_PROFILE_ID: profile_id},
         )
         available = configured_functions_from_profile(profile)
@@ -1705,7 +1885,7 @@ class RoomSubentryFlow(ConfigSubentryFlow):
             data[CONF_PROFILE_FUNCTIONS] = sorted(
                 function for function in submitted if function in available
             )
-            return self.async_update_and_abort(entry, subentry, data=data)
+            return self._save_room(data)
         options = [
             function for function in PROFILE_FUNCTIONS if function in available
         ]
@@ -1728,3 +1908,62 @@ class RoomSubentryFlow(ConfigSubentryFlow):
             ),
             description_placeholders=self._room_context_placeholders(),
         )
+
+
+for _room_flow_name in (
+    "_room_entry",
+    "_is_room_config_entry",
+    "_room_id",
+    "_room_title",
+    "_room_data",
+    "_controller_entry_for_room",
+    "_controller_profiles",
+    "_save_room",
+    "_room_context_placeholders",
+    "_contact_key",
+    "_contact_key_map",
+    "_room_entry_snapshot",
+    "_format_schedule_event",
+    "_entity_name",
+    "_store_profile_assignment",
+    "async_step_controls",
+    "async_step_general",
+    "async_step_contacts",
+    "async_step_room_sensors",
+    "async_step_geometry",
+    "async_step_hardware",
+    "async_step_positions",
+    "async_step_source_overrides",
+    "async_step_profile_assignment",
+    "async_step_profile_references",
+    "async_step_profile_functions",
+):
+    setattr(CoverControlFlow, _room_flow_name, getattr(RoomSubentryFlow, _room_flow_name))
+
+CoverControlFlow._contact_key = staticmethod(RoomSubentryFlow._contact_key)
+CoverControlFlow.async_step_room_reconfigure = RoomSubentryFlow.async_step_reconfigure
+
+
+async def _cover_control_diagnostics(self, user_input=None) -> FlowResult:
+    """Route diagnostics to controller or room content by entry type."""
+
+    if self._entry().data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM:
+        return await RoomSubentryFlow.async_step_diagnostics(self, user_input)
+    model = self._model()
+    usage = []
+    for profile_id, profile in model.data[CONF_PROFILES].items():
+        if profile_id in PROFILE_TYPES:
+            continue
+        rooms = sorted(model.profile_users.get(("profile", profile_id), ()))
+        usage.append(
+            f"{profile.get(CONF_PROFILE_NAME, profile_id)}: "
+            f"{', '.join(self._room_names(model, rooms)) or '—'}"
+        )
+    return self.async_show_form(
+        step_id="diagnostics",
+        data_schema=vol.Schema({}),
+        description_placeholders={"profiles": "; ".join(usage) or "—"},
+    )
+
+
+CoverControlFlow.async_step_diagnostics = _cover_control_diagnostics
