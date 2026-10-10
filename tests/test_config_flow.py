@@ -104,7 +104,7 @@ def test_parent_reconfigure_steps_have_runtime_translations() -> None:
 
     expected_steps = {
         "user",
-        "reconfigure",
+        "controller_reconfigure",
         "global_sources",
         "profiles",
         "profile_setup",
@@ -131,14 +131,14 @@ def test_parent_reconfigure_steps_have_runtime_translations() -> None:
         assert set(steps["user"]["data"]) == {CONF_NAME}
         assert set(steps["user"]["data_description"]) == {CONF_NAME}
 
-        assert set(steps["reconfigure"]["menu_options"]) == {
+        assert set(steps["controller_reconfigure"]["menu_options"]) == {
             "global_sources",
             "profiles",
             "diagnostics",
             "recovery",
         }
-        assert set(steps["reconfigure"]["menu_option_descriptions"]) == set(
-            steps["reconfigure"]["menu_options"]
+        assert set(steps["controller_reconfigure"]["menu_option_descriptions"]) == set(
+            steps["controller_reconfigure"]["menu_options"]
         )
         assert set(steps["global_sources"]["data"]) == GLOBAL_SOURCE_KEYS
         assert set(steps["global_sources"]["data_description"]) == GLOBAL_SOURCE_KEYS
@@ -162,6 +162,8 @@ def test_parent_reconfigure_steps_have_runtime_translations() -> None:
         assert "{available}" in steps["recovery"]["description"]
         assert "reconfigure_successful" in document["config"]["abort"]
         assert "single_instance_allowed" in document["config"]["abort"]
+        assert "profile_controller_only" in document["config"]["abort"]
+        assert "options" not in document
         assert {
             "profile_required_for_functions",
             "profile_has_no_functions",
@@ -173,7 +175,7 @@ def test_active_room_steps_have_runtime_translations() -> None:
 
     active_room_steps = {
         "user",
-        "reconfigure",
+        "room_reconfigure",
         "general",
         "hardware",
         "positions",
@@ -204,7 +206,7 @@ def test_active_room_steps_have_runtime_translations() -> None:
         "override_behavior",
     }
     menu_steps = {
-        "reconfigure",
+        "room_reconfigure",
     }
     translation_dir = Path("custom_components/cover_control")
     for path in (
@@ -229,6 +231,7 @@ def test_active_room_steps_have_runtime_translations() -> None:
             "profile_required_for_functions",
             "profile_has_no_functions",
         } <= set(room_abort)
+        assert "options" not in document
 
 
 def _translation_leaf_strings(value):
@@ -312,6 +315,11 @@ def test_active_v6_translation_details_are_covered() -> None:
         if isinstance(value, str)
     )
     for forbidden in (
+        "Action",
+        "Choose whether",
+        "Select the unified profile",
+        "Set up profile",
+        "Profile name",
         "Profile sections",
         "Setup",
         "Sun position",
@@ -348,6 +356,7 @@ def test_legacy_config_flow_methods_are_not_active() -> None:
         "room",
         "global_sources",
         "reconfigure",
+        "controller_reconfigure",
         "general",
         "hardware",
         "positions",
@@ -380,6 +389,7 @@ def test_legacy_config_flow_methods_are_not_active() -> None:
     assert room_steps == {
         "user",
         "reconfigure",
+        "room_reconfigure",
         "general",
         "hardware",
         "positions",
@@ -796,7 +806,8 @@ async def test_parent_reconfigure_loads_for_existing_entry(hass):
 
     result = await _open_options_step(hass, entry)
     assert result["type"] is FlowResultType.MENU
-    assert result["step_id"] == "reconfigure"
+    assert result["step_id"] == "controller_reconfigure"
+    assert result["menu_options"]
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
@@ -805,6 +816,7 @@ async def test_parent_reconfigure_menu_exposes_hierarchical_sections(hass):
 
     result = await _open_options_step(hass, entry)
 
+    assert result["step_id"] == "controller_reconfigure"
     assert result["menu_options"] == [
         "global_sources",
         "profiles",
@@ -813,6 +825,7 @@ async def test_parent_reconfigure_menu_exposes_hierarchical_sections(hass):
     ]
 
     result = await _open_room_step(hass, entry)
+    assert result["step_id"] == "room_reconfigure"
     assert result["menu_options"] == [
         "general",
         "hardware",
@@ -893,6 +906,7 @@ async def test_room_subentry_menu_has_no_parallel_profile_editors(hass):
     entry = _entry(hass)
     result = await _open_room_step(hass, entry)
 
+    assert result["step_id"] == "room_reconfigure"
     assert result["menu_options"] == [
         "general",
         "hardware",
@@ -927,6 +941,44 @@ async def test_room_subentry_menu_has_no_parallel_profile_editors(hass):
         "override_shading",
         "override_behavior",
     } & set(result["menu_options"])
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_room_reconfigure_cannot_open_profile_edit_steps(hass):
+    entry = _entry(hass)
+    room_entry = _room_entry_for_controller(hass, entry)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={
+            "source": config_entries.SOURCE_RECONFIGURE,
+            "entry_id": room_entry.entry_id,
+        },
+    )
+    assert result["step_id"] == "room_reconfigure"
+
+    for step in (
+        "profiles",
+        "profile_setup",
+        "profile_sections",
+        "profile_time",
+        "profile_brightness",
+        "profile_sun",
+        "profile_shading",
+        "profile_ventilation",
+        "profile_resident",
+        "profile_behavior",
+    ):
+        flow = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={
+                "source": config_entries.SOURCE_RECONFIGURE,
+                "entry_id": room_entry.entry_id,
+            },
+        )
+        handler = hass.config_entries.flow._progress[flow["flow_id"]]
+        result = await getattr(handler, f"async_step_{step}")()
+        assert result["type"] is FlowResultType.ABORT
+        assert result["reason"] == "profile_controller_only"
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")

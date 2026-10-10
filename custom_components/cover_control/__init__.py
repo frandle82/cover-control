@@ -322,7 +322,11 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     ]
 
     if native_parent is not None and not legacy_parents:
-        return await _async_migrate_parent_profiles_to_data(hass, native_parent)
+        if not await _async_migrate_parent_profiles_to_data(hass, native_parent):
+            return False
+        if not await _async_migrate_parent_to_unified_profiles(hass, native_parent):
+            return False
+        return await _async_migrate_subentries_to_room_entries(hass, native_parent)
 
     if native_parent is not None:
         parent = native_parent
