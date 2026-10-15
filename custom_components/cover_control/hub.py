@@ -244,9 +244,20 @@ class CoverControlHub:
                     {},
                 )
                 profile = effective_profile(self.model, room)
+            profile_capabilities = {
+                function
+                for room_id in rooms
+                if (room := known_rooms.get(room_id)) is not None
+                for function in effective_room_profile_functions(self.model, room)
+                if function in {FUNCTION_TIME, FUNCTION_SUN}
+            }
             next_open, next_close = evaluate_time_profile(
                 self.hass,
                 config,
+                capabilities={
+                    "time" if function == FUNCTION_TIME else "sun"
+                    for function in profile_capabilities
+                },
             )
             evaluations[profile_key] = ProfileEvaluation(
                 next_open=next_open,

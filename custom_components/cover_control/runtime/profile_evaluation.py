@@ -9,6 +9,7 @@ from homeassistant.util import dt as dt_util
 
 from ..const import (
     CONF_AUTO_DOWN,
+    CONF_AUTO_SUN,
     CONF_AUTO_TIME,
     CONF_AUTO_UP,
     CONF_SUN_ELEVATION_CLOSE,
@@ -99,6 +100,9 @@ def evaluate_time_profile(
 
     effective_config = dict(config)
     capability_set = set(capabilities or ())
+    if capabilities is not None:
+        effective_config[CONF_AUTO_TIME] = "time" in capability_set
+        effective_config[CONF_AUTO_SUN] = "sun" in capability_set
     if "opening" in capability_set:
         effective_config[CONF_AUTO_TIME] = True
         effective_config[CONF_AUTO_UP] = True
