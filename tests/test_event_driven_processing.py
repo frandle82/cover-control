@@ -5,11 +5,13 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, time, timedelta, timezone
 import inspect
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from homeassistant.util import dt as dt_util
+from homeassistant.components.sensor import SensorDeviceClass
 
 from custom_components.cover_control.const import (
     CONF_AUTO_DOWN,
@@ -36,7 +38,14 @@ from custom_components.cover_control.const import (
 from custom_components.cover_control.config_resolver import resolve_config_model
 from custom_components.cover_control.controller import ControllerManager, CoverController
 from custom_components.cover_control.runtime.events import EventsMixin
-from custom_components.cover_control.sensor import NextOpenSensor
+from custom_components.cover_control.sensor import (
+    CONTROL_STATE_OPTIONS,
+    ControlStateSensor,
+    NextOpenSensor,
+)
+
+
+CONTROL_STATE_OPTION_SET = set(CONTROL_STATE_OPTIONS)
 
 
 def test_setup_has_no_generic_interval_evaluation() -> None:
@@ -45,6 +54,35 @@ def test_setup_has_no_generic_interval_evaluation() -> None:
     source = inspect.getsource(EventsMixin.async_setup)
     assert "async_track_time_interval" not in source
     assert "_handle_interval" not in source
+
+
+def test_runtime_control_states_are_valid_sensor_options() -> None:
+    """The diagnostic sensor exposes every stable runtime control state."""
+
+    sensor = object.__new__(ControlStateSensor)
+    assert sensor.device_class is SensorDeviceClass.ENUM
+    assert set(sensor.options or ()) == CONTROL_STATE_OPTION_SET
+    assert {
+        "idle", "time", "sun", "brightness", "calendar", "resident",
+        "ventilation", "shading", "manual_override", "force_open",
+        "force_close", "force_ventilate", "force_shading", "force_pause",
+        "window_lockout", "additional_condition", "recovery", "multiple",
+    } <= CONTROL_STATE_OPTION_SET
+
+
+def test_control_state_translation_contains_all_sensor_states() -> None:
+    """All enum options have English and German entity-state translations."""
+
+    for path in (
+        "custom_components/cover_control/strings.json",
+        "custom_components/cover_control/translations/en.json",
+        "custom_components/cover_control/translations/de.json",
+    ):
+        import json
+
+        document = json.loads(Path(path).read_text(encoding="utf-8"))
+        translations = document["entity"]["sensor"]["control_state"]["state"]
+        assert CONTROL_STATE_OPTION_SET <= translations.keys()
 
 
 def test_state_snapshot_is_read_only() -> None:

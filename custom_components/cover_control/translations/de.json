@@ -1848,7 +1848,27 @@
         "name": "Nächste Schließung"
       },
       "control_state": {
-        "name": "Aktive Steuerung"
+        "name": "Aktive Steuerung",
+        "state": {
+          "idle": "Inaktiv",
+          "time": "Zeitsteuerung",
+          "sun": "Sonnensteuerung",
+          "brightness": "Helligkeitssteuerung",
+          "calendar": "Kalendersteuerung",
+          "resident": "Bewohnersteuerung",
+          "ventilation": "Lüftungssteuerung",
+          "shading": "Beschattungssteuerung",
+          "manual_override": "Manuelle Übersteuerung",
+          "force_open": "Erzwungenes Öffnen",
+          "force_close": "Erzwungenes Schließen",
+          "force_ventilate": "Erzwungene Lüftung",
+          "force_shading": "Erzwungene Beschattung",
+          "force_pause": "Zwangspause",
+          "window_lockout": "Fenstersperre",
+          "additional_condition": "Zusatzbedingung",
+          "recovery": "Wiederherstellung",
+          "multiple": "Mehrere Steuerungen"
+        }
       },
       "resident_status": {
         "name": "Bewohnerstatus"

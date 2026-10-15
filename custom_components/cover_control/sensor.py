@@ -28,6 +28,14 @@ from .controller import ControllerManager
 from .runtime_data import CoverControlRuntime
 
 
+CONTROL_STATE_OPTIONS = [
+    "idle", "time", "sun", "brightness", "calendar", "resident",
+    "ventilation", "shading", "manual_override", "force_open",
+    "force_close", "force_ventilate", "force_shading", "force_pause",
+    "window_lockout", "additional_condition", "recovery", "multiple",
+]
+
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
@@ -212,6 +220,8 @@ class ControlStateSensor(_BaseCoverControlSensor):
     """Expose the currently active control situation for troubleshooting."""
 
     _attr_translation_key = "control_state"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = CONTROL_STATE_OPTIONS
     _attr_icon = "mdi:state-machine"
 
     def __init__(

@@ -1848,7 +1848,27 @@
         "name": "Next closing"
       },
       "control_state": {
-        "name": "Active control"
+        "name": "Active control",
+        "state": {
+          "idle": "Inactive",
+          "time": "Time control",
+          "sun": "Sun control",
+          "brightness": "Brightness control",
+          "calendar": "Calendar control",
+          "resident": "Resident control",
+          "ventilation": "Ventilation control",
+          "shading": "Shading control",
+          "manual_override": "Manual override",
+          "force_open": "Forced opening",
+          "force_close": "Forced closing",
+          "force_ventilate": "Forced ventilation",
+          "force_shading": "Forced shading",
+          "force_pause": "Force pause",
+          "window_lockout": "Window lockout",
+          "additional_condition": "Additional condition",
+          "recovery": "Recovery",
+          "multiple": "Multiple controls"
+        }
       },
       "resident_status": {
         "name": "Resident status"
