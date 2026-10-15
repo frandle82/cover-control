@@ -514,7 +514,7 @@ def _normalize_position_fields(data: dict[str, Any]) -> dict[str, Any]:
 class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the config flow."""
 
-    VERSION = 8
+    VERSION = 9
 
     def __init__(self) -> None:
         self._data: dict = {}

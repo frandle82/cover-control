@@ -128,6 +128,13 @@ def test_parent_reconfigure_steps_have_runtime_translations() -> None:
         document = json.loads(path.read_text())
         steps = document["config"]["step"]
         assert expected_steps <= set(steps)
+        for step_id in ("controller_reconfigure", "room_reconfigure"):
+            assert steps[step_id]["title"]
+            assert steps[step_id]["description"]
+            assert steps[step_id]["menu_options"]
+            assert set(steps[step_id]["menu_options"]) == set(
+                steps[step_id]["menu_option_descriptions"]
+            )
         assert set(steps["user"]["data"]) == {CONF_NAME}
         assert set(steps["user"]["data_description"]) == {CONF_NAME}
 
@@ -220,6 +227,12 @@ def test_active_room_steps_have_runtime_translations() -> None:
         ]
         assert "room_diagnostics" in room_menu_descriptions
         assert "diagnostics" not in room_menu_descriptions
+        assert "room" in steps
+        room_step = steps["room"]
+        assert "title" in room_step
+        assert "description" in room_step
+        assert set(room_step["data"]) == {"name", "room", "covers"}
+        assert set(room_step["data_description"]) == {"name", "room", "covers"}
         assert active_room_steps <= set(steps)
         assert legacy_room_steps.isdisjoint(steps)
         for step in active_room_steps:
@@ -827,6 +840,37 @@ async def test_controller_and_room_entries_support_reconfigure(hass):
         payload = json.loads(json_dumps({"entry": current.as_json_fragment}))["entry"]
         assert payload["supports_reconfigure"] is True
         assert payload["supported_subentry_types"] == {}
+
+
+async def test_controller_reconfigure_source_opens_controller_menu(hass):
+    entry = _entry(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={
+            "source": config_entries.SOURCE_RECONFIGURE,
+            "entry_id": entry.entry_id,
+        },
+    )
+
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "controller_reconfigure"
+
+
+async def test_room_reconfigure_source_opens_room_menu(hass):
+    entry = _entry(hass)
+    room_entry = _room_entry_for_controller(hass, entry)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={
+            "source": config_entries.SOURCE_RECONFIGURE,
+            "entry_id": room_entry.entry_id,
+        },
+    )
+
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "room_reconfigure"
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")

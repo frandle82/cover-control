@@ -377,7 +377,7 @@ async def test_v7_migration_removes_stale_profile_and_room_subentries(hass) -> N
     entry.add_to_hass(hass)
 
     assert await async_migrate_entry(hass, entry)
-    assert entry.version == 8
+    assert entry.version == 9
     assert not entry.subentries
     assert entry.data[CONF_PROFILES]["profile-time"][CONF_PROFILE_NAME] == "Time"
     assert len(
@@ -652,7 +652,7 @@ async def test_room_entries_own_room_managers_and_entities(hass) -> None:
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_legacy_entry_migrates_to_parent_and_v8_room_entries(hass) -> None:
+async def test_legacy_entry_migrates_to_parent_and_v9_room_entries(hass) -> None:
     hass.states.async_set("cover.legacy", "open", {"current_position": 100})
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -665,7 +665,7 @@ async def test_legacy_entry_migrates_to_parent_and_v8_room_entries(hass) -> None
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert entry.version == 8
+    assert entry.version == 9
     assert entry.title == "Cover Control"
     assert entry.unique_id == DOMAIN
     assert "config_model" not in entry.data
@@ -678,7 +678,7 @@ async def test_legacy_entry_migrates_to_parent_and_v8_room_entries(hass) -> None
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_v4_profile_subentries_migrate_to_v8_parent_profiles(hass) -> None:
+async def test_v4_profile_subentries_migrate_to_v9_parent_profiles(hass) -> None:
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="Cover Control",
@@ -720,7 +720,7 @@ async def test_v4_profile_subentries_migrate_to_v8_parent_profiles(hass) -> None
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert entry.version == 8
+    assert entry.version == 9
     assert entry.data[CONF_ENTRY_TYPE] == ENTRY_TYPE_CONTROLLER
     room = _room_entry(hass, entry).data
     profile = entry.data[CONF_PROFILES][room[CONF_ROOM_PROFILE_ID]]
@@ -736,7 +736,7 @@ async def test_v4_profile_subentries_migrate_to_v8_parent_profiles(hass) -> None
     assert room["profile_id"] in entry.data[CONF_PROFILES]
 
 
-async def test_v5_parent_migrates_to_v8_room_entries_in_one_run(hass) -> None:
+async def test_v5_parent_migrates_to_v9_room_entries_in_one_run(hass) -> None:
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="Cover Control",
@@ -766,7 +766,7 @@ async def test_v5_parent_migrates_to_v8_room_entries_in_one_run(hass) -> None:
 
     assert await async_migrate_entry(hass, entry)
 
-    assert entry.version == 8
+    assert entry.version == 9
     assert entry.data[CONF_ENTRY_TYPE] == ENTRY_TYPE_CONTROLLER
     assert not entry.subentries
     room = _room_entry(hass, entry).data
@@ -774,7 +774,7 @@ async def test_v5_parent_migrates_to_v8_room_entries_in_one_run(hass) -> None:
     assert room[CONF_CONTROLLER_ENTRY_ID] == entry.entry_id
 
 
-async def test_v6_parent_migrates_to_v8_room_entries_in_one_run(hass) -> None:
+async def test_v6_parent_migrates_to_v9_room_entries_in_one_run(hass) -> None:
     profile_id = "profile-main"
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -812,7 +812,7 @@ async def test_v6_parent_migrates_to_v8_room_entries_in_one_run(hass) -> None:
 
     assert await async_migrate_entry(hass, entry)
 
-    assert entry.version == 8
+    assert entry.version == 9
     assert entry.data[CONF_ENTRY_TYPE] == ENTRY_TYPE_CONTROLLER
     assert not entry.subentries
     room_entry = _room_entry(hass, entry)
@@ -845,16 +845,16 @@ async def test_multiple_legacy_entries_consolidate_into_one_parent(hass) -> None
 
     entries = hass.config_entries.async_entries(DOMAIN)
     assert first in entries
-    assert second.version == 8
+    assert second.version == 9
     assert second.data == {"hub_entry_id": first.entry_id}
     assert {entry.title for entry in _room_entries(hass, first)} == {"Living", "Office"}
 
 
-async def test_v8_migration_is_idempotent(hass) -> None:
+async def test_v9_migration_is_idempotent(hass) -> None:
     controller = MockConfigEntry(
         domain=DOMAIN,
         title="Cover Control",
-        version=8,
+        version=9,
         data={
             CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
             CONF_GLOBAL: {"sources": {}, "defaults": {}},
@@ -866,7 +866,7 @@ async def test_v8_migration_is_idempotent(hass) -> None:
     room = MockConfigEntry(
         domain=DOMAIN,
         title="Living",
-        version=8,
+        version=9,
         data={
             CONF_ENTRY_TYPE: ENTRY_TYPE_ROOM,
             CONF_CONTROLLER_ENTRY_ID: controller.entry_id,
@@ -887,13 +887,87 @@ async def test_v8_migration_is_idempotent(hass) -> None:
     assert await async_migrate_entry(hass, controller)
 
     assert controller.entry_id == controller_entry_id
-    assert controller.version == 8
+    assert controller.version == 9
     assert room.entry_id == room_entry_id
-    assert room.version == 8
+    assert room.version == 9
     assert dict(controller.data) == controller_data
     assert dict(room.data) == room_data
     assert not controller.subentries
     assert len(_room_entries(hass, controller)) == room_count
+
+
+async def test_v8_profile_subentries_migrate_to_v9_without_visible_subentries(
+    hass,
+) -> None:
+    controller = MockConfigEntry(
+        domain=DOMAIN,
+        title="Cover Control",
+        version=8,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
+            CONF_GLOBAL: {"sources": {}, "defaults": {}},
+            CONF_PROFILES: {},
+        },
+        subentries_data=[
+            {
+                "subentry_id": "profile-time",
+                "subentry_type": "time_profile",
+                "title": "Weekday",
+                "unique_id": "profile-time",
+                "data": {
+                    CONF_PROFILE_SETTINGS: {CONF_AUTO_TIME: True},
+                },
+            }
+        ],
+    )
+    controller.add_to_hass(hass)
+
+    assert await async_migrate_entry(hass, controller)
+
+    assert controller.version == 9
+    assert not controller.subentries
+    profile = controller.data[CONF_PROFILES]["time"]["profile-time"]
+    assert profile[CONF_PROFILE_NAME] == "Weekday"
+    assert profile[CONF_PROFILE_SETTINGS] == {CONF_AUTO_TIME: True}
+    assert len(hass.config_entries.async_entries(DOMAIN)) == 1
+
+
+async def test_v8_room_entry_migrates_to_v9_without_data_changes(hass) -> None:
+    controller = MockConfigEntry(
+        domain=DOMAIN,
+        title="Cover Control",
+        version=9,
+        data={CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER, CONF_PROFILES: {}},
+    )
+    controller.add_to_hass(hass)
+    room = MockConfigEntry(
+        domain=DOMAIN,
+        title="Living",
+        version=8,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_ROOM,
+            CONF_CONTROLLER_ENTRY_ID: controller.entry_id,
+            CONF_ROOM_ID: "room-living",
+            CONF_NAME: "Living",
+            CONF_ROOM_SETTINGS: {CONF_COVERS: ["cover.living"]},
+            CONF_PROFILE_FUNCTIONS: [],
+            CONF_SOURCE_OVERRIDES: {},
+        },
+    )
+    room.add_to_hass(hass)
+    entry_id = room.entry_id
+    data = deepcopy(dict(room.data))
+    room_id = room.data[CONF_ROOM_ID]
+    controller_entry_id = room.data[CONF_CONTROLLER_ENTRY_ID]
+
+    assert await async_migrate_entry(hass, room)
+
+    assert room.version == 9
+    assert room.entry_id == entry_id
+    assert dict(room.data) == data
+    assert room.data[CONF_ROOM_ID] == room_id
+    assert room.data[CONF_CONTROLLER_ENTRY_ID] == controller_entry_id
+    assert not room.subentries
 
 
 async def test_v7_migration_reuses_existing_standalone_room(hass) -> None:
@@ -937,7 +1011,7 @@ async def test_v7_migration_reuses_existing_standalone_room(hass) -> None:
     assert await async_migrate_entry(hass, controller)
 
     rooms = _room_entries(hass, controller)
-    assert controller.version == 8
+    assert controller.version == 9
     assert not controller.subentries
     assert len(rooms) == 1
     assert rooms[0].entry_id == room_entry_id

@@ -21,6 +21,20 @@
           "name": "Name der globalen Cover-Control-Instanz."
         }
       },
+      "room": {
+        "title": "Raum hinzufügen",
+        "description": "Erstelle einen Raum und ordne ihm den Home-Assistant-Bereich sowie die gesteuerten Rollläden oder Jalousien zu.",
+        "data": {
+          "name": "Raumname",
+          "room": "Home-Assistant-Bereich",
+          "covers": "Rollläden / Jalousien"
+        },
+        "data_description": {
+          "name": "Name, unter dem der Raum in Cover Control angezeigt wird.",
+          "room": "Home-Assistant-Bereich dieses Raums.",
+          "covers": "Rollläden oder Jalousien, die in diesem Raum gemeinsam gesteuert werden."
+        }
+      },
       "controller_reconfigure": {
         "title": "Cover Control konfigurieren",
         "description": "Profile zentral erstellen und bearbeiten. Ein Profil bündelt die Automationsregeln für Zeit, Helligkeit, Sonne, Beschattung, Lüftung, Bewohnerverhalten und manuelles Verhalten.",

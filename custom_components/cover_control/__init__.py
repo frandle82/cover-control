@@ -285,13 +285,19 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Migrate legacy entries to the standalone-room v8 model."""
+    """Migrate legacy entries to the standalone-room v9 model."""
 
-    if entry.version >= 8:
+    if entry.version >= 9:
         return True
 
+    if entry.version == 8:
+        return await _async_migrate_v8_to_v9(hass, entry)
+
     if entry.version == 7:
-        return await _async_migrate_v7_to_v8(hass, entry)
+        if not await _async_migrate_v7_to_v8(hass, entry):
+            return False
+        hass.config_entries.async_update_entry(entry, version=9)
+        return True
 
     if entry.version == 6:
         return await _async_migrate_subentries_to_room_entries(hass, entry)
@@ -412,7 +418,7 @@ async def _async_migrate_v7_to_v8(
     """Remove stale v7 subentries while preserving standalone rooms."""
 
     if not _is_controller_entry(entry):
-        hass.config_entries.async_update_entry(entry, version=8)
+        hass.config_entries.async_update_entry(entry, version=9)
         return True
 
     if not await _async_migrate_parent_profiles_to_data(hass, entry):
@@ -422,17 +428,37 @@ async def _async_migrate_v7_to_v8(
 
     for subentry_id in tuple(entry.subentries):
         hass.config_entries.async_remove_subentry(entry, subentry_id)
-    hass.config_entries.async_update_entry(entry, version=8)
+    hass.config_entries.async_update_entry(entry, version=9)
+    return True
+
+
+async def _async_migrate_v8_to_v9(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> bool:
+    """Remove all historical subentries and finish the v9 entry model."""
+
+    if not _is_controller_entry(entry):
+        hass.config_entries.async_update_entry(entry, version=9)
+        return True
+
+    if not await _async_migrate_parent_profiles_to_data(hass, entry):
+        return False
+    if not await _async_migrate_subentries_to_room_entries(hass, entry):
+        return False
+
+    for subentry_id in tuple(entry.subentries):
+        hass.config_entries.async_remove_subentry(entry, subentry_id)
+    hass.config_entries.async_update_entry(entry, version=9)
     return True
 
 
 async def _async_migrate_subentries_to_room_entries(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> bool:
-    """Move legacy room subentries to standalone v8 Room ConfigEntries."""
+    """Move legacy room subentries to standalone v9 Room ConfigEntries."""
 
     if not _is_controller_entry(entry):
-        hass.config_entries.async_update_entry(entry, version=8)
+        hass.config_entries.async_update_entry(entry, version=9)
         return True
 
     parent_data = deepcopy(dict(entry.data))
@@ -468,7 +494,7 @@ async def _async_migrate_subentries_to_room_entries(
         options={},
         title=entry.title or DEFAULT_NAME,
         unique_id=entry.unique_id or DOMAIN,
-        version=8,
+        version=9,
     )
     return True
 

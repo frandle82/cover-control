@@ -21,6 +21,20 @@
           "name": "Name of the global Cover Control instance."
         }
       },
+      "room": {
+        "title": "Add room",
+        "description": "Create a room and assign its Home Assistant area and controlled covers.",
+        "data": {
+          "name": "Room name",
+          "room": "Home Assistant area",
+          "covers": "Covers"
+        },
+        "data_description": {
+          "name": "Name shown for this room in Cover Control.",
+          "room": "Home Assistant area that represents this physical room.",
+          "covers": "Covers controlled together in this room."
+        }
+      },
       "controller_reconfigure": {
         "title": "Configure Cover Control",
         "description": "Create and edit profiles centrally. A profile contains the automation rules for time, brightness, sun, shading, ventilation, resident behavior, and manual behavior.",
