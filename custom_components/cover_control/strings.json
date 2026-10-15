@@ -913,7 +913,7 @@
             "room": "Area"
           },
           "data_description": {
-            "name": "Human-readable room name; it also updates the subentry title.",
+            "name": "Human-readable room name; it also updates the room entry title.",
             "room": "Home Assistant area for the physical room."
           }
         },

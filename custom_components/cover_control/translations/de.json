@@ -913,7 +913,7 @@
             "room": "Bereich"
           },
           "data_description": {
-            "name": "Lesbarer Raumname; er aktualisiert auch den Subentry-Titel.",
+            "name": "Lesbarer Raumname; er aktualisiert auch den Titel des Room-Entries.",
             "room": "Home-Assistant-Bereich des physischen Raums."
           }
         },

@@ -1,4 +1,4 @@
-"""Tests for parent profiles and native room subentry persistence."""
+"""Tests for legacy subentry migration and standalone room persistence."""
 
 from types import MappingProxyType
 from types import SimpleNamespace
