@@ -10,7 +10,7 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.config_entries import ConfigSubentry, ConfigSubentryFlow
+from homeassistant.config_entries import ConfigSubentry
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult, section
 from homeassistant.helpers import selector
@@ -577,7 +577,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     @callback
     def async_get_supported_subentry_types(
         cls, config_entry: config_entries.ConfigEntry
-    ) -> dict[str, type[ConfigSubentryFlow]]:
+    ) -> dict:
         """Do not expose new native ConfigSubentries in v7."""
 
         return {}
@@ -1132,48 +1132,31 @@ class RoomFlowMixin:
     """Provide room-local steps for standalone room ConfigEntries."""
 
     def _room_entry(self) -> config_entries.ConfigEntry:
-        """Return the room ConfigEntry or legacy parent entry for subentries."""
+        """Return the standalone room ConfigEntry being reconfigured."""
 
-        if hasattr(self, "_get_reconfigure_entry"):
-            return self._get_reconfigure_entry()
-        return self._get_entry()
-
-    def _is_room_config_entry(self) -> bool:
-        """Return whether this flow is editing a standalone v7 room entry."""
-
-        entry = self._room_entry()
-        return entry.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM
+        return self._get_reconfigure_entry()
 
     def _room_id(self) -> str:
         """Return the stable room id for this flow."""
 
-        if self._is_room_config_entry():
-            entry = self._room_entry()
-            return str(entry.data.get(CONF_ROOM_ID) or entry.entry_id)
-        return str(self._get_reconfigure_subentry().subentry_id)
+        entry = self._room_entry()
+        return str(entry.data.get(CONF_ROOM_ID) or entry.entry_id)
 
     def _room_title(self) -> str:
         """Return the current room title."""
 
-        if self._is_room_config_entry():
-            entry = self._room_entry()
-            return str(entry.data.get(CONF_NAME) or entry.title or self._room_id())
-        subentry = self._get_reconfigure_subentry()
-        return str(subentry.title or subentry.subentry_id)
+        entry = self._room_entry()
+        return str(entry.data.get(CONF_NAME) or entry.title or self._room_id())
 
     def _room_data(self) -> dict[str, Any]:
         """Return a mutable copy of persisted room data."""
 
-        if self._is_room_config_entry():
-            return deepcopy(dict(self._room_entry().data))
-        return deepcopy(dict(self._get_reconfigure_subentry().data))
+        return deepcopy(dict(self._room_entry().data))
 
     def _controller_entry_for_room(self) -> config_entries.ConfigEntry | None:
         """Return the controller entry that owns this room."""
 
-        if self._is_room_config_entry():
-            return controller_entry_for_room(self.hass, self._room_entry())
-        return self._get_entry()
+        return controller_entry_for_room(self.hass, self._room_entry())
 
     def _controller_profiles(self) -> dict[str, Any]:
         """Return central profile catalog for this room."""
@@ -1188,21 +1171,16 @@ class RoomFlowMixin:
     ) -> FlowResult:
         """Persist room data through the owning Home Assistant API."""
 
-        if self._is_room_config_entry():
-            entry = self._room_entry()
-            saved = deepcopy(dict(data))
-            saved[CONF_ENTRY_TYPE] = ENTRY_TYPE_ROOM
-            saved[CONF_CONTROLLER_ENTRY_ID] = entry.data[CONF_CONTROLLER_ENTRY_ID]
-            saved[CONF_ROOM_ID] = entry.data.get(CONF_ROOM_ID, entry.entry_id)
-            return self.async_update_reload_and_abort(
-                entry,
-                data=saved,
-                title=title or str(saved.get(CONF_NAME, entry.title)),
-                reload_even_if_entry_is_unchanged=False,
-            )
-        subentry = self._get_reconfigure_subentry()
-        return self.async_update_and_abort(
-            self._get_entry(), subentry, title=title, data=data
+        entry = self._room_entry()
+        saved = deepcopy(dict(data))
+        saved[CONF_ENTRY_TYPE] = ENTRY_TYPE_ROOM
+        saved[CONF_CONTROLLER_ENTRY_ID] = entry.data[CONF_CONTROLLER_ENTRY_ID]
+        saved[CONF_ROOM_ID] = entry.data.get(CONF_ROOM_ID, entry.entry_id)
+        return self.async_update_reload_and_abort(
+            entry,
+            data=saved,
+            title=title or str(saved.get(CONF_NAME, entry.title)),
+            reload_even_if_entry_is_unchanged=False,
         )
 
     def _room_context_placeholders(self) -> dict[str, str]:
@@ -1930,7 +1908,6 @@ class RoomFlowMixin:
 
 for _room_flow_name in (
     "_room_entry",
-    "_is_room_config_entry",
     "_room_id",
     "_room_title",
     "_room_data",
