@@ -496,7 +496,10 @@ class ControllerManager:
     @callback
     def _handle_shared_state_event(self, event) -> None:
         entity_id = event.data.get("entity_id")
-        trigger = "sun" if entity_id == "sun.sun" else "state"
+        trigger = "sun" if entity_id == "sun.sun" or any(
+            entity_id == controller._sun_entity()
+            for controller in self.controllers.values()
+        ) else "state"
         routed_covers = self._entity_routes.get(entity_id, set())
         routed_controllers = [
             self.controllers[cover]

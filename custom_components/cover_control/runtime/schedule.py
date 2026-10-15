@@ -510,7 +510,7 @@ class ScheduleMixin:
         time_down_enabled = self._auto_enabled(CONF_AUTO_TIME) and self._auto_enabled(
             CONF_AUTO_DOWN
         )
-        sun_state = self._state_for("sun.sun") if sun_enabled else None
+        sun_state = self._state_for(self._sun_entity()) if sun_enabled else None
         sun_next_rising = self._parse_datetime_attr(
             sun_state and sun_state.attributes.get("next_rising")
         )

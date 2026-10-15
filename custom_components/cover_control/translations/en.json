@@ -66,6 +66,7 @@
           "shading_forecast_temp_sensor": "Forecast temperature sensor",
           "sun_elevation_dynamic_close_sensor": "Dynamic sun elevation for closing",
           "sun_elevation_dynamic_open_sensor": "Dynamic sun elevation for opening",
+          "sun_sensor": "Sun sensor",
           "temperature_sensor_outdoor": "Outdoor temperature sensor",
           "workday_sensor": "Workday today entity",
           "workday_tomorrow_sensor": "Workday tomorrow entity"
@@ -80,6 +81,7 @@
           "shading_forecast_temp_sensor": "Shared sensor that provides forecast temperature values for shading.",
           "sun_elevation_dynamic_close_sensor": "Shared sensor that provides a dynamic closing sun elevation.",
           "sun_elevation_dynamic_open_sensor": "Shared sensor that provides a dynamic opening sun elevation.",
+          "sun_sensor": "Sun entity providing elevation and azimuth (default: sun.sun).",
           "temperature_sensor_outdoor": "Shared outdoor temperature sensor for shading and protection rules.",
           "workday_sensor": "Shared entity that indicates whether today is a workday.",
           "workday_tomorrow_sensor": "Shared entity that indicates whether tomorrow is a workday."
@@ -1750,10 +1752,11 @@
         "custom_sensor": "Custom position sensor"
       }
     },
-    "sun_elevation_mode": {
+      "sun_elevation_mode": {
       "options": {
         "fixed": "Fixed",
-        "dynamic": "Dynamic"
+        "dynamic": "Dynamic",
+        "hybrid": "Hybrid"
       }
     },
     "brightness_sun_operator": {

@@ -169,8 +169,6 @@ _ELEVATION_KEYS = frozenset(
     {
         c.CONF_SUN_ELEVATION_OPEN,
         c.CONF_SUN_ELEVATION_CLOSE,
-        c.CONF_SUN_ELEVATION_OPEN_OFFSET,
-        c.CONF_SUN_ELEVATION_CLOSE_OFFSET,
         c.CONF_SHADING_TILT_ELEVATION_1,
         c.CONF_SHADING_TILT_ELEVATION_2,
         c.CONF_SHADING_TILT_ELEVATION_3,
@@ -198,7 +196,7 @@ _MULTI_SELECTS = {
 }
 
 _SELECTS = {
-    c.CONF_SUN_ELEVATION_MODE: (["fixed", "dynamic"], "sun_elevation_mode"),
+    c.CONF_SUN_ELEVATION_MODE: (["fixed", "dynamic", "hybrid"], "sun_elevation_mode"),
     c.CONF_BRIGHTNESS_SUN_OPERATOR: (
         [c.BRIGHTNESS_SUN_OPERATOR_OR, c.BRIGHTNESS_SUN_OPERATOR_AND],
         "brightness_sun_operator",
@@ -271,8 +269,6 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_SUN_ELEVATION_MODE,
                 c.CONF_SUN_ELEVATION_OPEN,
                 c.CONF_SUN_ELEVATION_CLOSE,
-                c.CONF_SUN_ELEVATION_OPEN_OFFSET,
-                c.CONF_SUN_ELEVATION_CLOSE_OFFSET,
                 c.CONF_SUN_TIME_DURATION,
             ),
         ),
@@ -450,8 +446,6 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
                 c.CONF_SUN_ELEVATION_CLOSE,
                 c.CONF_SUN_ELEVATION_MODE,
                 c.CONF_SUN_TIME_DURATION,
-                c.CONF_SUN_ELEVATION_OPEN_OFFSET,
-                c.CONF_SUN_ELEVATION_CLOSE_OFFSET,
             }
         ),
         "brightness": frozenset(

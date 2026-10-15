@@ -66,6 +66,7 @@
           "shading_forecast_temp_sensor": "Forecast-Temperatursensor",
           "sun_elevation_dynamic_close_sensor": "Dynamische Sonnenhöhe für Schließen",
           "sun_elevation_dynamic_open_sensor": "Dynamische Sonnenhöhe für Öffnen",
+          "sun_sensor": "Sonnensensor",
           "temperature_sensor_outdoor": "Außentemperatursensor",
           "workday_sensor": "Workday heute",
           "workday_tomorrow_sensor": "Workday morgen"
@@ -80,6 +81,7 @@
           "shading_forecast_temp_sensor": "Gemeinsamer Sensor für Forecast-Temperaturwerte der Beschattung.",
           "sun_elevation_dynamic_close_sensor": "Gemeinsamer Sensor für eine dynamische Sonnenhöhe beim Schließen.",
           "sun_elevation_dynamic_open_sensor": "Gemeinsamer Sensor für eine dynamische Sonnenhöhe beim Öffnen.",
+          "sun_sensor": "Sun-Entity für Sonnenhöhe und Azimut (Standard: sun.sun).",
           "temperature_sensor_outdoor": "Gemeinsamer Außentemperatursensor für Beschattungs- und Schutzregeln.",
           "workday_sensor": "Gemeinsame Entity, die anzeigt, ob heute ein Arbeitstag ist.",
           "workday_tomorrow_sensor": "Gemeinsame Entity, die anzeigt, ob morgen ein Arbeitstag ist."
@@ -1750,10 +1752,11 @@
         "custom_sensor": "Eigener Positionssensor"
       }
     },
-    "sun_elevation_mode": {
+      "sun_elevation_mode": {
       "options": {
         "fixed": "Fest",
-        "dynamic": "Dynamisch"
+        "dynamic": "Dynamisch",
+        "hybrid": "Hybrid"
       }
     },
     "brightness_sun_operator": {

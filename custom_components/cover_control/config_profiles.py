@@ -26,6 +26,12 @@ from .const import (
     CONF_ROOMS,
     CONF_SOURCE_OVERRIDES,
     PROFILE_TYPES,
+    CONF_SUN_ELEVATION_OPEN,
+    CONF_SUN_ELEVATION_CLOSE,
+    CONF_SUN_ELEVATION_OPEN_OFFSET,
+    CONF_SUN_ELEVATION_CLOSE_OFFSET,
+    DEFAULT_SUN_ELEVATION_OPEN,
+    DEFAULT_SUN_ELEVATION_CLOSE,
 )
 
 
@@ -55,6 +61,21 @@ class ConfigProfileModel:
         self.data[CONF_GLOBAL].setdefault(CONF_GLOBAL_DEFAULTS, {})
         profiles = self.data.setdefault(CONF_PROFILES, {})
         self.data.setdefault(CONF_ROOMS, {})
+        for profile in profiles.values():
+            if not isinstance(profile, dict):
+                continue
+            settings = profile.get("settings")
+            if not isinstance(settings, dict):
+                continue
+            for value_key, offset_key, default in (
+                (CONF_SUN_ELEVATION_OPEN, CONF_SUN_ELEVATION_OPEN_OFFSET, DEFAULT_SUN_ELEVATION_OPEN),
+                (CONF_SUN_ELEVATION_CLOSE, CONF_SUN_ELEVATION_CLOSE_OFFSET, DEFAULT_SUN_ELEVATION_CLOSE),
+            ):
+                if value_key not in settings and offset_key in settings:
+                    settings[value_key] = settings[offset_key]
+                elif settings.get(value_key, default) == default and offset_key in settings:
+                    settings[value_key] = settings[offset_key]
+                settings.pop(offset_key, None)
         for room in self.data[CONF_ROOMS].values():
             profile_id = effective_profile_id(room)
             if profile_id and not profile_id.startswith("legacy:"):

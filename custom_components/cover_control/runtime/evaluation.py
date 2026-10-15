@@ -31,6 +31,11 @@ from ..const import (
     CONF_AUTO_TIME,
     CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
+    CONF_FORCE_CLOSE_ENTITY,
+    CONF_FORCE_OPEN_ENTITY,
+    CONF_FORCE_PAUSE_ENTITY,
+    CONF_FORCE_SHADING_ENTITY,
+    CONF_FORCE_VENTILATE_ENTITY,
     CONF_BRIGHTNESS_CLOSE_BELOW,
     CONF_BRIGHTNESS_HYSTERESIS,
     CONF_BRIGHTNESS_OPEN_ABOVE,
@@ -75,6 +80,8 @@ from ..const import (
     CONF_SUN_ELEVATION_MIN,
     CONF_SUN_ELEVATION_MODE,
     CONF_SUN_ELEVATION_OPEN,
+    CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
+    CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
     CONF_SUN_TIME_DURATION,
     CONF_VENTILATE_POSITION,
     CONF_VENTILATION_ALLOW_HIGHER_POSITION,
@@ -162,6 +169,12 @@ class EvaluationMixin:
             self._publish_state()
             return
 
+        if self._entity_active(CONF_FORCE_PAUSE_ENTITY):
+            self._reason = "force_pause"
+            self._refresh_next_events(now)
+            self._publish_state()
+            return
+
         unavailable_dependencies = self._unavailable_decision_entities()
         if unavailable_dependencies:
             if unavailable_dependencies != self._unavailable_dependencies:
@@ -184,7 +197,7 @@ class EvaluationMixin:
 
         brightness_state = self._state_for(self.config.get(CONF_BRIGHTNESS_SENSOR))
         brightness = _coerce_float(brightness_state.state if brightness_state else None)
-        sun_state = self._state_for("sun.sun")
+        sun_state = self._state_for(self._sun_entity())
         sun_elevation = _coerce_float(
             sun_state and sun_state.attributes.get("elevation")
         )
@@ -309,6 +322,20 @@ class EvaluationMixin:
         tilt_lock_shading_end = tilt_contact_active and bool(
             self.config.get(CONF_LOCKOUT_TILT_SHADING_END, False)
         )
+
+        forced = (
+            (CONF_FORCE_OPEN_ENTITY, self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION), "force_open"),
+            (CONF_FORCE_CLOSE_ENTITY, self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION), "force_close"),
+            (CONF_FORCE_VENTILATE_ENTITY, self._position_value(CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION), "force_ventilate"),
+            (CONF_FORCE_SHADING_ENTITY, self._effective_shading_position(), "force_shading"),
+        )
+        for entity_key, target, reason in forced:
+            if not self._entity_active(entity_key):
+                continue
+            if reason == "force_close" and full_contact_active:
+                continue
+            await self._set_position(target, reason)
+            return
 
         auto_time_enabled = self._auto_enabled(CONF_AUTO_TIME)
         calendar_open_window, calendar_close_window = (
@@ -932,12 +959,21 @@ class EvaluationMixin:
             sensor_key = CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR
             fixed_default = DEFAULT_SUN_ELEVATION_CLOSE
 
+        use_key = (
+            CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR
+            if kind == "open"
+            else CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR
+        )
+
         try:
             fixed_threshold = float(self.config.get(fixed_key, fixed_default))
         except (TypeError, ValueError):
             return None
 
         if mode == "fixed":
+            return fixed_threshold
+
+        if not bool(self.config.get(use_key, False)):
             return fixed_threshold
 
         sensor_state = self._state_for(self.config.get(sensor_key))

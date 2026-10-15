@@ -559,7 +559,7 @@ class ActuatorMixin:
         return None
 
     def _shading_tilt_for_elevation(self) -> float | None:
-        sun_state = self.hass.states.get("sun.sun")
+        sun_state = self.hass.states.get(self._sun_entity())
         elevation = _coerce_float(sun_state and sun_state.attributes.get("elevation"))
         el1 = self._number_value(
             CONF_SHADING_TILT_ELEVATION_1, DEFAULT_SHADING_TILT_ELEVATION_1
@@ -666,7 +666,7 @@ class ActuatorMixin:
             if isinstance(entity_id, str) and entity_id:
                 entities.add(entity_id)
         if auto_sun or auto_shading:
-            entities.add("sun.sun")
+            entities.add(self._sun_entity())
         if auto_ventilate:
             entities.update(self._contact_entities())
 
@@ -675,6 +675,20 @@ class ActuatorMixin:
             for entity_id in (
                 self.config.get(entity_key)
                 for entity_key in self._auto_entity_map.values()
+            )
+            if isinstance(entity_id, str) and entity_id
+        )
+        entities.update(
+            entity_id
+            for entity_id in (
+                self.config.get(key)
+                for key in (
+                    "force_open_entity",
+                    "force_close_entity",
+                    "force_ventilate_entity",
+                    "force_shading_entity",
+                    "force_pause_entity",
+                )
             )
             if isinstance(entity_id, str) and entity_id
         )
