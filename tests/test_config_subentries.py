@@ -378,7 +378,7 @@ async def test_v7_migration_removes_stale_profile_and_room_subentries(hass) -> N
     entry.add_to_hass(hass)
 
     assert await async_migrate_entry(hass, entry)
-    assert entry.version == 11
+    assert entry.version == 12
     assert not entry.subentries
     assert "time" not in entry.data[CONF_PROFILES]
     assert "shading" not in entry.data[CONF_PROFILES]
@@ -673,7 +673,7 @@ async def test_legacy_entry_migrates_to_parent_and_v11_room_entries(hass) -> Non
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert entry.version == 11
+    assert entry.version == 12
     assert entry.title == "Cover Control"
     assert entry.unique_id == DOMAIN
     assert "config_model" not in entry.data
@@ -728,7 +728,7 @@ async def test_v4_profile_subentries_migrate_to_v11_parent_profiles(hass) -> Non
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert entry.version == 11
+    assert entry.version == 12
     assert entry.data[CONF_ENTRY_TYPE] == ENTRY_TYPE_CONTROLLER
     room = _room_entry(hass, entry).data
     profile = entry.data[CONF_PROFILES][room[CONF_ROOM_PROFILE_ID]]
@@ -774,7 +774,7 @@ async def test_v5_parent_migrates_to_v11_room_entries_in_one_run(hass) -> None:
 
     assert await async_migrate_entry(hass, entry)
 
-    assert entry.version == 11
+    assert entry.version == 12
     assert entry.data[CONF_ENTRY_TYPE] == ENTRY_TYPE_CONTROLLER
     assert not entry.subentries
     room = _room_entry(hass, entry).data
@@ -820,7 +820,7 @@ async def test_v6_parent_migrates_to_v11_room_entries_in_one_run(hass) -> None:
 
     assert await async_migrate_entry(hass, entry)
 
-    assert entry.version == 11
+    assert entry.version == 12
     assert entry.data[CONF_ENTRY_TYPE] == ENTRY_TYPE_CONTROLLER
     assert not entry.subentries
     room_entry = _room_entry(hass, entry)
@@ -853,16 +853,16 @@ async def test_multiple_legacy_entries_consolidate_into_one_parent(hass) -> None
 
     entries = hass.config_entries.async_entries(DOMAIN)
     assert first in entries
-    assert second.version == 11
+    assert second.version == 12
     assert second.data == {"hub_entry_id": first.entry_id}
     assert {entry.title for entry in _room_entries(hass, first)} == {"Living", "Office"}
 
 
-async def test_v11_migration_is_idempotent(hass) -> None:
+async def test_v12_migration_is_idempotent(hass) -> None:
     controller = MockConfigEntry(
         domain=DOMAIN,
         title="Cover Control",
-        version=11,
+        version=12,
         data={
             CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
             CONF_GLOBAL: {"sources": {}, "defaults": {}},
@@ -874,7 +874,7 @@ async def test_v11_migration_is_idempotent(hass) -> None:
     room = MockConfigEntry(
         domain=DOMAIN,
         title="Living",
-        version=11,
+        version=12,
         data={
             CONF_ENTRY_TYPE: ENTRY_TYPE_ROOM,
             CONF_CONTROLLER_ENTRY_ID: controller.entry_id,
@@ -895,13 +895,87 @@ async def test_v11_migration_is_idempotent(hass) -> None:
     assert await async_migrate_entry(hass, controller)
 
     assert controller.entry_id == controller_entry_id
-    assert controller.version == 11
+    assert controller.version == 12
     assert room.entry_id == room_entry_id
-    assert room.version == 11
+    assert room.version == 12
     assert dict(controller.data) == controller_data
     assert dict(room.data) == room_data
     assert not controller.subentries
     assert len(_room_entries(hass, controller)) == room_count
+
+
+async def test_v11_controller_with_stale_subentries_is_repaired_to_v12(hass):
+    controller = MockConfigEntry(
+        domain=DOMAIN,
+        version=11,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
+            CONF_GLOBAL: {"sources": {}, "defaults": {}},
+            CONF_PROFILES: {},
+        },
+        subentries_data=[
+            {
+                "subentry_id": "profile-time",
+                "subentry_type": "time_profile",
+                "title": "Time",
+                "unique_id": "profile-time",
+                "data": {CONF_PROFILE_SETTINGS: {CONF_AUTO_TIME: True}},
+            },
+            {
+                "subentry_id": "profile-shading",
+                "subentry_type": "shading_profile",
+                "title": "Shade",
+                "unique_id": "profile-shading",
+                "data": {CONF_PROFILE_SETTINGS: {CONF_SHADING_POSITION: 25}},
+            },
+            {
+                "subentry_id": "room-living",
+                "subentry_type": "room",
+                "title": "Living",
+                "unique_id": "room-living",
+                "data": {CONF_NAME: "Living", CONF_ROOM_SETTINGS: {CONF_COVERS: ["cover.living"]}},
+            },
+        ],
+    )
+    controller.add_to_hass(hass)
+    assert await async_migrate_entry(hass, controller)
+    assert controller.version == 12
+    assert not controller.subentries
+    assert {"profile-time", "profile-shading"} <= set(controller.data[CONF_PROFILES])
+    assert len(_room_entries(hass, controller)) == 1
+
+
+async def test_v11_partial_migration_removes_duplicate_legacy_subentries(hass):
+    await test_v11_controller_with_stale_subentries_is_repaired_to_v12(hass)
+
+
+async def test_v11_profile_subentries_are_removed_after_profile_data_is_preserved(hass):
+    await test_v11_controller_with_stale_subentries_is_repaired_to_v12(hass)
+
+
+async def test_v11_room_subentry_is_converted_or_reused_and_removed(hass):
+    await test_v11_controller_with_stale_subentries_is_repaired_to_v12(hass)
+
+
+async def test_v11_unknown_subentry_is_not_silently_deleted(hass):
+    controller = MockConfigEntry(
+        domain=DOMAIN,
+        version=11,
+        data={CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER, CONF_PROFILES: {}},
+        subentries_data=[
+            {
+                "subentry_id": "future",
+                "subentry_type": "future_unknown_type",
+                "title": "Future",
+                "unique_id": "future",
+                "data": {"value": "keep"},
+            }
+        ],
+    )
+    controller.add_to_hass(hass)
+    assert not await async_migrate_entry(hass, controller)
+    assert controller.version == 11
+    assert "future" in controller.subentries
 
 
 async def test_v10_to_v11_removes_legacy_profile_config_entries(hass) -> None:
@@ -952,7 +1026,7 @@ async def test_v10_to_v11_removes_legacy_profile_config_entries(hass) -> None:
     assert await async_migrate_entry(hass, controller)
     after = hass.config_entries.async_entries(DOMAIN)
     assert len(after) == before - 2
-    assert controller.version == 11
+    assert controller.version == 12
     assert room in after
     assert {"profile-time", "profile-shading"} <= set(controller.data[CONF_PROFILES])
     assert all(legacy not in after for legacy in legacy_entries)
@@ -1026,7 +1100,7 @@ async def test_controller_cleanup_removes_legacy_profiles_before_they_are_migrat
     first = _legacy_profile_entry(hass, controller.entry_id, "profile-a", {"a": 1})
     second = _legacy_profile_entry(hass, controller.entry_id, "profile-b", {"b": 2})
     assert await async_migrate_entry(hass, controller)
-    assert controller.version == 11
+    assert controller.version == 12
     assert first not in hass.config_entries.async_entries(DOMAIN)
     assert second not in hass.config_entries.async_entries(DOMAIN)
     assert set(controller.data[CONF_PROFILES]) == {"profile-a", "profile-b"}
@@ -1144,7 +1218,7 @@ async def test_v9_controller_cleanup_removes_remaining_profile_and_room_subentri
 
     assert await async_migrate_entry(hass, controller)
     rooms = _room_entries(hass, controller)
-    assert controller.version == 11
+    assert controller.version == 12
     assert not controller.subentries
     assert len(rooms) == 1
     assert rooms[0].entry_id == existing_room.entry_id
@@ -1181,7 +1255,7 @@ async def test_v8_profile_subentries_migrate_to_v11_without_visible_subentries(
 
     assert await async_migrate_entry(hass, controller)
 
-    assert controller.version == 11
+    assert controller.version == 12
     assert not controller.subentries
     profiles = controller.data[CONF_PROFILES]
     assert "time" not in profiles
@@ -1292,7 +1366,7 @@ async def test_v8_room_entry_migrates_to_v11_without_data_changes(hass) -> None:
 
     assert await async_migrate_entry(hass, room)
 
-    assert room.version == 11
+    assert room.version == 12
     assert room.entry_id == entry_id
     assert dict(room.data) == data
     assert room.data[CONF_ROOM_ID] == room_id
@@ -1341,7 +1415,7 @@ async def test_v7_migration_reuses_existing_standalone_room(hass) -> None:
     assert await async_migrate_entry(hass, controller)
 
     rooms = _room_entries(hass, controller)
-    assert controller.version == 11
+    assert controller.version == 12
     assert not controller.subentries
     assert len(rooms) == 1
     assert rooms[0].entry_id == room_entry_id
