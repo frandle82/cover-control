@@ -1014,10 +1014,17 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             {"value": profile_id, "label": profile.get(CONF_PROFILE_NAME, profile_id)}
             for profile_id, profile in catalog.items()
         ]
+        action_options = (
+            ["create"]
+            if not profile_options
+            else ["create", "edit", "duplicate", "delete"]
+        )
         schema: dict = {
-            vol.Required("profile_action", default="edit"): selector.SelectSelector(
+            vol.Required(
+                "profile_action", default=action_options[0] if not profile_options else "edit"
+            ): selector.SelectSelector(
                 selector.SelectSelectorConfig(
-                    options=["create", "edit", "duplicate", "delete"],
+                    options=action_options,
                     translation_key="profile_action",
                 )
             )
@@ -2001,14 +2008,15 @@ class RoomFlowMixin:
         if user_input is not None:
             self._store_profile_assignment(data, profiles, user_input)
             return await self._save_room(data)
-        options = [
+        options = [{"value": "", "label": "—"}]
+        options.extend(
             {
                 "value": profile_id,
                 "label": profile.get(CONF_PROFILE_NAME, profile_id),
             }
             for profile_id, profile in profiles.items()
             if profile_id not in PROFILE_TYPES
-        ]
+        )
         current = data.get(CONF_ROOM_PROFILE_ID)
         schema = {
             vol.Optional(
