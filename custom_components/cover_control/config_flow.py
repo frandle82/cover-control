@@ -565,6 +565,9 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
     async def async_step_profiles(self, user_input=None):
         return await self._forward_step("profiles", user_input)
 
+    async def async_step_profile_back(self, user_input=None):
+        return await self._forward_step("profile_back", user_input)
+
     async def async_step_diagnostics(self, user_input=None):
         return await self._forward_step("diagnostics", user_input)
 
@@ -978,6 +981,8 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if user_input is not None:
             action = user_input["profile_action"]
             profile_id = user_input.get("profile_id")
+            if action == "back":
+                return await self.async_step_controller_reconfigure()
             if action == "create":
                 self._editing_profile_id = None
                 return await self.async_step_profile_setup()
@@ -1015,9 +1020,9 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             for profile_id, profile in catalog.items()
         ]
         action_options = (
-            ["create"]
+            ["create", "back"]
             if not profile_options
-            else ["create", "edit", "duplicate", "delete"]
+            else ["create", "edit", "duplicate", "delete", "back"]
         )
         schema: dict = {
             vol.Required(
@@ -1103,6 +1108,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "profile_resident",
                 "profile_behavior",
                 "profile_done",
+                "profile_back",
             ],
             description_placeholders=self._profile_context_placeholders(
                 model, profile_id
@@ -1117,6 +1123,12 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         if not profile_id or profile_id not in model.data[CONF_PROFILES]:
             return await self.async_step_profiles()
         self._save_parent_model(model)
+        self._editing_profile_id = None
+        return await self.async_step_profiles()
+
+    async def async_step_profile_back(self, user_input=None) -> FlowResult:
+        """Return to the profile overview without discarding saved sections."""
+
         self._editing_profile_id = None
         return await self.async_step_profiles()
 

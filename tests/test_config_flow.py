@@ -165,6 +165,7 @@ def test_parent_reconfigure_steps_have_runtime_translations() -> None:
             "profile_resident",
                 "profile_behavior",
                 "profile_done",
+                "profile_back",
             }
         assert "{profile_usage}" in steps["profile_setup"]["description"]
         assert "{profiles}" in steps["diagnostics"]["description"]
@@ -923,7 +924,7 @@ async def test_profiles_without_profiles_only_offer_create(hass):
         result["data_schema"], custom_serializer=cv.custom_serializer
     )
     action = next(field for field in fields if field["name"] == "profile_action")
-    assert action["selector"]["select"]["options"] == ["create"]
+    assert action["selector"]["select"]["options"] == ["create", "back"]
 
 
 async def test_profile_assignment_without_profiles_still_has_safe_empty_option(hass):
@@ -1472,11 +1473,41 @@ async def test_profile_editor_done_returns_to_profiles(hass):
         result["flow_id"], {"profile_name": "Done profile"}
     )
     assert result["step_id"] == "profile_sections"
-    assert result["menu_options"][-1] == "profile_done"
+    assert result["menu_options"][-2:] == ["profile_done", "profile_back"]
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"next_step_id": "profile_done"}
     )
     assert result["step_id"] == "profiles"
+
+
+async def test_profiles_menu_has_back_to_controller(hass):
+    entry = _entry(hass)
+    result = await _open_options_step(hass, entry, "profiles")
+    fields = to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
+    action = next(field for field in fields if field["name"] == "profile_action")
+    assert "back" in action["selector"]["select"]["options"]
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"profile_action": "back"}
+    )
+    assert result["step_id"] == "controller_reconfigure"
+    assert result["type"] is FlowResultType.MENU
+
+
+async def test_profile_sections_have_back_to_profiles(hass):
+    entry = _entry(hass)
+    result = await _open_options_step(hass, entry, "profiles")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"profile_action": "create"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"profile_name": "Navigation profile"}
+    )
+    assert "profile_back" in result["menu_options"]
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "profile_back"}
+    )
+    assert result["step_id"] == "profiles"
+    assert result["type"] is FlowResultType.FORM
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
