@@ -142,6 +142,8 @@ _DURATION_KEYS = frozenset(
         c.CONF_CONTACT_TRIGGER_DELAY,
         c.CONF_CONTACT_STATUS_DELAY,
         c.CONF_VENTILATION_DELAY_AFTER_CLOSE,
+        c.CONF_DRIVE_DELAY_FIXED,
+        c.CONF_DRIVE_DELAY_RANDOM,
     }
 )
 
@@ -169,8 +171,6 @@ _ELEVATION_KEYS = frozenset(
     {
         c.CONF_SUN_ELEVATION_OPEN,
         c.CONF_SUN_ELEVATION_CLOSE,
-        c.CONF_SUN_ELEVATION_OPEN_OFFSET,
-        c.CONF_SUN_ELEVATION_CLOSE_OFFSET,
         c.CONF_SHADING_TILT_ELEVATION_1,
         c.CONF_SHADING_TILT_ELEVATION_2,
         c.CONF_SHADING_TILT_ELEVATION_3,
@@ -198,7 +198,7 @@ _MULTI_SELECTS = {
 }
 
 _SELECTS = {
-    c.CONF_SUN_ELEVATION_MODE: (["fixed", "dynamic"], "sun_elevation_mode"),
+    c.CONF_SUN_ELEVATION_MODE: (["fixed", "dynamic", "hybrid"], "sun_elevation_mode"),
     c.CONF_BRIGHTNESS_SUN_OPERATOR: (
         [c.BRIGHTNESS_SUN_OPERATOR_OR, c.BRIGHTNESS_SUN_OPERATOR_AND],
         "brightness_sun_operator",
@@ -214,6 +214,10 @@ _SELECTS = {
             c.MANUAL_OVERRIDE_RESET_TIMEOUT,
         ],
         "manual_override_reset_mode",
+    ),
+    c.CONF_RECOVERY_MODE: (
+        [c.RECOVERY_NEVER, c.RECOVERY_OUTAGE, c.RECOVERY_ALWAYS],
+        "recovery_mode",
     ),
     c.CONF_COVER_TILT_WAIT_MODE: (
         [
@@ -271,8 +275,6 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_SUN_ELEVATION_MODE,
                 c.CONF_SUN_ELEVATION_OPEN,
                 c.CONF_SUN_ELEVATION_CLOSE,
-                c.CONF_SUN_ELEVATION_OPEN_OFFSET,
-                c.CONF_SUN_ELEVATION_CLOSE_OFFSET,
                 c.CONF_SUN_TIME_DURATION,
             ),
         ),
@@ -398,6 +400,14 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
             ),
         ),
         (
+            "runtime_control",
+            (
+                c.CONF_RECOVERY_MODE,
+                c.CONF_DRIVE_DELAY_FIXED,
+                c.CONF_DRIVE_DELAY_RANDOM,
+            ),
+        ),
+        (
             "prevention",
             (
                 c.CONF_PREVENT_HIGHER_POSITION_CLOSING,
@@ -450,8 +460,6 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
                 c.CONF_SUN_ELEVATION_CLOSE,
                 c.CONF_SUN_ELEVATION_MODE,
                 c.CONF_SUN_TIME_DURATION,
-                c.CONF_SUN_ELEVATION_OPEN_OFFSET,
-                c.CONF_SUN_ELEVATION_CLOSE_OFFSET,
             }
         ),
         "brightness": frozenset(
@@ -572,6 +580,13 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
                 c.CONF_RESIDENT_ALLOW_VENTILATION,
             }
         ),
+        "runtime_control": frozenset(
+            {
+                c.CONF_RECOVERY_MODE,
+                c.CONF_DRIVE_DELAY_FIXED,
+                c.CONF_DRIVE_DELAY_RANDOM,
+            }
+        ),
         "movement_protection": frozenset(
             {
                 c.CONF_PREVENT_HIGHER_POSITION_CLOSING,
@@ -661,7 +676,7 @@ def _build_profile_field_metadata() -> dict[str, ProfileFieldMetadata]:
         return "number"
 
     def unit(key: str) -> str | None:
-        if key in _POSITION_KEYS or key == c.CONF_POSITION_TOLERANCE:
+        if key in _POSITION_KEYS or key in {c.CONF_POSITION_TOLERANCE, c.CONF_TILT_POSITION_TOLERANCE}:
             return "%"
         if key in _DURATION_KEYS:
             return "s"
@@ -759,7 +774,7 @@ def _field_validator(key: str, value: Any, *, stored: bool) -> tuple[Any, Any]:
         return marker(_time_default(value)), selector.TimeSelector()
     if key in _POSITION_KEYS:
         return marker(int(value or 0)), _number_selector(0, 100, 1, "%")
-    if key == c.CONF_POSITION_TOLERANCE:
+    if key in {c.CONF_POSITION_TOLERANCE, c.CONF_TILT_POSITION_TOLERANCE}:
         return marker(int(value or 0)), _number_selector(0, 20, 1, "%")
     if key == c.CONF_MANUAL_OVERRIDE_MINUTES:
         return marker(int(value or 0)), _number_selector(0, 10080, 1, "min")

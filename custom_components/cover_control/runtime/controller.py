@@ -28,6 +28,8 @@ from ..const import (
     CONF_AUTO_UP_ENTITY,
     CONF_AUTO_VENTILATE,
     CONF_AUTO_VENTILATE_ENTITY,
+    CONF_SUN_SENSOR,
+    DEFAULT_SUN_SENSOR,
 )
 from .actuator import ActuatorMixin
 from .common import _normalize_cover_status
@@ -111,6 +113,9 @@ class CoverController(
         self._last_action_dates: dict[str, datetime.date] = {}
         self._cover_unavailable_logged = False
         self._unavailable_dependencies: set[str] = set()
+        self._startup_complete = False
+        self._runtime_outage_active = False
+        self._outage_dependencies: set[str] = set()
         self._hydrate_persistent_status()
         shading_status = self._status.get("shading")
         if isinstance(shading_status, dict):
@@ -137,3 +142,14 @@ class CoverController(
             if isinstance(states, dict) and entity_id in states:
                 return states[entity_id]
         return self.hass.states.get(entity_id)
+
+    def _sun_entity(self) -> str:
+        value = self.config.get(CONF_SUN_SENSOR, DEFAULT_SUN_SENSOR)
+        return value if isinstance(value, str) and value else DEFAULT_SUN_SENSOR
+
+    def _entity_active(self, config_key: str) -> bool:
+        entity_id = self.config.get(config_key)
+        state = self._state_for(entity_id)
+        return state is not None and str(state.state).lower() in {
+            "on", "true", "open", "active"
+        }

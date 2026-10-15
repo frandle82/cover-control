@@ -163,8 +163,9 @@ def test_parent_reconfigure_steps_have_runtime_translations() -> None:
             "profile_shading",
             "profile_ventilation",
             "profile_resident",
-            "profile_behavior",
-        }
+                "profile_behavior",
+                "profile_done",
+            }
         assert "{profile_usage}" in steps["profile_setup"]["description"]
         assert "{profiles}" in steps["diagnostics"]["description"]
         assert "{available}" in steps["recovery"]["description"]
@@ -866,6 +867,99 @@ async def test_controller_options_flow_opens_controller_menu(hass):
     ]
 
 
+async def test_no_empty_controller_menus(hass):
+    entry = _entry(hass)
+    for init in (
+        hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={
+                "source": config_entries.SOURCE_RECONFIGURE,
+                "entry_id": entry.entry_id,
+            },
+        ),
+        hass.config_entries.options.async_init(entry.entry_id),
+    ):
+        result = await init
+        assert result["menu_options"]
+
+
+async def test_no_empty_room_menus(hass):
+    entry = _entry(hass)
+    room = _room_entry_for_controller(hass, entry)
+    for init in (
+        hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={
+                "source": config_entries.SOURCE_RECONFIGURE,
+                "entry_id": room.entry_id,
+            },
+        ),
+        hass.config_entries.options.async_init(room.entry_id),
+    ):
+        result = await init
+        assert result["menu_options"]
+
+
+async def test_no_empty_profile_sections_menu(hass):
+    entry = _entry(hass)
+    result = await _open_options_step(hass, entry, "profiles")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"profile_action": "create"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"profile_name": "Test profile"}
+    )
+    assert result["step_id"] == "profile_sections"
+    assert result["menu_options"]
+
+
+async def test_profiles_without_profiles_only_offer_create(hass):
+    entry = _entry(hass)
+    model = _native_model(entry)
+    model["profiles"] = {}
+    _update_native_model(hass, entry, model)
+    result = await _open_options_step(hass, entry, "profiles")
+    fields = to_field_list(
+        result["data_schema"], custom_serializer=cv.custom_serializer
+    )
+    action = next(field for field in fields if field["name"] == "profile_action")
+    assert action["selector"]["select"]["options"] == ["create"]
+
+
+async def test_profile_assignment_without_profiles_still_has_safe_empty_option(hass):
+    entry = _entry(hass)
+    model = _native_model(entry)
+    model["profiles"] = {}
+    room_id = _room_id(entry)
+    model["rooms"][room_id].pop("profile_id", None)
+    model["rooms"][room_id][c.CONF_PROFILE_FUNCTIONS] = []
+    _update_native_model(hass, entry, model)
+    result = await _open_room_step(hass, entry, "profile_assignment")
+    fields = to_field_list(
+        result["data_schema"], custom_serializer=cv.custom_serializer
+    )
+    options = fields[0]["selector"]["select"]["options"]
+    assert options == [{"value": "", "label": "—"}]
+
+
+async def test_no_visible_select_selector_has_empty_options(hass):
+    entry = _entry(hass)
+    model = _native_model(entry)
+    model["profiles"] = {}
+    _update_native_model(hass, entry, model)
+    results = [
+        await _open_options_step(hass, entry, "profiles"),
+        await _open_room_step(hass, entry, "profile_assignment"),
+    ]
+    for result in results:
+        for field in to_field_list(
+            result["data_schema"], custom_serializer=cv.custom_serializer
+        ):
+            select = field.get("selector", {}).get("select")
+            if select is not None:
+                assert select["options"]
+
+
 async def test_room_options_flow_opens_room_menu(hass):
     entry = _entry(hass)
     room_entry = _room_entry_for_controller(hass, entry)
@@ -1365,6 +1459,24 @@ async def test_behavior_profile_can_be_created_with_native_fields(hass):
         c.CONF_MANUAL_OVERRIDE_RESET_MODE: c.MANUAL_OVERRIDE_RESET_TIMEOUT,
         c.CONF_MANUAL_OVERRIDE_BLOCK_SHADING: True,
     }
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_profile_editor_done_returns_to_profiles(hass):
+    entry = _entry(hass)
+    result = await _open_options_step(hass, entry, "profiles")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"profile_action": "create"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"profile_name": "Done profile"}
+    )
+    assert result["step_id"] == "profile_sections"
+    assert result["menu_options"][-1] == "profile_done"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "profile_done"}
+    )
+    assert result["step_id"] == "profiles"
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")

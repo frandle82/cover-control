@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import random
 from datetime import (
     datetime,
     timedelta,
@@ -56,6 +57,10 @@ from ..const import (
     CONF_POSITION_SOURCE_CUSTOM_SENSOR,
     CONF_POSITION_SOURCE_POSITION_ATTR,
     CONF_POSITION_TOLERANCE,
+    CONF_TILT_POSITION_TOLERANCE,
+    CONF_DRIVE_DELAY_FIXED,
+    CONF_DRIVE_DELAY_RANDOM,
+    CONF_FORCE_PAUSE_ENTITY,
     CONF_PREVENT_DEFAULT_COVER_ACTIONS,
     CONF_RESIDENT_SENSOR,
     CONF_RESIDENT_STATUS,
@@ -103,6 +108,8 @@ from ..const import (
     DEFAULT_SHADING_TILT_POSITION_2,
     DEFAULT_SHADING_TILT_POSITION_3,
     DEFAULT_TOLERANCE,
+    DEFAULT_DRIVE_DELAY_FIXED,
+    DEFAULT_DRIVE_DELAY_RANDOM,
     DEFAULT_VENTILATE_POSITION,
     DEFAULT_VENTILATE_TILT_POSITION,
     DOMAIN,
@@ -411,13 +418,52 @@ class ActuatorMixin:
             return
         if current is not None and abs(current - target) <= tolerance:
             if tilt_position is not None:
-                await self._command_tilt_position(float(tilt_position), reason=reason)
+                state = self.hass.states.get(self.cover)
+                current_tilt = _coerce_float(
+                    state and state.attributes.get("current_tilt_position")
+                )
+                tilt_tolerance = self._position_value(
+                    CONF_TILT_POSITION_TOLERANCE, DEFAULT_TOLERANCE
+                )
+                if current_tilt is None or abs(current_tilt - tilt_position) > tilt_tolerance:
+                    await self._command_tilt_position(float(tilt_position), reason=reason)
             if self._reason is None:
                 self._reason = reason
             self._target = target
             self._record_action_status(reason, target)
             self._publish_state()
             return
+        delay = self._drive_delay_seconds()
+        if delay > 0:
+            await asyncio.sleep(delay)
+            if self._entity_active(CONF_FORCE_PAUSE_ENTITY):
+                self.async_request_evaluate("force_pause_during_delay")
+                return
+            if self._manual_active or not self._master_enabled():
+                self.async_request_evaluate("movement_gate_changed_during_delay")
+                return
+            force_reasons = {
+                "force_open": "force_open_entity",
+                "force_close": "force_close_entity",
+                "force_ventilate": "force_ventilate_entity",
+                "force_shading": "force_shading_entity",
+            }
+            if any(
+                self._entity_active(key)
+                for key in force_reasons.values()
+                if key != force_reasons.get(reason)
+            ):
+                self.async_request_evaluate("force_changed_during_delay")
+                return
+            if "close" in reason and self._contacts_active(
+                self._full_open_sensors(), dt_util.utcnow()
+            ):
+                self.async_request_evaluate("window_lockout_during_delay")
+                return
+            current_after_delay = self._current_position()
+            if current_after_delay is not None and abs(current_after_delay - target) <= tolerance:
+                self.async_request_evaluate("target_reached_during_delay")
+                return
         if (
             tilt_position is not None
             and str(
@@ -436,6 +482,13 @@ class ActuatorMixin:
         self._record_action_status(reason, target)
         self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
+
+    def _drive_delay_seconds(self) -> float:
+        """Return the combined pre-drive delay for a real movement."""
+
+        fixed = max(0.0, float(self.config.get(CONF_DRIVE_DELAY_FIXED, DEFAULT_DRIVE_DELAY_FIXED) or 0))
+        random_max = max(0.0, float(self.config.get(CONF_DRIVE_DELAY_RANDOM, DEFAULT_DRIVE_DELAY_RANDOM) or 0))
+        return fixed + random.uniform(0.0, random_max)
 
     def _current_position(self) -> float | None:
         state = self.hass.states.get(self.cover)
@@ -559,7 +612,7 @@ class ActuatorMixin:
         return None
 
     def _shading_tilt_for_elevation(self) -> float | None:
-        sun_state = self.hass.states.get("sun.sun")
+        sun_state = self.hass.states.get(self._sun_entity())
         elevation = _coerce_float(sun_state and sun_state.attributes.get("elevation"))
         el1 = self._number_value(
             CONF_SHADING_TILT_ELEVATION_1, DEFAULT_SHADING_TILT_ELEVATION_1
@@ -666,7 +719,7 @@ class ActuatorMixin:
             if isinstance(entity_id, str) and entity_id:
                 entities.add(entity_id)
         if auto_sun or auto_shading:
-            entities.add("sun.sun")
+            entities.add(self._sun_entity())
         if auto_ventilate:
             entities.update(self._contact_entities())
 
@@ -675,6 +728,20 @@ class ActuatorMixin:
             for entity_id in (
                 self.config.get(entity_key)
                 for entity_key in self._auto_entity_map.values()
+            )
+            if isinstance(entity_id, str) and entity_id
+        )
+        entities.update(
+            entity_id
+            for entity_id in (
+                self.config.get(key)
+                for key in (
+                    "force_open_entity",
+                    "force_close_entity",
+                    "force_ventilate_entity",
+                    "force_shading_entity",
+                    "force_pause_entity",
+                )
             )
             if isinstance(entity_id, str) and entity_id
         )

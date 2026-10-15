@@ -66,6 +66,7 @@
           "shading_forecast_temp_sensor": "Forecast-Temperatursensor",
           "sun_elevation_dynamic_close_sensor": "Dynamische Sonnenhöhe für Schließen",
           "sun_elevation_dynamic_open_sensor": "Dynamische Sonnenhöhe für Öffnen",
+          "sun_sensor": "Sonnensensor",
           "temperature_sensor_outdoor": "Außentemperatursensor",
           "workday_sensor": "Workday heute",
           "workday_tomorrow_sensor": "Workday morgen"
@@ -80,6 +81,7 @@
           "shading_forecast_temp_sensor": "Gemeinsamer Sensor für Forecast-Temperaturwerte der Beschattung.",
           "sun_elevation_dynamic_close_sensor": "Gemeinsamer Sensor für eine dynamische Sonnenhöhe beim Schließen.",
           "sun_elevation_dynamic_open_sensor": "Gemeinsamer Sensor für eine dynamische Sonnenhöhe beim Öffnen.",
+          "sun_sensor": "Sun-Entity für Sonnenhöhe und Azimut (Standard: sun.sun).",
           "temperature_sensor_outdoor": "Gemeinsamer Außentemperatursensor für Beschattungs- und Schutzregeln.",
           "workday_sensor": "Gemeinsame Entity, die anzeigt, ob heute ein Arbeitstag ist.",
           "workday_tomorrow_sensor": "Gemeinsame Entity, die anzeigt, ob morgen ein Arbeitstag ist."
@@ -118,7 +120,9 @@
           "profile_shading": "Beschattung",
           "profile_ventilation": "Lüftung",
           "profile_resident": "Bewohner",
-          "profile_behavior": "Manuelles Verhalten"
+          "profile_behavior": "Manuelles Verhalten",
+          "profile_done": "Fertig und speichern"
+          ,"profile_done": "Fertig und speichern"
         },
         "menu_option_descriptions": {
           "profile_setup": "Name dieses Profils bearbeiten.",
@@ -128,7 +132,9 @@
           "profile_shading": "Bedingungen, Grenzwerte, Wartezeiten, Temperatur-, Helligkeits- und Forecast-Regeln der Beschattung konfigurieren.",
           "profile_ventilation": "Verhalten bei Fensterkontakten, Verzögerungen, Prioritäten und Lüftungsregeln konfigurieren.",
           "profile_resident": "Bewohnerverhalten konfigurieren.",
-          "profile_behavior": "Manuelles Verhalten, Bewegungsschutz und zusätzliche Verhaltensregeln konfigurieren."
+          "profile_behavior": "Manuelles Verhalten, Bewegungsschutz und zusätzliche Verhaltensregeln konfigurieren.",
+          "profile_done": "Profiländerungen speichern und zur Profilübersicht zurückkehren."
+          ,"profile_done": "Profiländerungen speichern und zur Profilübersicht zurückkehren."
         }
       },
       "profile_time": {
@@ -652,7 +658,12 @@
         "data": {
           "enable_recalibrate_button": "Rekalibrierungs-Schaltfläche aktivieren",
           "enable_clear_manual_override_button": "Schaltfläche zum Löschen des manuellen Overrides aktivieren",
-          "enable_logbook_cover": "Cover-Aktionen im Logbuch protokollieren"
+          "enable_logbook_cover": "Cover-Aktionen im Logbuch protokollieren",
+          "force_open_entity": "Entity für Zwangsöffnung",
+          "force_close_entity": "Entity für Zwangsschließung",
+          "force_ventilate_entity": "Entity für Zwangsbelüftung",
+          "force_shading_entity": "Entity für Zwangsverschattung",
+          "force_pause_entity": "Entity für Zwangspause"
         }
       },
       "source_overrides": {
@@ -715,6 +726,7 @@
           "cover_tilt_wait_mode": "Lamellen-Wartemodus",
           "cover_tilt_wait_timeout": "Lamellen-Wartezeit",
           "position_tolerance": "Positionstoleranz"
+          ,"tilt_position_tolerance": "Kipp-Positionstoleranz"
         },
         "data_description": {
           "covers": "Alle Cover, die zu diesem Raum gehören und gemeinsam von Cover Control gesteuert werden.",
@@ -1750,10 +1762,11 @@
         "custom_sensor": "Eigener Positionssensor"
       }
     },
-    "sun_elevation_mode": {
+      "sun_elevation_mode": {
       "options": {
         "fixed": "Fest",
-        "dynamic": "Dynamisch"
+        "dynamic": "Dynamisch",
+        "hybrid": "Hybrid"
       }
     },
     "brightness_sun_operator": {

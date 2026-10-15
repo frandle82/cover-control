@@ -66,6 +66,7 @@
           "shading_forecast_temp_sensor": "Forecast temperature sensor",
           "sun_elevation_dynamic_close_sensor": "Dynamic sun elevation for closing",
           "sun_elevation_dynamic_open_sensor": "Dynamic sun elevation for opening",
+          "sun_sensor": "Sun sensor",
           "temperature_sensor_outdoor": "Outdoor temperature sensor",
           "workday_sensor": "Workday today entity",
           "workday_tomorrow_sensor": "Workday tomorrow entity"
@@ -80,6 +81,7 @@
           "shading_forecast_temp_sensor": "Shared sensor that provides forecast temperature values for shading.",
           "sun_elevation_dynamic_close_sensor": "Shared sensor that provides a dynamic closing sun elevation.",
           "sun_elevation_dynamic_open_sensor": "Shared sensor that provides a dynamic opening sun elevation.",
+          "sun_sensor": "Sun entity providing elevation and azimuth (default: sun.sun).",
           "temperature_sensor_outdoor": "Shared outdoor temperature sensor for shading and protection rules.",
           "workday_sensor": "Shared entity that indicates whether today is a workday.",
           "workday_tomorrow_sensor": "Shared entity that indicates whether tomorrow is a workday."
@@ -118,7 +120,9 @@
           "profile_shading": "Shading",
           "profile_ventilation": "Ventilation",
           "profile_resident": "Resident behavior",
-          "profile_behavior": "Manual behavior"
+          "profile_behavior": "Manual behavior",
+          "profile_done": "Done and save"
+          ,"profile_done": "Done and save"
         },
         "menu_option_descriptions": {
           "profile_setup": "Rename this profile.",
@@ -128,7 +132,9 @@
           "profile_shading": "Configure shading conditions, thresholds, waits, temperature, brightness, and forecast rules.",
           "profile_ventilation": "Configure behavior for window contacts, delays, priorities, and ventilation rules.",
           "profile_resident": "Configure resident behavior.",
-          "profile_behavior": "Configure manual behavior, movement protection, and additional behavior rules."
+          "profile_behavior": "Configure manual behavior, movement protection, and additional behavior rules.",
+          "profile_done": "Save profile changes and return to the profile catalog."
+          ,"profile_done": "Save profile changes and return to the profile catalog."
         }
       },
       "profile_time": {
@@ -652,7 +658,12 @@
         "data": {
           "enable_recalibrate_button": "Enable recalibration button",
           "enable_clear_manual_override_button": "Enable clear manual override button",
-          "enable_logbook_cover": "Log cover actions"
+          "enable_logbook_cover": "Log cover actions",
+          "force_open_entity": "Force open entity",
+          "force_close_entity": "Force close entity",
+          "force_ventilate_entity": "Force ventilate entity",
+          "force_shading_entity": "Force shading entity",
+          "force_pause_entity": "Force pause entity"
         }
       },
       "source_overrides": {
@@ -715,6 +726,7 @@
           "cover_tilt_wait_mode": "Tilt wait mode",
           "cover_tilt_wait_timeout": "Tilt wait timeout",
           "position_tolerance": "Position tolerance"
+          ,"tilt_position_tolerance": "Tilt position tolerance"
         },
         "data_description": {
           "covers": "All covers that belong to this room and are controlled together by Cover Control.",
@@ -1750,10 +1762,11 @@
         "custom_sensor": "Custom position sensor"
       }
     },
-    "sun_elevation_mode": {
+      "sun_elevation_mode": {
       "options": {
         "fixed": "Fixed",
-        "dynamic": "Dynamic"
+        "dynamic": "Dynamic",
+        "hybrid": "Hybrid"
       }
     },
     "brightness_sun_operator": {

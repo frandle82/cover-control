@@ -16,9 +16,13 @@ from ..const import (
     CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
     CONF_SUN_ELEVATION_MODE,
     CONF_SUN_ELEVATION_OPEN,
+    CONF_SUN_SENSOR,
+    CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
+    CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
     DEFAULT_SUN_ELEVATION_CLOSE,
     DEFAULT_SUN_ELEVATION_MODE,
     DEFAULT_SUN_ELEVATION_OPEN,
+    DEFAULT_SUN_SENSOR,
 )
 from .schedule import ScheduleMixin
 
@@ -39,6 +43,10 @@ class _TimeProfileProbe(ScheduleMixin):
     def _state_for(self, entity_id: str | None):
         return self.hass.states.get(entity_id) if entity_id else None
 
+    def _sun_entity(self) -> str:
+        value = self.config.get(CONF_SUN_SENSOR, DEFAULT_SUN_SENSOR)
+        return value if isinstance(value, str) and value else DEFAULT_SUN_SENSOR
+
     def _dynamic_sun_threshold(self, kind: str) -> float | None:
         mode = str(
             self.config.get(CONF_SUN_ELEVATION_MODE, DEFAULT_SUN_ELEVATION_MODE)
@@ -52,11 +60,18 @@ class _TimeProfileProbe(ScheduleMixin):
             fixed_key = CONF_SUN_ELEVATION_CLOSE
             sensor_key = CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR
             fixed_default = DEFAULT_SUN_ELEVATION_CLOSE
+        use_key = (
+            CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR
+            if kind == "open"
+            else CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR
+        )
         try:
             fixed = float(self.config.get(fixed_key, fixed_default))
         except (TypeError, ValueError):
             return None
         if mode == "fixed":
+            return fixed
+        if not bool(self.config.get(use_key, False)):
             return fixed
         state = self._state_for(self.config.get(sensor_key))
         try:

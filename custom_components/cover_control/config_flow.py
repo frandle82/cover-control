@@ -82,6 +82,12 @@ from .const import (
     CONF_COVER_TYPE_AWNING,
     CONF_COVER_TYPE_BLIND,
     CONF_DRIVE_TIME,
+    CONF_TILT_POSITION_TOLERANCE,
+    CONF_FORCE_CLOSE_ENTITY,
+    CONF_FORCE_OPEN_ENTITY,
+    CONF_FORCE_PAUSE_ENTITY,
+    CONF_FORCE_SHADING_ENTITY,
+    CONF_FORCE_VENTILATE_ENTITY,
     CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON,
     CONF_ENABLE_LOGBOOK_COVER,
     CONF_ENABLE_RECALIBRATE_BUTTON,
@@ -451,6 +457,7 @@ POSITION_FIELD_LIMITS = {
     CONF_SHADING_POSITION: 100,
     CONF_SHADING_POSITION_ALT: 100,
     CONF_POSITION_TOLERANCE: 20,
+    CONF_TILT_POSITION_TOLERANCE: 20,
     CONF_OPEN_TILT_POSITION: 100,
     CONF_CLOSE_TILT_POSITION: 100,
     CONF_VENTILATE_TILT_POSITION: 100,
@@ -563,6 +570,9 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_recovery(self, user_input=None):
         return await self._forward_step("recovery", user_input)
+
+    async def async_step_profile_done(self, user_input=None):
+        return await self._forward_step("profile_done", user_input)
 
     async def async_step_general(self, user_input=None):
         return await self._forward_step("general", user_input)
@@ -793,6 +803,16 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data=new_data,
             options={},
         )
+        runtime = getattr(entry, "runtime_data", None)
+        if runtime is not None and getattr(runtime, "hub", None) is not None:
+            runtime.model = deepcopy(model.data)
+            affected_rooms = {
+                room_id
+                for users in model.profile_users.values()
+                for room_id in users
+            }
+            if affected_rooms:
+                runtime.hub.apply_model(runtime.model, affected_rooms)
 
     async def async_step_reconfigure(self, user_input=None) -> FlowResult:
         if self._entry().data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM:
@@ -994,10 +1014,17 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             {"value": profile_id, "label": profile.get(CONF_PROFILE_NAME, profile_id)}
             for profile_id, profile in catalog.items()
         ]
+        action_options = (
+            ["create"]
+            if not profile_options
+            else ["create", "edit", "duplicate", "delete"]
+        )
         schema: dict = {
-            vol.Required("profile_action", default="edit"): selector.SelectSelector(
+            vol.Required(
+                "profile_action", default=action_options[0] if not profile_options else "edit"
+            ): selector.SelectSelector(
                 selector.SelectSelectorConfig(
-                    options=["create", "edit", "duplicate", "delete"],
+                    options=action_options,
                     translation_key="profile_action",
                 )
             )
@@ -1075,11 +1102,23 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "profile_ventilation",
                 "profile_resident",
                 "profile_behavior",
+                "profile_done",
             ],
             description_placeholders=self._profile_context_placeholders(
                 model, profile_id
             ),
         )
+
+    async def async_step_profile_done(self, user_input=None) -> FlowResult:
+        """Finish profile editing and return to the profile catalog."""
+
+        model = self._model()
+        profile_id = getattr(self, "_editing_profile_id", None)
+        if not profile_id or profile_id not in model.data[CONF_PROFILES]:
+            return await self.async_step_profiles()
+        self._save_parent_model(model)
+        self._editing_profile_id = None
+        return await self.async_step_profiles()
 
     async def _async_unified_profile_function_step(
         self,
@@ -1372,8 +1411,13 @@ class RoomFlowMixin:
                 CONF_ENABLE_RECALIBRATE_BUTTON,
                 CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON,
                 CONF_ENABLE_LOGBOOK_COVER,
+                CONF_FORCE_OPEN_ENTITY,
+                CONF_FORCE_CLOSE_ENTITY,
+                CONF_FORCE_VENTILATE_ENTITY,
+                CONF_FORCE_SHADING_ENTITY,
+                CONF_FORCE_PAUSE_ENTITY,
             ):
-                settings[key] = bool(user_input.get(key, False))
+                settings[key] = user_input.get(key) or None
             data[CONF_ROOM_SETTINGS] = settings
             return await self._save_room(data)
         merged = {**DEFAULT_BUTTON_SETTINGS, **settings}
@@ -1395,6 +1439,20 @@ class RoomFlowMixin:
                         CONF_ENABLE_LOGBOOK_COVER,
                         default=bool(settings.get(CONF_ENABLE_LOGBOOK_COVER, False)),
                     ): bool,
+                    **{
+                        vol.Optional(key, default=_selector_default(settings.get(key))): selector.EntitySelector(
+                            selector.EntitySelectorConfig(
+                                domain=["input_boolean", "switch", "binary_sensor"]
+                            )
+                        )
+                        for key in (
+                            CONF_FORCE_OPEN_ENTITY,
+                            CONF_FORCE_CLOSE_ENTITY,
+                            CONF_FORCE_VENTILATE_ENTITY,
+                            CONF_FORCE_SHADING_ENTITY,
+                            CONF_FORCE_PAUSE_ENTITY,
+                        )
+                    },
                 }
             ),
             description_placeholders=self._room_context_placeholders(),
@@ -1605,6 +1663,10 @@ class RoomFlowMixin:
         if user_input is not None:
             settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
             settings.update(_normalize_position_fields(dict(user_input)))
+            if CONF_TILT_POSITION_TOLERANCE in user_input:
+                settings[CONF_TILT_POSITION_TOLERANCE] = float(
+                    user_input[CONF_TILT_POSITION_TOLERANCE]
+                )
             settings[CONF_COVERS] = list(user_input[CONF_COVERS])
             if settings.get(CONF_POSITION_SOURCE) != CONF_POSITION_SOURCE_CUSTOM_SENSOR:
                 settings.pop(CONF_CUSTOM_POSITION_SENSOR, None)
@@ -1697,6 +1759,10 @@ class RoomFlowMixin:
                         CONF_POSITION_TOLERANCE,
                         default=_position_default(dict(settings), CONF_POSITION_TOLERANCE),
                     ): _position_number_selector(CONF_POSITION_TOLERANCE),
+                    vol.Optional(
+                        CONF_TILT_POSITION_TOLERANCE,
+                        default=_position_default(dict(settings), CONF_TILT_POSITION_TOLERANCE),
+                    ): _position_number_selector(CONF_TILT_POSITION_TOLERANCE),
                 }
             ),
             description_placeholders=self._room_context_placeholders(),
@@ -1857,6 +1923,7 @@ class RoomFlowMixin:
         profiles: dict[str, Any],
         user_input: dict[str, Any],
     ) -> None:
+        previous_profile_id = data.get(CONF_ROOM_PROFILE_ID)
         profile_id = user_input.get(CONF_ROOM_PROFILE_ID)
         if profile_id in (None, ""):
             data.pop(CONF_ROOM_PROFILE_ID, None)
@@ -1873,6 +1940,8 @@ class RoomFlowMixin:
             submitted = [
                 function for function, enabled in submitted.items() if enabled
             ]
+        if profile_id != previous_profile_id and CONF_PROFILE_FUNCTIONS not in user_input:
+            submitted = sorted(available)
         data[CONF_PROFILE_FUNCTIONS] = sorted(
             function for function in submitted if function in available
         )
@@ -1939,14 +2008,15 @@ class RoomFlowMixin:
         if user_input is not None:
             self._store_profile_assignment(data, profiles, user_input)
             return await self._save_room(data)
-        options = [
+        options = [{"value": "", "label": "—"}]
+        options.extend(
             {
                 "value": profile_id,
                 "label": profile.get(CONF_PROFILE_NAME, profile_id),
             }
             for profile_id, profile in profiles.items()
             if profile_id not in PROFILE_TYPES
-        ]
+        )
         current = data.get(CONF_ROOM_PROFILE_ID)
         schema = {
             vol.Optional(
