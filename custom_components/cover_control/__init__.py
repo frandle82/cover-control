@@ -285,7 +285,10 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Migrate legacy room entries to one parent with native subentries."""
+    """Migrate legacy entries to the standalone-room v8 model."""
+
+    if entry.version == 7:
+        return await _async_migrate_v7_to_v8(hass, entry)
 
     if entry.version >= 7:
         return True
@@ -400,6 +403,26 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if not await _async_migrate_parent_to_unified_profiles(hass, parent):
         return False
     return await _async_migrate_subentries_to_room_entries(hass, parent)
+
+
+async def _async_migrate_v7_to_v8(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> bool:
+    """Remove stale v7 subentries while preserving standalone rooms."""
+
+    if not _is_controller_entry(entry):
+        hass.config_entries.async_update_entry(entry, version=8)
+        return True
+
+    if not await _async_migrate_parent_profiles_to_data(hass, entry):
+        return False
+    if not await _async_migrate_subentries_to_room_entries(hass, entry):
+        return False
+
+    for subentry_id in tuple(entry.subentries):
+        hass.config_entries.async_remove_subentry(entry, subentry_id)
+    hass.config_entries.async_update_entry(entry, version=8)
+    return True
 
 
 async def _async_migrate_subentries_to_room_entries(

@@ -817,6 +817,10 @@ async def test_controller_and_room_entries_support_reconfigure(hass):
 
     assert entry.supports_reconfigure is True
     assert room_entry.supports_reconfigure is True
+    for current in (entry, room_entry):
+        payload = json.loads(json_dumps({"entry": current.as_json_fragment}))["entry"]
+        assert payload["supports_reconfigure"] is True
+        assert payload["supported_subentry_types"] == {}
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")

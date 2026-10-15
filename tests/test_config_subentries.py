@@ -346,6 +346,48 @@ async def test_v6_room_subentry_migration_preserves_registry_links(hass) -> None
     assert not entry.subentries
 
 
+async def test_v7_migration_removes_stale_profile_and_room_subentries(hass) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Cover Control",
+        version=7,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
+            CONF_GLOBAL: {"sources": {}, "defaults": {}},
+            CONF_PROFILES: {"profile-time": {CONF_PROFILE_NAME: "Time"}},
+        },
+        subentries_data=[
+            {
+                "subentry_id": "profile-old",
+                "subentry_type": "time_profile",
+                "title": "Old profile",
+                "unique_id": "profile-old",
+                "data": {},
+            },
+            {
+                "subentry_id": "room-living",
+                "subentry_type": "room",
+                "title": "Living",
+                "unique_id": "room-living",
+                "data": {CONF_NAME: "Living", CONF_ROOM_SETTINGS: {}},
+            },
+        ],
+    )
+    entry.add_to_hass(hass)
+
+    assert await async_migrate_entry(hass, entry)
+    assert entry.version == 8
+    assert not entry.subentries
+    assert entry.data[CONF_PROFILES]["profile-time"][CONF_PROFILE_NAME] == "Time"
+    assert len(
+        [
+            candidate
+            for candidate in hass.config_entries.async_entries(DOMAIN)
+            if candidate.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM
+        ]
+    ) == 1
+
+
 async def test_entity_registry_cleanup_uses_v6_desired_entities(hass) -> None:
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -802,6 +844,6 @@ async def test_multiple_legacy_entries_consolidate_into_one_parent(hass) -> None
 
     entries = hass.config_entries.async_entries(DOMAIN)
     assert first in entries
-    assert second.version == 7
+    assert second.version == 8
     assert second.data == {"hub_entry_id": first.entry_id}
     assert {entry.title for entry in _room_entries(hass, first)} == {"Living", "Office"}
