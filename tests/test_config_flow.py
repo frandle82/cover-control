@@ -165,6 +165,7 @@ def test_parent_reconfigure_steps_have_runtime_translations() -> None:
             "profile_resident",
                 "profile_behavior",
                 "profile_done",
+                "profile_back",
             }
         assert "{profile_usage}" in steps["profile_setup"]["description"]
         assert "{profiles}" in steps["diagnostics"]["description"]
@@ -923,7 +924,7 @@ async def test_profiles_without_profiles_only_offer_create(hass):
         result["data_schema"], custom_serializer=cv.custom_serializer
     )
     action = next(field for field in fields if field["name"] == "profile_action")
-    assert action["selector"]["select"]["options"] == ["create"]
+    assert action["selector"]["select"]["options"] == ["create", "back"]
 
 
 async def test_profile_assignment_without_profiles_still_has_safe_empty_option(hass):
@@ -1472,11 +1473,90 @@ async def test_profile_editor_done_returns_to_profiles(hass):
         result["flow_id"], {"profile_name": "Done profile"}
     )
     assert result["step_id"] == "profile_sections"
-    assert result["menu_options"][-1] == "profile_done"
+    assert result["menu_options"][-2:] == ["profile_done", "profile_back"]
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {"next_step_id": "profile_done"}
     )
     assert result["step_id"] == "profiles"
+
+
+async def test_profiles_menu_has_back_to_controller(hass):
+    entry = _entry(hass)
+    result = await _open_options_step(hass, entry, "profiles")
+    fields = to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
+    action = next(field for field in fields if field["name"] == "profile_action")
+    assert "back" in action["selector"]["select"]["options"]
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"profile_action": "back"}
+    )
+    assert result["step_id"] == "controller_reconfigure"
+    assert result["type"] is FlowResultType.MENU
+
+
+async def test_profile_sections_have_back_to_profiles(hass):
+    entry = _entry(hass)
+    result = await _open_options_step(hass, entry, "profiles")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"profile_action": "create"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"profile_name": "Navigation profile"}
+    )
+    assert "profile_back" in result["menu_options"]
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "profile_back"}
+    )
+    assert result["step_id"] == "profiles"
+    assert result["type"] is FlowResultType.FORM
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_created_profile_is_immediately_available_in_room_assignment(hass):
+    """A profile created through the UI is immediately assignable to a room."""
+
+    entry = _entry(hass)
+    result = await _open_options_step(hass, entry, "profiles")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"profile_action": "create"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"profile_name": "Immediately available"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "profile_time"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"time_features": {c.CONF_AUTO_TIME: True}}
+    )
+    profile_id = next(
+        profile_id
+        for profile_id, profile in entry.data[CONF_PROFILES].items()
+        if profile.get(c.CONF_PROFILE_NAME) == "Immediately available"
+    )
+    assert entry.data[CONF_PROFILES][profile_id][c.CONF_PROFILE_FUNCTIONS] == [
+        c.FUNCTION_TIME
+    ]
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "profile_done"}
+    )
+    assert result["step_id"] == "profiles"
+
+    result = await _open_room_step(hass, entry, "profile_assignment")
+    fields = to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
+    options = fields[0]["selector"]["select"]["options"]
+    assert {option["value"] for option in options} >= {"", profile_id}
+    assert any(option["label"] == "Immediately available" for option in options)
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {c.CONF_ROOM_PROFILE_ID: profile_id}
+    )
+    room_entry = _room_entry_for_controller(hass, entry)
+    assert room_entry.data[c.CONF_ROOM_PROFILE_ID] == profile_id
+    assert room_entry.data[c.CONF_PROFILE_FUNCTIONS] == [c.FUNCTION_TIME]
+    assert c.CONF_PROFILES not in room_entry.data
+    await hass.config_entries.async_unload(room_entry.entry_id)
+    await hass.config_entries.async_unload(entry.entry_id)
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")

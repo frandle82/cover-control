@@ -28,6 +28,14 @@ from .controller import ControllerManager
 from .runtime_data import CoverControlRuntime
 
 
+CONTROL_STATE_OPTIONS = [
+    "idle", "time", "sun", "brightness", "calendar", "resident",
+    "ventilation", "shading", "manual_override", "force_open",
+    "force_close", "force_ventilate", "force_shading", "force_pause",
+    "window_lockout", "additional_condition", "recovery", "multiple",
+]
+
+
 async def async_setup_entry(
     hass: HomeAssistant, entry: ConfigEntry, async_add_entities: AddEntitiesCallback
 ) -> None:
@@ -212,6 +220,8 @@ class ControlStateSensor(_BaseCoverControlSensor):
     """Expose the currently active control situation for troubleshooting."""
 
     _attr_translation_key = "control_state"
+    _attr_device_class = SensorDeviceClass.ENUM
+    _attr_options = CONTROL_STATE_OPTIONS
     _attr_icon = "mdi:state-machine"
 
     def __init__(
@@ -222,6 +232,10 @@ class ControlStateSensor(_BaseCoverControlSensor):
         self._state: str = "idle"
         self._cover_states: dict[str, dict[str, Any]] = {}
         self._config_diagnostics: dict[str, Any] = {}
+        self._active_controls: list[str] = []
+        self._configured_controls: list[str] = []
+        self._blocked_by: list[str] = []
+        self._reason: str = "idle"
 
     async def async_added_to_hass(self) -> None:
         self._refresh_state()
@@ -243,23 +257,43 @@ class ControlStateSensor(_BaseCoverControlSensor):
 
     @callback
     def _refresh_state(self) -> bool:
-        previous = (self._state, self._cover_states, self._config_diagnostics)
+        previous = (
+            self._state,
+            self._cover_states,
+            self._config_diagnostics,
+            self._active_controls,
+            self._configured_controls,
+            self._blocked_by,
+            self._reason,
+        )
         manager = self._manager()
         if not manager or not manager.controllers:
             self._state = "idle"
             self._cover_states = {}
             self._config_diagnostics = {}
+            self._active_controls = []
+            self._configured_controls = []
+            self._blocked_by = []
+            self._reason = "idle"
         else:
             snapshot = manager.entry_snapshot()
             covers = snapshot.get("covers")
             self._cover_states = covers if isinstance(covers, dict) else {}
             state = snapshot.get("control_state")
             self._state = state if isinstance(state, str) else "idle"
+            self._active_controls = list(snapshot.get("active_controls", []))
+            self._configured_controls = list(snapshot.get("configured_controls", []))
+            self._blocked_by = list(snapshot.get("blocked_by", []))
+            self._reason = str(snapshot.get("reason") or self._state)
             self._config_diagnostics = manager.configuration_diagnostics()
         return previous != (
             self._state,
             self._cover_states,
             self._config_diagnostics,
+            self._active_controls,
+            self._configured_controls,
+            self._blocked_by,
+            self._reason,
         )
 
     @property
@@ -275,6 +309,10 @@ class ControlStateSensor(_BaseCoverControlSensor):
                 for cover, state in self._cover_states.items()
                 if state.get("reason") != "idle"
             ],
+            "active_controls": self._active_controls,
+            "configured_controls": self._configured_controls,
+            "blocked_by": self._blocked_by,
+            "reason": self._reason,
             "configuration": self._config_diagnostics,
         }
 

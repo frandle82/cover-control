@@ -121,8 +121,8 @@
           "profile_ventilation": "Lüftung",
           "profile_resident": "Bewohner",
           "profile_behavior": "Manuelles Verhalten",
-          "profile_done": "Fertig und speichern"
-          ,"profile_done": "Fertig und speichern"
+          "profile_done": "Fertig und speichern",
+          "profile_back": "Zurück zur Profilübersicht"
         },
         "menu_option_descriptions": {
           "profile_setup": "Name dieses Profils bearbeiten.",
@@ -133,8 +133,8 @@
           "profile_ventilation": "Verhalten bei Fensterkontakten, Verzögerungen, Prioritäten und Lüftungsregeln konfigurieren.",
           "profile_resident": "Bewohnerverhalten konfigurieren.",
           "profile_behavior": "Manuelles Verhalten, Bewegungsschutz und zusätzliche Verhaltensregeln konfigurieren.",
-          "profile_done": "Profiländerungen speichern und zur Profilübersicht zurückkehren."
-          ,"profile_done": "Profiländerungen speichern und zur Profilübersicht zurückkehren."
+          "profile_done": "Profiländerungen speichern und zur Profilübersicht zurückkehren.",
+          "profile_back": "Zurück zur Profilübersicht"
         }
       },
       "profile_time": {
@@ -983,7 +983,8 @@
           "profile_shading": "Beschattung",
           "profile_ventilation": "Lüftung",
           "profile_resident": "Bewohner",
-          "profile_behavior": "Manuelles Verhalten"
+          "profile_behavior": "Manuelles Verhalten",
+          "profile_back": "Zurück zur Profilübersicht"
         },
         "menu_option_descriptions": {
           "profile_setup": "Name dieses Profils bearbeiten.",
@@ -993,7 +994,8 @@
           "profile_shading": "Bedingungen, Grenzwerte, Wartezeiten, Temperatur-, Helligkeits- und Forecast-Regeln der Beschattung konfigurieren.",
           "profile_ventilation": "Verhalten bei Fensterkontakten, Verzögerungen, Prioritäten und Lüftungsregeln konfigurieren.",
           "profile_resident": "Bewohnerverhalten konfigurieren.",
-          "profile_behavior": "Manuelles Verhalten, Bewegungsschutz und zusätzliche Verhaltensregeln konfigurieren."
+          "profile_behavior": "Manuelles Verhalten, Bewegungsschutz und zusätzliche Verhaltensregeln konfigurieren.",
+          "profile_back": "Zurück zur Profilübersicht"
         }
       },
       "profile_time": {
@@ -1724,7 +1726,8 @@
         "create": "Erstellen",
         "edit": "Bearbeiten",
         "duplicate": "Duplizieren",
-        "delete": "Löschen"
+        "delete": "Löschen",
+        "back": "Zurück zum Hauptmenü"
       }
     },
     "profile_functions": {
@@ -1848,7 +1851,27 @@
         "name": "Nächste Schließung"
       },
       "control_state": {
-        "name": "Aktive Steuerung"
+        "name": "Aktive Steuerung",
+        "state": {
+          "idle": "Inaktiv",
+          "time": "Zeitsteuerung",
+          "sun": "Sonnensteuerung",
+          "brightness": "Helligkeitssteuerung",
+          "calendar": "Kalendersteuerung",
+          "resident": "Bewohnersteuerung",
+          "ventilation": "Lüftungssteuerung",
+          "shading": "Beschattungssteuerung",
+          "manual_override": "Manuelle Übersteuerung",
+          "force_open": "Erzwungenes Öffnen",
+          "force_close": "Erzwungenes Schließen",
+          "force_ventilate": "Erzwungene Lüftung",
+          "force_shading": "Erzwungene Beschattung",
+          "force_pause": "Zwangspause",
+          "window_lockout": "Fenstersperre",
+          "additional_condition": "Zusatzbedingung",
+          "recovery": "Wiederherstellung",
+          "multiple": "Mehrere Steuerungen"
+        }
       },
       "resident_status": {
         "name": "Bewohnerstatus"

@@ -46,6 +46,59 @@ from .common import (
 from .controller import CoverController
 from ..feature_state import FeatureState, feature_configured
 
+
+def _controls_for_reason(reason: str) -> set[str]:
+    """Map the runtime decision reason to diagnostic control names."""
+
+    if reason in {"scheduled_open", "scheduled_close"}:
+        return {"time"}
+    if reason in {"sun_open", "sun_close"}:
+        return {"sun"}
+    if reason.startswith("force_"):
+        return {reason}
+    if reason in {"manual_override", "window_lockout", "force_pause"}:
+        return {reason}
+    if "ventilation" in reason:
+        return {"ventilation"}
+    if "shading" in reason:
+        return {"shading"}
+    if "resident" in reason:
+        return {"resident"}
+    if "brightness" in reason:
+        return {"brightness"}
+    if "calendar" in reason:
+        return {"calendar"}
+    return set()
+
+
+def _blocking_controls_for_reason(reason: str) -> set[str]:
+    if reason in {"manual_override", "window_lockout", "force_pause"}:
+        return {reason}
+    if reason.startswith("additional_condition"):
+        return {"additional_condition"}
+    return set()
+
+
+def _configured_controls(resolved: ResolvedRoomConfig | None) -> set[str]:
+    if resolved is None:
+        return set()
+    return set(resolved.configured_functions)
+
+
+def _control_state(active_reasons: list[str]) -> str:
+    """Return the stable, translatable state for active runtime reasons."""
+
+    controls = {
+        control
+        for reason in active_reasons
+        for control in _controls_for_reason(reason)
+    }
+    if not controls:
+        return IDLE_REASON
+    if len(controls) > 1:
+        return "multiple"
+    return next(iter(controls))
+
 if TYPE_CHECKING:
     from homeassistant.config_entries import ConfigEntry
     from ..hub import CoverControlHub
@@ -84,6 +137,10 @@ class ControllerManager:
             "next_open": None,
             "next_close": None,
             "control_state": "idle",
+            "active_controls": [],
+            "configured_controls": [],
+            "blocked_by": [],
+            "reason": IDLE_REASON,
             "resident_status": "off",
             "resident_entity": None,
         }
@@ -357,13 +414,7 @@ class ControllerManager:
             if reason_value != IDLE_REASON and reason_value not in active_reasons:
                 active_reasons.append(reason_value)
 
-        control_state = (
-            IDLE_REASON
-            if not active_reasons
-            else active_reasons[0]
-            if len(active_reasons) == 1
-            else "multiple"
-        )
+        control_state = _control_state(active_reasons)
         first_controller = next(iter(self.controllers.values()), None)
         resident_entity = (
             first_controller.config.get(CONF_RESIDENT_SENSOR)
@@ -376,6 +427,24 @@ class ControllerManager:
             "next_open": min(open_candidates) if open_candidates else None,
             "next_close": min(close_candidates) if close_candidates else None,
             "control_state": control_state,
+            "active_controls": sorted(
+                {
+                    control
+                    for reason in active_reasons
+                    for control in _controls_for_reason(reason)
+                }
+            ),
+            "configured_controls": sorted(
+                _configured_controls(getattr(self, "_resolved_config", None))
+            ),
+            "blocked_by": sorted(
+                {
+                    control
+                    for reason in active_reasons
+                    for control in _blocking_controls_for_reason(reason)
+                }
+            ),
+            "reason": active_reasons[0] if active_reasons else IDLE_REASON,
             "resident_status": (
                 "on"
                 if resident_state is not None

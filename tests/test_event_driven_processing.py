@@ -5,17 +5,30 @@ from __future__ import annotations
 import asyncio
 from datetime import datetime, time, timedelta, timezone
 import inspect
+from pathlib import Path
 from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
 from homeassistant.util import dt as dt_util
+from homeassistant.components.sensor import SensorDeviceClass
 
 from custom_components.cover_control.const import (
     CONF_AUTO_DOWN,
     CONF_AUTO_SUN,
     CONF_AUTO_TIME,
     CONF_AUTO_UP,
+    CONF_SUN_ELEVATION_CLOSE,
+    CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+    CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
+    CONF_SUN_ELEVATION_MODE,
+    CONF_SUN_ELEVATION_OPEN,
+    CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+    CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
+    CONF_TIME_DOWN_EARLY_WORKDAY,
+    CONF_TIME_DOWN_LATE_WORKDAY,
+    CONF_TIME_UP_EARLY_WORKDAY,
+    CONF_TIME_UP_LATE_WORKDAY,
     CONF_NAME,
     CONF_PROFILE_ID,
     CONF_PROFILE_NAME,
@@ -33,10 +46,23 @@ from custom_components.cover_control.const import (
     PROFILE_TYPE_TIME,
     SIGNAL_ENTRY_STATE_UPDATED,
 )
+from custom_components.cover_control.const import (
+    DEFAULT_SUN_ELEVATION_MODE,
+)
+from custom_components.cover_control.runtime.profile_evaluation import (
+    evaluate_time_profile,
+)
 from custom_components.cover_control.config_resolver import resolve_config_model
 from custom_components.cover_control.controller import ControllerManager, CoverController
 from custom_components.cover_control.runtime.events import EventsMixin
-from custom_components.cover_control.sensor import NextOpenSensor
+from custom_components.cover_control.sensor import (
+    CONTROL_STATE_OPTIONS,
+    ControlStateSensor,
+    NextOpenSensor,
+)
+
+
+CONTROL_STATE_OPTION_SET = set(CONTROL_STATE_OPTIONS)
 
 
 def test_setup_has_no_generic_interval_evaluation() -> None:
@@ -45,6 +71,35 @@ def test_setup_has_no_generic_interval_evaluation() -> None:
     source = inspect.getsource(EventsMixin.async_setup)
     assert "async_track_time_interval" not in source
     assert "_handle_interval" not in source
+
+
+def test_runtime_control_states_are_valid_sensor_options() -> None:
+    """The diagnostic sensor exposes every stable runtime control state."""
+
+    sensor = object.__new__(ControlStateSensor)
+    assert sensor.device_class is SensorDeviceClass.ENUM
+    assert set(sensor.options or ()) == CONTROL_STATE_OPTION_SET
+    assert {
+        "idle", "time", "sun", "brightness", "calendar", "resident",
+        "ventilation", "shading", "manual_override", "force_open",
+        "force_close", "force_ventilate", "force_shading", "force_pause",
+        "window_lockout", "additional_condition", "recovery", "multiple",
+    } <= CONTROL_STATE_OPTION_SET
+
+
+def test_control_state_translation_contains_all_sensor_states() -> None:
+    """All enum options have English and German entity-state translations."""
+
+    for path in (
+        "custom_components/cover_control/strings.json",
+        "custom_components/cover_control/translations/en.json",
+        "custom_components/cover_control/translations/de.json",
+    ):
+        import json
+
+        document = json.loads(Path(path).read_text(encoding="utf-8"))
+        translations = document["entity"]["sensor"]["control_state"]["state"]
+        assert CONTROL_STATE_OPTION_SET <= translations.keys()
 
 
 def test_state_snapshot_is_read_only() -> None:
@@ -179,6 +234,163 @@ def test_completed_daily_action_advances_to_tomorrow() -> None:
     )
     assert controller._next_open == dt_util.as_utc(expected_local)
     assert controller._next_open.date() > now.date()
+
+
+def _schedule_probe(config: dict, *, states: dict | None = None):
+    """Create a schedule probe with deterministic astronomical observations."""
+
+    controller = object.__new__(CoverController)
+    controller.config = config
+    controller.hass = SimpleNamespace(
+        states=SimpleNamespace(
+            get=lambda entity_id: (states or {}).get(entity_id)
+        ),
+        config=SimpleNamespace(latitude=50.0, longitude=8.0, time_zone="UTC"),
+    )
+    controller._last_action_dates = {}
+    controller._auto_enabled = lambda key: bool(config.get(key, False))
+    controller._reschedule_next_event_timers = Mock()
+    controller._is_workday = Mock(return_value=True)
+    controller._is_workday_tomorrow = Mock(return_value=True)
+    controller._time_bounds = Mock(return_value=(None, None))
+    return controller
+
+
+def test_next_open_fixed_sun_only() -> None:
+    controller = _schedule_probe({
+        CONF_AUTO_SUN: True,
+        CONF_SUN_ELEVATION_MODE: "fixed",
+        CONF_SUN_ELEVATION_OPEN: 6,
+        CONF_SUN_ELEVATION_CLOSE: -4,
+    })
+    calls = []
+    controller._next_sun_time_for_elevation = lambda elevation, direction, now: (
+        calls.append((elevation, direction)) or now + timedelta(hours=2)
+    )
+    now = dt_util.utcnow()
+    controller._refresh_next_events(now)
+    assert calls[0][0] == 6
+    assert controller._next_open == now + timedelta(hours=2)
+
+
+def test_next_close_fixed_sun_only() -> None:
+    controller = _schedule_probe({
+        CONF_AUTO_SUN: True,
+        CONF_SUN_ELEVATION_MODE: "fixed",
+        CONF_SUN_ELEVATION_OPEN: 6,
+        CONF_SUN_ELEVATION_CLOSE: -4,
+    })
+    calls = []
+    controller._next_sun_time_for_elevation = lambda elevation, direction, now: (
+        calls.append((elevation, direction)) or now + timedelta(hours=3)
+    )
+    now = dt_util.utcnow()
+    controller._refresh_next_events(now)
+    assert calls[1][0] == -4
+    assert controller._next_close == now + timedelta(hours=3)
+
+
+@pytest.mark.parametrize("mode", ["dynamic", "hybrid"])
+def test_dynamic_and_hybrid_sun_thresholds(mode: str) -> None:
+    states = {
+        "sensor.open": SimpleNamespace(state="4"),
+        "sensor.close": SimpleNamespace(state="-6"),
+    }
+    controller = _schedule_probe(
+        {
+            CONF_AUTO_SUN: True,
+            CONF_SUN_ELEVATION_MODE: mode,
+            CONF_SUN_ELEVATION_OPEN: 2,
+            CONF_SUN_ELEVATION_CLOSE: -2,
+            CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR: True,
+            CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR: True,
+            CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR: "sensor.open",
+            CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR: "sensor.close",
+        },
+        states=states,
+    )
+    calls = []
+    controller._next_sun_time_for_elevation = lambda elevation, direction, now: (
+        calls.append(elevation) or now + timedelta(hours=1)
+    )
+    now = dt_util.utcnow()
+    controller._refresh_next_events(now)
+    assert calls[:2] == ([6, -8] if mode == "hybrid" else [4, -6])
+
+
+@pytest.mark.parametrize("mode", ["dynamic", "hybrid"])
+def test_invalid_dynamic_and_hybrid_sun_use_fixed_fallback(mode: str) -> None:
+    controller = _schedule_probe(
+        {
+            CONF_AUTO_SUN: True,
+            CONF_SUN_ELEVATION_MODE: mode,
+            CONF_SUN_ELEVATION_OPEN: 7,
+            CONF_SUN_ELEVATION_CLOSE: -5,
+            CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR: True,
+            CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR: True,
+            CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR: "sensor.open",
+            CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR: "sensor.close",
+        },
+        states={"sensor.open": SimpleNamespace(state="unavailable")},
+    )
+    calls = []
+    controller._next_sun_time_for_elevation = lambda elevation, direction, now: (
+        calls.append(elevation) or now + timedelta(hours=1)
+    )
+    controller._refresh_next_events(dt_util.utcnow())
+    assert calls[:2] == [7, -5]
+
+
+def test_next_events_are_none_when_time_and_sun_are_disabled() -> None:
+    controller = _schedule_probe({})
+    controller._refresh_next_events(dt_util.utcnow())
+    assert controller._next_open is None
+    assert controller._next_close is None
+
+
+def test_time_only_ignores_sun_and_live_gates() -> None:
+    controller = _schedule_probe(
+        {
+            CONF_AUTO_TIME: True,
+            CONF_AUTO_UP: True,
+            CONF_AUTO_DOWN: True,
+            CONF_AUTO_SUN: False,
+            CONF_TIME_UP_EARLY_WORKDAY: time(6),
+            CONF_TIME_UP_LATE_WORKDAY: time(8),
+            CONF_TIME_DOWN_EARLY_WORKDAY: time(20),
+            CONF_TIME_DOWN_LATE_WORKDAY: time(22),
+            "brightness_sensor": "sensor.brightness",
+            "resident_sensor": "binary_sensor.resident",
+            "force_pause_entity": "input_boolean.pause",
+        },
+        states={
+            "sensor.brightness": SimpleNamespace(state="0"),
+            "binary_sensor.resident": SimpleNamespace(state="on"),
+            "input_boolean.pause": SimpleNamespace(state="on"),
+        },
+    )
+    controller._time_bounds = Mock(
+        side_effect=lambda _workday, opening: (
+            (time(6), time(8)) if opening else (time(20), time(22))
+        )
+    )
+    now = datetime(2026, 1, 15, 5, tzinfo=timezone.utc)
+    controller._refresh_next_events(now)
+    baseline = (controller._next_open, controller._next_close)
+    controller._state_for = lambda _entity_id: SimpleNamespace(state="on")
+    controller._refresh_next_events(now)
+    assert dt_util.as_local(controller._next_open).time() == time(6)
+    assert (controller._next_open, controller._next_close) == baseline
+
+
+def test_missing_location_and_unreachable_sun_are_safe() -> None:
+    controller = _schedule_probe({CONF_AUTO_SUN: True})
+    controller.hass.config = SimpleNamespace(
+        latitude=None, longitude=None, time_zone=None
+    )
+    controller._refresh_next_events(dt_util.utcnow())
+    assert controller._next_open is None
+    assert controller._next_close is None
 
 
 def test_active_time_profile_provides_next_open_and_close() -> None:
@@ -517,6 +729,30 @@ def test_entry_snapshot_reads_each_controller_once() -> None:
     second.state_snapshot.assert_called_once_with()
     assert initial["next_open"] == (now + timedelta(hours=1), "cover.first")
     assert initial["control_state"] == "shading"
+
+
+def test_entry_snapshot_exposes_control_diagnostics() -> None:
+    """Active control state keeps configured, active, and blocking details separate."""
+
+    controller = Mock()
+    controller.config = {}
+    controller.state_snapshot.return_value = (
+        None, "manual_override", None, True, None, None, 50, False, False, False
+    )
+    manager = object.__new__(ControllerManager)
+    manager.controllers = {"cover.living": controller}
+    manager.hass = SimpleNamespace(states=SimpleNamespace(get=Mock(return_value=None)))
+    manager._resolved_config = SimpleNamespace(
+        configured_functions=frozenset({"time", "sun", "brightness"})
+    )
+
+    manager._rebuild_entry_snapshot()
+
+    snapshot = manager.entry_snapshot()
+    assert snapshot["active_controls"] == ["manual_override"]
+    assert snapshot["configured_controls"] == ["brightness", "sun", "time"]
+    assert snapshot["blocked_by"] == ["manual_override"]
+    assert snapshot["reason"] == "manual_override"
 
 
 def test_schedule_snapshot_refresh_dispatches_without_pending_cover_state() -> None:
