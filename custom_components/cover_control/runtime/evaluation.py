@@ -325,9 +325,9 @@ class EvaluationMixin:
 
         forced = (
             (CONF_FORCE_OPEN_ENTITY, self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION), "force_open"),
-            (CONF_FORCE_CLOSE_ENTITY, self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION), "force_close"),
             (CONF_FORCE_VENTILATE_ENTITY, self._position_value(CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION), "force_ventilate"),
             (CONF_FORCE_SHADING_ENTITY, self._effective_shading_position(), "force_shading"),
+            (CONF_FORCE_CLOSE_ENTITY, self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION), "force_close"),
         )
         for entity_key, target, reason in forced:
             if not self._entity_active(entity_key):

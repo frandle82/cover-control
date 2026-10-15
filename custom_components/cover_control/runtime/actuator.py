@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import asyncio
+import random
 from datetime import (
     datetime,
     timedelta,
@@ -56,6 +57,10 @@ from ..const import (
     CONF_POSITION_SOURCE_CUSTOM_SENSOR,
     CONF_POSITION_SOURCE_POSITION_ATTR,
     CONF_POSITION_TOLERANCE,
+    CONF_TILT_POSITION_TOLERANCE,
+    CONF_DRIVE_DELAY_FIXED,
+    CONF_DRIVE_DELAY_RANDOM,
+    CONF_FORCE_PAUSE_ENTITY,
     CONF_PREVENT_DEFAULT_COVER_ACTIONS,
     CONF_RESIDENT_SENSOR,
     CONF_RESIDENT_STATUS,
@@ -103,6 +108,8 @@ from ..const import (
     DEFAULT_SHADING_TILT_POSITION_2,
     DEFAULT_SHADING_TILT_POSITION_3,
     DEFAULT_TOLERANCE,
+    DEFAULT_DRIVE_DELAY_FIXED,
+    DEFAULT_DRIVE_DELAY_RANDOM,
     DEFAULT_VENTILATE_POSITION,
     DEFAULT_VENTILATE_TILT_POSITION,
     DOMAIN,
@@ -411,13 +418,35 @@ class ActuatorMixin:
             return
         if current is not None and abs(current - target) <= tolerance:
             if tilt_position is not None:
-                await self._command_tilt_position(float(tilt_position), reason=reason)
+                state = self.hass.states.get(self.cover)
+                current_tilt = _coerce_float(
+                    state and state.attributes.get("current_tilt_position")
+                )
+                tilt_tolerance = self._position_value(
+                    CONF_TILT_POSITION_TOLERANCE, DEFAULT_TOLERANCE
+                )
+                if current_tilt is None or abs(current_tilt - tilt_position) > tilt_tolerance:
+                    await self._command_tilt_position(float(tilt_position), reason=reason)
             if self._reason is None:
                 self._reason = reason
             self._target = target
             self._record_action_status(reason, target)
             self._publish_state()
             return
+        delay = self._drive_delay_seconds()
+        if delay > 0:
+            await asyncio.sleep(delay)
+            if self._entity_active(CONF_FORCE_PAUSE_ENTITY):
+                self.async_request_evaluate("force_pause_during_delay")
+                return
+            if self._manual_active or not self._master_enabled():
+                self.async_request_evaluate("movement_gate_changed_during_delay")
+                return
+            if "close" in reason and self._contacts_active(
+                self._full_open_sensors(), dt_util.utcnow()
+            ):
+                self.async_request_evaluate("window_lockout_during_delay")
+                return
         if (
             tilt_position is not None
             and str(
@@ -436,6 +465,13 @@ class ActuatorMixin:
         self._record_action_status(reason, target)
         self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
+
+    def _drive_delay_seconds(self) -> float:
+        """Return the combined pre-drive delay for a real movement."""
+
+        fixed = max(0.0, float(self.config.get(CONF_DRIVE_DELAY_FIXED, DEFAULT_DRIVE_DELAY_FIXED) or 0))
+        random_max = max(0.0, float(self.config.get(CONF_DRIVE_DELAY_RANDOM, DEFAULT_DRIVE_DELAY_RANDOM) or 0))
+        return fixed + random.uniform(0.0, random_max)
 
     def _current_position(self) -> float | None:
         state = self.hass.states.get(self.cover)

@@ -654,7 +654,12 @@
         "data": {
           "enable_recalibrate_button": "Rekalibrierungs-Schaltfläche aktivieren",
           "enable_clear_manual_override_button": "Schaltfläche zum Löschen des manuellen Overrides aktivieren",
-          "enable_logbook_cover": "Cover-Aktionen im Logbuch protokollieren"
+          "enable_logbook_cover": "Cover-Aktionen im Logbuch protokollieren",
+          "force_open_entity": "Entity für Zwangsöffnung",
+          "force_close_entity": "Entity für Zwangsschließung",
+          "force_ventilate_entity": "Entity für Zwangsbelüftung",
+          "force_shading_entity": "Entity für Zwangsverschattung",
+          "force_pause_entity": "Entity für Zwangspause"
         }
       },
       "source_overrides": {
@@ -717,6 +722,7 @@
           "cover_tilt_wait_mode": "Lamellen-Wartemodus",
           "cover_tilt_wait_timeout": "Lamellen-Wartezeit",
           "position_tolerance": "Positionstoleranz"
+          ,"tilt_position_tolerance": "Kipp-Positionstoleranz"
         },
         "data_description": {
           "covers": "Alle Cover, die zu diesem Raum gehören und gemeinsam von Cover Control gesteuert werden.",

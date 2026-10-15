@@ -654,7 +654,12 @@
         "data": {
           "enable_recalibrate_button": "Enable recalibration button",
           "enable_clear_manual_override_button": "Enable clear manual override button",
-          "enable_logbook_cover": "Log cover actions"
+          "enable_logbook_cover": "Log cover actions",
+          "force_open_entity": "Force open entity",
+          "force_close_entity": "Force close entity",
+          "force_ventilate_entity": "Force ventilate entity",
+          "force_shading_entity": "Force shading entity",
+          "force_pause_entity": "Force pause entity"
         }
       },
       "source_overrides": {
@@ -717,6 +722,7 @@
           "cover_tilt_wait_mode": "Tilt wait mode",
           "cover_tilt_wait_timeout": "Tilt wait timeout",
           "position_tolerance": "Position tolerance"
+          ,"tilt_position_tolerance": "Tilt position tolerance"
         },
         "data_description": {
           "covers": "All covers that belong to this room and are controlled together by Cover Control.",

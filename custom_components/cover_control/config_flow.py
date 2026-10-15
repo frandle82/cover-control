@@ -82,6 +82,12 @@ from .const import (
     CONF_COVER_TYPE_AWNING,
     CONF_COVER_TYPE_BLIND,
     CONF_DRIVE_TIME,
+    CONF_TILT_POSITION_TOLERANCE,
+    CONF_FORCE_CLOSE_ENTITY,
+    CONF_FORCE_OPEN_ENTITY,
+    CONF_FORCE_PAUSE_ENTITY,
+    CONF_FORCE_SHADING_ENTITY,
+    CONF_FORCE_VENTILATE_ENTITY,
     CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON,
     CONF_ENABLE_LOGBOOK_COVER,
     CONF_ENABLE_RECALIBRATE_BUTTON,
@@ -451,6 +457,7 @@ POSITION_FIELD_LIMITS = {
     CONF_SHADING_POSITION: 100,
     CONF_SHADING_POSITION_ALT: 100,
     CONF_POSITION_TOLERANCE: 20,
+    CONF_TILT_POSITION_TOLERANCE: 20,
     CONF_OPEN_TILT_POSITION: 100,
     CONF_CLOSE_TILT_POSITION: 100,
     CONF_VENTILATE_TILT_POSITION: 100,
@@ -1372,8 +1379,13 @@ class RoomFlowMixin:
                 CONF_ENABLE_RECALIBRATE_BUTTON,
                 CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON,
                 CONF_ENABLE_LOGBOOK_COVER,
+                CONF_FORCE_OPEN_ENTITY,
+                CONF_FORCE_CLOSE_ENTITY,
+                CONF_FORCE_VENTILATE_ENTITY,
+                CONF_FORCE_SHADING_ENTITY,
+                CONF_FORCE_PAUSE_ENTITY,
             ):
-                settings[key] = bool(user_input.get(key, False))
+                settings[key] = user_input.get(key) or None
             data[CONF_ROOM_SETTINGS] = settings
             return await self._save_room(data)
         merged = {**DEFAULT_BUTTON_SETTINGS, **settings}
@@ -1395,6 +1407,20 @@ class RoomFlowMixin:
                         CONF_ENABLE_LOGBOOK_COVER,
                         default=bool(settings.get(CONF_ENABLE_LOGBOOK_COVER, False)),
                     ): bool,
+                    **{
+                        vol.Optional(key, default=_selector_default(settings.get(key))): selector.EntitySelector(
+                            selector.EntitySelectorConfig(
+                                domain=["input_boolean", "switch", "binary_sensor"]
+                            )
+                        )
+                        for key in (
+                            CONF_FORCE_OPEN_ENTITY,
+                            CONF_FORCE_CLOSE_ENTITY,
+                            CONF_FORCE_VENTILATE_ENTITY,
+                            CONF_FORCE_SHADING_ENTITY,
+                            CONF_FORCE_PAUSE_ENTITY,
+                        )
+                    },
                 }
             ),
             description_placeholders=self._room_context_placeholders(),
@@ -1605,6 +1631,10 @@ class RoomFlowMixin:
         if user_input is not None:
             settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
             settings.update(_normalize_position_fields(dict(user_input)))
+            if CONF_TILT_POSITION_TOLERANCE in user_input:
+                settings[CONF_TILT_POSITION_TOLERANCE] = float(
+                    user_input[CONF_TILT_POSITION_TOLERANCE]
+                )
             settings[CONF_COVERS] = list(user_input[CONF_COVERS])
             if settings.get(CONF_POSITION_SOURCE) != CONF_POSITION_SOURCE_CUSTOM_SENSOR:
                 settings.pop(CONF_CUSTOM_POSITION_SENSOR, None)
@@ -1697,6 +1727,10 @@ class RoomFlowMixin:
                         CONF_POSITION_TOLERANCE,
                         default=_position_default(dict(settings), CONF_POSITION_TOLERANCE),
                     ): _position_number_selector(CONF_POSITION_TOLERANCE),
+                    vol.Optional(
+                        CONF_TILT_POSITION_TOLERANCE,
+                        default=_position_default(dict(settings), CONF_TILT_POSITION_TOLERANCE),
+                    ): _position_number_selector(CONF_TILT_POSITION_TOLERANCE),
                 }
             ),
             description_placeholders=self._room_context_placeholders(),
