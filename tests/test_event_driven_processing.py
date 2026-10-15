@@ -519,6 +519,30 @@ def test_entry_snapshot_reads_each_controller_once() -> None:
     assert initial["control_state"] == "shading"
 
 
+def test_entry_snapshot_exposes_control_diagnostics() -> None:
+    """Active control state keeps configured, active, and blocking details separate."""
+
+    controller = Mock()
+    controller.config = {}
+    controller.state_snapshot.return_value = (
+        None, "manual_override", None, True, None, None, 50, False, False, False
+    )
+    manager = object.__new__(ControllerManager)
+    manager.controllers = {"cover.living": controller}
+    manager.hass = SimpleNamespace(states=SimpleNamespace(get=Mock(return_value=None)))
+    manager._resolved_config = SimpleNamespace(
+        configured_functions=frozenset({"time", "sun", "brightness"})
+    )
+
+    manager._rebuild_entry_snapshot()
+
+    snapshot = manager.entry_snapshot()
+    assert snapshot["active_controls"] == ["manual_override"]
+    assert snapshot["configured_controls"] == ["brightness", "sun", "time"]
+    assert snapshot["blocked_by"] == ["manual_override"]
+    assert snapshot["reason"] == "manual_override"
+
+
 def test_schedule_snapshot_refresh_dispatches_without_pending_cover_state() -> None:
     """Room next-event sensors update even when no cover state was queued."""
 
