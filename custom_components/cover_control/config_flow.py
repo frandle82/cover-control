@@ -1128,8 +1128,8 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         ]
 
 
-class RoomSubentryFlow(ConfigSubentryFlow):
-    """Create or edit room-local hardware data on a native subentry."""
+class RoomFlowMixin:
+    """Provide room-local steps for standalone room ConfigEntries."""
 
     def _room_entry(self) -> config_entries.ConfigEntry:
         """Return the room ConfigEntry or legacy parent entry for subentries."""
@@ -1956,17 +1956,17 @@ for _room_flow_name in (
     "async_step_profile_references",
     "async_step_profile_functions",
 ):
-    setattr(CoverControlFlow, _room_flow_name, getattr(RoomSubentryFlow, _room_flow_name))
+    setattr(CoverControlFlow, _room_flow_name, getattr(RoomFlowMixin, _room_flow_name))
 
-CoverControlFlow._contact_key = staticmethod(RoomSubentryFlow._contact_key)
-CoverControlFlow.async_step_room_reconfigure = RoomSubentryFlow.async_step_room_reconfigure
+CoverControlFlow._contact_key = staticmethod(RoomFlowMixin._contact_key)
+CoverControlFlow.async_step_room_reconfigure = RoomFlowMixin.async_step_room_reconfigure
 
 
 async def _cover_control_diagnostics(self, user_input=None) -> FlowResult:
     """Route diagnostics to controller or room content by entry type."""
 
     if self._entry().data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM:
-        return await RoomSubentryFlow.async_step_diagnostics(self, user_input)
+        return await RoomFlowMixin.async_step_diagnostics(self, user_input)
     model = self._model()
     usage = []
     for profile_id, profile in model.data[CONF_PROFILES].items():

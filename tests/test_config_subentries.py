@@ -189,7 +189,7 @@ def test_legacy_global_resident_sensor_moves_to_room_settings() -> None:
     )
 
 
-def test_config_flow_exposes_only_native_room_subentry_type() -> None:
+def test_config_flow_exposes_no_new_subentry_types() -> None:
     supported = CoverControlFlow.async_get_supported_subentry_types(None)
 
     assert supported == {}

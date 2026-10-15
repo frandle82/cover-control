@@ -341,7 +341,7 @@ def test_legacy_config_flow_methods_are_not_active() -> None:
 
     from custom_components.cover_control.config_flow import (
         CoverControlFlow,
-        RoomSubentryFlow,
+        RoomFlowMixin,
     )
 
     assert not hasattr(CoverControlFlow, "async_step_global_defaults")
@@ -383,7 +383,7 @@ def test_legacy_config_flow_methods_are_not_active() -> None:
     } <= parent_steps
     room_steps = {
         name.removeprefix("async_step_")
-        for name in RoomSubentryFlow.__dict__
+        for name in RoomFlowMixin.__dict__
         if name.startswith("async_step_")
     }
     assert room_steps == {
@@ -418,7 +418,7 @@ def test_legacy_config_flow_methods_are_not_active() -> None:
         "_async_function_step",
         "_async_override_step",
     ):
-        assert not hasattr(RoomSubentryFlow, method)
+        assert not hasattr(RoomFlowMixin, method)
 
 
 def _frontend_initial_data(data_schema) -> dict:
