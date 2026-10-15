@@ -810,6 +810,15 @@ async def test_parent_reconfigure_loads_for_existing_entry(hass):
     assert result["menu_options"]
 
 
+async def test_controller_and_room_entries_support_reconfigure(hass):
+    """Both standalone entry types expose the HA Configure action."""
+    entry = _entry(hass)
+    room_entry = _room_entry_for_controller(hass, entry)
+
+    assert entry.supports_reconfigure is True
+    assert room_entry.supports_reconfigure is True
+
+
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
 async def test_parent_reconfigure_menu_exposes_hierarchical_sections(hass):
     entry = _entry(hass)
