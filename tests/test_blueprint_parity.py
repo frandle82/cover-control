@@ -18,6 +18,9 @@ from custom_components.cover_control.const import (
     CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
     CONF_DRIVE_TIME,
+    CONF_DRIVE_DELAY_FIXED,
+    CONF_DRIVE_DELAY_RANDOM,
+    CONF_FORCE_OPEN_ENTITY,
     CONF_ENABLE_LOGBOOK_COVER,
     CONF_LOCKOUT_POSITION,
     CONF_OPEN_POSITION,
@@ -217,12 +220,36 @@ def test_clearing_manual_override_requests_immediate_evaluation() -> None:
     controller.async_request_evaluate = Mock()
 
     controller.clear_manual_override()
-
     assert not controller._manual_active
     assert not controller._manual_scope_all
     assert controller._manual_until is None
     controller.async_request_evaluate.assert_called_once_with("manual_cleared")
 
+
+def test_drive_delay_keeps_fixed_and_random_settings_separate() -> None:
+    controller = _controller(
+        {CONF_DRIVE_TIME: 90, CONF_DRIVE_DELAY_FIXED: 2, CONF_DRIVE_DELAY_RANDOM: 0},
+        {},
+    )
+    assert controller._drive_delay_seconds() == 2
+    assert controller.config[CONF_DRIVE_TIME] == 90
+
+
+def test_force_entity_is_a_state_source_not_manual_override() -> None:
+    force = SimpleNamespace(state="on", attributes={})
+    controller = _controller({CONF_FORCE_OPEN_ENTITY: "input_boolean.force"}, {
+        "input_boolean.force": force,
+    })
+    controller._manual_active = False
+    assert controller._entity_active(CONF_FORCE_OPEN_ENTITY)
+    assert not controller._manual_active
+
+
+def test_drive_delay_random_range_is_non_negative() -> None:
+    controller = _controller(
+        {CONF_DRIVE_DELAY_FIXED: 0, CONF_DRIVE_DELAY_RANDOM: 5}, {}
+    )
+    assert 0 <= controller._drive_delay_seconds() <= 5
 
 @pytest.mark.asyncio
 async def test_additional_condition_uses_current_condition_api() -> None:

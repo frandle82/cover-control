@@ -442,10 +442,27 @@ class ActuatorMixin:
             if self._manual_active or not self._master_enabled():
                 self.async_request_evaluate("movement_gate_changed_during_delay")
                 return
+            force_reasons = {
+                "force_open": "force_open_entity",
+                "force_close": "force_close_entity",
+                "force_ventilate": "force_ventilate_entity",
+                "force_shading": "force_shading_entity",
+            }
+            if any(
+                self._entity_active(key)
+                for key in force_reasons.values()
+                if key != force_reasons.get(reason)
+            ):
+                self.async_request_evaluate("force_changed_during_delay")
+                return
             if "close" in reason and self._contacts_active(
                 self._full_open_sensors(), dt_util.utcnow()
             ):
                 self.async_request_evaluate("window_lockout_during_delay")
+                return
+            current_after_delay = self._current_position()
+            if current_after_delay is not None and abs(current_after_delay - target) <= tolerance:
+                self.async_request_evaluate("target_reached_during_delay")
                 return
         if (
             tilt_position is not None

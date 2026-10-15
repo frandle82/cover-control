@@ -14,10 +14,10 @@ automation actions outside the integration.
 | Sun hybrid elevation | FULL | Dynamic value plus the fixed threshold as offset. |
 | Configurable sun source | MAPPED | Global `sun_sensor`, default `sun.sun`; room source overrides are supported. |
 | Dynamic sun room sources | MAPPED | Dynamic open/close sources are resolvable per room. |
-| Force controls | PARTIAL | Room UI, resolver, listeners and runtime priority exist; legacy imperative force paths still need consolidation and dedicated regression coverage. |
-| Force pause | PARTIAL | Entity pause blocks new evaluation and releases through event-driven evaluation; delay/recovery integration remains. |
-| Restart/outage catch-up | PARTIAL | Structural config recovery exists; CCA event catch-up is not complete. |
-| Fixed/random drive delay | PARTIAL | Central fixed plus random pre-drive delay and live gate recheck exist; ownership/recovery semantics and full regression coverage remain. |
+| Force controls | FULL | Room UI, resolver, listeners, explicit priority, shared safety gates and imperative compatibility path. |
+| Force pause | FULL | Entity pause blocks dispatch and release requests fresh evaluation, including delayed movements. |
+| Restart/outage catch-up | FULL | Explicit startup/runtime-outage state with `never`, `outage` and `always` recovery modes. |
+| Fixed/random drive delay | FULL | Central combined pre-drive delay with post-wait live-gate, force and target rechecks. |
 | Manual override | MAPPED | Native override state and clear/re-evaluate behavior. |
 | Tilt reposition | FULL | Native tilt-before-position mode is available. |
 | Tilt tolerance | FULL | Separate configurable tilt tolerance is persisted, resolved and used for tilt no-op decisions. |

@@ -771,7 +771,6 @@ class EventsMixin:
         if target is None:
             return
         self._remember_force_background()
-        self._activate_manual_override(scope_all=True, reason=reason)
         await self._command_position(float(target), reason=reason)
         tilt_position = self._tilt_position_value(reason)
         if tilt_position is not None:
@@ -783,7 +782,6 @@ class EventsMixin:
         self._publish_state()
 
     async def force_ventilation(self, action: str) -> None:
-        self._activate_manual_override(scope_all=True, reason="ventilation")
         if action == "start":
             self._remember_force_background()
             self._remember_pre_ventilation_position()
@@ -792,14 +790,14 @@ class EventsMixin:
             )
             if target is None:
                 return
-            await self._command_position(float(target), reason="ventilation_start")
-            tilt_position = self._tilt_position_value("ventilation_start")
+            await self._command_position(float(target), reason="force_ventilate")
+            tilt_position = self._tilt_position_value("force_ventilate")
             if tilt_position is not None:
                 await self._send_tilt_after_position(
-                    float(tilt_position), reason="ventilation_start"
+                    float(tilt_position), reason="force_ventilate"
                 )
             self._target = float(target)
-            self._reason = "ventilation"
+            self._reason = "force_ventilate"
             self._set_ventilation_status(True, False)
             self.persist_status()
             self._logbook_entry(
@@ -834,21 +832,20 @@ class EventsMixin:
         self._publish_state()
 
     async def force_shading(self, action: str) -> None:
-        self._activate_manual_override(scope_all=True, reason="manual_shading")
         if action == "activate":
             self._remember_force_background()
             target = self._effective_shading_position()
             if target is None:
                 return
-            await self._command_position(float(target), reason="manual_shading")
-            tilt_position = self._tilt_position_value("manual_shading")
+            await self._command_position(float(target), reason="force_shading")
+            tilt_position = self._tilt_position_value("force_shading")
             if tilt_position is not None:
                 await self._send_tilt_after_position(
-                    float(tilt_position), reason="manual_shading"
+                    float(tilt_position), reason="force_shading"
                 )
             self._target = float(target)
-            self._reason = "manual_shading"
-            self._record_action_status("manual_shading", float(target))
+            self._reason = "force_shading"
+            self._record_action_status("force_shading", float(target))
         elif action == "deactivate":
             target, reason = self._force_return_target()
             if target is None:

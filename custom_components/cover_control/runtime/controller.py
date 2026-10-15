@@ -113,6 +113,9 @@ class CoverController(
         self._last_action_dates: dict[str, datetime.date] = {}
         self._cover_unavailable_logged = False
         self._unavailable_dependencies: set[str] = set()
+        self._startup_complete = False
+        self._runtime_outage_active = False
+        self._outage_dependencies: set[str] = set()
         self._hydrate_persistent_status()
         shading_status = self._status.get("shading")
         if isinstance(shading_status, dict):
