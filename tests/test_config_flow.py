@@ -218,6 +218,8 @@ def test_active_room_steps_have_runtime_translations() -> None:
     ):
         document = json.loads(path.read_text())
         steps = document["config"]["step"]
+        for step_id in active_room_steps:
+            assert "{room_name}" not in steps[step_id]["title"]
         assert "room_diagnostics" in steps
         room_menu = steps["room_reconfigure"]["menu_options"]
         assert "room_diagnostics" in room_menu
@@ -842,6 +844,54 @@ async def test_controller_and_room_entries_support_reconfigure(hass):
         assert payload["supported_subentry_types"] == {}
 
 
+async def test_controller_entry_exposes_options_flow(hass):
+    entry = _entry(hass)
+    assert CoverControlFlow.async_get_options_flow(entry) is not None
+
+
+async def test_room_entry_exposes_options_flow(hass):
+    entry = _entry(hass)
+    room_entry = _room_entry_for_controller(hass, entry)
+    assert CoverControlFlow.async_get_options_flow(room_entry) is not None
+
+
+async def test_controller_options_flow_opens_controller_menu(hass):
+    entry = _entry(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "controller_reconfigure"
+    assert result["menu_options"] == [
+        "global_sources", "profiles", "diagnostics", "recovery"
+    ]
+
+
+async def test_room_options_flow_opens_room_menu(hass):
+    entry = _entry(hass)
+    room_entry = _room_entry_for_controller(hass, entry)
+    result = await hass.config_entries.options.async_init(room_entry.entry_id)
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "room_reconfigure"
+
+
+async def test_room_reconfigure_save_returns_to_room_menu(hass):
+    entry = _entry(hass)
+    room_entry = _room_entry_for_controller(hass, entry)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_RECONFIGURE,
+                 "entry_id": room_entry.entry_id},
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "general"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {CONF_NAME: "Updated room", CONF_ROOM: "area.updated"}
+    )
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "room_reconfigure"
+    assert room_entry.data[CONF_NAME] == "Updated room"
+
+
 async def test_controller_reconfigure_source_opens_controller_menu(hass):
     entry = _entry(hass)
 
@@ -1340,7 +1390,7 @@ async def test_profile_function_detection_recomputes_from_current_content(hass):
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {c.CONF_ROOM_PROFILE_ID: profile_id}
     )
-    assert result["type"] is FlowResultType.ABORT
+    assert result["type"] is FlowResultType.MENU
 
     result = await _open_room_step(hass, entry, "profile_assignment")
     fields = to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
@@ -1358,6 +1408,8 @@ async def test_profile_function_detection_recomputes_from_current_content(hass):
     _update_native_model(hass, entry, model)
     resolved = _resolve_native(entry)
     assert resolved.configured_functions == frozenset({c.FUNCTION_TIME})
+    hass.config_entries.flow.async_abort(result["flow_id"])
+    await hass.config_entries.async_unload(entry.entry_id)
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
@@ -1392,24 +1444,24 @@ async def test_room_positions_and_source_override_are_persisted(hass):
         result["flow_id"],
         {"profile_id": profile_id},
     )
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "reconfigure_successful"
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "room_reconfigure"
 
     result = await _open_room_step(hass, entry, "positions")
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {"positions": {CONF_SHADING_POSITION: 27}},
     )
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "reconfigure_successful"
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "room_reconfigure"
 
     result = await _open_room_step(hass, entry, "source_overrides")
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"],
         {CONF_BRIGHTNESS_SENSOR: "sensor.room_brightness"},
     )
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "reconfigure_successful"
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "room_reconfigure"
 
     resolved = _resolve_native(entry)
     assert resolved[CONF_SHADING_POSITION] == 27
@@ -1454,7 +1506,7 @@ async def test_room_contacts_use_stable_form_keys_and_preserve_cover_mapping(has
         },
     )
 
-    assert result["type"] is FlowResultType.ABORT
+    assert result["type"] is FlowResultType.MENU
     room = _native_model(entry)["rooms"][_room_id(entry)]["settings"]
     assert room[c.CONF_WINDOW_SENSOR_FULL] == {
         "cover.living_left": ["binary_sensor.left_open"],
@@ -1506,7 +1558,7 @@ async def test_room_profile_functions_persist_selected_subset(hass):
         {c.CONF_PROFILE_FUNCTIONS: [c.FUNCTION_RESIDENT, c.FUNCTION_TIME]},
     )
 
-    assert result["type"] is FlowResultType.ABORT
+    assert result["type"] is FlowResultType.MENU
     room = _native_model(entry)["rooms"][room_id]
     assert room[c.CONF_PROFILE_FUNCTIONS] == [
         c.FUNCTION_RESIDENT,
@@ -1546,7 +1598,7 @@ async def test_room_profile_assignment_combines_profile_and_functions(hass):
         },
     )
 
-    assert result["type"] is FlowResultType.ABORT
+    assert result["type"] is FlowResultType.MENU
     room = _native_model(entry)["rooms"][room_id]
     assert room[c.CONF_ROOM_PROFILE_ID] == profile_id
     assert room[c.CONF_PROFILE_FUNCTIONS] == [c.FUNCTION_RESIDENT]
@@ -1584,7 +1636,7 @@ async def test_room_profile_change_intersects_existing_function_selection(hass):
         result["flow_id"], {c.CONF_ROOM_PROFILE_ID: second_profile_id}
     )
 
-    assert result["type"] is FlowResultType.ABORT
+    assert result["type"] is FlowResultType.MENU
     room = _native_model(entry)["rooms"][room_id]
     assert room[c.CONF_ROOM_PROFILE_ID] == second_profile_id
     assert room[c.CONF_PROFILE_FUNCTIONS] == [c.FUNCTION_TIME]
@@ -1600,7 +1652,7 @@ async def test_room_profile_clear_removes_reference_and_function_selection(hass)
         result["flow_id"], {c.CONF_ROOM_PROFILE_ID: ""}
     )
 
-    assert result["type"] is FlowResultType.ABORT
+    assert result["type"] is FlowResultType.MENU
     room = _native_model(entry)["rooms"][room_id]
     assert c.CONF_ROOM_PROFILE_ID not in room
     assert room[c.CONF_PROFILE_FUNCTIONS] == []
@@ -1631,8 +1683,8 @@ async def test_room_position_can_be_removed_without_copying_profile_values(hass)
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], initial
     )
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "reconfigure_successful"
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "room_reconfigure"
 
     room = _native_model(entry)["rooms"][room_id]
     assert CONF_LOCKOUT_POSITION not in room["settings"]
@@ -1657,8 +1709,8 @@ async def test_global_sources_and_defaults_are_complete_native_forms(hass):
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {CONF_BRIGHTNESS_SENSOR: "sensor.global_brightness"}
     )
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "reconfigure_successful"
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "controller_reconfigure"
 
     model = _native_model(entry)
     model["global"]["defaults"] = {c.CONF_MANUAL_OVERRIDE_MINUTES: 45}
@@ -1788,15 +1840,15 @@ async def test_global_and_room_sources_can_be_removed_with_empty_forms(hass):
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {}
     )
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "reconfigure_successful"
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "room_reconfigure"
 
     result = await _open_options_step(hass, entry, "global_sources")
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], {}
     )
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "reconfigure_successful"
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "controller_reconfigure"
 
     model = _native_model(entry)
     assert model["global"]["sources"] == {}
@@ -1827,8 +1879,8 @@ async def test_options_flow_accepts_numeric_full_open_position(hass):
     result = await hass.config_entries.flow.async_configure(
         result["flow_id"], position_data
     )
-    assert result["type"] is FlowResultType.ABORT
-    assert result["reason"] == "reconfigure_successful"
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "room_reconfigure"
     resolved = _resolve_native(entry)
     assert resolved[CONF_LOCKOUT_POSITION] == 85
 

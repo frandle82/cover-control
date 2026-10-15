@@ -571,7 +571,7 @@
         }
       },
       "positions": {
-        "title": "Room \"{room_name}\" - Positions",
+        "title": "Room - Positions",
         "description": "Configure this room's physical target positions and tilt positions.",
         "sections": {
           "positions": {
@@ -621,7 +621,7 @@
         }
       },
       "general": {
-        "title": "Room \"{room_name}\" - General",
+        "title": "Room - General",
         "description": "Name the room and assign its Home Assistant area.",
         "data": {
           "name": "Name",
@@ -633,7 +633,7 @@
         }
       },
       "geometry": {
-        "title": "Room \"{room_name}\" - Geometry",
+        "title": "Room - Geometry",
         "description": "Describe the physical orientation of this room's windows. These values are evaluated together with sun position and the assigned shading profile.",
         "data": {
           "shading_azimuth_start": "Azimuth from",
@@ -645,7 +645,7 @@
         }
       },
       "controls": {
-        "title": "Room \"{room_name}\" - Controls",
+        "title": "Room - Controls",
         "description": "Choose which optional controls and room functions Cover Control provides for this room.",
         "data": {
           "enable_recalibrate_button": "Enable recalibration button",
@@ -654,7 +654,7 @@
         }
       },
       "source_overrides": {
-        "title": "Room \"{room_name}\" - Local data sources",
+        "title": "Room - Local data sources",
         "description": "Only choose a different source here when this room intentionally differs from the global source.",
         "data": {
           "brightness_sensor": "Brightness source",
@@ -674,7 +674,7 @@
         }
       },
       "profile_assignment": {
-        "title": "Room \"{room_name}\" - Profile & automation",
+        "title": "Room - Profile & automation",
         "description": "Choose the profile for this room and which configured functions of that profile are used here. Select a profile first; then choose the functions this room should use.\n\nSelect a profile first. Then you can choose which functions of that profile are used in this room.",
         "data": {
           "profile_id": "Profile",
@@ -686,11 +686,11 @@
         }
       },
       "room_diagnostics": {
-        "title": "Room \"{room_name}\" - Diagnostics",
+        "title": "Room - Diagnostics",
         "description": "Home Assistant area: {area}\nCovers: {cover_count}\nProfile: {profile_name}\nUsed profile functions: {profile_function_count}\nResident sensor: {resident_sensor}\nRoom temperature sensor: {temperature_sensor}\nNext open: {next_open}\nNext close: {next_close}"
       },
       "room_sensors": {
-        "title": "Room \"{room_name}\" - Room sensors",
+        "title": "Room - Room sensors",
         "description": "Choose room-local sensors for temperature limits and resident behavior in the selected profile.",
         "data": {
           "temperature_sensor_indoor": "Room temperature sensor",
@@ -702,7 +702,7 @@
         }
       },
       "hardware": {
-        "title": "Room \"{room_name}\" - Cover & hardware",
+        "title": "Room - Cover & hardware",
         "description": "Assign controlled covers to this room and configure hardware-related properties such as cover type, position source, and drive time.",
         "data": {
           "covers": "Covers",
@@ -726,7 +726,7 @@
         }
       },
       "room_reconfigure": {
-        "title": "Room \"{room_name}\"",
+        "title": "Room",
         "description": "Home Assistant area: {area}\nCovers: {cover_count}\nProfile: {profile_name}\nUsed profile functions: {profile_function_count}",
         "menu_options": {
           "general": "General",
@@ -754,7 +754,7 @@
         }
       },
       "contacts": {
-        "title": "Room \"{room_name}\" - Window contacts",
+        "title": "Room - Window contacts",
         "description": "Assign each cover its related window contacts. Cover Control uses this mapping for ventilation, lockout protection, and contact-dependent behavior.",
         "data": {
           "cover_0_full": "Cover 1: fully open",

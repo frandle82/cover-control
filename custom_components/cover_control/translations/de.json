@@ -571,7 +571,7 @@
         }
       },
       "positions": {
-        "title": "Raum \"{room_name}\" - Positionen",
+        "title": "Raum – Positionen",
         "description": "Physische Zielpositionen und Lamellenpositionen dieses Raums konfigurieren.",
         "sections": {
           "positions": {
@@ -621,7 +621,7 @@
         }
       },
       "general": {
-        "title": "Raum \"{room_name}\" - Allgemein",
+        "title": "Raum – Allgemein",
         "description": "Benenne den Raum und ordne ihn einem Home-Assistant-Bereich zu.",
         "data": {
           "name": "Name",
@@ -633,7 +633,7 @@
         }
       },
       "geometry": {
-        "title": "Raum \"{room_name}\" - Geometrie",
+        "title": "Raum – Geometrie",
         "description": "Beschreibe die physische Ausrichtung der Fenster dieses Raums. Diese Werte werden zusammen mit Sonnenstand und Profil ausgewertet.",
         "data": {
           "shading_azimuth_start": "Azimut von",
@@ -645,7 +645,7 @@
         }
       },
       "controls": {
-        "title": "Raum \"{room_name}\" - Bedienelemente",
+        "title": "Raum – Bedienelemente",
         "description": "Lege fest, welche optionalen Bedienelemente und Raumfunktionen Cover Control für diesen Raum bereitstellt.",
         "data": {
           "enable_recalibrate_button": "Rekalibrierungs-Schaltfläche aktivieren",
@@ -654,7 +654,7 @@
         }
       },
       "source_overrides": {
-        "title": "Raum \"{room_name}\" - Lokale Datenquellen",
+        "title": "Raum – Lokale Datenquellen",
         "description": "Wähle hier nur eine andere Datenquelle, wenn dieser Raum bewusst von der globalen Quelle abweichen soll.",
         "data": {
           "brightness_sensor": "Helligkeitsquelle",
@@ -674,7 +674,7 @@
         }
       },
       "profile_assignment": {
-        "title": "Raum \"{room_name}\" - Profil & Automatik",
+        "title": "Raum – Profil & Automatik",
         "description": "Wähle das Profil für diesen Raum und welche konfigurierten Funktionen dieses Profils hier verwendet werden. Wähle zuerst ein Profil. Danach kannst du festlegen, welche Funktionen dieses Profils in diesem Raum verwendet werden.\n\nWähle zuerst ein Profil. Danach kannst du festlegen, welche Funktionen dieses Profils in diesem Raum verwendet werden.",
         "data": {
           "profile_id": "Profil",
@@ -686,11 +686,11 @@
         }
       },
       "room_diagnostics": {
-        "title": "Raum \"{room_name}\" - Diagnose",
+        "title": "Raum – Diagnose",
         "description": "Home-Assistant-Bereich: {area}\nCover: {cover_count}\nProfil: {profile_name}\nVerwendete Profilfunktionen: {profile_function_count}\nBewohnersensor: {resident_sensor}\nRaumtemperatursensor: {temperature_sensor}\nNächste Öffnung: {next_open}\nNächste Schließung: {next_close}"
       },
       "room_sensors": {
-        "title": "Raum \"{room_name}\" - Raumsensoren",
+        "title": "Raum – Raumsensoren",
         "description": "Raumsensoren für Temperaturgrenzen und Bewohnerverhalten im gewählten Profil auswählen.",
         "data": {
           "temperature_sensor_indoor": "Raumtemperatursensor",
@@ -702,7 +702,7 @@
         }
       },
       "hardware": {
-        "title": "Raum \"{room_name}\" - Cover & Hardware",
+        "title": "Raum – Cover & Hardware",
         "description": "Ordne diesem Raum die gesteuerten Cover zu und lege hardwarebezogene Eigenschaften wie Cover-Typ, Positionsermittlung und Fahrzeit fest.",
         "data": {
           "covers": "Cover",
@@ -726,7 +726,7 @@
         }
       },
       "room_reconfigure": {
-        "title": "Raum \"{room_name}\"",
+        "title": "Raum",
         "description": "Home-Assistant-Bereich: {area}\nCover: {cover_count}\nProfil: {profile_name}\nVerwendete Profilfunktionen: {profile_function_count}",
         "menu_options": {
           "general": "Allgemein",
@@ -754,7 +754,7 @@
         }
       },
       "contacts": {
-        "title": "Raum \"{room_name}\" - Fensterkontakte",
+        "title": "Raum – Fensterkontakte",
         "description": "Ordne jedem Cover die zugehörigen Fensterkontakte zu. Cover Control verwendet diese Zuordnung für Lüftung, Aussperrschutz und weitere kontaktabhängige Funktionen.",
         "data": {
           "cover_0_full": "Cover 1: vollständig geöffnet",

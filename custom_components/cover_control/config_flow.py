@@ -511,10 +511,43 @@ def _normalize_position_fields(data: dict[str, Any]) -> dict[str, Any]:
     return normalized
 
 
+class CoverOptionsFlow(config_entries.OptionsFlow):
+    """Expose the same navigation entry point as reconfigure flows."""
+
+    def __init__(self, config_entry: config_entries.ConfigEntry) -> None:
+        self._cover_entry = config_entry
+        self._delegate: CoverControlFlow | None = None
+
+    def _config_flow_delegate(self) -> CoverControlFlow:
+        if self._delegate is None:
+            delegate = CoverControlFlow()
+            delegate.hass = self.hass
+            delegate.flow_id = self.flow_id
+            delegate.context = {
+                "source": config_entries.SOURCE_RECONFIGURE,
+                "entry_id": self._cover_entry.entry_id,
+            }
+            self._delegate = delegate
+        return self._delegate
+
+    def __getattr__(self, name: str):
+        if name.startswith("async_step_"):
+            return getattr(self._config_flow_delegate(), name)
+        raise AttributeError(name)
+
+    async def async_step_init(self, user_input=None) -> FlowResult:
+        return await self._config_flow_delegate().async_step_reconfigure(user_input)
+
+
 class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the config flow."""
 
-    VERSION = 9
+    VERSION = 10
+
+    @staticmethod
+    @callback
+    def async_get_options_flow(config_entry: config_entries.ConfigEntry):
+        return CoverOptionsFlow(config_entry)
 
     def __init__(self) -> None:
         self._data: dict = {}
@@ -765,12 +798,13 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             global_data[CONF_GLOBAL_SOURCES] = sources
             new_data = deepcopy(dict(entry.data))
             new_data[CONF_GLOBAL] = global_data
-            return self.async_update_reload_and_abort(
+            self.hass.config_entries.async_update_entry(
                 entry,
                 data=new_data,
                 options={},
-                reload_even_if_entry_is_unchanged=False,
             )
+            await self.hass.config_entries.async_reload(entry.entry_id)
+            return await self.async_step_controller_reconfigure()
         schema = {}
         for key in sorted(GLOBAL_SOURCE_KEYS):
             current = sources.get(key)
@@ -814,12 +848,13 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         unique_id=subentry_id,
                     ),
                 )
-            return self.async_update_reload_and_abort(
+            self.hass.config_entries.async_update_entry(
                 entry,
                 data=parent_data,
                 options={},
-                reload_even_if_entry_is_unchanged=False,
             )
+            await self.hass.config_entries.async_reload(entry.entry_id)
+            return await self.async_step_controller_reconfigure()
         return self.async_show_form(
             step_id="recovery",
             data_schema=vol.Schema(
@@ -1166,7 +1201,7 @@ class RoomFlowMixin:
             return {}
         return dict(controller_entry.data.get(CONF_PROFILES, {}))
 
-    def _save_room(
+    async def _save_room(
         self, data: dict[str, Any], *, title: str | None = None
     ) -> FlowResult:
         """Persist room data through the owning Home Assistant API."""
@@ -1176,12 +1211,13 @@ class RoomFlowMixin:
         saved[CONF_ENTRY_TYPE] = ENTRY_TYPE_ROOM
         saved[CONF_CONTROLLER_ENTRY_ID] = entry.data[CONF_CONTROLLER_ENTRY_ID]
         saved[CONF_ROOM_ID] = entry.data.get(CONF_ROOM_ID, entry.entry_id)
-        return self.async_update_reload_and_abort(
+        self.hass.config_entries.async_update_entry(
             entry,
             data=saved,
             title=title or str(saved.get(CONF_NAME, entry.title)),
-            reload_even_if_entry_is_unchanged=False,
         )
+        await self.hass.config_entries.async_reload(entry.entry_id)
+        return await self.async_step_room_reconfigure()
 
     def _room_context_placeholders(self) -> dict[str, str]:
         data = self._room_data()
@@ -1273,7 +1309,7 @@ class RoomFlowMixin:
             ):
                 settings[key] = bool(user_input.get(key, False))
             data[CONF_ROOM_SETTINGS] = settings
-            return self._save_room(data)
+            return await self._save_room(data)
         merged = {**DEFAULT_BUTTON_SETTINGS, **settings}
         return self.async_show_form(
             step_id="controls",
@@ -1306,7 +1342,7 @@ class RoomFlowMixin:
             data[CONF_NAME] = title
             settings[CONF_ROOM] = user_input[CONF_ROOM]
             data[CONF_ROOM_SETTINGS] = settings
-            return self._save_room(data, title=title)
+            return await self._save_room(data, title=title)
         return self.async_show_form(
             step_id="general",
             data_schema=vol.Schema(
@@ -1334,7 +1370,7 @@ class RoomFlowMixin:
             settings[CONF_WINDOW_SENSOR_FULL] = full_map
             settings[CONF_WINDOW_SENSOR_TILT] = tilt_map
             data[CONF_ROOM_SETTINGS] = settings
-            return self._save_room(data)
+            return await self._save_room(data)
         multi_selector = selector.EntitySelector(
             selector.EntitySelectorConfig(domain=["binary_sensor"], multiple=True)
         )
@@ -1375,7 +1411,7 @@ class RoomFlowMixin:
                 else:
                     settings[key] = value
             data[CONF_ROOM_SETTINGS] = settings
-            return self._save_room(data)
+            return await self._save_room(data)
         return self.async_show_form(
             step_id="room_sensors",
             data_schema=vol.Schema(
@@ -1405,7 +1441,7 @@ class RoomFlowMixin:
             for key in keys:
                 settings[key] = user_input[key]
             data[CONF_ROOM_SETTINGS] = settings
-            return self._save_room(data)
+            return await self._save_room(data)
         return self.async_show_form(
             step_id="geometry",
             data_schema=vol.Schema(
@@ -1507,7 +1543,7 @@ class RoomFlowMixin:
             if settings.get(CONF_POSITION_SOURCE) != CONF_POSITION_SOURCE_CUSTOM_SENSOR:
                 settings.pop(CONF_CUSTOM_POSITION_SENSOR, None)
             data[CONF_ROOM_SETTINGS] = settings
-            return self._save_room(data)
+            return await self._save_room(data)
         return self.async_show_form(
             step_id="hardware",
             data_schema=vol.Schema(
@@ -1637,7 +1673,7 @@ class RoomFlowMixin:
                 elif key in submitted or key in optional_keys:
                     settings.pop(key, None)
             data[CONF_ROOM_SETTINGS] = settings
-            return self._save_room(data)
+            return await self._save_room(data)
 
         return self.async_show_form(
             step_id="positions",
@@ -1734,7 +1770,7 @@ class RoomFlowMixin:
                 for key, value in user_input.items()
                 if value not in (None, "")
             }
-            return self._save_room(data)
+            return await self._save_room(data)
         schema = {}
         for key in sorted(ROOM_SOURCE_OVERRIDE_KEYS):
             current = overrides.get(key)
@@ -1781,7 +1817,7 @@ class RoomFlowMixin:
         profiles = self._controller_profiles()
         if user_input is not None:
             self._store_profile_assignment(data, profiles, user_input)
-            return self._save_room(data)
+            return await self._save_room(data)
 
         profile_options = [{"value": "", "label": "—"}]
         profile_options.extend(
@@ -1836,7 +1872,7 @@ class RoomFlowMixin:
         profiles = self._controller_profiles()
         if user_input is not None:
             self._store_profile_assignment(data, profiles, user_input)
-            return self._save_room(data)
+            return await self._save_room(data)
         options = [
             {
                 "value": profile_id,
@@ -1881,7 +1917,7 @@ class RoomFlowMixin:
             data[CONF_PROFILE_FUNCTIONS] = sorted(
                 function for function in submitted if function in available
             )
-            return self._save_room(data)
+            return await self._save_room(data)
         options = [
             function for function in PROFILE_FUNCTIONS if function in available
         ]
