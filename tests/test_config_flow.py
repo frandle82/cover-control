@@ -184,7 +184,7 @@ def test_active_room_steps_have_runtime_translations() -> None:
         "profile_assignment",
         "source_overrides",
         "controls",
-        "diagnostics",
+        "room_diagnostics",
     }
     legacy_room_steps = {
         "time",
@@ -211,6 +211,15 @@ def test_active_room_steps_have_runtime_translations() -> None:
     ):
         document = json.loads(path.read_text())
         steps = document["config"]["step"]
+        assert "room_diagnostics" in steps
+        room_menu = steps["room_reconfigure"]["menu_options"]
+        assert "room_diagnostics" in room_menu
+        assert "diagnostics" not in room_menu
+        room_menu_descriptions = steps["room_reconfigure"][
+            "menu_option_descriptions"
+        ]
+        assert "room_diagnostics" in room_menu_descriptions
+        assert "diagnostics" not in room_menu_descriptions
         assert active_room_steps <= set(steps)
         assert legacy_room_steps.isdisjoint(steps)
         for step in active_room_steps:
