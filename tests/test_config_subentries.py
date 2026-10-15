@@ -651,7 +651,7 @@ async def test_room_entries_own_room_managers_and_entities(hass) -> None:
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_legacy_entry_migrates_to_parent_and_native_subentries(hass) -> None:
+async def test_legacy_entry_migrates_to_parent_and_v8_room_entries(hass) -> None:
     hass.states.async_set("cover.legacy", "open", {"current_position": 100})
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -664,7 +664,7 @@ async def test_legacy_entry_migrates_to_parent_and_native_subentries(hass) -> No
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert entry.version == 7
+    assert entry.version == 8
     assert entry.title == "Cover Control"
     assert entry.unique_id == DOMAIN
     assert "config_model" not in entry.data
@@ -677,7 +677,7 @@ async def test_legacy_entry_migrates_to_parent_and_native_subentries(hass) -> No
     assert await hass.config_entries.async_unload(entry.entry_id)
 
 
-async def test_v4_profile_subentries_migrate_to_parent_profiles(hass) -> None:
+async def test_v4_profile_subentries_migrate_to_v8_parent_profiles(hass) -> None:
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="Cover Control",
@@ -719,7 +719,7 @@ async def test_v4_profile_subentries_migrate_to_parent_profiles(hass) -> None:
     assert await hass.config_entries.async_setup(entry.entry_id)
     await hass.async_block_till_done()
 
-    assert entry.version == 7
+    assert entry.version == 8
     assert entry.data[CONF_ENTRY_TYPE] == ENTRY_TYPE_CONTROLLER
     room = _room_entry(hass, entry).data
     profile = entry.data[CONF_PROFILES][room[CONF_ROOM_PROFILE_ID]]
@@ -735,7 +735,7 @@ async def test_v4_profile_subentries_migrate_to_parent_profiles(hass) -> None:
     assert room["profile_id"] in entry.data[CONF_PROFILES]
 
 
-async def test_v5_parent_migrates_to_v7_room_entries_in_one_run(hass) -> None:
+async def test_v5_parent_migrates_to_v8_room_entries_in_one_run(hass) -> None:
     entry = MockConfigEntry(
         domain=DOMAIN,
         title="Cover Control",
@@ -765,7 +765,7 @@ async def test_v5_parent_migrates_to_v7_room_entries_in_one_run(hass) -> None:
 
     assert await async_migrate_entry(hass, entry)
 
-    assert entry.version == 7
+    assert entry.version == 8
     assert entry.data[CONF_ENTRY_TYPE] == ENTRY_TYPE_CONTROLLER
     assert not entry.subentries
     room = _room_entry(hass, entry).data
@@ -773,7 +773,7 @@ async def test_v5_parent_migrates_to_v7_room_entries_in_one_run(hass) -> None:
     assert room[CONF_CONTROLLER_ENTRY_ID] == entry.entry_id
 
 
-async def test_v6_parent_migrates_to_v7_room_entries_in_one_run(hass) -> None:
+async def test_v6_parent_migrates_to_v8_room_entries_in_one_run(hass) -> None:
     profile_id = "profile-main"
     entry = MockConfigEntry(
         domain=DOMAIN,
@@ -811,7 +811,7 @@ async def test_v6_parent_migrates_to_v7_room_entries_in_one_run(hass) -> None:
 
     assert await async_migrate_entry(hass, entry)
 
-    assert entry.version == 7
+    assert entry.version == 8
     assert entry.data[CONF_ENTRY_TYPE] == ENTRY_TYPE_CONTROLLER
     assert not entry.subentries
     room_entry = _room_entry(hass, entry)

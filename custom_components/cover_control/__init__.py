@@ -428,10 +428,10 @@ async def _async_migrate_v7_to_v8(
 async def _async_migrate_subentries_to_room_entries(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> bool:
-    """Move v6 room subentries to standalone v7 room ConfigEntries."""
+    """Move legacy room subentries to standalone v8 Room ConfigEntries."""
 
     if not _is_controller_entry(entry):
-        hass.config_entries.async_update_entry(entry, version=7)
+        hass.config_entries.async_update_entry(entry, version=8)
         return True
 
     parent_data = deepcopy(dict(entry.data))
@@ -467,7 +467,7 @@ async def _async_migrate_subentries_to_room_entries(
         options={},
         title=entry.title or DEFAULT_NAME,
         unique_id=entry.unique_id or DOMAIN,
-        version=7,
+        version=8,
     )
     return True
 
