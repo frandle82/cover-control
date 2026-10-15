@@ -379,7 +379,14 @@ async def test_v7_migration_removes_stale_profile_and_room_subentries(hass) -> N
     assert await async_migrate_entry(hass, entry)
     assert entry.version == 9
     assert not entry.subentries
+    assert "time" not in entry.data[CONF_PROFILES]
+    assert "shading" not in entry.data[CONF_PROFILES]
+    assert "behavior" not in entry.data[CONF_PROFILES]
     assert entry.data[CONF_PROFILES]["profile-time"][CONF_PROFILE_NAME] == "Time"
+    assert (
+        entry.data[CONF_PROFILES]["profile-time"][CONF_PROFILE_ID]
+        == "profile-time"
+    )
     assert len(
         [
             candidate
@@ -926,10 +933,83 @@ async def test_v8_profile_subentries_migrate_to_v9_without_visible_subentries(
 
     assert controller.version == 9
     assert not controller.subentries
-    profile = controller.data[CONF_PROFILES]["time"]["profile-time"]
+    profiles = controller.data[CONF_PROFILES]
+    assert "time" not in profiles
+    assert "shading" not in profiles
+    assert "behavior" not in profiles
+    assert len(profiles) == 1
+    profile = next(iter(profiles.values()))
+    assert profile[CONF_PROFILE_ID] == "profile-time"
     assert profile[CONF_PROFILE_NAME] == "Weekday"
     assert profile[CONF_PROFILE_SETTINGS] == {CONF_AUTO_TIME: True}
     assert len(hass.config_entries.async_entries(DOMAIN)) == 1
+
+
+async def test_v8_profile_subentries_end_in_unified_profile_catalog(hass) -> None:
+    controller = MockConfigEntry(
+        domain=DOMAIN,
+        title="Cover Control",
+        version=8,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
+            CONF_GLOBAL: {"sources": {}, "defaults": {}},
+            CONF_PROFILES: {},
+        },
+        subentries_data=[
+            {
+                "subentry_id": "profile-time",
+                "subentry_type": "time_profile",
+                "title": "Weekday",
+                "unique_id": "profile-time",
+                "data": {
+                    CONF_PROFILE_SETTINGS: {CONF_AUTO_TIME: True},
+                },
+            },
+            {
+                "subentry_id": "profile-shading",
+                "subentry_type": "shading_profile",
+                "title": "South",
+                "unique_id": "profile-shading",
+                "data": {
+                    CONF_PROFILE_SETTINGS: {CONF_SHADING_POSITION: 25},
+                },
+            },
+            {
+                "subentry_id": "room-living",
+                "subentry_type": "room",
+                "title": "Living",
+                "unique_id": "room-living",
+                "data": {
+                    CONF_NAME: "Living",
+                    CONF_ROOM_SETTINGS: {CONF_COVERS: ["cover.living"]},
+                    CONF_PROFILE_SELECTIONS: {
+                        "time": "profile-time",
+                        "shading": "profile-shading",
+                    },
+                },
+            },
+        ],
+    )
+    controller.add_to_hass(hass)
+
+    assert await async_migrate_entry(hass, controller)
+
+    profiles = controller.data[CONF_PROFILES]
+    assert len(profiles) == 1
+    assert next(iter(profiles.values()))[CONF_PROFILE_NAME] == "Weekday / South"
+    assert all(
+        profile[CONF_PROFILE_ID] == profile_id
+        for profile_id, profile in profiles.items()
+    )
+    profile = next(iter(profiles.values()))
+    assert profile[CONF_PROFILE_SETTINGS] == {CONF_AUTO_TIME: True}
+    assert not controller.subentries
+    room = _room_entry(hass, controller).data
+    assert room[CONF_ROOM_PROFILE_ID] in profiles
+    assert room[CONF_ROOM_SETTINGS][CONF_SHADING_POSITION] == 25
+    room_entry = _room_entry(hass, controller)
+    assert await hass.config_entries.async_unload(room_entry.entry_id)
+    assert await hass.config_entries.async_unload(controller.entry_id)
 
 
 async def test_v8_room_entry_migrates_to_v9_without_data_changes(hass) -> None:

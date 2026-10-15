@@ -423,6 +423,8 @@ async def _async_migrate_v7_to_v8(
 
     if not await _async_migrate_parent_profiles_to_data(hass, entry):
         return False
+    if not await _async_migrate_parent_to_unified_profiles(hass, entry):
+        return False
     if not await _async_migrate_subentries_to_room_entries(hass, entry):
         return False
 
@@ -442,6 +444,8 @@ async def _async_migrate_v8_to_v9(
         return True
 
     if not await _async_migrate_parent_profiles_to_data(hass, entry):
+        return False
+    if not await _async_migrate_parent_to_unified_profiles(hass, entry):
         return False
     if not await _async_migrate_subentries_to_room_entries(hass, entry):
         return False
