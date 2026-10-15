@@ -30,6 +30,7 @@ from custom_components.cover_control.const import (
     CONF_OPEN_POSITION,
     CONF_NAME,
     CONF_PROFILE_FUNCTIONS,
+    CONF_PROFILE_CAPABILITIES,
     CONF_PROFILE_ID,
     CONF_PROFILE_NAME,
     CONF_PROFILE_SELECTIONS,
@@ -985,6 +986,110 @@ async def test_v11_cleanup_preserves_controller_and_room_entries(hass) -> None:
     assert room.entry_id == room_id
     assert dict(room.data) == room_data
     assert controller.data[CONF_PROFILES]["profile-time"][CONF_PROFILE_NAME] == "Time"
+
+
+def _legacy_profile_entry(hass, controller_id, profile_id, settings):
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        version=10,
+        title="arbitrary title",
+        data={
+            "profile_type": "time",
+            "hub_entry_id": controller_id,
+            CONF_PROFILE_ID: profile_id,
+            CONF_PROFILE_NAME: profile_id,
+            CONF_PROFILE_SETTINGS: settings,
+        },
+    )
+    entry.add_to_hass(hass)
+    return entry
+
+
+async def test_legacy_profile_entry_migrates_when_processed_before_controller(hass):
+    controller = MockConfigEntry(
+        domain=DOMAIN, version=11,
+        data={CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER, CONF_PROFILES: {}},
+    )
+    controller.add_to_hass(hass)
+    legacy = _legacy_profile_entry(hass, controller.entry_id, "profile-time", {"x": 1})
+    assert await async_migrate_entry(hass, legacy)
+    assert legacy not in hass.config_entries.async_entries(DOMAIN)
+    assert controller.data[CONF_PROFILES]["profile-time"][CONF_PROFILE_SETTINGS] == {"x": 1}
+
+
+async def test_controller_cleanup_removes_legacy_profiles_before_they_are_migrated(hass):
+    controller = MockConfigEntry(
+        domain=DOMAIN, version=10,
+        data={CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER, CONF_PROFILES: {}},
+    )
+    controller.add_to_hass(hass)
+    first = _legacy_profile_entry(hass, controller.entry_id, "profile-a", {"a": 1})
+    second = _legacy_profile_entry(hass, controller.entry_id, "profile-b", {"b": 2})
+    assert await async_migrate_entry(hass, controller)
+    assert controller.version == 11
+    assert first not in hass.config_entries.async_entries(DOMAIN)
+    assert second not in hass.config_entries.async_entries(DOMAIN)
+    assert set(controller.data[CONF_PROFILES]) == {"profile-a", "profile-b"}
+
+
+async def test_multiple_legacy_profile_entries_can_migrate_before_controller(hass):
+    controller = MockConfigEntry(
+        domain=DOMAIN, version=11,
+        data={CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER, CONF_PROFILES: {}},
+    )
+    controller.add_to_hass(hass)
+    first = _legacy_profile_entry(hass, controller.entry_id, "profile-a", {"a": 1})
+    second = _legacy_profile_entry(hass, controller.entry_id, "profile-b", {"b": 2})
+    assert await async_migrate_entry(hass, first)
+    assert await async_migrate_entry(hass, second)
+    assert set(controller.data[CONF_PROFILES]) == {"profile-a", "profile-b"}
+
+
+async def test_orphan_legacy_profile_entry_is_not_deleted(hass):
+    legacy = _legacy_profile_entry(hass, "missing-controller", "profile-time", {"x": 1})
+    data = dict(legacy.data)
+    assert not await async_migrate_entry(hass, legacy)
+    assert legacy in hass.config_entries.async_entries(DOMAIN)
+    assert dict(legacy.data) == data
+
+
+async def test_legacy_profile_entry_is_removed_when_profile_already_exists_identically(hass):
+    profile = {
+        CONF_PROFILE_ID: "profile-time",
+        CONF_PROFILE_NAME: "profile-time",
+        CONF_PROFILE_SETTINGS: {"x": 1},
+        CONF_PROFILE_CAPABILITIES: [],
+        CONF_PROFILE_FUNCTIONS: [],
+    }
+    controller = MockConfigEntry(
+        domain=DOMAIN, version=11,
+        data={CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER, CONF_PROFILES: {"profile-time": profile}},
+    )
+    controller.add_to_hass(hass)
+    legacy = _legacy_profile_entry(hass, controller.entry_id, "profile-time", {"x": 1})
+    assert await async_migrate_entry(hass, legacy)
+    assert legacy not in hass.config_entries.async_entries(DOMAIN)
+    assert controller.data[CONF_PROFILES]["profile-time"] == profile
+
+
+async def test_conflicting_legacy_profile_entry_is_not_removed(hass):
+    profile = {
+        CONF_PROFILE_ID: "profile-time",
+        CONF_PROFILE_NAME: "profile-time",
+        CONF_PROFILE_SETTINGS: {"x": 1},
+        CONF_PROFILE_CAPABILITIES: [],
+        CONF_PROFILE_FUNCTIONS: [],
+    }
+    controller = MockConfigEntry(
+        domain=DOMAIN, version=11,
+        data={CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER, CONF_PROFILES: {"profile-time": profile}},
+    )
+    controller.add_to_hass(hass)
+    legacy = _legacy_profile_entry(hass, controller.entry_id, "profile-time", {"x": 2})
+    before = deepcopy(dict(controller.data))
+    assert not await async_migrate_entry(hass, legacy)
+    assert legacy in hass.config_entries.async_entries(DOMAIN)
+    assert dict(controller.data) == before
 
 
 async def test_v9_controller_cleanup_removes_remaining_profile_and_room_subentries(

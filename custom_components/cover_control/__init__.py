@@ -4,7 +4,7 @@ from __future__ import annotations
 
 from copy import deepcopy
 from types import MappingProxyType
-from typing import TYPE_CHECKING
+from typing import Any, TYPE_CHECKING
 
 from homeassistant.config_entries import (
     ConfigEntryError,
@@ -498,6 +498,75 @@ def _legacy_profile_entry(entry: ConfigEntry) -> bool:
     )
 
 
+def _legacy_profile_to_unified_entry(
+    candidate: ConfigEntry,
+) -> tuple[str, dict[str, Any]]:
+    """Convert one historical profile entry to the unified profile shape."""
+
+    profile_id = str(
+        candidate.data.get(CONF_PROFILE_ID)
+        or candidate.data.get(CONF_PROFILE_NAME)
+    )
+    return profile_id, {
+        CONF_PROFILE_ID: profile_id,
+        CONF_PROFILE_NAME: str(candidate.data.get(CONF_PROFILE_NAME) or profile_id),
+        CONF_PROFILE_SETTINGS: deepcopy(candidate.data[CONF_PROFILE_SETTINGS]),
+        CONF_PROFILE_CAPABILITIES: deepcopy(
+            candidate.data.get(CONF_PROFILE_CAPABILITIES, [])
+        ),
+        CONF_PROFILE_FUNCTIONS: deepcopy(
+            candidate.data.get(CONF_PROFILE_FUNCTIONS, [])
+        ),
+    }
+
+
+async def _async_migrate_legacy_profile_entry(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> bool:
+    """Persist and remove one legacy profile when its controller is available."""
+
+    parent_id = entry.data.get(CONF_CONTROLLER_ENTRY_ID) or entry.data.get("hub_entry_id")
+    controller = next(
+        (
+            candidate
+            for candidate in hass.config_entries.async_entries(DOMAIN)
+            if candidate.entry_id == parent_id and _is_controller_entry(candidate)
+        ),
+        None,
+    )
+    if controller is None:
+        return False
+    profile_id, profile = _legacy_profile_to_unified_entry(entry)
+    controller_data = deepcopy(dict(controller.data))
+    profiles = controller_data.setdefault(CONF_PROFILES, {})
+    existing = profiles.get(profile_id)
+    if existing is not None and existing != profile:
+        return False
+    if existing is None:
+        profiles[profile_id] = profile
+        hass.config_entries.async_update_entry(controller, data=controller_data)
+    await hass.config_entries.async_remove(entry.entry_id)
+    return True
+
+
+async def _async_cleanup_legacy_profile_entries_for_controller(
+    hass: HomeAssistant, controller: ConfigEntry
+) -> bool:
+    """Migrate and remove all legacy profiles assigned to a controller."""
+
+    for candidate in tuple(hass.config_entries.async_entries(DOMAIN)):
+        if not _legacy_profile_entry(candidate):
+            continue
+        parent_id = candidate.data.get(CONF_CONTROLLER_ENTRY_ID) or candidate.data.get(
+            "hub_entry_id"
+        )
+        if parent_id != controller.entry_id:
+            continue
+        if not await _async_migrate_legacy_profile_entry(hass, candidate):
+            return False
+    return True
+
+
 async def _async_migrate_v10_to_v11(
     hass: HomeAssistant, entry: ConfigEntry
 ) -> bool:
@@ -508,42 +577,13 @@ async def _async_migrate_v10_to_v11(
         return True
     if not _is_controller_entry(entry):
         if _legacy_profile_entry(entry):
-            return True
+            return await _async_migrate_legacy_profile_entry(hass, entry)
         hass.config_entries.async_update_entry(entry, version=11)
         return True
 
-    controller_data = deepcopy(dict(entry.data))
-    profiles = controller_data.setdefault(CONF_PROFILES, {})
-    for candidate in tuple(hass.config_entries.async_entries(DOMAIN)):
-        if candidate.entry_id == entry.entry_id or not _legacy_profile_entry(candidate):
-            continue
-        parent_id = candidate.data.get(CONF_CONTROLLER_ENTRY_ID) or candidate.data.get(
-            "hub_entry_id"
-        )
-        if parent_id != entry.entry_id:
-            continue
-        profile_id = str(
-            candidate.data.get(CONF_PROFILE_ID)
-            or candidate.data.get(CONF_PROFILE_NAME)
-        )
-        migrated = {
-            CONF_PROFILE_ID: profile_id,
-            CONF_PROFILE_NAME: str(candidate.data.get(CONF_PROFILE_NAME) or profile_id),
-            CONF_PROFILE_SETTINGS: deepcopy(candidate.data[CONF_PROFILE_SETTINGS]),
-            CONF_PROFILE_CAPABILITIES: deepcopy(
-                candidate.data.get(CONF_PROFILE_CAPABILITIES, [])
-            ),
-            CONF_PROFILE_FUNCTIONS: deepcopy(
-                candidate.data.get(CONF_PROFILE_FUNCTIONS, [])
-            ),
-        }
-        existing = profiles.get(profile_id)
-        if existing is not None and existing != migrated:
-            return False
-        profiles[profile_id] = migrated
-        await hass.config_entries.async_remove(candidate.entry_id)
-
-    hass.config_entries.async_update_entry(entry, data=controller_data, version=11)
+    if not await _async_cleanup_legacy_profile_entries_for_controller(hass, entry):
+        return False
+    hass.config_entries.async_update_entry(entry, version=11)
     return True
 
 
@@ -588,6 +628,8 @@ async def _async_migrate_subentries_to_room_entries(
         if room_id in entry.subentries:
             hass.config_entries.async_remove_subentry(entry, room_id)
 
+    if not await _async_cleanup_legacy_profile_entries_for_controller(hass, entry):
+        return False
     hass.config_entries.async_update_entry(
         entry,
         data=parent_data,
