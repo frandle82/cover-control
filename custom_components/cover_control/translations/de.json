@@ -120,7 +120,9 @@
           "profile_shading": "Beschattung",
           "profile_ventilation": "Lüftung",
           "profile_resident": "Bewohner",
-          "profile_behavior": "Manuelles Verhalten"
+          "profile_behavior": "Manuelles Verhalten",
+          "profile_done": "Fertig und speichern"
+          ,"profile_done": "Fertig und speichern"
         },
         "menu_option_descriptions": {
           "profile_setup": "Name dieses Profils bearbeiten.",
@@ -130,7 +132,9 @@
           "profile_shading": "Bedingungen, Grenzwerte, Wartezeiten, Temperatur-, Helligkeits- und Forecast-Regeln der Beschattung konfigurieren.",
           "profile_ventilation": "Verhalten bei Fensterkontakten, Verzögerungen, Prioritäten und Lüftungsregeln konfigurieren.",
           "profile_resident": "Bewohnerverhalten konfigurieren.",
-          "profile_behavior": "Manuelles Verhalten, Bewegungsschutz und zusätzliche Verhaltensregeln konfigurieren."
+          "profile_behavior": "Manuelles Verhalten, Bewegungsschutz und zusätzliche Verhaltensregeln konfigurieren.",
+          "profile_done": "Profiländerungen speichern und zur Profilübersicht zurückkehren."
+          ,"profile_done": "Profiländerungen speichern und zur Profilübersicht zurückkehren."
         }
       },
       "profile_time": {

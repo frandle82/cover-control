@@ -163,8 +163,9 @@ def test_parent_reconfigure_steps_have_runtime_translations() -> None:
             "profile_shading",
             "profile_ventilation",
             "profile_resident",
-            "profile_behavior",
-        }
+                "profile_behavior",
+                "profile_done",
+            }
         assert "{profile_usage}" in steps["profile_setup"]["description"]
         assert "{profiles}" in steps["diagnostics"]["description"]
         assert "{available}" in steps["recovery"]["description"]
@@ -1365,6 +1366,24 @@ async def test_behavior_profile_can_be_created_with_native_fields(hass):
         c.CONF_MANUAL_OVERRIDE_RESET_MODE: c.MANUAL_OVERRIDE_RESET_TIMEOUT,
         c.CONF_MANUAL_OVERRIDE_BLOCK_SHADING: True,
     }
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_profile_editor_done_returns_to_profiles(hass):
+    entry = _entry(hass)
+    result = await _open_options_step(hass, entry, "profiles")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"profile_action": "create"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"profile_name": "Done profile"}
+    )
+    assert result["step_id"] == "profile_sections"
+    assert result["menu_options"][-1] == "profile_done"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "profile_done"}
+    )
+    assert result["step_id"] == "profiles"
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")

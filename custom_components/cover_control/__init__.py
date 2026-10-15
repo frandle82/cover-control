@@ -867,6 +867,8 @@ async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
             if room_manager is not None:
                 await room_manager.async_unload()
             await runtime.hub.async_unregister_room(room_id)
+            if not runtime.hub.managers:
+                await runtime.hub.async_unload_parent()
             return await hass.config_entries.async_unload_platforms(entry, PLATFORMS)
         for room_manager in list(runtime.hub.managers.values()):
             await room_manager.async_unload()

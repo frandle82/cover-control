@@ -120,7 +120,9 @@
           "profile_shading": "Shading",
           "profile_ventilation": "Ventilation",
           "profile_resident": "Resident behavior",
-          "profile_behavior": "Manual behavior"
+          "profile_behavior": "Manual behavior",
+          "profile_done": "Done and save"
+          ,"profile_done": "Done and save"
         },
         "menu_option_descriptions": {
           "profile_setup": "Rename this profile.",
@@ -130,7 +132,9 @@
           "profile_shading": "Configure shading conditions, thresholds, waits, temperature, brightness, and forecast rules.",
           "profile_ventilation": "Configure behavior for window contacts, delays, priorities, and ventilation rules.",
           "profile_resident": "Configure resident behavior.",
-          "profile_behavior": "Configure manual behavior, movement protection, and additional behavior rules."
+          "profile_behavior": "Configure manual behavior, movement protection, and additional behavior rules.",
+          "profile_done": "Save profile changes and return to the profile catalog."
+          ,"profile_done": "Save profile changes and return to the profile catalog."
         }
       },
       "profile_time": {

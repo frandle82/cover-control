@@ -571,6 +571,9 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
     async def async_step_recovery(self, user_input=None):
         return await self._forward_step("recovery", user_input)
 
+    async def async_step_profile_done(self, user_input=None):
+        return await self._forward_step("profile_done", user_input)
+
     async def async_step_general(self, user_input=None):
         return await self._forward_step("general", user_input)
 
@@ -800,6 +803,16 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data=new_data,
             options={},
         )
+        runtime = getattr(entry, "runtime_data", None)
+        if runtime is not None and getattr(runtime, "hub", None) is not None:
+            runtime.model = deepcopy(model.data)
+            affected_rooms = {
+                room_id
+                for users in model.profile_users.values()
+                for room_id in users
+            }
+            if affected_rooms:
+                runtime.hub.apply_model(runtime.model, affected_rooms)
 
     async def async_step_reconfigure(self, user_input=None) -> FlowResult:
         if self._entry().data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM:
@@ -1082,11 +1095,23 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "profile_ventilation",
                 "profile_resident",
                 "profile_behavior",
+                "profile_done",
             ],
             description_placeholders=self._profile_context_placeholders(
                 model, profile_id
             ),
         )
+
+    async def async_step_profile_done(self, user_input=None) -> FlowResult:
+        """Finish profile editing and return to the profile catalog."""
+
+        model = self._model()
+        profile_id = getattr(self, "_editing_profile_id", None)
+        if not profile_id or profile_id not in model.data[CONF_PROFILES]:
+            return await self.async_step_profiles()
+        self._save_parent_model(model)
+        self._editing_profile_id = None
+        return await self.async_step_profiles()
 
     async def _async_unified_profile_function_step(
         self,
@@ -1891,6 +1916,7 @@ class RoomFlowMixin:
         profiles: dict[str, Any],
         user_input: dict[str, Any],
     ) -> None:
+        previous_profile_id = data.get(CONF_ROOM_PROFILE_ID)
         profile_id = user_input.get(CONF_ROOM_PROFILE_ID)
         if profile_id in (None, ""):
             data.pop(CONF_ROOM_PROFILE_ID, None)
@@ -1907,6 +1933,8 @@ class RoomFlowMixin:
             submitted = [
                 function for function, enabled in submitted.items() if enabled
             ]
+        if profile_id != previous_profile_id and CONF_PROFILE_FUNCTIONS not in user_input:
+            submitted = sorted(available)
         data[CONF_PROFILE_FUNCTIONS] = sorted(
             function for function in submitted if function in available
         )
