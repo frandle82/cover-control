@@ -289,11 +289,14 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate legacy entries to the standalone-room v11 model."""
 
-    if entry.version >= 11:
+    if entry.version >= 12:
         return True
 
     if entry.version == 10:
         return await _async_migrate_v10_to_v11(hass, entry)
+
+    if entry.version == 11:
+        return await _async_migrate_v11_to_v12(hass, entry)
 
     if entry.version == 9:
         return await _async_migrate_v9_to_v10(hass, entry)
@@ -304,7 +307,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if entry.version == 7:
         if not await _async_migrate_v7_to_v8(hass, entry):
             return False
-        hass.config_entries.async_update_entry(entry, version=11)
+        hass.config_entries.async_update_entry(entry, version=12)
         return True
 
     if entry.version == 6:
@@ -426,7 +429,7 @@ async def _async_migrate_v7_to_v8(
     """Remove stale v7 subentries while preserving standalone rooms."""
 
     if not _is_controller_entry(entry):
-        hass.config_entries.async_update_entry(entry, version=11)
+        hass.config_entries.async_update_entry(entry, version=12)
         return True
 
     if not await _async_migrate_parent_profiles_to_data(hass, entry):
@@ -438,7 +441,7 @@ async def _async_migrate_v7_to_v8(
 
     for subentry_id in tuple(entry.subentries):
         hass.config_entries.async_remove_subentry(entry, subentry_id)
-    hass.config_entries.async_update_entry(entry, version=11)
+    hass.config_entries.async_update_entry(entry, version=12)
     return True
 
 
@@ -448,7 +451,7 @@ async def _async_migrate_v8_to_v9(
     """Remove all historical subentries and finish the v9 entry model."""
 
     if not _is_controller_entry(entry):
-        hass.config_entries.async_update_entry(entry, version=11)
+        hass.config_entries.async_update_entry(entry, version=12)
         return True
 
     if not await _async_migrate_parent_profiles_to_data(hass, entry):
@@ -460,7 +463,7 @@ async def _async_migrate_v8_to_v9(
 
     for subentry_id in tuple(entry.subentries):
         hass.config_entries.async_remove_subentry(entry, subentry_id)
-    hass.config_entries.async_update_entry(entry, version=11)
+    hass.config_entries.async_update_entry(entry, version=12)
     return True
 
 
@@ -470,7 +473,7 @@ async def _async_migrate_v9_to_v10(
     """Repair partially migrated v9 entries and remove all subentries."""
 
     if not _is_controller_entry(entry):
-        hass.config_entries.async_update_entry(entry, version=11)
+        hass.config_entries.async_update_entry(entry, version=12)
         return True
     if not await _async_migrate_parent_profiles_to_data(hass, entry):
         return False
@@ -480,7 +483,7 @@ async def _async_migrate_v9_to_v10(
         return False
     for subentry_id in tuple(entry.subentries):
         hass.config_entries.async_remove_subentry(entry, subentry_id)
-    hass.config_entries.async_update_entry(entry, version=11)
+    hass.config_entries.async_update_entry(entry, version=12)
     return True
 
 
@@ -573,17 +576,54 @@ async def _async_migrate_v10_to_v11(
     """Remove structurally identifiable legacy standalone profile entries."""
 
     if _is_room_entry(entry):
-        hass.config_entries.async_update_entry(entry, version=11)
-        return True
+        return await _async_migrate_v11_to_v12(hass, entry)
     if not _is_controller_entry(entry):
         if _legacy_profile_entry(entry):
             return await _async_migrate_legacy_profile_entry(hass, entry)
-        hass.config_entries.async_update_entry(entry, version=11)
+        hass.config_entries.async_update_entry(entry, version=12)
         return True
 
     if not await _async_cleanup_legacy_profile_entries_for_controller(hass, entry):
         return False
-    hass.config_entries.async_update_entry(entry, version=11)
+    return await _async_migrate_v11_to_v12(hass, entry)
+
+
+async def _async_migrate_v11_to_v12(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> bool:
+    """Repair stale historical ConfigSubentries on v11 entries."""
+
+    from .config_subentries import PROFILE_SUBENTRY_TYPES
+
+    if _is_room_entry(entry):
+        for subentry_id, subentry in tuple(entry.subentries.items()):
+            if getattr(subentry, "subentry_type", None) not in {"room", *PROFILE_SUBENTRY_TYPES}:
+                return False
+            hass.config_entries.async_remove_subentry(entry, subentry_id)
+        hass.config_entries.async_update_entry(entry, version=12)
+        return True
+    if not _is_controller_entry(entry):
+        return False
+
+    known_types = {"room", *PROFILE_SUBENTRY_TYPES}
+    if any(
+        getattr(subentry, "subentry_type", None) not in known_types
+        for subentry in entry.subentries.values()
+    ):
+        return False
+    if not await _async_migrate_parent_profiles_to_data(hass, entry):
+        return False
+    if not await _async_migrate_parent_to_unified_profiles(hass, entry):
+        return False
+    if not await _async_migrate_subentries_to_room_entries(hass, entry):
+        return False
+    if not await _async_cleanup_legacy_profile_entries_for_controller(hass, entry):
+        return False
+    for subentry_id in tuple(entry.subentries):
+        hass.config_entries.async_remove_subentry(entry, subentry_id)
+    if entry.subentries:
+        return False
+    hass.config_entries.async_update_entry(entry, version=12)
     return True
 
 
@@ -593,7 +633,7 @@ async def _async_migrate_subentries_to_room_entries(
     """Move legacy room subentries to standalone v9 Room ConfigEntries."""
 
     if not _is_controller_entry(entry):
-        hass.config_entries.async_update_entry(entry, version=11)
+        hass.config_entries.async_update_entry(entry, version=12)
         return True
 
     parent_data = deepcopy(dict(entry.data))
@@ -636,7 +676,7 @@ async def _async_migrate_subentries_to_room_entries(
         options={},
         title=entry.title or DEFAULT_NAME,
         unique_id=entry.unique_id or DOMAIN,
-        version=11,
+        version=12,
     )
     return True
 
