@@ -705,8 +705,13 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     async def async_step_reconfigure(self, user_input=None) -> FlowResult:
         if self._entry().data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM:
             return await self.async_step_room_reconfigure(user_input)
+        return await self.async_step_controller_reconfigure(user_input)
+
+    async def async_step_controller_reconfigure(self, user_input=None) -> FlowResult:
+        """Expose controller-only configuration pages."""
+
         return self.async_show_menu(
-            step_id="reconfigure",
+            step_id="controller_reconfigure",
             menu_options=[
                 "global_sources",
                 "profiles",
@@ -841,6 +846,8 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_profiles(self, user_input=None) -> FlowResult:
+        if self._entry().data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM:
+            return self.async_abort(reason="profile_controller_only")
         model = self._model()
         catalog = {
             profile_id: profile
@@ -915,6 +922,8 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_profile_setup(self, user_input=None) -> FlowResult:
+        if self._entry().data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM:
+            return self.async_abort(reason="profile_controller_only")
         model = self._model()
         profile_id = getattr(self, "_editing_profile_id", None)
         profile = model.data[CONF_PROFILES].get(profile_id, {})
@@ -951,6 +960,8 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_profile_sections(self, user_input=None) -> FlowResult:
+        if self._entry().data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM:
+            return self.async_abort(reason="profile_controller_only")
         model = self._model()
         profile_id = getattr(self, "_editing_profile_id", None)
         return self.async_show_menu(
@@ -978,6 +989,8 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         *,
         capabilities: tuple[str, ...],
     ) -> FlowResult:
+        if self._entry().data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM:
+            return self.async_abort(reason="profile_controller_only")
         model = self._model()
         profile_id = getattr(self, "_editing_profile_id", None)
         if not profile_id or profile_id not in model.data[CONF_PROFILES]:
@@ -1248,8 +1261,13 @@ class RoomSubentryFlow(ConfigSubentryFlow):
     async def async_step_reconfigure(self, user_input=None) -> FlowResult:
         """Expose room-only configuration pages."""
 
+        return await self.async_step_room_reconfigure(user_input)
+
+    async def async_step_room_reconfigure(self, user_input=None) -> FlowResult:
+        """Expose room-only configuration pages."""
+
         return self.async_show_menu(
-            step_id="reconfigure",
+            step_id="room_reconfigure",
             menu_options=[
                 "general",
                 "hardware",
@@ -1941,7 +1959,7 @@ for _room_flow_name in (
     setattr(CoverControlFlow, _room_flow_name, getattr(RoomSubentryFlow, _room_flow_name))
 
 CoverControlFlow._contact_key = staticmethod(RoomSubentryFlow._contact_key)
-CoverControlFlow.async_step_room_reconfigure = RoomSubentryFlow.async_step_reconfigure
+CoverControlFlow.async_step_room_reconfigure = RoomSubentryFlow.async_step_room_reconfigure
 
 
 async def _cover_control_diagnostics(self, user_input=None) -> FlowResult:

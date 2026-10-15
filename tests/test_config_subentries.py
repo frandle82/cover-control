@@ -693,6 +693,94 @@ async def test_v4_profile_subentries_migrate_to_parent_profiles(hass) -> None:
     assert room["profile_id"] in entry.data[CONF_PROFILES]
 
 
+async def test_v5_parent_migrates_to_v7_room_entries_in_one_run(hass) -> None:
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Cover Control",
+        version=5,
+        data={
+            CONF_GLOBAL: {"sources": {}, "defaults": {}},
+            CONF_PROFILES: {
+                profile_type: {} for profile_type in PROFILE_TYPES
+            },
+        },
+        subentries_data=[
+            {
+                "subentry_id": "room-living",
+                "subentry_type": "room",
+                "title": "Living",
+                "unique_id": "room-living",
+                "data": {
+                    CONF_NAME: "Living",
+                    CONF_ROOM_SETTINGS: {CONF_COVERS: ["cover.living"]},
+                    CONF_PROFILE_SELECTIONS: {},
+                    CONF_SOURCE_OVERRIDES: {},
+                },
+            },
+        ],
+    )
+    entry.add_to_hass(hass)
+
+    assert await async_migrate_entry(hass, entry)
+
+    assert entry.version == 7
+    assert entry.data[CONF_ENTRY_TYPE] == ENTRY_TYPE_CONTROLLER
+    assert not entry.subentries
+    room = _room_entry(hass, entry).data
+    assert room[CONF_ENTRY_TYPE] == ENTRY_TYPE_ROOM
+    assert room[CONF_CONTROLLER_ENTRY_ID] == entry.entry_id
+
+
+async def test_v6_parent_migrates_to_v7_room_entries_in_one_run(hass) -> None:
+    profile_id = "profile-main"
+    entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Cover Control",
+        version=6,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
+            CONF_GLOBAL: {"sources": {}, "defaults": {}},
+            CONF_PROFILES: {
+                profile_id: {
+                    CONF_PROFILE_ID: profile_id,
+                    CONF_PROFILE_NAME: "Main",
+                    CONF_PROFILE_SETTINGS: {},
+                    CONF_PROFILE_FUNCTIONS: [],
+                }
+            },
+        },
+        subentries_data=[
+            {
+                "subentry_id": "room-living",
+                "subentry_type": "room",
+                "title": "Living",
+                "unique_id": "room-living",
+                "data": {
+                    CONF_NAME: "Living",
+                    CONF_ROOM_SETTINGS: {CONF_COVERS: ["cover.living"]},
+                    CONF_ROOM_PROFILE_ID: profile_id,
+                    CONF_PROFILE_FUNCTIONS: [],
+                    CONF_SOURCE_OVERRIDES: {},
+                },
+            },
+        ],
+    )
+    entry.add_to_hass(hass)
+
+    assert await async_migrate_entry(hass, entry)
+
+    assert entry.version == 7
+    assert entry.data[CONF_ENTRY_TYPE] == ENTRY_TYPE_CONTROLLER
+    assert not entry.subentries
+    room_entry = _room_entry(hass, entry)
+    room = room_entry.data
+    assert room[CONF_ENTRY_TYPE] == ENTRY_TYPE_ROOM
+    assert room[CONF_CONTROLLER_ENTRY_ID] == entry.entry_id
+    assert room[CONF_ROOM_PROFILE_ID] == profile_id
+    assert await hass.config_entries.async_unload(room_entry.entry_id)
+    assert await hass.config_entries.async_unload(entry.entry_id)
+
+
 async def test_multiple_legacy_entries_consolidate_into_one_parent(hass) -> None:
     first = MockConfigEntry(
         domain=DOMAIN,
