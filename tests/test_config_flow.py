@@ -170,7 +170,7 @@ def test_parent_reconfigure_steps_have_runtime_translations() -> None:
         assert "reconfigure_successful" in document["config"]["abort"]
         assert "single_instance_allowed" in document["config"]["abort"]
         assert "profile_controller_only" in document["config"]["abort"]
-        assert "options" not in document
+        assert "options" in document
         assert {
             "profile_required_for_functions",
             "profile_has_no_functions",
@@ -252,7 +252,7 @@ def test_active_room_steps_have_runtime_translations() -> None:
         room_subentries = document.get("config_subentries", {}).get("room", {})
         assert "step" not in room_subentries
         assert "abort" not in room_subentries
-        assert "options" not in document
+        assert "options" in document
 
 
 def _translation_leaf_strings(value):
@@ -871,6 +871,82 @@ async def test_room_options_flow_opens_room_menu(hass):
     result = await hass.config_entries.options.async_init(room_entry.entry_id)
     assert result["type"] is FlowResultType.MENU
     assert result["step_id"] == "room_reconfigure"
+
+
+async def test_controller_options_flow_submenu_is_renderable(hass):
+    entry = _entry(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "global_sources"}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "global_sources"
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {}
+    )
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "controller_reconfigure"
+
+
+async def test_room_options_flow_submenu_is_renderable(hass):
+    entry = _entry(hass)
+    room_entry = _room_entry_for_controller(hass, entry)
+    result = await hass.config_entries.options.async_init(room_entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "general"}
+    )
+    assert result["type"] is FlowResultType.FORM
+    assert result["step_id"] == "general"
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {CONF_NAME: "Updated room", CONF_ROOM: "area.updated"}
+    )
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "room_reconfigure"
+    assert room_entry.data[CONF_NAME] == "Updated room"
+
+
+@pytest.mark.parametrize(
+    "step_id",
+    [
+        "general", "hardware", "positions", "contacts", "room_sensors",
+        "geometry", "profile_assignment", "source_overrides", "controls",
+        "room_diagnostics",
+    ],
+)
+async def test_room_options_flow_menu_entries_open(hass, step_id):
+    entry = _entry(hass)
+    room_entry = _room_entry_for_controller(hass, entry)
+    result = await hass.config_entries.options.async_init(room_entry.entry_id)
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": step_id}
+    )
+    assert result["step_id"] == step_id
+    assert result["type"] in {FlowResultType.FORM, FlowResultType.MENU}
+
+
+def test_options_translation_namespace_and_menus():
+    expected_controller = {"global_sources", "profiles", "diagnostics", "recovery"}
+    expected_room = {
+        "general", "hardware", "positions", "contacts", "room_sensors",
+        "geometry", "profile_assignment", "source_overrides", "controls",
+        "room_diagnostics",
+    }
+    for path in (
+        Path("custom_components/cover_control/strings.json"),
+        Path("custom_components/cover_control/translations/en.json"),
+        Path("custom_components/cover_control/translations/de.json"),
+    ):
+        document = json.loads(path.read_text())
+        steps = document["options"]["step"]
+        for step_id, expected in (
+            ("controller_reconfigure", expected_controller),
+            ("room_reconfigure", expected_room),
+        ):
+            menu = steps[step_id]
+            assert menu["title"] and menu["description"]
+            assert set(menu["menu_options"]) == expected
+            assert set(menu["menu_option_descriptions"]) == expected
+        assert all("{room_name}" not in step.get("title", "") for step in steps.values())
 
 
 async def test_room_reconfigure_save_returns_to_room_menu(hass):

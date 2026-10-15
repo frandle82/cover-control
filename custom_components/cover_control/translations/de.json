@@ -852,6 +852,840 @@
       "profile_has_no_functions": "Das gewählte Profil enthält keine konfigurierten Funktionen"
     }
   },
+  "options": {
+    "step": {
+      "user": {
+            "title": "Cover Control einrichten",
+            "description": "Richte die globale Cover-Control-Instanz ein. Räume werden anschließend separat hinzugefügt.",
+            "data": {
+                  "name": "Instanzname"
+            },
+            "data_description": {
+                  "name": "Name der globalen Cover-Control-Instanz."
+            }
+      },
+      "room": {
+            "title": "Raum hinzufügen",
+            "description": "Erstelle einen Raum und ordne ihm den Home-Assistant-Bereich sowie die gesteuerten Rollläden oder Jalousien zu.",
+            "data": {
+                  "name": "Raumname",
+                  "room": "Home-Assistant-Bereich",
+                  "covers": "Rollläden / Jalousien"
+            },
+            "data_description": {
+                  "name": "Name, unter dem der Raum in Cover Control angezeigt wird.",
+                  "room": "Home-Assistant-Bereich dieses Raums.",
+                  "covers": "Rollläden oder Jalousien, die in diesem Raum gemeinsam gesteuert werden."
+            }
+      },
+      "controller_reconfigure": {
+            "title": "Cover Control konfigurieren",
+            "description": "Profile zentral erstellen und bearbeiten. Ein Profil bündelt die Automationsregeln für Zeit, Helligkeit, Sonne, Beschattung, Lüftung, Bewohnerverhalten und manuelles Verhalten.",
+            "menu_options": {
+                  "global_sources": "Globale Datenquellen",
+                  "profiles": "Profile",
+                  "diagnostics": "Diagnose",
+                  "recovery": "Wiederherstellung"
+            },
+            "menu_option_descriptions": {
+                  "global_sources": "Gemeinsame Home-Assistant-Entities wie Arbeitstag, Außentemperatur, Helligkeit, Kalender, Wetter und Forecast-Quellen konfigurieren.",
+                  "profiles": "Profile zentral erstellen und bearbeiten. Ein Profil bündelt die Automationsregeln für Zeit, Helligkeit, Sonne, Beschattung, Lüftung, Bewohnerverhalten und manuelles Verhalten.",
+                  "diagnostics": "Profilnutzung und aktuelle Cover-Control-Konfiguration prüfen.",
+                  "recovery": "Den letzten gültigen Cover-Control-Konfigurationsstand prüfen oder wiederherstellen."
+            }
+      },
+      "global_sources": {
+            "title": "Globale Datenquellen",
+            "description": "Wähle Home-Assistant-Entitäten, die von mehreren Räumen gemeinsam verwendet werden. Räume können einzelne Quellen lokal überschreiben, wenn dies erforderlich ist.",
+            "data": {
+                  "additional_condition_global": "Globale Zusatzbedingung",
+                  "brightness_sensor": "Globale Helligkeit",
+                  "calendar_entity": "Kalender",
+                  "cold_protection_forecast_sensor": "Forecast-Quelle für Kälteschutz",
+                  "shading_brightness_sensor": "Globale Beschattungshelligkeit",
+                  "shading_forecast_sensor": "Wetter-/Forecast-Quelle",
+                  "shading_forecast_temp_sensor": "Forecast-Temperatursensor",
+                  "sun_elevation_dynamic_close_sensor": "Dynamische Sonnenhöhe für Schließen",
+                  "sun_elevation_dynamic_open_sensor": "Dynamische Sonnenhöhe für Öffnen",
+                  "temperature_sensor_outdoor": "Außentemperatursensor",
+                  "workday_sensor": "Workday heute",
+                  "workday_tomorrow_sensor": "Workday morgen"
+            },
+            "data_description": {
+                  "additional_condition_global": "Optionale Home-Assistant-Bedingung, die global vor einer Cover-Control-Aktion geprüft wird.",
+                  "brightness_sensor": "Gemeinsamer Helligkeitssensor für Räume ohne lokale Helligkeitsquelle.",
+                  "calendar_entity": "Gemeinsamer Kalender für Profile, die Kalendertitel auswerten.",
+                  "cold_protection_forecast_sensor": "Gemeinsame Wetter- oder Sensorquelle für Forecast-Werte des Kälteschutzes.",
+                  "shading_brightness_sensor": "Gemeinsamer Helligkeitssensor für Beschattungsentscheidungen.",
+                  "shading_forecast_sensor": "Gemeinsame Wetter-Entity für Forecast- und Wetterbedingungsregeln der Beschattung.",
+                  "shading_forecast_temp_sensor": "Gemeinsamer Sensor für Forecast-Temperaturwerte der Beschattung.",
+                  "sun_elevation_dynamic_close_sensor": "Gemeinsamer Sensor für eine dynamische Sonnenhöhe beim Schließen.",
+                  "sun_elevation_dynamic_open_sensor": "Gemeinsamer Sensor für eine dynamische Sonnenhöhe beim Öffnen.",
+                  "temperature_sensor_outdoor": "Gemeinsamer Außentemperatursensor für Beschattungs- und Schutzregeln.",
+                  "workday_sensor": "Gemeinsame Entity, die anzeigt, ob heute ein Arbeitstag ist.",
+                  "workday_tomorrow_sensor": "Gemeinsame Entity, die anzeigt, ob morgen ein Arbeitstag ist."
+            }
+      },
+      "profiles": {
+            "title": "Profile",
+            "description": "Profile definieren ausschließlich das Verhalten von Cover Control. Hardware, Fensterkontakte und Raumsensoren werden in den jeweiligen Räumen konfiguriert. Ein Profil kann von mehreren Räumen oder nur von einem einzelnen Raum verwendet werden.",
+            "data": {
+                  "profile_action": "Aktion",
+                  "profile_id": "Profil"
+            },
+            "data_description": {
+                  "profile_action": "Wähle, ob ein Profil erstellt, bearbeitet, dupliziert oder gelöscht werden soll.",
+                  "profile_id": "Wähle das Profil für diese Aktion."
+            }
+      },
+      "profile_setup": {
+            "title": "Profil",
+            "description": "Lege den Namen des Profils fest.\n\nVerwendet von: {profile_usage}",
+            "data": {
+                  "profile_name": "Profilname"
+            },
+            "data_description": {
+                  "profile_name": "Lesbarer Name dieses Profils."
+            }
+      },
+      "profile_sections": {
+            "title": "Profilbereiche",
+            "description": "Bearbeite einen Bereich dieses Profils.\n\nKonfigurierte Funktionen: {profile_configured_functions}\n\nProfil-Zusammenfassung: {profile_summary}\n\nVerwendet von: {profile_usage}",
+            "menu_options": {
+                  "profile_setup": "Allgemein",
+                  "profile_time": "Zeit",
+                  "profile_brightness": "Helligkeit",
+                  "profile_sun": "Sonnenstand",
+                  "profile_shading": "Beschattung",
+                  "profile_ventilation": "Lüftung",
+                  "profile_resident": "Bewohner",
+                  "profile_behavior": "Manuelles Verhalten"
+            },
+            "menu_option_descriptions": {
+                  "profile_setup": "Name dieses Profils bearbeiten.",
+                  "profile_time": "Öffnen, Schließen, Zeitpläne und Kalenderverhalten konfigurieren.",
+                  "profile_brightness": "Helligkeitsgrenzen und lichtabhängige Regeln konfigurieren.",
+                  "profile_sun": "Sonnenhöhe, Öffnungs-/Schließschwellen, Modus, Offsets und Zeitbedingungen konfigurieren.",
+                  "profile_shading": "Bedingungen, Grenzwerte, Wartezeiten, Temperatur-, Helligkeits- und Forecast-Regeln der Beschattung konfigurieren.",
+                  "profile_ventilation": "Verhalten bei Fensterkontakten, Verzögerungen, Prioritäten und Lüftungsregeln konfigurieren.",
+                  "profile_resident": "Bewohnerverhalten konfigurieren.",
+                  "profile_behavior": "Manuelles Verhalten, Bewegungsschutz und zusätzliche Verhaltensregeln konfigurieren."
+            }
+      },
+      "profile_time": {
+            "title": "Profilzeit",
+            "description": "Bearbeite das Zeitverhalten dieses Profils.\n\nAktuelle Zeit-Zusammenfassung: {profile_time_summary}\n\nVerwendet von: {profile_usage}",
+            "sections": {
+                  "time_features": {
+                        "name": "Zeitsteuerung",
+                        "data": {
+                              "auto_brightness_enabled": "Helligkeitsautomatik",
+                              "auto_down_enabled": "Automatisches Schließen",
+                              "auto_sun_enabled": "Sonnenautomatik",
+                              "auto_time_enabled": "Zeitautomatik",
+                              "auto_up_enabled": "Automatisches Öffnen",
+                              "use_brightness_sensor": "Helligkeitsquelle verwenden",
+                              "use_sun_elevation_dynamic_close_sensor": "Dynamische Schließhöhe verwenden",
+                              "use_sun_elevation_dynamic_open_sensor": "Dynamische Öffnungshöhe verwenden",
+                              "use_workday_sensor": "Werktagsquelle verwenden"
+                        },
+                        "data_description": {
+                              "auto_brightness_enabled": "Wert für Helligkeitsautomatik in diesem Profil.",
+                              "auto_down_enabled": "Wert für Automatisches Schließen in diesem Profil.",
+                              "auto_sun_enabled": "Wert für Sonnenautomatik in diesem Profil.",
+                              "auto_time_enabled": "Wert für Zeitautomatik in diesem Profil.",
+                              "auto_up_enabled": "Wert für Automatisches Öffnen in diesem Profil.",
+                              "use_brightness_sensor": "Wert für Helligkeitsquelle verwenden in diesem Profil.",
+                              "use_sun_elevation_dynamic_close_sensor": "Wert für Dynamische Schließhöhe verwenden in diesem Profil.",
+                              "use_sun_elevation_dynamic_open_sensor": "Wert für Dynamische Öffnungshöhe verwenden in diesem Profil.",
+                              "use_workday_sensor": "Wert für Werktagsquelle verwenden in diesem Profil."
+                        }
+                  },
+                  "workday_times": {
+                        "name": "Werktagszeiten",
+                        "data": {
+                              "time_down_early_workday": "Früheste Schließung an Werktagen",
+                              "time_down_late_workday": "Späteste Schließung an Werktagen",
+                              "time_up_early_workday": "Früheste Öffnung an Werktagen",
+                              "time_up_late_workday": "Späteste Öffnung an Werktagen"
+                        },
+                        "data_description": {
+                              "time_down_early_workday": "Wert für Früheste Schließung an Werktagen in diesem Profil.",
+                              "time_down_late_workday": "Wert für Späteste Schließung an Werktagen in diesem Profil.",
+                              "time_up_early_workday": "Wert für Früheste Öffnung an Werktagen in diesem Profil.",
+                              "time_up_late_workday": "Wert für Späteste Öffnung an Werktagen in diesem Profil."
+                        }
+                  },
+                  "non_workday_times": {
+                        "name": "Nicht-Werktagszeiten",
+                        "data": {
+                              "time_down_early_non_workday": "Früheste Schließung an freien Tagen",
+                              "time_down_late_non_workday": "Späteste Schließung an freien Tagen",
+                              "time_up_early_non_workday": "Früheste Öffnung an freien Tagen",
+                              "time_up_late_non_workday": "Späteste Öffnung an freien Tagen"
+                        },
+                        "data_description": {
+                              "time_down_early_non_workday": "Wert für Früheste Schließung an freien Tagen in diesem Profil.",
+                              "time_down_late_non_workday": "Wert für Späteste Schließung an freien Tagen in diesem Profil.",
+                              "time_up_early_non_workday": "Wert für Früheste Öffnung an freien Tagen in diesem Profil.",
+                              "time_up_late_non_workday": "Wert für Späteste Öffnung an freien Tagen in diesem Profil."
+                        }
+                  },
+                  "calendar_behavior": {
+                        "name": "Kalenderverhalten",
+                        "data": {
+                              "calendar_close_title": "Kalendertitel zum Schließen",
+                              "calendar_open_title": "Kalendertitel zum Öffnen"
+                        },
+                        "data_description": {
+                              "calendar_close_title": "Wert für Kalendertitel zum Schließen in diesem Profil.",
+                              "calendar_open_title": "Wert für Kalendertitel zum Öffnen in diesem Profil."
+                        }
+                  }
+            }
+      },
+      "profile_brightness": {
+            "title": "Profilhelligkeit",
+            "description": "Bearbeite das Helligkeitsverhalten dieses Profils.\n\nAktuelle Helligkeits-Zusammenfassung: {profile_brightness_summary}\n\nVerwendet von: {profile_usage}",
+            "sections": {
+                  "time_features": {
+                        "name": "Zeitsteuerung",
+                        "data": {
+                              "auto_brightness_enabled": "Helligkeitsautomatik",
+                              "auto_down_enabled": "Automatisches Schließen",
+                              "auto_sun_enabled": "Sonnenautomatik",
+                              "auto_time_enabled": "Zeitautomatik",
+                              "auto_up_enabled": "Automatisches Öffnen",
+                              "use_brightness_sensor": "Helligkeitsquelle verwenden",
+                              "use_sun_elevation_dynamic_close_sensor": "Dynamische Schließhöhe verwenden",
+                              "use_sun_elevation_dynamic_open_sensor": "Dynamische Öffnungshöhe verwenden",
+                              "use_workday_sensor": "Werktagsquelle verwenden"
+                        },
+                        "data_description": {
+                              "auto_brightness_enabled": "Wert für Helligkeitsautomatik in diesem Profil.",
+                              "auto_down_enabled": "Wert für Automatisches Schließen in diesem Profil.",
+                              "auto_sun_enabled": "Wert für Sonnenautomatik in diesem Profil.",
+                              "auto_time_enabled": "Wert für Zeitautomatik in diesem Profil.",
+                              "auto_up_enabled": "Wert für Automatisches Öffnen in diesem Profil.",
+                              "use_brightness_sensor": "Wert für Helligkeitsquelle verwenden in diesem Profil.",
+                              "use_sun_elevation_dynamic_close_sensor": "Wert für Dynamische Schließhöhe verwenden in diesem Profil.",
+                              "use_sun_elevation_dynamic_open_sensor": "Wert für Dynamische Öffnungshöhe verwenden in diesem Profil.",
+                              "use_workday_sensor": "Wert für Werktagsquelle verwenden in diesem Profil."
+                        }
+                  },
+                  "brightness_settings": {
+                        "name": "Helligkeitssteuerung",
+                        "data": {
+                              "brightness_close_below": "Helligkeitsschwelle zum Schließen",
+                              "brightness_hysteresis": "Helligkeitshysterese",
+                              "brightness_open_above": "Helligkeitsschwelle zum Öffnen",
+                              "brightness_time_duration": "Helligkeitsdauer",
+                              "brightness_sun_operator": "Kombination aus Helligkeit und Sonne"
+                        },
+                        "data_description": {
+                              "brightness_close_below": "Wert für Helligkeitsschwelle zum Schließen in diesem Profil.",
+                              "brightness_hysteresis": "Wert für Helligkeitshysterese in diesem Profil.",
+                              "brightness_open_above": "Wert für Helligkeitsschwelle zum Öffnen in diesem Profil.",
+                              "brightness_time_duration": "Wert für Helligkeitsdauer in diesem Profil.",
+                              "brightness_sun_operator": "Wert für Kombination aus Helligkeit und Sonne in diesem Profil."
+                        }
+                  }
+            }
+      },
+      "profile_sun": {
+            "title": "Profilsonnenstand",
+            "description": "Sonnenhöhe, Öffnungs-/Schließschwellen, Modus, Offsets und Zeitbedingungen konfigurieren.\n\nAktuelle Sonnen-Zusammenfassung: {profile_sun_summary}\n\nVerwendet von: {profile_usage}",
+            "sections": {
+                  "time_features": {
+                        "name": "Zeitsteuerung",
+                        "data": {
+                              "auto_brightness_enabled": "Helligkeitsautomatik",
+                              "auto_down_enabled": "Automatisches Schließen",
+                              "auto_sun_enabled": "Sonnenautomatik",
+                              "auto_time_enabled": "Zeitautomatik",
+                              "auto_up_enabled": "Automatisches Öffnen",
+                              "use_brightness_sensor": "Helligkeitsquelle verwenden",
+                              "use_sun_elevation_dynamic_close_sensor": "Dynamische Schließhöhe verwenden",
+                              "use_sun_elevation_dynamic_open_sensor": "Dynamische Öffnungshöhe verwenden",
+                              "use_workday_sensor": "Werktagsquelle verwenden"
+                        },
+                        "data_description": {
+                              "auto_brightness_enabled": "Wert für Helligkeitsautomatik in diesem Profil.",
+                              "auto_down_enabled": "Wert für Automatisches Schließen in diesem Profil.",
+                              "auto_sun_enabled": "Wert für Sonnenautomatik in diesem Profil.",
+                              "auto_time_enabled": "Wert für Zeitautomatik in diesem Profil.",
+                              "auto_up_enabled": "Wert für Automatisches Öffnen in diesem Profil.",
+                              "use_brightness_sensor": "Wert für Helligkeitsquelle verwenden in diesem Profil.",
+                              "use_sun_elevation_dynamic_close_sensor": "Wert für Dynamische Schließhöhe verwenden in diesem Profil.",
+                              "use_sun_elevation_dynamic_open_sensor": "Wert für Dynamische Öffnungshöhe verwenden in diesem Profil.",
+                              "use_workday_sensor": "Wert für Werktagsquelle verwenden in diesem Profil."
+                        }
+                  },
+                  "sun_settings": {
+                        "name": "Sonnenstandssteuerung",
+                        "data": {
+                              "brightness_sun_operator": "Kombination aus Helligkeit und Sonne",
+                              "sun_elevation_close": "Sonnenhöhe zum Schließen",
+                              "sun_elevation_close_offset": "Offset der Schließhöhe",
+                              "sun_elevation_mode": "Sonnenhöhenmodus",
+                              "sun_elevation_open": "Sonnenhöhe zum Öffnen",
+                              "sun_elevation_open_offset": "Offset der Öffnungshöhe",
+                              "sun_time_duration": "Sonnendauer"
+                        },
+                        "data_description": {
+                              "brightness_sun_operator": "Wert für Kombination aus Helligkeit und Sonne in diesem Profil.",
+                              "sun_elevation_close": "Wert für Sonnenhöhe zum Schließen in diesem Profil.",
+                              "sun_elevation_close_offset": "Wert für Offset der Schließhöhe in diesem Profil.",
+                              "sun_elevation_mode": "Wert für Sonnenhöhenmodus in diesem Profil.",
+                              "sun_elevation_open": "Wert für Sonnenhöhe zum Öffnen in diesem Profil.",
+                              "sun_elevation_open_offset": "Wert für Offset der Öffnungshöhe in diesem Profil.",
+                              "sun_time_duration": "Wert für Sonnendauer in diesem Profil."
+                        }
+                  }
+            }
+      },
+      "profile_shading": {
+            "title": "Profilbeschattung",
+            "description": "Bedingungen, Grenzwerte, Wartezeiten, Temperatur-, Helligkeits- und Forecast-Regeln der Beschattung konfigurieren.\n\nAktuelle Beschattungs-Zusammenfassung: {profile_shading_summary}\n\nVerwendet von: {profile_usage}",
+            "sections": {
+                  "shading_targets": {
+                        "name": "Beschattungssteuerung",
+                        "data": {
+                              "auto_shading_enabled": "Beschattung aktiv",
+                              "shading_position": "Beschattungsposition",
+                              "shading_position_alt": "Alternative Beschattungsposition",
+                              "shading_tilt_elevation_1": "Lamellenhöhe 1",
+                              "shading_tilt_elevation_2": "Lamellenhöhe 2",
+                              "shading_tilt_elevation_3": "Lamellenhöhe 3",
+                              "shading_tilt_position": "Beschattungslamelle",
+                              "shading_tilt_position_0": "Beschattungslamelle 0",
+                              "shading_tilt_position_1": "Beschattungslamelle 1",
+                              "shading_tilt_position_2": "Beschattungslamelle 2",
+                              "shading_tilt_position_3": "Beschattungslamelle 3"
+                        },
+                        "data_description": {
+                              "auto_shading_enabled": "Wert für Beschattung aktiv in diesem Profil.",
+                              "shading_position": "Wert für Beschattungsposition in diesem Profil.",
+                              "shading_position_alt": "Wert für Alternative Beschattungsposition in diesem Profil.",
+                              "shading_tilt_elevation_1": "Wert für Lamellenhöhe 1 in diesem Profil.",
+                              "shading_tilt_elevation_2": "Wert für Lamellenhöhe 2 in diesem Profil.",
+                              "shading_tilt_elevation_3": "Wert für Lamellenhöhe 3 in diesem Profil.",
+                              "shading_tilt_position": "Wert für Beschattungslamelle in diesem Profil.",
+                              "shading_tilt_position_0": "Wert für Beschattungslamelle 0 in diesem Profil.",
+                              "shading_tilt_position_1": "Wert für Beschattungslamelle 1 in diesem Profil.",
+                              "shading_tilt_position_2": "Wert für Beschattungslamelle 2 in diesem Profil.",
+                              "shading_tilt_position_3": "Wert für Beschattungslamelle 3 in diesem Profil."
+                        }
+                  },
+                  "shading_brightness": {
+                        "name": "Beschattungshelligkeit",
+                        "data": {
+                              "shading_brightness_end": "Endhelligkeit der Beschattung",
+                              "shading_brightness_start": "Starthelligkeit der Beschattung",
+                              "shading_sun_brightness_hysteresis": "Beschattungs-Helligkeitshysterese"
+                        },
+                        "data_description": {
+                              "shading_brightness_end": "Wert für Endhelligkeit der Beschattung in diesem Profil.",
+                              "shading_brightness_start": "Wert für Starthelligkeit der Beschattung in diesem Profil.",
+                              "shading_sun_brightness_hysteresis": "Wert für Beschattungs-Helligkeitshysterese in diesem Profil."
+                        }
+                  },
+                  "shading_temperature": {
+                        "name": "Beschattungstemperatur",
+                        "data": {
+                              "cold_protection_temperature": "Kälteschutztemperatur",
+                              "shading_independent_temp": "Unabhängige Temperatur",
+                              "shading_min_temperatur1": "Mindesttemperatur 1",
+                              "shading_min_temperatur2": "Mindesttemperatur 2",
+                              "shading_temperature_hysteresis1": "Temperaturhysterese 1",
+                              "shading_temperature_hysteresis2": "Temperaturhysterese 2",
+                              "temperature_forecast_threshold": "Vorhersagetemperaturschwelle",
+                              "temperature_threshold": "Temperaturschwelle",
+                              "shading_independent_holds_end": "Unabhängige Temperatur hält Beschattung"
+                        },
+                        "data_description": {
+                              "cold_protection_temperature": "Wert für Kälteschutztemperatur in diesem Profil.",
+                              "shading_independent_temp": "Wert für Unabhängige Temperatur in diesem Profil.",
+                              "shading_min_temperatur1": "Wert für Mindesttemperatur 1 in diesem Profil.",
+                              "shading_min_temperatur2": "Wert für Mindesttemperatur 2 in diesem Profil.",
+                              "shading_temperature_hysteresis1": "Wert für Temperaturhysterese 1 in diesem Profil.",
+                              "shading_temperature_hysteresis2": "Wert für Temperaturhysterese 2 in diesem Profil.",
+                              "temperature_forecast_threshold": "Wert für Vorhersagetemperaturschwelle in diesem Profil.",
+                              "temperature_threshold": "Wert für Temperaturschwelle in diesem Profil.",
+                              "shading_independent_holds_end": "Wert für Unabhängige Temperatur hält Beschattung in diesem Profil."
+                        }
+                  },
+                  "shading_forecast": {
+                        "name": "Beschattungs-Forecast",
+                        "data": {
+                              "shading_config": "Erweiterte Beschattungsregeln",
+                              "shading_forecast_temp": "Vorhersagetemperatur",
+                              "shading_forecast_temp_hysteresis": "Vorhersagetemperatur-Hysterese",
+                              "shading_forecast_type": "Vorhersagetyp",
+                              "shading_weather_conditions": "Erlaubte Wetterbedingungen",
+                              "use_cold_protection_forecast_sensor": "Kälteschutzvorhersage verwenden",
+                              "use_shading_forecast_sensor": "Beschattungsvorhersage verwenden"
+                        },
+                        "data_description": {
+                              "shading_config": "Wert für Erweiterte Beschattungsregeln in diesem Profil.",
+                              "shading_forecast_temp": "Wert für Vorhersagetemperatur in diesem Profil.",
+                              "shading_forecast_temp_hysteresis": "Wert für Vorhersagetemperatur-Hysterese in diesem Profil.",
+                              "shading_forecast_type": "Wert für Vorhersagetyp in diesem Profil.",
+                              "shading_weather_conditions": "Wert für Erlaubte Wetterbedingungen in diesem Profil.",
+                              "use_cold_protection_forecast_sensor": "Wert für Kälteschutzvorhersage verwenden in diesem Profil.",
+                              "use_shading_forecast_sensor": "Wert für Beschattungsvorhersage verwenden in diesem Profil."
+                        }
+                  },
+                  "shading_conditions": {
+                        "name": "Beschattungsbedingungen",
+                        "data": {
+                              "shading_conditions_end_and": "Endbedingungen — alle",
+                              "shading_conditions_end_or": "Endbedingungen — beliebige",
+                              "shading_conditions_start_and": "Startbedingungen — alle",
+                              "shading_conditions_start_or": "Startbedingungen — beliebige"
+                        },
+                        "data_description": {
+                              "shading_conditions_end_and": "Wert für Endbedingungen — alle in diesem Profil.",
+                              "shading_conditions_end_or": "Wert für Endbedingungen — beliebige in diesem Profil.",
+                              "shading_conditions_start_and": "Wert für Startbedingungen — alle in diesem Profil.",
+                              "shading_conditions_start_or": "Wert für Startbedingungen — beliebige in diesem Profil."
+                        }
+                  },
+                  "shading_waits": {
+                        "name": "Beschattungswartezeiten",
+                        "data": {
+                              "shading_end_immediate_by_sun_position": "Sofortiges Beschattungsende nach Sonne",
+                              "shading_end_max_duration": "Maximale Endwartezeit",
+                              "shading_start_max_duration": "Maximale Startwartezeit",
+                              "shading_waitingtime_end": "Endwartezeit der Beschattung",
+                              "shading_waitingtime_start": "Startwartezeit der Beschattung"
+                        },
+                        "data_description": {
+                              "shading_end_immediate_by_sun_position": "Wert für Sofortiges Beschattungsende nach Sonne in diesem Profil.",
+                              "shading_end_max_duration": "Wert für Maximale Endwartezeit in diesem Profil.",
+                              "shading_start_max_duration": "Wert für Maximale Startwartezeit in diesem Profil.",
+                              "shading_waitingtime_end": "Wert für Endwartezeit der Beschattung in diesem Profil.",
+                              "shading_waitingtime_start": "Wert für Startwartezeit der Beschattung in diesem Profil."
+                        }
+                  }
+            }
+      },
+      "profile_ventilation": {
+            "title": "Profillüftung",
+            "description": "Verhalten bei Fensterkontakten, Verzögerungen, Prioritäten und Lüftungsregeln konfigurieren.\n\nAktuelle Lüftungs-Zusammenfassung: {profile_ventilation_summary}\n\nVerwendet von: {profile_usage}",
+            "sections": {
+                  "ventilation": {
+                        "name": "Lüftung",
+                        "data": {
+                              "auto_ventilate_enabled": "Lüftung aktiv",
+                              "contact_status_delay": "Kontakt-Statusverzögerung",
+                              "contact_trigger_delay": "Kontakt-Triggerverzögerung",
+                              "lockout_tilt_close": "Schließen bei Kippstellung blockieren",
+                              "lockout_tilt_shading_end": "Beschattungsende bei Kippstellung blockieren",
+                              "lockout_tilt_shading_start": "Beschattungsstart bei Kippstellung blockieren",
+                              "shading_over_ventilation": "Beschattung vor Lüftung",
+                              "ventilation_allow_higher_position": "Höhere Lüftungsposition erlauben",
+                              "ventilation_delay_after_close": "Lüftungsverzögerung nach Schließen",
+                              "ventilation_keep_open_on_full_to_tilt": "Bei Wechsel vollständig zu gekippt offen lassen",
+                              "ventilation_start_no_delay": "Lüftung ohne Verzögerung starten",
+                              "ventilation_use_after_shading": "Nach Beschattung lüften"
+                        },
+                        "data_description": {
+                              "auto_ventilate_enabled": "Wert für Lüftung aktiv in diesem Profil.",
+                              "contact_status_delay": "Wert für Kontakt-Statusverzögerung in diesem Profil.",
+                              "contact_trigger_delay": "Wert für Kontakt-Triggerverzögerung in diesem Profil.",
+                              "lockout_tilt_close": "Wert für Schließen bei Kippstellung blockieren in diesem Profil.",
+                              "lockout_tilt_shading_end": "Wert für Beschattungsende bei Kippstellung blockieren in diesem Profil.",
+                              "lockout_tilt_shading_start": "Wert für Beschattungsstart bei Kippstellung blockieren in diesem Profil.",
+                              "shading_over_ventilation": "Wert für Beschattung vor Lüftung in diesem Profil.",
+                              "ventilation_allow_higher_position": "Wert für Höhere Lüftungsposition erlauben in diesem Profil.",
+                              "ventilation_delay_after_close": "Wert für Lüftungsverzögerung nach Schließen in diesem Profil.",
+                              "ventilation_keep_open_on_full_to_tilt": "Wert für Bei Wechsel vollständig zu gekippt offen lassen in diesem Profil.",
+                              "ventilation_start_no_delay": "Wert für Lüftung ohne Verzögerung starten in diesem Profil.",
+                              "ventilation_use_after_shading": "Wert für Nach Beschattung lüften in diesem Profil."
+                        }
+                  }
+            }
+      },
+      "profile_resident": {
+            "title": "Profilbewohnerverhalten",
+            "description": "Bearbeite das Bewohnerverhalten dieses Profils.\n\nAktuelle Bewohner-Zusammenfassung: {profile_resident_summary}\n\nVerwendet von: {profile_usage}",
+            "sections": {
+                  "resident_behavior": {
+                        "name": "Bewohnerverhalten",
+                        "data": {
+                              "resident_allow_open": "Bewohnerstatus erlaubt Öffnen",
+                              "resident_allow_shading": "Bewohnerstatus erlaubt Beschattung",
+                              "resident_allow_ventilation": "Bewohnerstatus erlaubt Lüftung",
+                              "resident_close_enabled": "Bei Bewohnerstatus schließen",
+                              "resident_open_enabled": "Nach Bewohnerstatus öffnen",
+                              "resident_status_enabled": "Bewohnerverhalten aktiv"
+                        },
+                        "data_description": {
+                              "resident_allow_open": "Wert für Bewohnerstatus erlaubt Öffnen in diesem Profil.",
+                              "resident_allow_shading": "Wert für Bewohnerstatus erlaubt Beschattung in diesem Profil.",
+                              "resident_allow_ventilation": "Wert für Bewohnerstatus erlaubt Lüftung in diesem Profil.",
+                              "resident_close_enabled": "Wert für Bei Bewohnerstatus schließen in diesem Profil.",
+                              "resident_open_enabled": "Wert für Nach Bewohnerstatus öffnen in diesem Profil.",
+                              "resident_status_enabled": "Wert für Bewohnerverhalten aktiv in diesem Profil."
+                        }
+                  }
+            }
+      },
+      "profile_behavior": {
+            "title": "Profilmanuelles Verhalten",
+            "description": "Bearbeite das manuelle Verhalten dieses Profils.\n\nAktuelle Zusammenfassung des manuellen Verhaltens: {profile_behavior_summary}\n\nVerwendet von: {profile_usage}",
+            "sections": {
+                  "manual_override": {
+                        "name": "Manuelles Verhalten",
+                        "data": {
+                              "manual_override_block_close": "Manueller Override blockiert Schließen",
+                              "manual_override_block_open": "Manueller Override blockiert Öffnen",
+                              "manual_override_block_shading": "Manueller Override blockiert Beschattung",
+                              "manual_override_block_ventilate": "Manueller Override blockiert Lüftung",
+                              "manual_override_minutes": "Dauer des manuellen Overrides",
+                              "manual_override_reset_mode": "Rücksetzmodus des manuellen Overrides",
+                              "manual_override_reset_time": "Rücksetzzeit des manuellen Overrides",
+                              "manual_schedule_adoption": "Manuelle Zeitplanübernahme"
+                        },
+                        "data_description": {
+                              "manual_override_block_close": "Wert für Manueller Override blockiert Schließen in diesem Profil.",
+                              "manual_override_block_open": "Wert für Manueller Override blockiert Öffnen in diesem Profil.",
+                              "manual_override_block_shading": "Wert für Manueller Override blockiert Beschattung in diesem Profil.",
+                              "manual_override_block_ventilate": "Wert für Manueller Override blockiert Lüftung in diesem Profil.",
+                              "manual_override_minutes": "Wert für Dauer des manuellen Overrides in diesem Profil.",
+                              "manual_override_reset_mode": "Wert für Rücksetzmodus des manuellen Overrides in diesem Profil.",
+                              "manual_override_reset_time": "Wert für Rücksetzzeit des manuellen Overrides in diesem Profil.",
+                              "manual_schedule_adoption": "Wert für Manuelle Zeitplanübernahme in diesem Profil."
+                        }
+                  },
+                  "prevention": {
+                        "name": "Bewegungsschutz",
+                        "data": {
+                              "prevent_closing_multiple_times": "Mehrfaches Schließen verhindern",
+                              "prevent_default_cover_actions": "Standard-Cover-Aktionen verhindern",
+                              "prevent_higher_position_closing": "Höhere Schließposition verhindern",
+                              "prevent_lowering_when_closing_if_shaded": "Absenken bei Beschattung verhindern",
+                              "prevent_opening_after_shading_end": "Öffnen nach Beschattung verhindern",
+                              "prevent_opening_after_ventilation_end": "Öffnen nach Lüftung verhindern",
+                              "prevent_opening_multiple_times": "Mehrfaches Öffnen verhindern",
+                              "prevent_shading_end_if_closed": "Beschattungsende bei geschlossenem Cover verhindern",
+                              "prevent_shading_multiple_times": "Mehrfache Beschattung verhindern"
+                        },
+                        "data_description": {
+                              "prevent_closing_multiple_times": "Wert für Mehrfaches Schließen verhindern in diesem Profil.",
+                              "prevent_default_cover_actions": "Wert für Standard-Cover-Aktionen verhindern in diesem Profil.",
+                              "prevent_higher_position_closing": "Wert für Höhere Schließposition verhindern in diesem Profil.",
+                              "prevent_lowering_when_closing_if_shaded": "Wert für Absenken bei Beschattung verhindern in diesem Profil.",
+                              "prevent_opening_after_shading_end": "Wert für Öffnen nach Beschattung verhindern in diesem Profil.",
+                              "prevent_opening_after_ventilation_end": "Wert für Öffnen nach Lüftung verhindern in diesem Profil.",
+                              "prevent_opening_multiple_times": "Wert für Mehrfaches Öffnen verhindern in diesem Profil.",
+                              "prevent_shading_end_if_closed": "Wert für Beschattungsende bei geschlossenem Cover verhindern in diesem Profil.",
+                              "prevent_shading_multiple_times": "Wert für Mehrfache Beschattung verhindern in diesem Profil."
+                        }
+                  },
+                  "tilt_wait": {
+                        "name": "Zusätzliches Verhalten",
+                        "data": {
+                              "cover_tilt_wait_mode": "Lamellen-Wartemodus",
+                              "cover_tilt_wait_timeout": "Lamellen-Timeout",
+                              "enable_logbook_cover": "Cover-Aktionen protokollieren"
+                        },
+                        "data_description": {
+                              "cover_tilt_wait_mode": "Wert für Lamellen-Wartemodus in diesem Profil.",
+                              "cover_tilt_wait_timeout": "Wert für Lamellen-Timeout in diesem Profil.",
+                              "enable_logbook_cover": "Wert für Cover-Aktionen protokollieren in diesem Profil."
+                        }
+                  }
+            }
+      },
+      "diagnostics": {
+            "title": "Diagnose",
+            "description": "Profilnutzung:\n{profiles}"
+      },
+      "recovery": {
+            "title": "Wiederherstellung",
+            "description": "Letzter gültiger Konfigurationsstand verfügbar: {available}. Aktiviere die Bestätigung nur, wenn Cover Control diesen Stand wiederherstellen soll.",
+            "data": {
+                  "confirm": "Letzten gültigen Stand wiederherstellen"
+            },
+            "data_description": {
+                  "confirm": "Stellt Parent-Konfiguration und Raum-Subentries aus dem letzten gültigen Stand wieder her, sofern einer vorhanden ist."
+            }
+      },
+      "positions": {
+            "title": "Raum – Positionen",
+            "description": "Physische Zielpositionen und Lamellenpositionen dieses Raums konfigurieren.",
+            "sections": {
+                  "positions": {
+                        "name": "Positionswerte",
+                        "data": {
+                              "open_position": "Öffnungsposition",
+                              "close_position": "Schließposition",
+                              "shading_position": "Beschattungsposition",
+                              "shading_position_alt": "Alternative Beschattungsposition",
+                              "shading_position_alt_entity": "Entity für alternative Beschattungsposition",
+                              "ventilate_position": "Lüftungsposition",
+                              "lockout_position": "Aussperrschutzposition"
+                        },
+                        "data_description": {
+                              "open_position": "Öffnungsposition dieses Raums festlegen.",
+                              "close_position": "Schließposition dieses Raums festlegen.",
+                              "shading_position": "Beschattungsposition dieses Raums festlegen.",
+                              "shading_position_alt": "Alternative Beschattungsposition dieses Raums festlegen.",
+                              "shading_position_alt_entity": "Entity für alternative Beschattungsposition dieses Raums festlegen.",
+                              "ventilate_position": "Lüftungsposition dieses Raums festlegen.",
+                              "lockout_position": "Aussperrschutzposition dieses Raums festlegen."
+                        }
+                  },
+                  "tilt_positions": {
+                        "name": "Lamellenpositionen",
+                        "data": {
+                              "open_tilt_position": "Lamellenposition beim Öffnen",
+                              "close_tilt_position": "Lamellenposition beim Schließen",
+                              "shading_tilt_position": "Lamellenposition bei Beschattung",
+                              "ventilate_tilt_position": "Lamellenposition bei Lüftung",
+                              "shading_tilt_position_0": "Beschattungs-Lamellenstufe 0",
+                              "shading_tilt_position_1": "Beschattungs-Lamellenstufe 1",
+                              "shading_tilt_position_2": "Beschattungs-Lamellenstufe 2",
+                              "shading_tilt_position_3": "Beschattungs-Lamellenstufe 3"
+                        },
+                        "data_description": {
+                              "open_tilt_position": "Lamellenposition beim Öffnen dieses Raums festlegen.",
+                              "close_tilt_position": "Lamellenposition beim Schließen dieses Raums festlegen.",
+                              "shading_tilt_position": "Lamellenposition bei Beschattung dieses Raums festlegen.",
+                              "ventilate_tilt_position": "Lamellenposition bei Lüftung dieses Raums festlegen.",
+                              "shading_tilt_position_0": "Beschattungs-Lamellenstufe 0 dieses Raums festlegen.",
+                              "shading_tilt_position_1": "Beschattungs-Lamellenstufe 1 dieses Raums festlegen.",
+                              "shading_tilt_position_2": "Beschattungs-Lamellenstufe 2 dieses Raums festlegen.",
+                              "shading_tilt_position_3": "Beschattungs-Lamellenstufe 3 dieses Raums festlegen."
+                        }
+                  }
+            }
+      },
+      "general": {
+            "title": "Raum – Allgemein",
+            "description": "Benenne den Raum und ordne ihn einem Home-Assistant-Bereich zu.",
+            "data": {
+                  "name": "Name",
+                  "room": "Bereich"
+            },
+            "data_description": {
+                  "name": "Lesbarer Raumname; er aktualisiert auch den Titel des Room-Entries.",
+                  "room": "Home-Assistant-Bereich des physischen Raums."
+            }
+      },
+      "geometry": {
+            "title": "Raum – Geometrie",
+            "description": "Beschreibe die physische Ausrichtung der Fenster dieses Raums. Diese Werte werden zusammen mit Sonnenstand und Profil ausgewertet.",
+            "data": {
+                  "shading_azimuth_start": "Azimut von",
+                  "shading_azimuth_end": "Azimut bis"
+            },
+            "data_description": {
+                  "shading_azimuth_start": "Beginn des horizontalen Sonnenbereichs, in dem dieses Fenster direkt beschienen wird.",
+                  "shading_azimuth_end": "Ende des horizontalen Sonnenbereichs."
+            }
+      },
+      "controls": {
+            "title": "Raum – Bedienelemente",
+            "description": "Lege fest, welche optionalen Bedienelemente und Raumfunktionen Cover Control für diesen Raum bereitstellt.",
+            "data": {
+                  "enable_recalibrate_button": "Rekalibrierungs-Schaltfläche aktivieren",
+                  "enable_clear_manual_override_button": "Schaltfläche zum Löschen des manuellen Overrides aktivieren",
+                  "enable_logbook_cover": "Cover-Aktionen im Logbuch protokollieren"
+            }
+      },
+      "source_overrides": {
+            "title": "Raum – Lokale Datenquellen",
+            "description": "Wähle hier nur eine andere Datenquelle, wenn dieser Raum bewusst von der globalen Quelle abweichen soll.",
+            "data": {
+                  "brightness_sensor": "Helligkeitsquelle",
+                  "cold_protection_forecast_sensor": "Forecast-Quelle für Kälteschutz",
+                  "shading_brightness_sensor": "Beschattungshelligkeit",
+                  "shading_forecast_sensor": "Wetter-/Forecast-Quelle",
+                  "shading_forecast_temp_sensor": "Forecast-Temperaturquelle",
+                  "temperature_sensor_outdoor": "Außentemperaturquelle"
+            },
+            "data_description": {
+                  "brightness_sensor": "Raumlokale Quelle, die die globale Quelle für helligkeitsquelle nur in diesem Raum überschreibt.",
+                  "cold_protection_forecast_sensor": "Raumlokale Quelle, die die globale Quelle für forecast-quelle für kälteschutz nur in diesem Raum überschreibt.",
+                  "shading_brightness_sensor": "Raumlokale Quelle, die die globale Quelle für beschattungshelligkeit nur in diesem Raum überschreibt.",
+                  "shading_forecast_sensor": "Raumlokale Quelle, die die globale Quelle für wetter-/forecast-quelle nur in diesem Raum überschreibt.",
+                  "shading_forecast_temp_sensor": "Raumlokale Quelle, die die globale Quelle für forecast-temperaturquelle nur in diesem Raum überschreibt.",
+                  "temperature_sensor_outdoor": "Raumlokale Quelle, die die globale Quelle für außentemperaturquelle nur in diesem Raum überschreibt."
+            }
+      },
+      "profile_assignment": {
+            "title": "Raum – Profil & Automatik",
+            "description": "Wähle das Profil für diesen Raum und welche konfigurierten Funktionen dieses Profils hier verwendet werden. Wähle zuerst ein Profil. Danach kannst du festlegen, welche Funktionen dieses Profils in diesem Raum verwendet werden.\n\nWähle zuerst ein Profil. Danach kannst du festlegen, welche Funktionen dieses Profils in diesem Raum verwendet werden.",
+            "data": {
+                  "profile_id": "Profil",
+                  "profile_functions": "Verwendete Profilfunktionen"
+            },
+            "data_description": {
+                  "profile_id": "Das für diesen Raum ausgewählte Profil.",
+                  "profile_functions": "Im gewählten Profil konfigurierte Funktionen, die in diesem Raum verwendet werden."
+            }
+      },
+      "room_diagnostics": {
+            "title": "Raum – Diagnose",
+            "description": "Home-Assistant-Bereich: {area}\nCover: {cover_count}\nProfil: {profile_name}\nVerwendete Profilfunktionen: {profile_function_count}\nBewohnersensor: {resident_sensor}\nRaumtemperatursensor: {temperature_sensor}\nNächste Öffnung: {next_open}\nNächste Schließung: {next_close}"
+      },
+      "room_sensors": {
+            "title": "Raum – Raumsensoren",
+            "description": "Raumsensoren für Temperaturgrenzen und Bewohnerverhalten im gewählten Profil auswählen.",
+            "data": {
+                  "temperature_sensor_indoor": "Raumtemperatursensor",
+                  "resident_sensor": "Resident-/Bewohner-Sensor"
+            },
+            "data_description": {
+                  "temperature_sensor_indoor": "Temperatursensor dieses Raums. Der Messwert wird mit den Temperaturgrenzen des gewählten Profils ausgewertet.",
+                  "resident_sensor": "Resident- oder Bewohner-Entity dieses Raums. Die Verhaltensregeln bleiben im gewählten Profil."
+            }
+      },
+      "hardware": {
+            "title": "Raum – Cover & Hardware",
+            "description": "Ordne diesem Raum die gesteuerten Cover zu und lege hardwarebezogene Eigenschaften wie Cover-Typ, Positionsermittlung und Fahrzeit fest.",
+            "data": {
+                  "covers": "Cover",
+                  "position_source": "Positionsquelle",
+                  "custom_position_sensor": "Eigener Positionssensor",
+                  "cover_type": "Cover-Typ",
+                  "drive_time": "Fahrzeit",
+                  "cover_tilt_wait_mode": "Lamellen-Wartemodus",
+                  "cover_tilt_wait_timeout": "Lamellen-Wartezeit",
+                  "position_tolerance": "Positionstoleranz"
+            },
+            "data_description": {
+                  "covers": "Alle Cover, die zu diesem Raum gehören und gemeinsam von Cover Control gesteuert werden.",
+                  "position_source": "Legt fest, wo Cover Control die aktuelle Cover-Position liest.",
+                  "custom_position_sensor": "Sensor, der bei eigener Positionsquelle verwendet wird.",
+                  "cover_type": "Physischer Cover-Typ für Bewegungs- und Positionsverhalten.",
+                  "drive_time": "Ungefähre vollständige Fahrzeit für Cover ohne zuverlässige Positionsrückmeldung.",
+                  "cover_tilt_wait_mode": "Wie Lamellenbefehle mit der Coverbewegung gekoppelt werden.",
+                  "cover_tilt_wait_timeout": "Maximale Wartezeit für den gewählten Lamellen-Wartemodus.",
+                  "position_tolerance": "Positionsabweichung, die toleriert wird, bevor ein weiterer Befehl gesendet wird."
+            }
+      },
+      "room_reconfigure": {
+            "title": "Raum",
+            "description": "Home-Assistant-Bereich: {area}\nCover: {cover_count}\nProfil: {profile_name}\nVerwendete Profilfunktionen: {profile_function_count}",
+            "menu_options": {
+                  "general": "Allgemein",
+                  "hardware": "Cover & Hardware",
+                  "contacts": "Fensterkontakte",
+                  "room_sensors": "Raumsensoren",
+                  "geometry": "Geometrie",
+                  "source_overrides": "Lokale Datenquellen",
+                  "controls": "Bedienelemente",
+                  "positions": "Positionen",
+                  "profile_assignment": "Profil & Automatik",
+                  "room_diagnostics": "Diagnose"
+            },
+            "menu_option_descriptions": {
+                  "general": "Raum umbenennen und die Home-Assistant-Bereichszuordnung lesbar halten.",
+                  "hardware": "Gesteuerte Cover diesem Raum zuordnen und hardwarebezogene Eigenschaften konfigurieren.",
+                  "contacts": "Fensterkontakte den Covern für Lüftung und Schutzfunktionen zuordnen.",
+                  "room_sensors": "Sensoren auswählen, die ausschließlich zu diesem Raum gehören.",
+                  "geometry": "Physische Fensterausrichtung beschreiben, die mit Sonne und Beschattungsregeln ausgewertet wird.",
+                  "source_overrides": "Wähle nur dann eine lokale Datenquelle, wenn dieser Raum eine andere Quelle als die global konfigurierte verwenden soll.",
+                  "controls": "Lege fest, welche optionalen Bedienelemente und Raumfunktionen Cover Control für diesen Raum bereitstellt.",
+                  "positions": "Physische Zielpositionen und Lamellenpositionen dieses Raums konfigurieren.",
+                  "profile_assignment": "Profil für diesen Raum und die daraus verwendeten Funktionen auswählen.",
+                  "room_diagnostics": "Raumstruktur und ausgewählte Profilreferenzen prüfen."
+            }
+      },
+      "contacts": {
+            "title": "Raum – Fensterkontakte",
+            "description": "Ordne jedem Cover die zugehörigen Fensterkontakte zu. Cover Control verwendet diese Zuordnung für Lüftung, Aussperrschutz und weitere kontaktabhängige Funktionen.",
+            "data": {
+                  "cover_0_full": "Cover 1: vollständig geöffnet",
+                  "cover_0_tilt": "Cover 1: gekippt",
+                  "cover_1_full": "Cover 2: vollständig geöffnet",
+                  "cover_1_tilt": "Cover 2: gekippt",
+                  "cover_2_full": "Cover 3: vollständig geöffnet",
+                  "cover_2_tilt": "Cover 3: gekippt",
+                  "cover_3_full": "Cover 4: vollständig geöffnet",
+                  "cover_3_tilt": "Cover 4: gekippt",
+                  "cover_4_full": "Cover 5: vollständig geöffnet",
+                  "cover_4_tilt": "Cover 5: gekippt",
+                  "cover_5_full": "Cover 6: vollständig geöffnet",
+                  "cover_5_tilt": "Cover 6: gekippt",
+                  "cover_6_full": "Cover 7: vollständig geöffnet",
+                  "cover_6_tilt": "Cover 7: gekippt",
+                  "cover_7_full": "Cover 8: vollständig geöffnet",
+                  "cover_7_tilt": "Cover 8: gekippt",
+                  "cover_8_full": "Cover 9: vollständig geöffnet",
+                  "cover_8_tilt": "Cover 9: gekippt",
+                  "cover_9_full": "Cover 10: vollständig geöffnet",
+                  "cover_9_tilt": "Cover 10: gekippt",
+                  "cover_10_full": "Cover 11: vollständig geöffnet",
+                  "cover_10_tilt": "Cover 11: gekippt",
+                  "cover_11_full": "Cover 12: vollständig geöffnet",
+                  "cover_11_tilt": "Cover 12: gekippt",
+                  "cover_12_full": "Cover 13: vollständig geöffnet",
+                  "cover_12_tilt": "Cover 13: gekippt",
+                  "cover_13_full": "Cover 14: vollständig geöffnet",
+                  "cover_13_tilt": "Cover 14: gekippt",
+                  "cover_14_full": "Cover 15: vollständig geöffnet",
+                  "cover_14_tilt": "Cover 15: gekippt",
+                  "cover_15_full": "Cover 16: vollständig geöffnet",
+                  "cover_15_tilt": "Cover 16: gekippt",
+                  "cover_16_full": "Cover 17: vollständig geöffnet",
+                  "cover_16_tilt": "Cover 17: gekippt",
+                  "cover_17_full": "Cover 18: vollständig geöffnet",
+                  "cover_17_tilt": "Cover 18: gekippt",
+                  "cover_18_full": "Cover 19: vollständig geöffnet",
+                  "cover_18_tilt": "Cover 19: gekippt",
+                  "cover_19_full": "Cover 20: vollständig geöffnet",
+                  "cover_19_tilt": "Cover 20: gekippt"
+            },
+            "data_description": {
+                  "cover_0_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+                  "cover_0_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+                  "cover_1_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+                  "cover_1_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+                  "cover_2_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+                  "cover_2_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+                  "cover_3_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+                  "cover_3_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+                  "cover_4_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+                  "cover_4_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+                  "cover_5_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+                  "cover_5_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+                  "cover_6_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+                  "cover_6_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+                  "cover_7_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+                  "cover_7_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+                  "cover_8_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+                  "cover_8_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+                  "cover_9_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+                  "cover_9_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+                  "cover_10_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+                  "cover_10_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+                  "cover_11_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+                  "cover_11_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+                  "cover_12_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+                  "cover_12_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+                  "cover_13_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+                  "cover_13_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+                  "cover_14_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+                  "cover_14_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+                  "cover_15_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+                  "cover_15_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+                  "cover_16_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+                  "cover_16_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+                  "cover_17_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+                  "cover_17_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+                  "cover_18_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+                  "cover_18_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+                  "cover_19_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+                  "cover_19_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden."
+            }
+      }
+}
+  },
   "selector": {
     "profile_action": {
       "options": {

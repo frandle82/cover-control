@@ -538,6 +538,62 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None) -> FlowResult:
         return await self._config_flow_delegate().async_step_reconfigure(user_input)
 
+    async def _forward_step(self, step_id: str, user_input=None) -> FlowResult:
+        return await getattr(self._config_flow_delegate(), f"async_step_{step_id}")(
+            user_input
+        )
+
+    async def async_step_controller_reconfigure(self, user_input=None):
+        return await self._forward_step("controller_reconfigure", user_input)
+
+    async def async_step_room_reconfigure(self, user_input=None):
+        return await self._forward_step("room_reconfigure", user_input)
+
+    async def async_step_global_sources(self, user_input=None):
+        return await self._forward_step("global_sources", user_input)
+
+    async def async_step_profiles(self, user_input=None):
+        return await self._forward_step("profiles", user_input)
+
+    async def async_step_diagnostics(self, user_input=None):
+        return await self._forward_step("diagnostics", user_input)
+
+    async def async_step_recovery(self, user_input=None):
+        return await self._forward_step("recovery", user_input)
+
+    async def async_step_general(self, user_input=None):
+        return await self._forward_step("general", user_input)
+
+    async def async_step_hardware(self, user_input=None):
+        return await self._forward_step("hardware", user_input)
+
+    async def async_step_positions(self, user_input=None):
+        return await self._forward_step("positions", user_input)
+
+    async def async_step_contacts(self, user_input=None):
+        return await self._forward_step("contacts", user_input)
+
+    async def async_step_room_sensors(self, user_input=None):
+        return await self._forward_step("room_sensors", user_input)
+
+    async def async_step_geometry(self, user_input=None):
+        return await self._forward_step("geometry", user_input)
+
+    async def async_step_profile_assignment(self, user_input=None):
+        return await self._forward_step("profile_assignment", user_input)
+
+    async def async_step_source_overrides(self, user_input=None):
+        return await self._forward_step("source_overrides", user_input)
+
+    async def async_step_controls(self, user_input=None):
+        return await self._forward_step("controls", user_input)
+
+    async def async_step_room_diagnostics(self, user_input=None):
+        result = await self._forward_step("room_diagnostics", user_input)
+        if result.get("step_id") == "diagnostics":
+            result["step_id"] = "room_diagnostics"
+        return result
+
 
 class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the config flow."""
