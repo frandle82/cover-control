@@ -840,7 +840,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 f"{', '.join(self._room_names(model, rooms)) or '—'}"
             )
         return self.async_show_form(
-            step_id="diagnostics",
+            step_id="room_diagnostics",
             data_schema=vol.Schema({}),
             description_placeholders={"profiles": "; ".join(usage) or "—"},
         )
@@ -1256,7 +1256,7 @@ class RoomFlowMixin:
                 "profile_assignment",
                 "source_overrides",
                 "controls",
-                "diagnostics",
+                "room_diagnostics",
             ],
             description_placeholders=self._room_context_placeholders(),
         )
@@ -1937,6 +1937,7 @@ for _room_flow_name in (
 
 CoverControlFlow._contact_key = staticmethod(RoomFlowMixin._contact_key)
 CoverControlFlow.async_step_room_reconfigure = RoomFlowMixin.async_step_room_reconfigure
+CoverControlFlow.async_step_room_diagnostics = RoomFlowMixin.async_step_diagnostics
 
 
 async def _cover_control_diagnostics(self, user_input=None) -> FlowResult:

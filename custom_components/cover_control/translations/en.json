@@ -555,14 +555,287 @@
         "data_description": {
           "confirm": "Restores the parent configuration and room subentries from the last known good state when one is available."
         }
+      },
+      "positions": {
+        "title": "Room \"{room_name}\" - Positions",
+        "description": "Configure this room's physical target positions and tilt positions.",
+        "sections": {
+          "positions": {
+            "name": "Position values",
+            "data": {
+              "open_position": "Open position",
+              "close_position": "Close position",
+              "shading_position": "Shading position",
+              "shading_position_alt": "Alternative shading position",
+              "shading_position_alt_entity": "Alternative shading position entity",
+              "ventilate_position": "Ventilation position",
+              "lockout_position": "Lockout protection position"
+            },
+            "data_description": {
+              "open_position": "Set the room-owned open position.",
+              "close_position": "Set the room-owned close position.",
+              "shading_position": "Set the room-owned shading position.",
+              "shading_position_alt": "Set the room-owned alternative shading position.",
+              "shading_position_alt_entity": "Set the room-owned alternative shading position entity.",
+              "ventilate_position": "Set the room-owned ventilation position.",
+              "lockout_position": "Set the room-owned lockout protection position."
+            }
+          },
+          "tilt_positions": {
+            "name": "Tilt positions",
+            "data": {
+              "open_tilt_position": "Tilt position when opening",
+              "close_tilt_position": "Tilt position when closing",
+              "shading_tilt_position": "Tilt position during shading",
+              "ventilate_tilt_position": "Tilt position during ventilation",
+              "shading_tilt_position_0": "Shading tilt level 0",
+              "shading_tilt_position_1": "Shading tilt level 1",
+              "shading_tilt_position_2": "Shading tilt level 2",
+              "shading_tilt_position_3": "Shading tilt level 3"
+            },
+            "data_description": {
+              "open_tilt_position": "Set the room-owned tilt position when opening.",
+              "close_tilt_position": "Set the room-owned tilt position when closing.",
+              "shading_tilt_position": "Set the room-owned tilt position during shading.",
+              "ventilate_tilt_position": "Set the room-owned tilt position during ventilation.",
+              "shading_tilt_position_0": "Set the room-owned shading tilt level 0.",
+              "shading_tilt_position_1": "Set the room-owned shading tilt level 1.",
+              "shading_tilt_position_2": "Set the room-owned shading tilt level 2.",
+              "shading_tilt_position_3": "Set the room-owned shading tilt level 3."
+            }
+          }
+        }
+      },
+      "general": {
+        "title": "Room \"{room_name}\" - General",
+        "description": "Name the room and assign its Home Assistant area.",
+        "data": {
+          "name": "Name",
+          "room": "Area"
+        },
+        "data_description": {
+          "name": "Human-readable room name; it also updates the room entry title.",
+          "room": "Home Assistant area for the physical room."
+        }
+      },
+      "geometry": {
+        "title": "Room \"{room_name}\" - Geometry",
+        "description": "Describe the physical orientation of this room's windows. These values are evaluated together with sun position and the assigned shading profile.",
+        "data": {
+          "shading_azimuth_start": "Azimuth from",
+          "shading_azimuth_end": "Azimuth to"
+        },
+        "data_description": {
+          "shading_azimuth_start": "Start of the horizontal sun range in which this window receives direct sun.",
+          "shading_azimuth_end": "End of the horizontal sun range."
+        }
+      },
+      "controls": {
+        "title": "Room \"{room_name}\" - Controls",
+        "description": "Choose which optional controls and room functions Cover Control provides for this room.",
+        "data": {
+          "enable_recalibrate_button": "Enable recalibration button",
+          "enable_clear_manual_override_button": "Enable clear manual override button",
+          "enable_logbook_cover": "Log cover actions"
+        }
+      },
+      "source_overrides": {
+        "title": "Room \"{room_name}\" - Local data sources",
+        "description": "Only choose a different source here when this room intentionally differs from the global source.",
+        "data": {
+          "brightness_sensor": "Brightness source",
+          "cold_protection_forecast_sensor": "Cold protection forecast source",
+          "shading_brightness_sensor": "Shading brightness source",
+          "shading_forecast_sensor": "Weather forecast source",
+          "shading_forecast_temp_sensor": "Forecast temperature source",
+          "temperature_sensor_outdoor": "Outdoor temperature source"
+        },
+        "data_description": {
+          "brightness_sensor": "Room-local source that overrides the global brightness source only for this room.",
+          "cold_protection_forecast_sensor": "Room-local source that overrides the global cold protection forecast source only for this room.",
+          "shading_brightness_sensor": "Room-local source that overrides the global shading brightness source only for this room.",
+          "shading_forecast_sensor": "Room-local source that overrides the global weather forecast source only for this room.",
+          "shading_forecast_temp_sensor": "Room-local source that overrides the global forecast temperature source only for this room.",
+          "temperature_sensor_outdoor": "Room-local source that overrides the global outdoor temperature source only for this room."
+        }
+      },
+      "profile_assignment": {
+        "title": "Room \"{room_name}\" - Profile & automation",
+        "description": "Choose the profile for this room and which configured functions of that profile are used here. Select a profile first; then choose the functions this room should use.\n\nSelect a profile first. Then you can choose which functions of that profile are used in this room.",
+        "data": {
+          "profile_id": "Profile",
+          "profile_functions": "Used profile functions"
+        },
+        "data_description": {
+          "profile_id": "The profile selected for this room.",
+          "profile_functions": "Functions configured by the selected profile and enabled for this room."
+        }
+      },
+      "room_diagnostics": {
+        "title": "Room \"{room_name}\" - Diagnostics",
+        "description": "Home Assistant area: {area}\nCovers: {cover_count}\nProfile: {profile_name}\nUsed profile functions: {profile_function_count}\nResident sensor: {resident_sensor}\nRoom temperature sensor: {temperature_sensor}\nNext open: {next_open}\nNext close: {next_close}"
+      },
+      "room_sensors": {
+        "title": "Room \"{room_name}\" - Room sensors",
+        "description": "Choose room-local sensors for temperature limits and resident behavior in the selected profile.",
+        "data": {
+          "temperature_sensor_indoor": "Room temperature sensor",
+          "resident_sensor": "Resident sensor"
+        },
+        "data_description": {
+          "temperature_sensor_indoor": "Temperature sensor of this room. Its value is evaluated against thresholds from the assigned shading profile.",
+          "resident_sensor": "Resident or occupancy entity for this room. Behavior rules stay in the assigned behavior profile."
+        }
+      },
+      "hardware": {
+        "title": "Room \"{room_name}\" - Cover & hardware",
+        "description": "Assign controlled covers to this room and configure hardware-related properties such as cover type, position source, and drive time.",
+        "data": {
+          "covers": "Covers",
+          "position_source": "Position source",
+          "custom_position_sensor": "Custom position sensor",
+          "cover_type": "Cover type",
+          "drive_time": "Drive time",
+          "cover_tilt_wait_mode": "Tilt wait mode",
+          "cover_tilt_wait_timeout": "Tilt wait timeout",
+          "position_tolerance": "Position tolerance"
+        },
+        "data_description": {
+          "covers": "All covers that belong to this room and are controlled together by Cover Control.",
+          "position_source": "Choose where Cover Control reads the current cover position.",
+          "custom_position_sensor": "Sensor used when the custom position source is selected.",
+          "cover_type": "Physical cover type used for movement and position behavior.",
+          "drive_time": "Approximate full travel time for covers without reliable position feedback.",
+          "cover_tilt_wait_mode": "How slatted blind tilt commands are sequenced with cover movement.",
+          "cover_tilt_wait_timeout": "Maximum wait time for the selected tilt wait mode.",
+          "position_tolerance": "Position difference tolerated before another command is sent."
+        }
+      },
+      "room_reconfigure": {
+        "title": "Room \"{room_name}\"",
+        "description": "Home Assistant area: {area}\nCovers: {cover_count}\nProfile: {profile_name}\nUsed profile functions: {profile_function_count}",
+        "menu_options": {
+          "general": "General",
+          "hardware": "Cover & hardware",
+          "contacts": "Window contacts",
+          "room_sensors": "Room sensors",
+          "geometry": "Geometry",
+          "source_overrides": "Local data sources",
+          "controls": "Controls",
+          "diagnostics": "Diagnostics",
+          "positions": "Positions",
+          "profile_assignment": "Profile & automation"
+        },
+        "menu_option_descriptions": {
+          "general": "Rename the room and keep its Home Assistant area assignment readable.",
+          "hardware": "Assign controlled covers to this room and configure hardware-related properties.",
+          "contacts": "Assign window contacts to the covers for ventilation and protection functions.",
+          "room_sensors": "Select sensors that belong only to this room.",
+          "geometry": "Describe the physical window orientation evaluated with sun and shading rules.",
+          "source_overrides": "Choose a local data source only when this room should use a different source than the globally configured one.",
+          "controls": "Choose which optional controls and room functions Cover Control provides for this room.",
+          "diagnostics": "Inspect the room structure and selected profile references.",
+          "positions": "Configure this room's physical target positions and tilt positions.",
+          "profile_assignment": "Choose the profile for this room and the functions used from it."
+        }
+      },
+      "contacts": {
+        "title": "Room \"{room_name}\" - Window contacts",
+        "description": "Assign each cover its related window contacts. Cover Control uses this mapping for ventilation, lockout protection, and contact-dependent behavior.",
+        "data": {
+          "cover_0_full": "Cover 1: fully open",
+          "cover_0_tilt": "Cover 1: tilted",
+          "cover_1_full": "Cover 2: fully open",
+          "cover_1_tilt": "Cover 2: tilted",
+          "cover_2_full": "Cover 3: fully open",
+          "cover_2_tilt": "Cover 3: tilted",
+          "cover_3_full": "Cover 4: fully open",
+          "cover_3_tilt": "Cover 4: tilted",
+          "cover_4_full": "Cover 5: fully open",
+          "cover_4_tilt": "Cover 5: tilted",
+          "cover_5_full": "Cover 6: fully open",
+          "cover_5_tilt": "Cover 6: tilted",
+          "cover_6_full": "Cover 7: fully open",
+          "cover_6_tilt": "Cover 7: tilted",
+          "cover_7_full": "Cover 8: fully open",
+          "cover_7_tilt": "Cover 8: tilted",
+          "cover_8_full": "Cover 9: fully open",
+          "cover_8_tilt": "Cover 9: tilted",
+          "cover_9_full": "Cover 10: fully open",
+          "cover_9_tilt": "Cover 10: tilted",
+          "cover_10_full": "Cover 11: fully open",
+          "cover_10_tilt": "Cover 11: tilted",
+          "cover_11_full": "Cover 12: fully open",
+          "cover_11_tilt": "Cover 12: tilted",
+          "cover_12_full": "Cover 13: fully open",
+          "cover_12_tilt": "Cover 13: tilted",
+          "cover_13_full": "Cover 14: fully open",
+          "cover_13_tilt": "Cover 14: tilted",
+          "cover_14_full": "Cover 15: fully open",
+          "cover_14_tilt": "Cover 15: tilted",
+          "cover_15_full": "Cover 16: fully open",
+          "cover_15_tilt": "Cover 16: tilted",
+          "cover_16_full": "Cover 17: fully open",
+          "cover_16_tilt": "Cover 17: tilted",
+          "cover_17_full": "Cover 18: fully open",
+          "cover_17_tilt": "Cover 18: tilted",
+          "cover_18_full": "Cover 19: fully open",
+          "cover_18_tilt": "Cover 19: tilted",
+          "cover_19_full": "Cover 20: fully open",
+          "cover_19_tilt": "Cover 20: tilted"
+        },
+        "data_description": {
+          "cover_0_full": "Sensors that report a fully opened window for this cover.",
+          "cover_0_tilt": "Sensors that report a tilted window for this cover.",
+          "cover_1_full": "Sensors that report a fully opened window for this cover.",
+          "cover_1_tilt": "Sensors that report a tilted window for this cover.",
+          "cover_2_full": "Sensors that report a fully opened window for this cover.",
+          "cover_2_tilt": "Sensors that report a tilted window for this cover.",
+          "cover_3_full": "Sensors that report a fully opened window for this cover.",
+          "cover_3_tilt": "Sensors that report a tilted window for this cover.",
+          "cover_4_full": "Sensors that report a fully opened window for this cover.",
+          "cover_4_tilt": "Sensors that report a tilted window for this cover.",
+          "cover_5_full": "Sensors that report a fully opened window for this cover.",
+          "cover_5_tilt": "Sensors that report a tilted window for this cover.",
+          "cover_6_full": "Sensors that report a fully opened window for this cover.",
+          "cover_6_tilt": "Sensors that report a tilted window for this cover.",
+          "cover_7_full": "Sensors that report a fully opened window for this cover.",
+          "cover_7_tilt": "Sensors that report a tilted window for this cover.",
+          "cover_8_full": "Sensors that report a fully opened window for this cover.",
+          "cover_8_tilt": "Sensors that report a tilted window for this cover.",
+          "cover_9_full": "Sensors that report a fully opened window for this cover.",
+          "cover_9_tilt": "Sensors that report a tilted window for this cover.",
+          "cover_10_full": "Sensors that report a fully opened window for this cover.",
+          "cover_10_tilt": "Sensors that report a tilted window for this cover.",
+          "cover_11_full": "Sensors that report a fully opened window for this cover.",
+          "cover_11_tilt": "Sensors that report a tilted window for this cover.",
+          "cover_12_full": "Sensors that report a fully opened window for this cover.",
+          "cover_12_tilt": "Sensors that report a tilted window for this cover.",
+          "cover_13_full": "Sensors that report a fully opened window for this cover.",
+          "cover_13_tilt": "Sensors that report a tilted window for this cover.",
+          "cover_14_full": "Sensors that report a fully opened window for this cover.",
+          "cover_14_tilt": "Sensors that report a tilted window for this cover.",
+          "cover_15_full": "Sensors that report a fully opened window for this cover.",
+          "cover_15_tilt": "Sensors that report a tilted window for this cover.",
+          "cover_16_full": "Sensors that report a fully opened window for this cover.",
+          "cover_16_tilt": "Sensors that report a tilted window for this cover.",
+          "cover_17_full": "Sensors that report a fully opened window for this cover.",
+          "cover_17_tilt": "Sensors that report a tilted window for this cover.",
+          "cover_18_full": "Sensors that report a fully opened window for this cover.",
+          "cover_18_tilt": "Sensors that report a tilted window for this cover.",
+          "cover_19_full": "Sensors that report a fully opened window for this cover.",
+          "cover_19_tilt": "Sensors that report a tilted window for this cover."
+        }
       }
     },
     "abort": {
       "no_profile_for_overrides": "No matching profile is selected for this room, so profile overrides cannot be defined.",
       "legacy_flow_removed": "This legacy configuration path has been removed. Migrate the entry to the current native structure.",
-      "reconfigure_successful": "Cover Control configuration updated successfully.",
+      "reconfigure_successful": "Room updated",
       "single_instance_allowed": "Only one Cover Control instance can be set up.",
-      "profile_controller_only": "Profiles can only be edited from the Cover Control controller entry."
+      "profile_controller_only": "Profiles can only be edited from the Cover Control controller entry.",
+      "profile_required_for_functions": "Choose a profile before selecting profile functions",
+      "profile_has_no_functions": "The selected profile has no configured functions"
     }
   },
   "selector": {
@@ -674,323 +947,7 @@
       }
     }
   },
-  "config_subentries": {
-    "room": {
-      "title": "Room",
-      "step": {
-        "room_reconfigure": {
-          "title": "Room \"{room_name}\"",
-          "description": "Home Assistant area: {area}\nCovers: {cover_count}\nProfile: {profile_name}\nUsed profile functions: {profile_function_count}",
-          "menu_options": {
-            "general": "General",
-            "hardware": "Cover & hardware",
-            "contacts": "Window contacts",
-            "room_sensors": "Room sensors",
-            "geometry": "Geometry",
-            "source_overrides": "Local data sources",
-            "controls": "Controls",
-            "diagnostics": "Diagnostics",
-            "positions": "Positions",
-            "profile_assignment": "Profile & automation"
-          },
-          "menu_option_descriptions": {
-            "general": "Rename the room and keep its Home Assistant area assignment readable.",
-            "hardware": "Assign controlled covers to this room and configure hardware-related properties.",
-            "contacts": "Assign window contacts to the covers for ventilation and protection functions.",
-            "room_sensors": "Select sensors that belong only to this room.",
-            "geometry": "Describe the physical window orientation evaluated with sun and shading rules.",
-            "source_overrides": "Choose a local data source only when this room should use a different source than the globally configured one.",
-            "controls": "Choose which optional controls and room functions Cover Control provides for this room.",
-            "diagnostics": "Inspect the room structure and selected profile references.",
-            "positions": "Configure this room's physical target positions and tilt positions.",
-            "profile_assignment": "Choose the profile for this room and the functions used from it."
-          }
-        },
-        "user": {
-          "title": "Add room",
-          "data": {
-            "name": "Name",
-            "room": "Area",
-            "covers": "Covers"
-          },
-          "description": "Create a new Cover Control room.",
-          "data_description": {
-            "name": "Human-readable name of this room.",
-            "room": "Home Assistant area of the physical room.",
-            "covers": "Covers that belong to this room."
-          }
-        },
-        "controls": {
-          "title": "Room \"{room_name}\" - Controls",
-          "description": "Choose which optional controls and room functions Cover Control provides for this room.",
-          "data": {
-            "enable_recalibrate_button": "Enable recalibration button",
-            "enable_clear_manual_override_button": "Enable clear manual override button",
-            "enable_logbook_cover": "Log cover actions"
-          }
-        },
-        "hardware": {
-          "title": "Room \"{room_name}\" - Cover & hardware",
-          "description": "Assign controlled covers to this room and configure hardware-related properties such as cover type, position source, and drive time.",
-          "data": {
-            "covers": "Covers",
-            "position_source": "Position source",
-            "custom_position_sensor": "Custom position sensor",
-            "cover_type": "Cover type",
-            "drive_time": "Drive time",
-            "cover_tilt_wait_mode": "Tilt wait mode",
-            "cover_tilt_wait_timeout": "Tilt wait timeout",
-            "position_tolerance": "Position tolerance"
-          },
-          "data_description": {
-            "covers": "All covers that belong to this room and are controlled together by Cover Control.",
-            "position_source": "Choose where Cover Control reads the current cover position.",
-            "custom_position_sensor": "Sensor used when the custom position source is selected.",
-            "cover_type": "Physical cover type used for movement and position behavior.",
-            "drive_time": "Approximate full travel time for covers without reliable position feedback.",
-            "cover_tilt_wait_mode": "How slatted blind tilt commands are sequenced with cover movement.",
-            "cover_tilt_wait_timeout": "Maximum wait time for the selected tilt wait mode.",
-            "position_tolerance": "Position difference tolerated before another command is sent."
-          }
-        },
-        "contacts": {
-          "title": "Room \"{room_name}\" - Window contacts",
-          "description": "Assign each cover its related window contacts. Cover Control uses this mapping for ventilation, lockout protection, and contact-dependent behavior.",
-          "data": {
-            "cover_0_full": "Cover 1: fully open",
-            "cover_0_tilt": "Cover 1: tilted",
-            "cover_1_full": "Cover 2: fully open",
-            "cover_1_tilt": "Cover 2: tilted",
-            "cover_2_full": "Cover 3: fully open",
-            "cover_2_tilt": "Cover 3: tilted",
-            "cover_3_full": "Cover 4: fully open",
-            "cover_3_tilt": "Cover 4: tilted",
-            "cover_4_full": "Cover 5: fully open",
-            "cover_4_tilt": "Cover 5: tilted",
-            "cover_5_full": "Cover 6: fully open",
-            "cover_5_tilt": "Cover 6: tilted",
-            "cover_6_full": "Cover 7: fully open",
-            "cover_6_tilt": "Cover 7: tilted",
-            "cover_7_full": "Cover 8: fully open",
-            "cover_7_tilt": "Cover 8: tilted",
-            "cover_8_full": "Cover 9: fully open",
-            "cover_8_tilt": "Cover 9: tilted",
-            "cover_9_full": "Cover 10: fully open",
-            "cover_9_tilt": "Cover 10: tilted",
-            "cover_10_full": "Cover 11: fully open",
-            "cover_10_tilt": "Cover 11: tilted",
-            "cover_11_full": "Cover 12: fully open",
-            "cover_11_tilt": "Cover 12: tilted",
-            "cover_12_full": "Cover 13: fully open",
-            "cover_12_tilt": "Cover 13: tilted",
-            "cover_13_full": "Cover 14: fully open",
-            "cover_13_tilt": "Cover 14: tilted",
-            "cover_14_full": "Cover 15: fully open",
-            "cover_14_tilt": "Cover 15: tilted",
-            "cover_15_full": "Cover 16: fully open",
-            "cover_15_tilt": "Cover 16: tilted",
-            "cover_16_full": "Cover 17: fully open",
-            "cover_16_tilt": "Cover 17: tilted",
-            "cover_17_full": "Cover 18: fully open",
-            "cover_17_tilt": "Cover 18: tilted",
-            "cover_18_full": "Cover 19: fully open",
-            "cover_18_tilt": "Cover 19: tilted",
-            "cover_19_full": "Cover 20: fully open",
-            "cover_19_tilt": "Cover 20: tilted"
-          },
-          "data_description": {
-            "cover_0_full": "Sensors that report a fully opened window for this cover.",
-            "cover_0_tilt": "Sensors that report a tilted window for this cover.",
-            "cover_1_full": "Sensors that report a fully opened window for this cover.",
-            "cover_1_tilt": "Sensors that report a tilted window for this cover.",
-            "cover_2_full": "Sensors that report a fully opened window for this cover.",
-            "cover_2_tilt": "Sensors that report a tilted window for this cover.",
-            "cover_3_full": "Sensors that report a fully opened window for this cover.",
-            "cover_3_tilt": "Sensors that report a tilted window for this cover.",
-            "cover_4_full": "Sensors that report a fully opened window for this cover.",
-            "cover_4_tilt": "Sensors that report a tilted window for this cover.",
-            "cover_5_full": "Sensors that report a fully opened window for this cover.",
-            "cover_5_tilt": "Sensors that report a tilted window for this cover.",
-            "cover_6_full": "Sensors that report a fully opened window for this cover.",
-            "cover_6_tilt": "Sensors that report a tilted window for this cover.",
-            "cover_7_full": "Sensors that report a fully opened window for this cover.",
-            "cover_7_tilt": "Sensors that report a tilted window for this cover.",
-            "cover_8_full": "Sensors that report a fully opened window for this cover.",
-            "cover_8_tilt": "Sensors that report a tilted window for this cover.",
-            "cover_9_full": "Sensors that report a fully opened window for this cover.",
-            "cover_9_tilt": "Sensors that report a tilted window for this cover.",
-            "cover_10_full": "Sensors that report a fully opened window for this cover.",
-            "cover_10_tilt": "Sensors that report a tilted window for this cover.",
-            "cover_11_full": "Sensors that report a fully opened window for this cover.",
-            "cover_11_tilt": "Sensors that report a tilted window for this cover.",
-            "cover_12_full": "Sensors that report a fully opened window for this cover.",
-            "cover_12_tilt": "Sensors that report a tilted window for this cover.",
-            "cover_13_full": "Sensors that report a fully opened window for this cover.",
-            "cover_13_tilt": "Sensors that report a tilted window for this cover.",
-            "cover_14_full": "Sensors that report a fully opened window for this cover.",
-            "cover_14_tilt": "Sensors that report a tilted window for this cover.",
-            "cover_15_full": "Sensors that report a fully opened window for this cover.",
-            "cover_15_tilt": "Sensors that report a tilted window for this cover.",
-            "cover_16_full": "Sensors that report a fully opened window for this cover.",
-            "cover_16_tilt": "Sensors that report a tilted window for this cover.",
-            "cover_17_full": "Sensors that report a fully opened window for this cover.",
-            "cover_17_tilt": "Sensors that report a tilted window for this cover.",
-            "cover_18_full": "Sensors that report a fully opened window for this cover.",
-            "cover_18_tilt": "Sensors that report a tilted window for this cover.",
-            "cover_19_full": "Sensors that report a fully opened window for this cover.",
-            "cover_19_tilt": "Sensors that report a tilted window for this cover."
-          }
-        },
-        "room_sensors": {
-          "title": "Room \"{room_name}\" - Room sensors",
-          "description": "Choose room-local sensors for temperature limits and resident behavior in the selected profile.",
-          "data": {
-            "temperature_sensor_indoor": "Room temperature sensor",
-            "resident_sensor": "Resident sensor"
-          },
-          "data_description": {
-            "temperature_sensor_indoor": "Temperature sensor of this room. Its value is evaluated against thresholds from the assigned shading profile.",
-            "resident_sensor": "Resident or occupancy entity for this room. Behavior rules stay in the assigned behavior profile."
-          }
-        },
-        "geometry": {
-          "title": "Room \"{room_name}\" - Geometry",
-          "description": "Describe the physical orientation of this room's windows. These values are evaluated together with sun position and the assigned shading profile.",
-          "data": {
-            "shading_azimuth_start": "Azimuth from",
-            "shading_azimuth_end": "Azimuth to"
-          },
-          "data_description": {
-            "shading_azimuth_start": "Start of the horizontal sun range in which this window receives direct sun.",
-            "shading_azimuth_end": "End of the horizontal sun range."
-          }
-        },
-        "source_overrides": {
-          "title": "Room \"{room_name}\" - Local data sources",
-          "description": "Only choose a different source here when this room intentionally differs from the global source.",
-          "data": {
-            "brightness_sensor": "Brightness source",
-            "cold_protection_forecast_sensor": "Cold protection forecast source",
-            "shading_brightness_sensor": "Shading brightness source",
-            "shading_forecast_sensor": "Weather forecast source",
-            "shading_forecast_temp_sensor": "Forecast temperature source",
-            "temperature_sensor_outdoor": "Outdoor temperature source"
-          },
-          "data_description": {
-            "brightness_sensor": "Room-local source that overrides the global brightness source only for this room.",
-            "cold_protection_forecast_sensor": "Room-local source that overrides the global cold protection forecast source only for this room.",
-            "shading_brightness_sensor": "Room-local source that overrides the global shading brightness source only for this room.",
-            "shading_forecast_sensor": "Room-local source that overrides the global weather forecast source only for this room.",
-            "shading_forecast_temp_sensor": "Room-local source that overrides the global forecast temperature source only for this room.",
-            "temperature_sensor_outdoor": "Room-local source that overrides the global outdoor temperature source only for this room."
-          }
-        },
-        "profile_references": {
-          "title": "Profile",
-          "description": "Choose the central behavior profile for room \"{room_name}\". The profile itself is created and edited centrally under Cover Control configuration > Profiles.",
-          "data": {
-            "profile_id": "Profile"
-          },
-          "data_description": {
-            "profile_id": "The selected profile defines the available behavior; this room only stores the reference."
-          }
-        },
-        "profile_functions": {
-          "title": "Profile functions",
-          "description": "Choose which functions of the selected profile are used in room \"{room_name}\". Only selected functions are set up for this room and receive their own switches where applicable.",
-          "data": {
-            "profile_functions": "Used profile functions"
-          },
-          "data_description": {
-            "profile_functions": "Functions configured by the selected profile and enabled for this room."
-          }
-        },
-        "general": {
-          "title": "Room \"{room_name}\" - General",
-          "description": "Name the room and assign its Home Assistant area.",
-          "data": {
-            "name": "Name",
-            "room": "Area"
-          },
-          "data_description": {
-            "name": "Human-readable room name; it also updates the room entry title.",
-            "room": "Home Assistant area for the physical room."
-          }
-        },
-        "diagnostics": {
-          "title": "Room \"{room_name}\" - Diagnostics",
-          "description": "Home Assistant area: {area}\nCovers: {cover_count}\nProfile: {profile_name}\nUsed profile functions: {profile_function_count}\nResident sensor: {resident_sensor}\nRoom temperature sensor: {temperature_sensor}\nNext open: {next_open}\nNext close: {next_close}"
-        },
-        "positions": {
-          "title": "Room \"{room_name}\" - Positions",
-          "description": "Configure this room's physical target positions and tilt positions.",
-          "sections": {
-            "positions": {
-              "name": "Position values",
-              "data": {
-                "open_position": "Open position",
-                "close_position": "Close position",
-                "shading_position": "Shading position",
-                "shading_position_alt": "Alternative shading position",
-                "shading_position_alt_entity": "Alternative shading position entity",
-                "ventilate_position": "Ventilation position",
-                "lockout_position": "Lockout protection position"
-              },
-              "data_description": {
-                "open_position": "Set the room-owned open position.",
-                "close_position": "Set the room-owned close position.",
-                "shading_position": "Set the room-owned shading position.",
-                "shading_position_alt": "Set the room-owned alternative shading position.",
-                "shading_position_alt_entity": "Set the room-owned alternative shading position entity.",
-                "ventilate_position": "Set the room-owned ventilation position.",
-                "lockout_position": "Set the room-owned lockout protection position."
-              }
-            },
-            "tilt_positions": {
-              "name": "Tilt positions",
-              "data": {
-                "open_tilt_position": "Tilt position when opening",
-                "close_tilt_position": "Tilt position when closing",
-                "shading_tilt_position": "Tilt position during shading",
-                "ventilate_tilt_position": "Tilt position during ventilation",
-                "shading_tilt_position_0": "Shading tilt level 0",
-                "shading_tilt_position_1": "Shading tilt level 1",
-                "shading_tilt_position_2": "Shading tilt level 2",
-                "shading_tilt_position_3": "Shading tilt level 3"
-              },
-              "data_description": {
-                "open_tilt_position": "Set the room-owned tilt position when opening.",
-                "close_tilt_position": "Set the room-owned tilt position when closing.",
-                "shading_tilt_position": "Set the room-owned tilt position during shading.",
-                "ventilate_tilt_position": "Set the room-owned tilt position during ventilation.",
-                "shading_tilt_position_0": "Set the room-owned shading tilt level 0.",
-                "shading_tilt_position_1": "Set the room-owned shading tilt level 1.",
-                "shading_tilt_position_2": "Set the room-owned shading tilt level 2.",
-                "shading_tilt_position_3": "Set the room-owned shading tilt level 3."
-              }
-            }
-          }
-        },
-        "profile_assignment": {
-          "title": "Room \"{room_name}\" - Profile & automation",
-          "description": "Choose the profile for this room and which configured functions of that profile are used here. Select a profile first; then choose the functions this room should use.\n\nSelect a profile first. Then you can choose which functions of that profile are used in this room.",
-          "data": {
-            "profile_id": "Profile",
-            "profile_functions": "Used profile functions"
-          },
-          "data_description": {
-            "profile_id": "The profile selected for this room.",
-            "profile_functions": "Functions configured by the selected profile and enabled for this room."
-          }
-        }
-      },
-      "abort": {
-        "reconfigure_successful": "Room updated",
-        "profile_required_for_functions": "Choose a profile before selecting profile functions",
-        "profile_has_no_functions": "The selected profile has no configured functions"
-      }
-    }
-  },
+  "config_subentries": {},
   "issues": {
     "invalid_parent_config": {
       "title": "Invalid Cover Control configuration",
