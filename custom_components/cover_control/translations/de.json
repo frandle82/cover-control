@@ -21,6 +21,20 @@
           "name": "Name der globalen Cover-Control-Instanz."
         }
       },
+      "room": {
+        "title": "Raum hinzufügen",
+        "description": "Erstelle einen Raum und ordne ihm den Home-Assistant-Bereich sowie die gesteuerten Rollläden oder Jalousien zu.",
+        "data": {
+          "name": "Raumname",
+          "room": "Home-Assistant-Bereich",
+          "covers": "Rollläden / Jalousien"
+        },
+        "data_description": {
+          "name": "Name, unter dem der Raum in Cover Control angezeigt wird.",
+          "room": "Home-Assistant-Bereich dieses Raums.",
+          "covers": "Rollläden oder Jalousien, die in diesem Raum gemeinsam gesteuert werden."
+        }
+      },
       "controller_reconfigure": {
         "title": "Cover Control konfigurieren",
         "description": "Profile zentral erstellen und bearbeiten. Ein Profil bündelt die Automationsregeln für Zeit, Helligkeit, Sonne, Beschattung, Lüftung, Bewohnerverhalten und manuelles Verhalten.",
@@ -555,14 +569,287 @@
         "data_description": {
           "confirm": "Stellt Parent-Konfiguration und Raum-Subentries aus dem letzten gültigen Stand wieder her, sofern einer vorhanden ist."
         }
+      },
+      "positions": {
+        "title": "Raum \"{room_name}\" - Positionen",
+        "description": "Physische Zielpositionen und Lamellenpositionen dieses Raums konfigurieren.",
+        "sections": {
+          "positions": {
+            "name": "Positionswerte",
+            "data": {
+              "open_position": "Öffnungsposition",
+              "close_position": "Schließposition",
+              "shading_position": "Beschattungsposition",
+              "shading_position_alt": "Alternative Beschattungsposition",
+              "shading_position_alt_entity": "Entity für alternative Beschattungsposition",
+              "ventilate_position": "Lüftungsposition",
+              "lockout_position": "Aussperrschutzposition"
+            },
+            "data_description": {
+              "open_position": "Öffnungsposition dieses Raums festlegen.",
+              "close_position": "Schließposition dieses Raums festlegen.",
+              "shading_position": "Beschattungsposition dieses Raums festlegen.",
+              "shading_position_alt": "Alternative Beschattungsposition dieses Raums festlegen.",
+              "shading_position_alt_entity": "Entity für alternative Beschattungsposition dieses Raums festlegen.",
+              "ventilate_position": "Lüftungsposition dieses Raums festlegen.",
+              "lockout_position": "Aussperrschutzposition dieses Raums festlegen."
+            }
+          },
+          "tilt_positions": {
+            "name": "Lamellenpositionen",
+            "data": {
+              "open_tilt_position": "Lamellenposition beim Öffnen",
+              "close_tilt_position": "Lamellenposition beim Schließen",
+              "shading_tilt_position": "Lamellenposition bei Beschattung",
+              "ventilate_tilt_position": "Lamellenposition bei Lüftung",
+              "shading_tilt_position_0": "Beschattungs-Lamellenstufe 0",
+              "shading_tilt_position_1": "Beschattungs-Lamellenstufe 1",
+              "shading_tilt_position_2": "Beschattungs-Lamellenstufe 2",
+              "shading_tilt_position_3": "Beschattungs-Lamellenstufe 3"
+            },
+            "data_description": {
+              "open_tilt_position": "Lamellenposition beim Öffnen dieses Raums festlegen.",
+              "close_tilt_position": "Lamellenposition beim Schließen dieses Raums festlegen.",
+              "shading_tilt_position": "Lamellenposition bei Beschattung dieses Raums festlegen.",
+              "ventilate_tilt_position": "Lamellenposition bei Lüftung dieses Raums festlegen.",
+              "shading_tilt_position_0": "Beschattungs-Lamellenstufe 0 dieses Raums festlegen.",
+              "shading_tilt_position_1": "Beschattungs-Lamellenstufe 1 dieses Raums festlegen.",
+              "shading_tilt_position_2": "Beschattungs-Lamellenstufe 2 dieses Raums festlegen.",
+              "shading_tilt_position_3": "Beschattungs-Lamellenstufe 3 dieses Raums festlegen."
+            }
+          }
+        }
+      },
+      "general": {
+        "title": "Raum \"{room_name}\" - Allgemein",
+        "description": "Benenne den Raum und ordne ihn einem Home-Assistant-Bereich zu.",
+        "data": {
+          "name": "Name",
+          "room": "Bereich"
+        },
+        "data_description": {
+          "name": "Lesbarer Raumname; er aktualisiert auch den Titel des Room-Entries.",
+          "room": "Home-Assistant-Bereich des physischen Raums."
+        }
+      },
+      "geometry": {
+        "title": "Raum \"{room_name}\" - Geometrie",
+        "description": "Beschreibe die physische Ausrichtung der Fenster dieses Raums. Diese Werte werden zusammen mit Sonnenstand und Profil ausgewertet.",
+        "data": {
+          "shading_azimuth_start": "Azimut von",
+          "shading_azimuth_end": "Azimut bis"
+        },
+        "data_description": {
+          "shading_azimuth_start": "Beginn des horizontalen Sonnenbereichs, in dem dieses Fenster direkt beschienen wird.",
+          "shading_azimuth_end": "Ende des horizontalen Sonnenbereichs."
+        }
+      },
+      "controls": {
+        "title": "Raum \"{room_name}\" - Bedienelemente",
+        "description": "Lege fest, welche optionalen Bedienelemente und Raumfunktionen Cover Control für diesen Raum bereitstellt.",
+        "data": {
+          "enable_recalibrate_button": "Rekalibrierungs-Schaltfläche aktivieren",
+          "enable_clear_manual_override_button": "Schaltfläche zum Löschen des manuellen Overrides aktivieren",
+          "enable_logbook_cover": "Cover-Aktionen im Logbuch protokollieren"
+        }
+      },
+      "source_overrides": {
+        "title": "Raum \"{room_name}\" - Lokale Datenquellen",
+        "description": "Wähle hier nur eine andere Datenquelle, wenn dieser Raum bewusst von der globalen Quelle abweichen soll.",
+        "data": {
+          "brightness_sensor": "Helligkeitsquelle",
+          "cold_protection_forecast_sensor": "Forecast-Quelle für Kälteschutz",
+          "shading_brightness_sensor": "Beschattungshelligkeit",
+          "shading_forecast_sensor": "Wetter-/Forecast-Quelle",
+          "shading_forecast_temp_sensor": "Forecast-Temperaturquelle",
+          "temperature_sensor_outdoor": "Außentemperaturquelle"
+        },
+        "data_description": {
+          "brightness_sensor": "Raumlokale Quelle, die die globale Quelle für helligkeitsquelle nur in diesem Raum überschreibt.",
+          "cold_protection_forecast_sensor": "Raumlokale Quelle, die die globale Quelle für forecast-quelle für kälteschutz nur in diesem Raum überschreibt.",
+          "shading_brightness_sensor": "Raumlokale Quelle, die die globale Quelle für beschattungshelligkeit nur in diesem Raum überschreibt.",
+          "shading_forecast_sensor": "Raumlokale Quelle, die die globale Quelle für wetter-/forecast-quelle nur in diesem Raum überschreibt.",
+          "shading_forecast_temp_sensor": "Raumlokale Quelle, die die globale Quelle für forecast-temperaturquelle nur in diesem Raum überschreibt.",
+          "temperature_sensor_outdoor": "Raumlokale Quelle, die die globale Quelle für außentemperaturquelle nur in diesem Raum überschreibt."
+        }
+      },
+      "profile_assignment": {
+        "title": "Raum \"{room_name}\" - Profil & Automatik",
+        "description": "Wähle das Profil für diesen Raum und welche konfigurierten Funktionen dieses Profils hier verwendet werden. Wähle zuerst ein Profil. Danach kannst du festlegen, welche Funktionen dieses Profils in diesem Raum verwendet werden.\n\nWähle zuerst ein Profil. Danach kannst du festlegen, welche Funktionen dieses Profils in diesem Raum verwendet werden.",
+        "data": {
+          "profile_id": "Profil",
+          "profile_functions": "Verwendete Profilfunktionen"
+        },
+        "data_description": {
+          "profile_id": "Das für diesen Raum ausgewählte Profil.",
+          "profile_functions": "Im gewählten Profil konfigurierte Funktionen, die in diesem Raum verwendet werden."
+        }
+      },
+      "room_diagnostics": {
+        "title": "Raum \"{room_name}\" - Diagnose",
+        "description": "Home-Assistant-Bereich: {area}\nCover: {cover_count}\nProfil: {profile_name}\nVerwendete Profilfunktionen: {profile_function_count}\nBewohnersensor: {resident_sensor}\nRaumtemperatursensor: {temperature_sensor}\nNächste Öffnung: {next_open}\nNächste Schließung: {next_close}"
+      },
+      "room_sensors": {
+        "title": "Raum \"{room_name}\" - Raumsensoren",
+        "description": "Raumsensoren für Temperaturgrenzen und Bewohnerverhalten im gewählten Profil auswählen.",
+        "data": {
+          "temperature_sensor_indoor": "Raumtemperatursensor",
+          "resident_sensor": "Resident-/Bewohner-Sensor"
+        },
+        "data_description": {
+          "temperature_sensor_indoor": "Temperatursensor dieses Raums. Der Messwert wird mit den Temperaturgrenzen des gewählten Profils ausgewertet.",
+          "resident_sensor": "Resident- oder Bewohner-Entity dieses Raums. Die Verhaltensregeln bleiben im gewählten Profil."
+        }
+      },
+      "hardware": {
+        "title": "Raum \"{room_name}\" - Cover & Hardware",
+        "description": "Ordne diesem Raum die gesteuerten Cover zu und lege hardwarebezogene Eigenschaften wie Cover-Typ, Positionsermittlung und Fahrzeit fest.",
+        "data": {
+          "covers": "Cover",
+          "position_source": "Positionsquelle",
+          "custom_position_sensor": "Eigener Positionssensor",
+          "cover_type": "Cover-Typ",
+          "drive_time": "Fahrzeit",
+          "cover_tilt_wait_mode": "Lamellen-Wartemodus",
+          "cover_tilt_wait_timeout": "Lamellen-Wartezeit",
+          "position_tolerance": "Positionstoleranz"
+        },
+        "data_description": {
+          "covers": "Alle Cover, die zu diesem Raum gehören und gemeinsam von Cover Control gesteuert werden.",
+          "position_source": "Legt fest, wo Cover Control die aktuelle Cover-Position liest.",
+          "custom_position_sensor": "Sensor, der bei eigener Positionsquelle verwendet wird.",
+          "cover_type": "Physischer Cover-Typ für Bewegungs- und Positionsverhalten.",
+          "drive_time": "Ungefähre vollständige Fahrzeit für Cover ohne zuverlässige Positionsrückmeldung.",
+          "cover_tilt_wait_mode": "Wie Lamellenbefehle mit der Coverbewegung gekoppelt werden.",
+          "cover_tilt_wait_timeout": "Maximale Wartezeit für den gewählten Lamellen-Wartemodus.",
+          "position_tolerance": "Positionsabweichung, die toleriert wird, bevor ein weiterer Befehl gesendet wird."
+        }
+      },
+      "room_reconfigure": {
+        "title": "Raum \"{room_name}\"",
+        "description": "Home-Assistant-Bereich: {area}\nCover: {cover_count}\nProfil: {profile_name}\nVerwendete Profilfunktionen: {profile_function_count}",
+        "menu_options": {
+          "general": "Allgemein",
+          "hardware": "Cover & Hardware",
+          "contacts": "Fensterkontakte",
+          "room_sensors": "Raumsensoren",
+          "geometry": "Geometrie",
+          "source_overrides": "Lokale Datenquellen",
+          "controls": "Bedienelemente",
+          "positions": "Positionen",
+          "profile_assignment": "Profil & Automatik",
+          "room_diagnostics": "Diagnose"
+        },
+        "menu_option_descriptions": {
+          "general": "Raum umbenennen und die Home-Assistant-Bereichszuordnung lesbar halten.",
+          "hardware": "Gesteuerte Cover diesem Raum zuordnen und hardwarebezogene Eigenschaften konfigurieren.",
+          "contacts": "Fensterkontakte den Covern für Lüftung und Schutzfunktionen zuordnen.",
+          "room_sensors": "Sensoren auswählen, die ausschließlich zu diesem Raum gehören.",
+          "geometry": "Physische Fensterausrichtung beschreiben, die mit Sonne und Beschattungsregeln ausgewertet wird.",
+          "source_overrides": "Wähle nur dann eine lokale Datenquelle, wenn dieser Raum eine andere Quelle als die global konfigurierte verwenden soll.",
+          "controls": "Lege fest, welche optionalen Bedienelemente und Raumfunktionen Cover Control für diesen Raum bereitstellt.",
+          "positions": "Physische Zielpositionen und Lamellenpositionen dieses Raums konfigurieren.",
+          "profile_assignment": "Profil für diesen Raum und die daraus verwendeten Funktionen auswählen.",
+          "room_diagnostics": "Raumstruktur und ausgewählte Profilreferenzen prüfen."
+        }
+      },
+      "contacts": {
+        "title": "Raum \"{room_name}\" - Fensterkontakte",
+        "description": "Ordne jedem Cover die zugehörigen Fensterkontakte zu. Cover Control verwendet diese Zuordnung für Lüftung, Aussperrschutz und weitere kontaktabhängige Funktionen.",
+        "data": {
+          "cover_0_full": "Cover 1: vollständig geöffnet",
+          "cover_0_tilt": "Cover 1: gekippt",
+          "cover_1_full": "Cover 2: vollständig geöffnet",
+          "cover_1_tilt": "Cover 2: gekippt",
+          "cover_2_full": "Cover 3: vollständig geöffnet",
+          "cover_2_tilt": "Cover 3: gekippt",
+          "cover_3_full": "Cover 4: vollständig geöffnet",
+          "cover_3_tilt": "Cover 4: gekippt",
+          "cover_4_full": "Cover 5: vollständig geöffnet",
+          "cover_4_tilt": "Cover 5: gekippt",
+          "cover_5_full": "Cover 6: vollständig geöffnet",
+          "cover_5_tilt": "Cover 6: gekippt",
+          "cover_6_full": "Cover 7: vollständig geöffnet",
+          "cover_6_tilt": "Cover 7: gekippt",
+          "cover_7_full": "Cover 8: vollständig geöffnet",
+          "cover_7_tilt": "Cover 8: gekippt",
+          "cover_8_full": "Cover 9: vollständig geöffnet",
+          "cover_8_tilt": "Cover 9: gekippt",
+          "cover_9_full": "Cover 10: vollständig geöffnet",
+          "cover_9_tilt": "Cover 10: gekippt",
+          "cover_10_full": "Cover 11: vollständig geöffnet",
+          "cover_10_tilt": "Cover 11: gekippt",
+          "cover_11_full": "Cover 12: vollständig geöffnet",
+          "cover_11_tilt": "Cover 12: gekippt",
+          "cover_12_full": "Cover 13: vollständig geöffnet",
+          "cover_12_tilt": "Cover 13: gekippt",
+          "cover_13_full": "Cover 14: vollständig geöffnet",
+          "cover_13_tilt": "Cover 14: gekippt",
+          "cover_14_full": "Cover 15: vollständig geöffnet",
+          "cover_14_tilt": "Cover 15: gekippt",
+          "cover_15_full": "Cover 16: vollständig geöffnet",
+          "cover_15_tilt": "Cover 16: gekippt",
+          "cover_16_full": "Cover 17: vollständig geöffnet",
+          "cover_16_tilt": "Cover 17: gekippt",
+          "cover_17_full": "Cover 18: vollständig geöffnet",
+          "cover_17_tilt": "Cover 18: gekippt",
+          "cover_18_full": "Cover 19: vollständig geöffnet",
+          "cover_18_tilt": "Cover 19: gekippt",
+          "cover_19_full": "Cover 20: vollständig geöffnet",
+          "cover_19_tilt": "Cover 20: gekippt"
+        },
+        "data_description": {
+          "cover_0_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+          "cover_0_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+          "cover_1_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+          "cover_1_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+          "cover_2_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+          "cover_2_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+          "cover_3_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+          "cover_3_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+          "cover_4_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+          "cover_4_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+          "cover_5_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+          "cover_5_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+          "cover_6_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+          "cover_6_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+          "cover_7_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+          "cover_7_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+          "cover_8_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+          "cover_8_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+          "cover_9_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+          "cover_9_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+          "cover_10_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+          "cover_10_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+          "cover_11_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+          "cover_11_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+          "cover_12_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+          "cover_12_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+          "cover_13_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+          "cover_13_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+          "cover_14_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+          "cover_14_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+          "cover_15_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+          "cover_15_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+          "cover_16_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+          "cover_16_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+          "cover_17_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+          "cover_17_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+          "cover_18_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+          "cover_18_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
+          "cover_19_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
+          "cover_19_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden."
+        }
       }
     },
     "abort": {
       "no_profile_for_overrides": "Für diesen Raum ist kein entsprechendes Profil ausgewählt. Es können daher keine Profilabweichungen definiert werden.",
       "legacy_flow_removed": "Dieser Legacy-Konfigurationspfad wurde entfernt. Bitte migriere den Eintrag auf die aktuelle native Struktur.",
-      "reconfigure_successful": "Cover-Control-Konfiguration wurde aktualisiert.",
+      "reconfigure_successful": "Raum aktualisiert",
       "single_instance_allowed": "Es kann nur eine Cover-Control-Instanz eingerichtet werden.",
-      "profile_controller_only": "Profile können nur in der Cover-Control-Controller-Instanz bearbeitet werden."
+      "profile_controller_only": "Profile können nur in der Cover-Control-Controller-Instanz bearbeitet werden.",
+      "profile_required_for_functions": "Wähle zuerst ein Profil für diesen Raum aus",
+      "profile_has_no_functions": "Das gewählte Profil enthält keine konfigurierten Funktionen"
     }
   },
   "selector": {
@@ -674,323 +961,7 @@
       }
     }
   },
-  "config_subentries": {
-    "room": {
-      "title": "Raum",
-      "step": {
-        "room_reconfigure": {
-          "title": "Raum \"{room_name}\"",
-          "description": "Home-Assistant-Bereich: {area}\nCover: {cover_count}\nProfil: {profile_name}\nVerwendete Profilfunktionen: {profile_function_count}",
-          "menu_options": {
-            "general": "Allgemein",
-            "hardware": "Cover & Hardware",
-            "contacts": "Fensterkontakte",
-            "room_sensors": "Raumsensoren",
-            "geometry": "Geometrie",
-            "source_overrides": "Lokale Datenquellen",
-            "controls": "Bedienelemente",
-            "diagnostics": "Diagnose",
-            "positions": "Positionen",
-            "profile_assignment": "Profil & Automatik"
-          },
-          "menu_option_descriptions": {
-            "general": "Raum umbenennen und die Home-Assistant-Bereichszuordnung lesbar halten.",
-            "hardware": "Gesteuerte Cover diesem Raum zuordnen und hardwarebezogene Eigenschaften konfigurieren.",
-            "contacts": "Fensterkontakte den Covern für Lüftung und Schutzfunktionen zuordnen.",
-            "room_sensors": "Sensoren auswählen, die ausschließlich zu diesem Raum gehören.",
-            "geometry": "Physische Fensterausrichtung beschreiben, die mit Sonne und Beschattungsregeln ausgewertet wird.",
-            "source_overrides": "Wähle nur dann eine lokale Datenquelle, wenn dieser Raum eine andere Quelle als die global konfigurierte verwenden soll.",
-            "controls": "Lege fest, welche optionalen Bedienelemente und Raumfunktionen Cover Control für diesen Raum bereitstellt.",
-            "diagnostics": "Raumstruktur und ausgewählte Profilreferenzen prüfen.",
-            "positions": "Physische Zielpositionen und Lamellenpositionen dieses Raums konfigurieren.",
-            "profile_assignment": "Profil für diesen Raum und die daraus verwendeten Funktionen auswählen."
-          }
-        },
-        "user": {
-          "title": "Raum hinzufügen",
-          "data": {
-            "name": "Name",
-            "room": "Bereich",
-            "covers": "Cover"
-          },
-          "description": "Neuen Raum für Cover Control anlegen.",
-          "data_description": {
-            "name": "Lesbarer Name dieses Raums.",
-            "room": "Home-Assistant-Bereich des physischen Raums.",
-            "covers": "Cover, die gemeinsam zu diesem Raum gehören."
-          }
-        },
-        "controls": {
-          "title": "Raum \"{room_name}\" - Bedienelemente",
-          "description": "Lege fest, welche optionalen Bedienelemente und Raumfunktionen Cover Control für diesen Raum bereitstellt.",
-          "data": {
-            "enable_recalibrate_button": "Rekalibrierungs-Schaltfläche aktivieren",
-            "enable_clear_manual_override_button": "Schaltfläche zum Löschen des manuellen Overrides aktivieren",
-            "enable_logbook_cover": "Cover-Aktionen im Logbuch protokollieren"
-          }
-        },
-        "hardware": {
-          "title": "Raum \"{room_name}\" - Cover & Hardware",
-          "description": "Ordne diesem Raum die gesteuerten Cover zu und lege hardwarebezogene Eigenschaften wie Cover-Typ, Positionsermittlung und Fahrzeit fest.",
-          "data": {
-            "covers": "Cover",
-            "position_source": "Positionsquelle",
-            "custom_position_sensor": "Eigener Positionssensor",
-            "cover_type": "Cover-Typ",
-            "drive_time": "Fahrzeit",
-            "cover_tilt_wait_mode": "Lamellen-Wartemodus",
-            "cover_tilt_wait_timeout": "Lamellen-Wartezeit",
-            "position_tolerance": "Positionstoleranz"
-          },
-          "data_description": {
-            "covers": "Alle Cover, die zu diesem Raum gehören und gemeinsam von Cover Control gesteuert werden.",
-            "position_source": "Legt fest, wo Cover Control die aktuelle Cover-Position liest.",
-            "custom_position_sensor": "Sensor, der bei eigener Positionsquelle verwendet wird.",
-            "cover_type": "Physischer Cover-Typ für Bewegungs- und Positionsverhalten.",
-            "drive_time": "Ungefähre vollständige Fahrzeit für Cover ohne zuverlässige Positionsrückmeldung.",
-            "cover_tilt_wait_mode": "Wie Lamellenbefehle mit der Coverbewegung gekoppelt werden.",
-            "cover_tilt_wait_timeout": "Maximale Wartezeit für den gewählten Lamellen-Wartemodus.",
-            "position_tolerance": "Positionsabweichung, die toleriert wird, bevor ein weiterer Befehl gesendet wird."
-          }
-        },
-        "contacts": {
-          "title": "Raum \"{room_name}\" - Fensterkontakte",
-          "description": "Ordne jedem Cover die zugehörigen Fensterkontakte zu. Cover Control verwendet diese Zuordnung für Lüftung, Aussperrschutz und weitere kontaktabhängige Funktionen.",
-          "data": {
-            "cover_0_full": "Cover 1: vollständig geöffnet",
-            "cover_0_tilt": "Cover 1: gekippt",
-            "cover_1_full": "Cover 2: vollständig geöffnet",
-            "cover_1_tilt": "Cover 2: gekippt",
-            "cover_2_full": "Cover 3: vollständig geöffnet",
-            "cover_2_tilt": "Cover 3: gekippt",
-            "cover_3_full": "Cover 4: vollständig geöffnet",
-            "cover_3_tilt": "Cover 4: gekippt",
-            "cover_4_full": "Cover 5: vollständig geöffnet",
-            "cover_4_tilt": "Cover 5: gekippt",
-            "cover_5_full": "Cover 6: vollständig geöffnet",
-            "cover_5_tilt": "Cover 6: gekippt",
-            "cover_6_full": "Cover 7: vollständig geöffnet",
-            "cover_6_tilt": "Cover 7: gekippt",
-            "cover_7_full": "Cover 8: vollständig geöffnet",
-            "cover_7_tilt": "Cover 8: gekippt",
-            "cover_8_full": "Cover 9: vollständig geöffnet",
-            "cover_8_tilt": "Cover 9: gekippt",
-            "cover_9_full": "Cover 10: vollständig geöffnet",
-            "cover_9_tilt": "Cover 10: gekippt",
-            "cover_10_full": "Cover 11: vollständig geöffnet",
-            "cover_10_tilt": "Cover 11: gekippt",
-            "cover_11_full": "Cover 12: vollständig geöffnet",
-            "cover_11_tilt": "Cover 12: gekippt",
-            "cover_12_full": "Cover 13: vollständig geöffnet",
-            "cover_12_tilt": "Cover 13: gekippt",
-            "cover_13_full": "Cover 14: vollständig geöffnet",
-            "cover_13_tilt": "Cover 14: gekippt",
-            "cover_14_full": "Cover 15: vollständig geöffnet",
-            "cover_14_tilt": "Cover 15: gekippt",
-            "cover_15_full": "Cover 16: vollständig geöffnet",
-            "cover_15_tilt": "Cover 16: gekippt",
-            "cover_16_full": "Cover 17: vollständig geöffnet",
-            "cover_16_tilt": "Cover 17: gekippt",
-            "cover_17_full": "Cover 18: vollständig geöffnet",
-            "cover_17_tilt": "Cover 18: gekippt",
-            "cover_18_full": "Cover 19: vollständig geöffnet",
-            "cover_18_tilt": "Cover 19: gekippt",
-            "cover_19_full": "Cover 20: vollständig geöffnet",
-            "cover_19_tilt": "Cover 20: gekippt"
-          },
-          "data_description": {
-            "cover_0_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
-            "cover_0_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
-            "cover_1_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
-            "cover_1_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
-            "cover_2_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
-            "cover_2_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
-            "cover_3_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
-            "cover_3_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
-            "cover_4_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
-            "cover_4_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
-            "cover_5_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
-            "cover_5_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
-            "cover_6_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
-            "cover_6_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
-            "cover_7_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
-            "cover_7_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
-            "cover_8_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
-            "cover_8_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
-            "cover_9_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
-            "cover_9_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
-            "cover_10_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
-            "cover_10_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
-            "cover_11_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
-            "cover_11_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
-            "cover_12_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
-            "cover_12_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
-            "cover_13_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
-            "cover_13_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
-            "cover_14_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
-            "cover_14_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
-            "cover_15_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
-            "cover_15_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
-            "cover_16_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
-            "cover_16_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
-            "cover_17_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
-            "cover_17_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
-            "cover_18_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
-            "cover_18_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden.",
-            "cover_19_full": "Sensoren, die ein vollständig geöffnetes Fenster für dieses Cover melden.",
-            "cover_19_tilt": "Sensoren, die ein gekipptes Fenster für dieses Cover melden."
-          }
-        },
-        "room_sensors": {
-          "title": "Raum \"{room_name}\" - Raumsensoren",
-          "description": "Raumsensoren für Temperaturgrenzen und Bewohnerverhalten im gewählten Profil auswählen.",
-          "data": {
-            "temperature_sensor_indoor": "Raumtemperatursensor",
-            "resident_sensor": "Resident-/Bewohner-Sensor"
-          },
-          "data_description": {
-            "temperature_sensor_indoor": "Temperatursensor dieses Raums. Der Messwert wird mit den Temperaturgrenzen des gewählten Profils ausgewertet.",
-            "resident_sensor": "Resident- oder Bewohner-Entity dieses Raums. Die Verhaltensregeln bleiben im gewählten Profil."
-          }
-        },
-        "geometry": {
-          "title": "Raum \"{room_name}\" - Geometrie",
-          "description": "Beschreibe die physische Ausrichtung der Fenster dieses Raums. Diese Werte werden zusammen mit Sonnenstand und Profil ausgewertet.",
-          "data": {
-            "shading_azimuth_start": "Azimut von",
-            "shading_azimuth_end": "Azimut bis"
-          },
-          "data_description": {
-            "shading_azimuth_start": "Beginn des horizontalen Sonnenbereichs, in dem dieses Fenster direkt beschienen wird.",
-            "shading_azimuth_end": "Ende des horizontalen Sonnenbereichs."
-          }
-        },
-        "source_overrides": {
-          "title": "Raum \"{room_name}\" - Lokale Datenquellen",
-          "description": "Wähle hier nur eine andere Datenquelle, wenn dieser Raum bewusst von der globalen Quelle abweichen soll.",
-          "data": {
-            "brightness_sensor": "Helligkeitsquelle",
-            "cold_protection_forecast_sensor": "Forecast-Quelle für Kälteschutz",
-            "shading_brightness_sensor": "Beschattungshelligkeit",
-            "shading_forecast_sensor": "Wetter-/Forecast-Quelle",
-            "shading_forecast_temp_sensor": "Forecast-Temperaturquelle",
-            "temperature_sensor_outdoor": "Außentemperaturquelle"
-          },
-          "data_description": {
-            "brightness_sensor": "Raumlokale Quelle, die die globale Quelle für helligkeitsquelle nur in diesem Raum überschreibt.",
-            "cold_protection_forecast_sensor": "Raumlokale Quelle, die die globale Quelle für forecast-quelle für kälteschutz nur in diesem Raum überschreibt.",
-            "shading_brightness_sensor": "Raumlokale Quelle, die die globale Quelle für beschattungshelligkeit nur in diesem Raum überschreibt.",
-            "shading_forecast_sensor": "Raumlokale Quelle, die die globale Quelle für wetter-/forecast-quelle nur in diesem Raum überschreibt.",
-            "shading_forecast_temp_sensor": "Raumlokale Quelle, die die globale Quelle für forecast-temperaturquelle nur in diesem Raum überschreibt.",
-            "temperature_sensor_outdoor": "Raumlokale Quelle, die die globale Quelle für außentemperaturquelle nur in diesem Raum überschreibt."
-          }
-        },
-        "profile_references": {
-          "title": "Profil",
-          "description": "Wähle das zentrale Profil für Raum \"{room_name}\". Das Profil selbst wird zentral unter Cover-Control-Konfiguration > Profile erstellt und bearbeitet.",
-          "data": {
-            "profile_id": "Profil"
-          },
-          "data_description": {
-            "profile_id": "Das gewählte Profil definiert das verfügbare Verhalten; dieser Raum speichert nur die Referenz."
-          }
-        },
-        "profile_functions": {
-          "title": "Profilfunktionen",
-          "description": "Wähle aus, welche Funktionen des gewählten Profils in Raum \"{room_name}\" verwendet werden. Nur ausgewählte Funktionen werden für diesen Raum eingerichtet und erhalten gegebenenfalls eigene Schalter.",
-          "data": {
-            "profile_functions": "Verwendete Profilfunktionen"
-          },
-          "data_description": {
-            "profile_functions": "Im gewählten Profil konfigurierte Funktionen, die in diesem Raum verwendet werden."
-          }
-        },
-        "general": {
-          "title": "Raum \"{room_name}\" - Allgemein",
-          "description": "Benenne den Raum und ordne ihn einem Home-Assistant-Bereich zu.",
-          "data": {
-            "name": "Name",
-            "room": "Bereich"
-          },
-          "data_description": {
-            "name": "Lesbarer Raumname; er aktualisiert auch den Titel des Room-Entries.",
-            "room": "Home-Assistant-Bereich des physischen Raums."
-          }
-        },
-        "diagnostics": {
-          "title": "Raum \"{room_name}\" - Diagnose",
-          "description": "Home-Assistant-Bereich: {area}\nCover: {cover_count}\nProfil: {profile_name}\nVerwendete Profilfunktionen: {profile_function_count}\nBewohnersensor: {resident_sensor}\nRaumtemperatursensor: {temperature_sensor}\nNächste Öffnung: {next_open}\nNächste Schließung: {next_close}"
-        },
-        "positions": {
-          "title": "Raum \"{room_name}\" - Positionen",
-          "description": "Physische Zielpositionen und Lamellenpositionen dieses Raums konfigurieren.",
-          "sections": {
-            "positions": {
-              "name": "Positionswerte",
-              "data": {
-                "open_position": "Öffnungsposition",
-                "close_position": "Schließposition",
-                "shading_position": "Beschattungsposition",
-                "shading_position_alt": "Alternative Beschattungsposition",
-                "shading_position_alt_entity": "Entity für alternative Beschattungsposition",
-                "ventilate_position": "Lüftungsposition",
-                "lockout_position": "Aussperrschutzposition"
-              },
-              "data_description": {
-                "open_position": "Öffnungsposition dieses Raums festlegen.",
-                "close_position": "Schließposition dieses Raums festlegen.",
-                "shading_position": "Beschattungsposition dieses Raums festlegen.",
-                "shading_position_alt": "Alternative Beschattungsposition dieses Raums festlegen.",
-                "shading_position_alt_entity": "Entity für alternative Beschattungsposition dieses Raums festlegen.",
-                "ventilate_position": "Lüftungsposition dieses Raums festlegen.",
-                "lockout_position": "Aussperrschutzposition dieses Raums festlegen."
-              }
-            },
-            "tilt_positions": {
-              "name": "Lamellenpositionen",
-              "data": {
-                "open_tilt_position": "Lamellenposition beim Öffnen",
-                "close_tilt_position": "Lamellenposition beim Schließen",
-                "shading_tilt_position": "Lamellenposition bei Beschattung",
-                "ventilate_tilt_position": "Lamellenposition bei Lüftung",
-                "shading_tilt_position_0": "Beschattungs-Lamellenstufe 0",
-                "shading_tilt_position_1": "Beschattungs-Lamellenstufe 1",
-                "shading_tilt_position_2": "Beschattungs-Lamellenstufe 2",
-                "shading_tilt_position_3": "Beschattungs-Lamellenstufe 3"
-              },
-              "data_description": {
-                "open_tilt_position": "Lamellenposition beim Öffnen dieses Raums festlegen.",
-                "close_tilt_position": "Lamellenposition beim Schließen dieses Raums festlegen.",
-                "shading_tilt_position": "Lamellenposition bei Beschattung dieses Raums festlegen.",
-                "ventilate_tilt_position": "Lamellenposition bei Lüftung dieses Raums festlegen.",
-                "shading_tilt_position_0": "Beschattungs-Lamellenstufe 0 dieses Raums festlegen.",
-                "shading_tilt_position_1": "Beschattungs-Lamellenstufe 1 dieses Raums festlegen.",
-                "shading_tilt_position_2": "Beschattungs-Lamellenstufe 2 dieses Raums festlegen.",
-                "shading_tilt_position_3": "Beschattungs-Lamellenstufe 3 dieses Raums festlegen."
-              }
-            }
-          }
-        },
-        "profile_assignment": {
-          "title": "Raum \"{room_name}\" - Profil & Automatik",
-          "description": "Wähle das Profil für diesen Raum und welche konfigurierten Funktionen dieses Profils hier verwendet werden. Wähle zuerst ein Profil. Danach kannst du festlegen, welche Funktionen dieses Profils in diesem Raum verwendet werden.\n\nWähle zuerst ein Profil. Danach kannst du festlegen, welche Funktionen dieses Profils in diesem Raum verwendet werden.",
-          "data": {
-            "profile_id": "Profil",
-            "profile_functions": "Verwendete Profilfunktionen"
-          },
-          "data_description": {
-            "profile_id": "Das für diesen Raum ausgewählte Profil.",
-            "profile_functions": "Im gewählten Profil konfigurierte Funktionen, die in diesem Raum verwendet werden."
-          }
-        }
-      },
-      "abort": {
-        "reconfigure_successful": "Raum aktualisiert",
-        "profile_required_for_functions": "Wähle zuerst ein Profil für diesen Raum aus",
-        "profile_has_no_functions": "Das gewählte Profil enthält keine konfigurierten Funktionen"
-      }
-    }
-  },
+  "config_subentries": {},
   "issues": {
     "invalid_parent_config": {
       "title": "Ungültige Cover-Control-Konfiguration",

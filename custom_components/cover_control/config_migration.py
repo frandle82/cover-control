@@ -83,11 +83,20 @@ def unify_profile_model(model: Mapping[str, Any]) -> dict[str, Any]:
     canonical = ConfigProfileModel(model).data
     profiles = canonical.get(CONF_PROFILES, {})
     if already_unified:
-        canonical[CONF_PROFILES] = {
-            profile_id: deepcopy(profile)
-            for profile_id, profile in profiles.items()
-            if profile_id not in PROFILE_TYPES and isinstance(profile, Mapping)
-        }
+        unified_profiles: dict[str, dict[str, Any]] = {}
+        for profile_id, raw_profile in profiles.items():
+            if profile_id in PROFILE_TYPES or not isinstance(raw_profile, Mapping):
+                continue
+            profile = deepcopy(dict(raw_profile))
+            profile[CONF_PROFILE_ID] = str(profile_id)
+            profile.setdefault(CONF_PROFILE_NAME, str(profile_id))
+            profile.setdefault(CONF_PROFILE_SETTINGS, {})
+            profile.setdefault(
+                CONF_PROFILE_FUNCTIONS,
+                sorted(configured_functions_from_profile(profile)),
+            )
+            unified_profiles[str(profile_id)] = profile
+        canonical[CONF_PROFILES] = unified_profiles
         canonical[CONF_CONFIG_VERSION] = CONFIG_MODEL_VERSION
         return canonical
 
@@ -96,6 +105,7 @@ def unify_profile_model(model: Mapping[str, Any]) -> dict[str, Any]:
         for profile_id, profile in profiles.items()
         if profile_id not in PROFILE_TYPES and isinstance(profile, Mapping)
     }
+    consumed_legacy_profiles: set[tuple[str, str]] = set()
     for room in canonical.get(CONF_ROOMS, {}).values():
         selections = room.get(CONF_PROFILE_SELECTIONS, {})
         if not isinstance(selections, Mapping) or not selections:
@@ -109,6 +119,7 @@ def unify_profile_model(model: Mapping[str, Any]) -> dict[str, Any]:
                 legacy_id = selections.get(profile_type)
                 if not legacy_id:
                     continue
+                consumed_legacy_profiles.add((profile_type, str(legacy_id)))
                 legacy_profile = profiles.get(profile_type, {}).get(legacy_id, {})
                 if not isinstance(legacy_profile, Mapping):
                     continue
@@ -143,6 +154,21 @@ def unify_profile_model(model: Mapping[str, Any]) -> dict[str, Any]:
             unified_profiles[profile_id].get(CONF_PROFILE_FUNCTIONS, []),
         )
         room.pop(CONF_PROFILE_SELECTIONS, None)
+    for profile_type in PROFILE_TYPES:
+        for profile_id, legacy_profile in profiles.get(profile_type, {}).items():
+            if (profile_type, str(profile_id)) in consumed_legacy_profiles:
+                continue
+            if not isinstance(legacy_profile, Mapping):
+                continue
+            profile = deepcopy(dict(legacy_profile))
+            profile[CONF_PROFILE_ID] = str(profile_id)
+            profile.setdefault(CONF_PROFILE_NAME, str(profile_id))
+            profile.setdefault(CONF_PROFILE_SETTINGS, {})
+            profile.setdefault(
+                CONF_PROFILE_FUNCTIONS,
+                sorted(configured_functions_from_profile(profile)),
+            )
+            unified_profiles.setdefault(str(profile_id), profile)
     canonical[CONF_PROFILES] = unified_profiles
     canonical[CONF_CONFIG_VERSION] = CONFIG_MODEL_VERSION
     return canonical

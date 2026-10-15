@@ -128,6 +128,13 @@ def test_parent_reconfigure_steps_have_runtime_translations() -> None:
         document = json.loads(path.read_text())
         steps = document["config"]["step"]
         assert expected_steps <= set(steps)
+        for step_id in ("controller_reconfigure", "room_reconfigure"):
+            assert steps[step_id]["title"]
+            assert steps[step_id]["description"]
+            assert steps[step_id]["menu_options"]
+            assert set(steps[step_id]["menu_options"]) == set(
+                steps[step_id]["menu_option_descriptions"]
+            )
         assert set(steps["user"]["data"]) == {CONF_NAME}
         assert set(steps["user"]["data_description"]) == {CONF_NAME}
 
@@ -167,14 +174,13 @@ def test_parent_reconfigure_steps_have_runtime_translations() -> None:
         assert {
             "profile_required_for_functions",
             "profile_has_no_functions",
-        } <= set(document["config_subentries"]["room"]["abort"])
+        } <= set(document["config"]["abort"])
 
 
 def test_active_room_steps_have_runtime_translations() -> None:
-    """Every active room subentry step needs visible runtime text."""
+    """Every active standalone room step uses the normal config namespace."""
 
     active_room_steps = {
-        "user",
         "room_reconfigure",
         "general",
         "hardware",
@@ -185,11 +191,7 @@ def test_active_room_steps_have_runtime_translations() -> None:
         "profile_assignment",
         "source_overrides",
         "controls",
-        "diagnostics",
-    }
-    compatibility_room_steps = {
-        "profile_references",
-        "profile_functions",
+        "room_diagnostics",
     }
     legacy_room_steps = {
         "time",
@@ -215,8 +217,23 @@ def test_active_room_steps_have_runtime_translations() -> None:
         translation_dir / "translations/de.json",
     ):
         document = json.loads(path.read_text())
-        steps = document["config_subentries"]["room"]["step"]
-        assert active_room_steps | compatibility_room_steps <= set(steps)
+        steps = document["config"]["step"]
+        assert "room_diagnostics" in steps
+        room_menu = steps["room_reconfigure"]["menu_options"]
+        assert "room_diagnostics" in room_menu
+        assert "diagnostics" not in room_menu
+        room_menu_descriptions = steps["room_reconfigure"][
+            "menu_option_descriptions"
+        ]
+        assert "room_diagnostics" in room_menu_descriptions
+        assert "diagnostics" not in room_menu_descriptions
+        assert "room" in steps
+        room_step = steps["room"]
+        assert "title" in room_step
+        assert "description" in room_step
+        assert set(room_step["data"]) == {"name", "room", "covers"}
+        assert set(room_step["data_description"]) == {"name", "room", "covers"}
+        assert active_room_steps <= set(steps)
         assert legacy_room_steps.isdisjoint(steps)
         for step in active_room_steps:
             assert "title" in steps[step]
@@ -225,12 +242,14 @@ def test_active_room_steps_have_runtime_translations() -> None:
             assert set(steps[step]["menu_options"]) == set(
                 steps[step]["menu_option_descriptions"]
             )
-        room_abort = document["config_subentries"]["room"]["abort"]
         assert {
             "reconfigure_successful",
             "profile_required_for_functions",
             "profile_has_no_functions",
-        } <= set(room_abort)
+        } <= set(document["config"]["abort"])
+        room_subentries = document.get("config_subentries", {}).get("room", {})
+        assert "step" not in room_subentries
+        assert "abort" not in room_subentries
         assert "options" not in document
 
 
@@ -300,7 +319,7 @@ def test_active_v6_translation_details_are_covered() -> None:
             for section in steps[step]["sections"].values():
                 assert section["data"]
                 assert set(section["data"]) <= set(section["data_description"])
-        room_positions = document["config_subentries"]["room"]["step"]["positions"]
+        room_positions = document["config"]["step"]["positions"]
         assert set(room_positions["sections"]) == {"positions", "tilt_positions"}
         for section in room_positions["sections"].values():
             assert section["data"]
@@ -810,6 +829,50 @@ async def test_parent_reconfigure_loads_for_existing_entry(hass):
     assert result["menu_options"]
 
 
+async def test_controller_and_room_entries_support_reconfigure(hass):
+    """Both standalone entry types expose the HA Configure action."""
+    entry = _entry(hass)
+    room_entry = _room_entry_for_controller(hass, entry)
+
+    assert entry.supports_reconfigure is True
+    assert room_entry.supports_reconfigure is True
+    for current in (entry, room_entry):
+        payload = json.loads(json_dumps({"entry": current.as_json_fragment}))["entry"]
+        assert payload["supports_reconfigure"] is True
+        assert payload["supported_subentry_types"] == {}
+
+
+async def test_controller_reconfigure_source_opens_controller_menu(hass):
+    entry = _entry(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={
+            "source": config_entries.SOURCE_RECONFIGURE,
+            "entry_id": entry.entry_id,
+        },
+    )
+
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "controller_reconfigure"
+
+
+async def test_room_reconfigure_source_opens_room_menu(hass):
+    entry = _entry(hass)
+    room_entry = _room_entry_for_controller(hass, entry)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={
+            "source": config_entries.SOURCE_RECONFIGURE,
+            "entry_id": room_entry.entry_id,
+        },
+    )
+
+    assert result["type"] is FlowResultType.MENU
+    assert result["step_id"] == "room_reconfigure"
+
+
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
 async def test_parent_reconfigure_menu_exposes_hierarchical_sections(hass):
     entry = _entry(hass)
@@ -836,7 +899,7 @@ async def test_parent_reconfigure_menu_exposes_hierarchical_sections(hass):
         "profile_assignment",
         "source_overrides",
         "controls",
-        "diagnostics",
+        "room_diagnostics",
     ]
 
 
@@ -873,7 +936,7 @@ async def test_room_reconfigure_submenus_open_without_errors(hass):
         "geometry",
         "profile_assignment",
         "source_overrides",
-        "diagnostics",
+        "room_diagnostics",
     ):
         result = await _open_room_step(hass, entry, step)
         assert result["type"] in {
@@ -917,7 +980,7 @@ async def test_room_subentry_menu_has_no_parallel_profile_editors(hass):
         "profile_assignment",
         "source_overrides",
         "controls",
-        "diagnostics",
+        "room_diagnostics",
     ]
     assert "profile_references" not in result["menu_options"]
     assert "profile_functions" not in result["menu_options"]
@@ -1688,7 +1751,7 @@ async def test_room_diagnostics_use_runtime_schedule_snapshot(hass):
         }
     )
 
-    result = await _open_room_step(hass, entry, "diagnostics")
+    result = await _open_room_step(hass, entry, "room_diagnostics")
 
     assert result["description_placeholders"]["next_open"].startswith("2026-10-04")
     assert "Living cover" in result["description_placeholders"]["next_open"]
