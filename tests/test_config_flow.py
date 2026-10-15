@@ -143,6 +143,7 @@ def test_parent_reconfigure_steps_have_runtime_translations() -> None:
             "profiles",
             "diagnostics",
             "recovery",
+            "finish",
         }
         assert set(steps["controller_reconfigure"]["menu_option_descriptions"]) == set(
             steps["controller_reconfigure"]["menu_options"]
@@ -861,7 +862,7 @@ async def test_controller_options_flow_opens_controller_menu(hass):
     assert result["type"] is FlowResultType.MENU
     assert result["step_id"] == "controller_reconfigure"
     assert result["menu_options"] == [
-        "global_sources", "profiles", "diagnostics", "recovery"
+        "global_sources", "profiles", "diagnostics", "recovery", "finish"
     ]
 
 
@@ -905,6 +906,53 @@ async def test_room_options_flow_submenu_is_renderable(hass):
     assert room_entry.data[CONF_NAME] == "Updated room"
 
 
+async def test_controller_reconfigure_finish_closes_flow(hass):
+    entry = _entry(hass)
+    result = await _open_options_step(hass, entry)
+    assert result["menu_options"][-1] == "finish"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "finish"}
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+
+
+async def test_room_reconfigure_finish_closes_flow(hass):
+    entry = _entry(hass)
+    room = _room_entry_for_controller(hass, entry)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_RECONFIGURE, "entry_id": room.entry_id},
+    )
+    assert result["menu_options"][-1] == "finish"
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "finish"}
+    )
+    assert result["type"] is FlowResultType.ABORT
+    assert result["reason"] == "reconfigure_successful"
+
+
+async def test_controller_options_finish_closes_flow(hass):
+    entry = _entry(hass)
+    result = await hass.config_entries.options.async_init(entry.entry_id)
+    assert result["menu_options"][-1] == "finish"
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "finish"}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+
+
+async def test_room_options_finish_closes_flow(hass):
+    entry = _entry(hass)
+    room = _room_entry_for_controller(hass, entry)
+    result = await hass.config_entries.options.async_init(room.entry_id)
+    assert result["menu_options"][-1] == "finish"
+    result = await hass.config_entries.options.async_configure(
+        result["flow_id"], {"next_step_id": "finish"}
+    )
+    assert result["type"] is FlowResultType.CREATE_ENTRY
+
+
 @pytest.mark.parametrize(
     "step_id",
     [
@@ -925,11 +973,12 @@ async def test_room_options_flow_menu_entries_open(hass, step_id):
 
 
 def test_options_translation_namespace_and_menus():
-    expected_controller = {"global_sources", "profiles", "diagnostics", "recovery"}
+    expected_controller = {"global_sources", "profiles", "diagnostics", "recovery", "finish"}
     expected_room = {
         "general", "hardware", "positions", "contacts", "room_sensors",
         "geometry", "profile_assignment", "source_overrides", "controls",
         "room_diagnostics",
+        "finish",
     }
     for path in (
         Path("custom_components/cover_control/strings.json"),
@@ -1011,6 +1060,7 @@ async def test_parent_reconfigure_menu_exposes_hierarchical_sections(hass):
         "profiles",
         "diagnostics",
         "recovery",
+        "finish",
     ]
 
     result = await _open_room_step(hass, entry)
@@ -1026,6 +1076,7 @@ async def test_parent_reconfigure_menu_exposes_hierarchical_sections(hass):
         "source_overrides",
         "controls",
         "room_diagnostics",
+        "finish",
     ]
 
 
@@ -1107,6 +1158,7 @@ async def test_room_subentry_menu_has_no_parallel_profile_editors(hass):
         "source_overrides",
         "controls",
         "room_diagnostics",
+        "finish",
     ]
     assert "profile_references" not in result["menu_options"]
     assert "profile_functions" not in result["menu_options"]

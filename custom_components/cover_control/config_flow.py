@@ -538,6 +538,9 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
     async def async_step_init(self, user_input=None) -> FlowResult:
         return await self._config_flow_delegate().async_step_reconfigure(user_input)
 
+    async def async_step_finish(self, user_input=None) -> FlowResult:
+        return self.async_create_entry(title="", data={})
+
     async def _forward_step(self, step_id: str, user_input=None) -> FlowResult:
         return await getattr(self._config_flow_delegate(), f"async_step_{step_id}")(
             user_input
@@ -598,7 +601,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
 class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the config flow."""
 
-    VERSION = 10
+    VERSION = 11
 
     @staticmethod
     @callback
@@ -796,6 +799,11 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return await self.async_step_room_reconfigure(user_input)
         return await self.async_step_controller_reconfigure(user_input)
 
+    async def async_step_finish(self, user_input=None) -> FlowResult:
+        """Close a reconfigure flow without changing persisted data."""
+
+        return self.async_abort(reason="reconfigure_successful")
+
     async def async_step_controller_reconfigure(self, user_input=None) -> FlowResult:
         """Expose controller-only configuration pages."""
 
@@ -806,6 +814,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 "profiles",
                 "diagnostics",
                 "recovery",
+                "finish",
             ],
         )
 
@@ -1349,6 +1358,7 @@ class RoomFlowMixin:
                 "source_overrides",
                 "controls",
                 "room_diagnostics",
+                "finish",
             ],
             description_placeholders=self._room_context_placeholders(),
         )
