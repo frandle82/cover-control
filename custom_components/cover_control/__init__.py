@@ -30,6 +30,7 @@ from .const import (
     CONF_PROFILE_SETTINGS,
     CONF_PROFILES,
     CONF_ROOM_ID,
+    CONF_ROOM_PROFILE_ID,
     CONF_ROOMS,
     DOMAIN,
     ENTRY_TYPE_CONTROLLER,
@@ -285,10 +286,13 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Migrate legacy entries to the standalone-room v9 model."""
+    """Migrate legacy entries to the standalone-room v10 model."""
 
-    if entry.version >= 9:
+    if entry.version >= 10:
         return True
+
+    if entry.version == 9:
+        return await _async_migrate_v9_to_v10(hass, entry)
 
     if entry.version == 8:
         return await _async_migrate_v8_to_v9(hass, entry)
@@ -296,7 +300,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     if entry.version == 7:
         if not await _async_migrate_v7_to_v8(hass, entry):
             return False
-        hass.config_entries.async_update_entry(entry, version=9)
+        hass.config_entries.async_update_entry(entry, version=10)
         return True
 
     if entry.version == 6:
@@ -418,7 +422,7 @@ async def _async_migrate_v7_to_v8(
     """Remove stale v7 subentries while preserving standalone rooms."""
 
     if not _is_controller_entry(entry):
-        hass.config_entries.async_update_entry(entry, version=9)
+        hass.config_entries.async_update_entry(entry, version=10)
         return True
 
     if not await _async_migrate_parent_profiles_to_data(hass, entry):
@@ -430,7 +434,7 @@ async def _async_migrate_v7_to_v8(
 
     for subentry_id in tuple(entry.subentries):
         hass.config_entries.async_remove_subentry(entry, subentry_id)
-    hass.config_entries.async_update_entry(entry, version=9)
+    hass.config_entries.async_update_entry(entry, version=10)
     return True
 
 
@@ -440,7 +444,7 @@ async def _async_migrate_v8_to_v9(
     """Remove all historical subentries and finish the v9 entry model."""
 
     if not _is_controller_entry(entry):
-        hass.config_entries.async_update_entry(entry, version=9)
+        hass.config_entries.async_update_entry(entry, version=10)
         return True
 
     if not await _async_migrate_parent_profiles_to_data(hass, entry):
@@ -452,7 +456,27 @@ async def _async_migrate_v8_to_v9(
 
     for subentry_id in tuple(entry.subentries):
         hass.config_entries.async_remove_subentry(entry, subentry_id)
-    hass.config_entries.async_update_entry(entry, version=9)
+    hass.config_entries.async_update_entry(entry, version=10)
+    return True
+
+
+async def _async_migrate_v9_to_v10(
+    hass: HomeAssistant, entry: ConfigEntry
+) -> bool:
+    """Repair partially migrated v9 entries and remove all subentries."""
+
+    if not _is_controller_entry(entry):
+        hass.config_entries.async_update_entry(entry, version=10)
+        return True
+    if not await _async_migrate_parent_profiles_to_data(hass, entry):
+        return False
+    if not await _async_migrate_parent_to_unified_profiles(hass, entry):
+        return False
+    if not await _async_migrate_subentries_to_room_entries(hass, entry):
+        return False
+    for subentry_id in tuple(entry.subentries):
+        hass.config_entries.async_remove_subentry(entry, subentry_id)
+    hass.config_entries.async_update_entry(entry, version=10)
     return True
 
 
@@ -462,7 +486,7 @@ async def _async_migrate_subentries_to_room_entries(
     """Move legacy room subentries to standalone v9 Room ConfigEntries."""
 
     if not _is_controller_entry(entry):
-        hass.config_entries.async_update_entry(entry, version=9)
+        hass.config_entries.async_update_entry(entry, version=10)
         return True
 
     parent_data = deepcopy(dict(entry.data))
@@ -488,6 +512,11 @@ async def _async_migrate_subentries_to_room_entries(
                 return False
         if room_entry is None:
             return False
+        subentry_profile_id = subentry.data.get(CONF_ROOM_PROFILE_ID)
+        if subentry_profile_id and not room_entry.data.get(CONF_ROOM_PROFILE_ID):
+            room_data = deepcopy(dict(room_entry.data))
+            room_data[CONF_ROOM_PROFILE_ID] = subentry_profile_id
+            hass.config_entries.async_update_entry(room_entry, data=room_data)
         _migrate_room_registries(hass, entry.entry_id, room_entry.entry_id, room_id)
         if room_id in entry.subentries:
             hass.config_entries.async_remove_subentry(entry, room_id)
@@ -498,7 +527,7 @@ async def _async_migrate_subentries_to_room_entries(
         options={},
         title=entry.title or DEFAULT_NAME,
         unique_id=entry.unique_id or DOMAIN,
-        version=9,
+        version=10,
     )
     return True
 
