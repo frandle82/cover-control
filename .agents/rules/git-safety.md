@@ -9,16 +9,17 @@ Verbindliche Verhaltens- und Sicherheitsregeln für die Versionsverwaltung im Re
 * **Keine Commits auf `main`:** Normale Entwicklungsarbeiten erfolgen immer auf einem dedizierten Feature-/Bugfix-Branch.
 * **Sauberer Arbeitsbaum:** Keine temporären Dateien, Virtualenvs, Debug-Logs, Test-Dumps oder erzeugte Archive (`cover_control.zip`) im Arbeitsbaum hinterlassen.
 
-## 2. Commit-Standards (bei Beauftragung durch Andreas)
+## 2. Commit-Standards: Caveman-Commit (bei Beauftragung durch Andreas)
 
-Wenn ein Commit ausdrücklich beauftragt wird, müssen folgende Regeln eingehalten werden:
+Wenn ein Commit ausdrücklich beauftragt wird, ist der Skill `caveman-commit` anzuwenden:
 
 * **Logische Trennung:** Unabhängige Änderungen in separate Commits aufteilen.
 * **Conventional Commits:**
   * Gültige Typen: `feat`, `fix`, `docs`, `refactor`, `test`, `ci`, `build`, `chore`, `style`, `perf`, `revert`.
-  * Scopes: In Kleinbuchstaben mit Bindestrich/Unterstrich (z. B. `runtime`, `config`, `release`, `shading`).
-  * Format: `<type>(<scope>): <kurze beschreibung>` (kein Punkt am Ende).
+  * Scopes: In Kleinbuchstaben mit Bindestrich/Unterstrich (z. B. `runtime`, `config`, `shading`, `events`).
+  * Format: `<type>(<scope>): <kurze beschreibung>` (imperativer Stil, kein Punkt am Ende, maximal 72 Zeichen).
   * Beispiel: `feat(runtime): improve solar azimuth calculation`
+  * Body: Nur bei Breaking Changes oder Migrationen; kein Fülltext.
 * **Validierung:** Vor jedem Commit die Commit-Message validieren:
   ```sh
   .venv/bin/python scripts/validate_commit.py --message "<subject>"
@@ -28,17 +29,10 @@ Wenn ein Commit ausdrücklich beauftragt wird, müssen folgende Regeln eingehalt
   .venv/bin/python scripts/validate_commit.py --range origin/main..HEAD
   ```
 
-## 3. Release-Verfahren (bei Beauftragung durch Andreas)
+## 3. Release-Verfahren auf GitHub
 
-* **Keine manuellen Version-Bumps:** Versionsnummern in `manifest.json` oder anderen Dateien niemals manuell für normale Features/Fixes erhöhen.
-* **Keine manuellen Tags:** Release-Tags werden nicht manuell erstellt.
-* **Prüfung und Build:**
-  ```sh
-  .venv/bin/python scripts/verify_release.py --skip-tag
-  .venv/bin/python scripts/build_release.py
-  .venv/bin/python scripts/verify_release.py --archive --skip-tag
-  rm -f cover_control.zip
-  ```
+* **GitHub Actions Workflow:** Releases werden ausschließlich über den GitHub Actions Workflow ("Create Release") auf GitHub erstellt.
+* **Keine lokalen Releases:** Codex führt keine manuellen Versionserhöhungen in `manifest.json`, keine manuellen Tags und keine Release-Builds (`build_release.py`) im lokalen Arbeitsbaum durch.
 
 ## 4. Berichterstattung
 

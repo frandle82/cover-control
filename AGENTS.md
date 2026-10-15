@@ -7,7 +7,7 @@ Diese Datei ist ausschließlich lokal und wird nicht über Git getrackt.
 ## Regelungen & Anweisungen
 
 * **Verbindliche Regeln:** Befolge strikt die Regeln unter `.agents/rules/` (`project.md`, `git-safety.md`, `quality.md`).
-* **Skills verwenden:** Verwende bei Bedarf die passenden Skills unter `.agents/skills/` (`caveman`, `token-budget`, `systematic-debugging`, `diff-audit`, `home-assistant`, `config-flow`, `migrations`, `translations`, `testing`, `cover-control`).
+* **Skills verwenden:** Verwende bei Bedarf die passenden Skills unter `.agents/skills/` (`caveman`, `caveman-commit`, `token-budget`, `systematic-debugging`, `diff-audit`, `home-assistant`, `config-flow`, `migrations`, `translations`, `testing`, `cover-control`).
 * **Git-Sicherheit:** Keine eigenständigen Commits, Pushes, Tags, Pull Requests oder Releases ohne ausdrücklichen Auftrag von Andreas.
 * **Änderungsschutz:** Vorhandene Änderungen des Benutzers müssen zwingend erhalten bleiben.
 * **Berichterstattung:** Nach Änderungen immer die ausgeführten Tests und den aktuellen `git status` auf Deutsch berichten.
@@ -147,24 +147,17 @@ Ein Schalterzustand ändert niemals die Konfiguration. Das Ausschalten eines Sch
 
 ---
 
-## Git, Commits & Releases (Ausschließlich auf Anweisung)
+## Git & Commits (Ausschließlich auf Anweisung)
 
-* **Git-Sicherheit:** Keine eigenständigen Commits, Pushes, Tags, Pull Requests oder Releases ohne ausdrücklichen Auftrag von Andreas.
-* **Wenn Andreas Commits beauftragt:**
-  * Logisch unabhängige Änderungen in separate Conventional Commits aufteilen.
+* **Git-Sicherheit:** Keine eigenständigen Commits, Pushes, Tags oder Pull Requests ohne ausdrücklichen Auftrag von Andreas.
+* **Release-Erstellung auf GitHub:** Releases werden ausschließlich über den GitHub Actions Workflow ("Create Release") auf GitHub erstellt. Codex erstellt keine manuellen Releases, erhöht keine Versionsnummern und setzt keine Release-Tags.
+* **Wenn Andreas Commits beauftragt (Caveman-Commit):**
+  * Den Skill `caveman-commit` verwenden: Ultra-prägnante, normgerechte Conventional Commits ohne Fülltext (`<type>(<scope>): <kurze beschreibung>`).
   * Typen: `feat`, `fix`, `docs`, `refactor`, `test`, `ci`, `build`, `chore`, `style`, `perf`, `revert`.
-  * Scopes kleingeschrieben (`runtime`, `config`, `release`, etc.).
-  * Kein Punkt am Ende des Betreffs.
+  * Scopes kleingeschrieben (`runtime`, `config`, `shading`, `events`, `docs`, etc.).
+  * Imperativer Stil, kein Punkt am Ende des Betreffs, maximal 72 Zeichen.
+  * Logisch unabhängige Änderungen in separate Commits aufteilen.
   * Validierung: `.venv/bin/python scripts/validate_commit.py --message "<subject>"`.
-* **Wenn Andreas ein Release beauftragt:**
-  * Keine manuellen Versionserhöhungen oder Änderungen an `manifest.json`.
-  * Release-Verifizierung ausführen:
-    ```sh
-    .venv/bin/python scripts/verify_release.py --skip-tag
-    .venv/bin/python scripts/build_release.py
-    .venv/bin/python scripts/verify_release.py --archive --skip-tag
-    rm -f cover_control.zip
-    ```
 
 ---
 
