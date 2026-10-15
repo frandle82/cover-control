@@ -722,9 +722,9 @@
           "geometry": "Geometry",
           "source_overrides": "Local data sources",
           "controls": "Controls",
-          "diagnostics": "Diagnostics",
           "positions": "Positions",
-          "profile_assignment": "Profile & automation"
+          "profile_assignment": "Profile & automation",
+          "room_diagnostics": "Diagnostics"
         },
         "menu_option_descriptions": {
           "general": "Rename the room and keep its Home Assistant area assignment readable.",
@@ -734,9 +734,9 @@
           "geometry": "Describe the physical window orientation evaluated with sun and shading rules.",
           "source_overrides": "Choose a local data source only when this room should use a different source than the globally configured one.",
           "controls": "Choose which optional controls and room functions Cover Control provides for this room.",
-          "diagnostics": "Inspect the room structure and selected profile references.",
           "positions": "Configure this room's physical target positions and tilt positions.",
-          "profile_assignment": "Choose the profile for this room and the functions used from it."
+          "profile_assignment": "Choose the profile for this room and the functions used from it.",
+          "room_diagnostics": "Inspect the room structure and selected profile references."
         }
       },
       "contacts": {

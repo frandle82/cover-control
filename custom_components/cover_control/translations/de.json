@@ -722,9 +722,9 @@
           "geometry": "Geometrie",
           "source_overrides": "Lokale Datenquellen",
           "controls": "Bedienelemente",
-          "diagnostics": "Diagnose",
           "positions": "Positionen",
-          "profile_assignment": "Profil & Automatik"
+          "profile_assignment": "Profil & Automatik",
+          "room_diagnostics": "Diagnose"
         },
         "menu_option_descriptions": {
           "general": "Raum umbenennen und die Home-Assistant-Bereichszuordnung lesbar halten.",
@@ -734,9 +734,9 @@
           "geometry": "Physische Fensterausrichtung beschreiben, die mit Sonne und Beschattungsregeln ausgewertet wird.",
           "source_overrides": "Wähle nur dann eine lokale Datenquelle, wenn dieser Raum eine andere Quelle als die global konfigurierte verwenden soll.",
           "controls": "Lege fest, welche optionalen Bedienelemente und Raumfunktionen Cover Control für diesen Raum bereitstellt.",
-          "diagnostics": "Raumstruktur und ausgewählte Profilreferenzen prüfen.",
           "positions": "Physische Zielpositionen und Lamellenpositionen dieses Raums konfigurieren.",
-          "profile_assignment": "Profil für diesen Raum und die daraus verwendeten Funktionen auswählen."
+          "profile_assignment": "Profil für diesen Raum und die daraus verwendeten Funktionen auswählen.",
+          "room_diagnostics": "Raumstruktur und ausgewählte Profilreferenzen prüfen."
         }
       },
       "contacts": {

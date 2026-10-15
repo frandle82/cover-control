@@ -287,11 +287,12 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate legacy entries to the standalone-room v8 model."""
 
+    if entry.version >= 8:
+        return True
+
     if entry.version == 7:
         return await _async_migrate_v7_to_v8(hass, entry)
 
-    if entry.version >= 7:
-        return True
     if entry.version == 6:
         return await _async_migrate_subentries_to_room_entries(hass, entry)
     if entry.version == 5:

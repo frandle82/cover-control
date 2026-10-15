@@ -1,5 +1,6 @@
 """Tests for legacy subentry migration and standalone room persistence."""
 
+from copy import deepcopy
 from types import MappingProxyType
 from types import SimpleNamespace
 
@@ -847,3 +848,98 @@ async def test_multiple_legacy_entries_consolidate_into_one_parent(hass) -> None
     assert second.version == 8
     assert second.data == {"hub_entry_id": first.entry_id}
     assert {entry.title for entry in _room_entries(hass, first)} == {"Living", "Office"}
+
+
+async def test_v8_migration_is_idempotent(hass) -> None:
+    controller = MockConfigEntry(
+        domain=DOMAIN,
+        title="Cover Control",
+        version=8,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
+            CONF_GLOBAL: {"sources": {}, "defaults": {}},
+            CONF_PROFILES: {"profile-time": {CONF_PROFILE_NAME: "Time"}},
+        },
+    )
+    controller.add_to_hass(hass)
+    controller_entry_id = controller.entry_id
+    room = MockConfigEntry(
+        domain=DOMAIN,
+        title="Living",
+        version=8,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_ROOM,
+            CONF_CONTROLLER_ENTRY_ID: controller.entry_id,
+            CONF_ROOM_ID: "room-living",
+            CONF_NAME: "Living",
+            CONF_ROOM_SETTINGS: {CONF_COVERS: ["cover.living"]},
+            CONF_PROFILE_FUNCTIONS: [],
+            CONF_SOURCE_OVERRIDES: {},
+        },
+    )
+    room.add_to_hass(hass)
+    room_entry_id = room.entry_id
+
+    controller_data = deepcopy(dict(controller.data))
+    room_data = deepcopy(dict(room.data))
+    room_count = len(_room_entries(hass, controller))
+
+    assert await async_migrate_entry(hass, controller)
+
+    assert controller.entry_id == controller_entry_id
+    assert controller.version == 8
+    assert room.entry_id == room_entry_id
+    assert room.version == 8
+    assert dict(controller.data) == controller_data
+    assert dict(room.data) == room_data
+    assert not controller.subentries
+    assert len(_room_entries(hass, controller)) == room_count
+
+
+async def test_v7_migration_reuses_existing_standalone_room(hass) -> None:
+    controller = MockConfigEntry(
+        domain=DOMAIN,
+        title="Cover Control",
+        version=7,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
+            CONF_GLOBAL: {"sources": {}, "defaults": {}},
+            CONF_PROFILES: {},
+        },
+        subentries_data=[
+            {
+                "subentry_id": "room-living",
+                "subentry_type": "room",
+                "title": "Living",
+                "unique_id": "room-living",
+                "data": {CONF_NAME: "Living", CONF_ROOM_SETTINGS: {}},
+            }
+        ],
+    )
+    controller.add_to_hass(hass)
+    room = MockConfigEntry(
+        domain=DOMAIN,
+        title="Living",
+        version=8,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_ROOM,
+            CONF_CONTROLLER_ENTRY_ID: controller.entry_id,
+            CONF_ROOM_ID: "room-living",
+            CONF_NAME: "Living",
+            CONF_ROOM_SETTINGS: {},
+            CONF_PROFILE_FUNCTIONS: [],
+            CONF_SOURCE_OVERRIDES: {},
+        },
+    )
+    room.add_to_hass(hass)
+    room_entry_id = room.entry_id
+
+    assert await async_migrate_entry(hass, controller)
+
+    rooms = _room_entries(hass, controller)
+    assert controller.version == 8
+    assert not controller.subentries
+    assert len(rooms) == 1
+    assert rooms[0].entry_id == room_entry_id
+    assert rooms[0].data[CONF_ROOM_ID] == "room-living"
+    assert rooms[0].data[CONF_CONTROLLER_ENTRY_ID] == controller.entry_id

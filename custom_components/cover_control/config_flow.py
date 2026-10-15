@@ -578,7 +578,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     def async_get_supported_subentry_types(
         cls, config_entry: config_entries.ConfigEntry
     ) -> dict:
-        """Do not expose new native ConfigSubentries in v7."""
+        """Do not expose native ConfigSubentries for standalone rooms."""
 
         return {}
 
