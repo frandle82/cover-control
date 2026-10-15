@@ -1480,6 +1480,55 @@ async def test_profile_editor_done_returns_to_profiles(hass):
 
 
 @pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
+async def test_created_profile_is_immediately_available_in_room_assignment(hass):
+    """A profile created through the UI is immediately assignable to a room."""
+
+    entry = _entry(hass)
+    result = await _open_options_step(hass, entry, "profiles")
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"profile_action": "create"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"profile_name": "Immediately available"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "profile_time"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"time_features": {c.CONF_AUTO_TIME: True}}
+    )
+    profile_id = next(
+        profile_id
+        for profile_id, profile in entry.data[CONF_PROFILES].items()
+        if profile.get(c.CONF_PROFILE_NAME) == "Immediately available"
+    )
+    assert entry.data[CONF_PROFILES][profile_id][c.CONF_PROFILE_FUNCTIONS] == [
+        c.FUNCTION_TIME
+    ]
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "profile_done"}
+    )
+    assert result["step_id"] == "profiles"
+
+    result = await _open_room_step(hass, entry, "profile_assignment")
+    fields = to_field_list(result["data_schema"], custom_serializer=cv.custom_serializer)
+    options = fields[0]["selector"]["select"]["options"]
+    assert {option["value"] for option in options} >= {"", profile_id}
+    assert any(option["label"] == "Immediately available" for option in options)
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {c.CONF_ROOM_PROFILE_ID: profile_id}
+    )
+    room_entry = _room_entry_for_controller(hass, entry)
+    assert room_entry.data[c.CONF_ROOM_PROFILE_ID] == profile_id
+    assert room_entry.data[c.CONF_PROFILE_FUNCTIONS] == [c.FUNCTION_TIME]
+    assert c.CONF_PROFILES not in room_entry.data
+    await hass.config_entries.async_unload(room_entry.entry_id)
+    await hass.config_entries.async_unload(entry.entry_id)
+
+
+@pytest.mark.skipif(REQUIRES_NEW_HA, reason="requires Home Assistant >= 2023.9")
 async def test_existing_profile_round_trip_is_sparse_and_keeps_stable_id(hass):
     """U4-U7: Load old values, preserve unknown data, and keep a stable ID."""
 
