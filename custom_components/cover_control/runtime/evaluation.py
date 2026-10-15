@@ -68,6 +68,7 @@ from ..const import (
     CONF_RECOVERY_MODE,
     RECOVERY_ALWAYS,
     RECOVERY_NEVER,
+    RECOVERY_OUTAGE,
     CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
     CONF_SHADING_END_MAX_DURATION,
     CONF_SHADING_OVER_VENTILATION,
@@ -145,6 +146,7 @@ class EvaluationMixin:
             if self._startup_complete:
                 self._runtime_outage_active = True
                 self._outage_dependencies.add(self.cover)
+            self._unavailable_dependencies.add(self.cover)
             if not self._cover_unavailable_logged:
                 _LOGGER.info(
                     "Cover Control waiting for %s to become available before evaluating",
@@ -205,26 +207,21 @@ class EvaluationMixin:
             )
             self._unavailable_dependencies = set()
 
-        recovery_mode = str(self.config.get(CONF_RECOVERY_MODE, RECOVERY_NEVER))
-        startup_catchup = trigger == "startup" and recovery_mode == RECOVERY_ALWAYS
-        outage_catchup = recovered_from_outage and self._runtime_outage_active and recovery_mode in {
-            RECOVERY_ALWAYS,
-            "outage",
-        }
-        startup_recovery = recovered_from_outage and not self._startup_complete
-        if trigger == "startup" and not startup_catchup:
-            self._startup_complete = True
-            self._refresh_next_events(now)
-            self._publish_state()
-            return
-        if startup_recovery or (recovered_from_outage and not outage_catchup and recovery_mode == RECOVERY_NEVER):
+        is_initial_startup_completion = not self._startup_complete
+        recovered_from_runtime_outage = (
+            self._startup_complete
+            and self._runtime_outage_active
+            and recovered_from_outage
+        )
+        should_catch_up = self._recovery_should_catch_up(recovered_from_outage)
+        if is_initial_startup_completion and not should_catch_up:
             self._startup_complete = True
             self._runtime_outage_active = False
             self._outage_dependencies.clear()
             self._refresh_next_events(now)
             self._publish_state()
             return
-        if recovered_from_outage:
+        if recovered_from_runtime_outage:
             self._runtime_outage_active = False
             self._outage_dependencies.clear()
         self._startup_complete = True
@@ -977,6 +974,18 @@ class EvaluationMixin:
 
         self._refresh_next_events(now)
         self._publish_state()
+
+    def _recovery_should_catch_up(self, dependencies_recovered: bool) -> bool:
+        """Decide recovery from runtime state, never from the trigger name."""
+
+        recovery_mode = str(self.config.get(CONF_RECOVERY_MODE, RECOVERY_NEVER))
+        if not self._startup_complete:
+            return recovery_mode == RECOVERY_ALWAYS
+        return bool(
+            dependencies_recovered
+            and self._runtime_outage_active
+            and recovery_mode in {RECOVERY_OUTAGE, RECOVERY_ALWAYS}
+        )
 
     def _dynamic_sun_threshold(self, kind: str) -> float | None:
         mode = str(

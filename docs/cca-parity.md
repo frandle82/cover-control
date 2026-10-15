@@ -16,7 +16,7 @@ automation actions outside the integration.
 | Dynamic sun room sources | MAPPED | Dynamic open/close sources are resolvable per room. |
 | Force controls | FULL | Room UI, resolver, listeners, explicit priority, shared safety gates and imperative compatibility path. |
 | Force pause | FULL | Entity pause blocks dispatch and release requests fresh evaluation, including delayed movements. |
-| Restart/outage catch-up | FULL | Explicit startup/runtime-outage state with `never`, `outage` and `always` recovery modes. |
+| Restart/outage catch-up | FULL | Explicit startup/runtime-outage state with `never`, `outage` and `always` recovery modes; dependencies unavailable during startup remain in startup until the initial dependency set becomes usable. |
 | Fixed/random drive delay | FULL | Central combined pre-drive delay with post-wait live-gate, force and target rechecks. |
 | Manual override | MAPPED | Native override state and clear/re-evaluate behavior. |
 | Tilt reposition | FULL | Native tilt-before-position mode is available. |

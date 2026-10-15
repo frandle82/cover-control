@@ -21,6 +21,10 @@ from custom_components.cover_control.const import (
     CONF_DRIVE_DELAY_FIXED,
     CONF_DRIVE_DELAY_RANDOM,
     CONF_FORCE_OPEN_ENTITY,
+    CONF_RECOVERY_MODE,
+    RECOVERY_ALWAYS,
+    RECOVERY_NEVER,
+    RECOVERY_OUTAGE,
     CONF_ENABLE_LOGBOOK_COVER,
     CONF_LOCKOUT_POSITION,
     CONF_OPEN_POSITION,
@@ -250,6 +254,26 @@ def test_drive_delay_random_range_is_non_negative() -> None:
         {CONF_DRIVE_DELAY_FIXED: 0, CONF_DRIVE_DELAY_RANDOM: 5}, {}
     )
     assert 0 <= controller._drive_delay_seconds() <= 5
+
+
+@pytest.mark.parametrize(
+    ("mode", "expected"),
+    [(RECOVERY_ALWAYS, True), (RECOVERY_OUTAGE, False), (RECOVERY_NEVER, False)],
+)
+def test_delayed_startup_recovery_uses_runtime_state(mode: str, expected: bool) -> None:
+    controller = _controller({CONF_RECOVERY_MODE: mode}, {})
+    controller._startup_complete = False
+    controller._runtime_outage_active = False
+    assert controller._recovery_should_catch_up(True) is expected
+
+
+def test_completed_startup_recovery_uses_runtime_outage_mode() -> None:
+    controller = _controller({CONF_RECOVERY_MODE: RECOVERY_OUTAGE}, {})
+    controller._startup_complete = True
+    controller._runtime_outage_active = True
+    assert controller._recovery_should_catch_up(True)
+    controller._runtime_outage_active = False
+    assert not controller._recovery_should_catch_up(True)
 
 @pytest.mark.asyncio
 async def test_additional_condition_uses_current_condition_api() -> None:
