@@ -10,6 +10,8 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
+from astral import LocationInfo
+from astral.sun import SunDirection, time_at_elevation
 from homeassistant.util import dt as dt_util
 from homeassistant.components.sensor import SensorDeviceClass
 
@@ -23,6 +25,7 @@ from custom_components.cover_control.const import (
     CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
     CONF_SUN_ELEVATION_MODE,
     CONF_SUN_ELEVATION_OPEN,
+    CONF_SUN_TIME_DURATION,
     CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
     CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
     CONF_TIME_DOWN_EARLY_WORKDAY,
@@ -172,8 +175,8 @@ def test_scheduled_event_timer_is_single_and_rescheduled() -> None:
     assert controller._scheduled_open_unsub is None
 
 
-def test_next_sun_event_does_not_follow_now() -> None:
-    """An already-met sun threshold still exposes the next scheduled event."""
+def test_next_sun_event_uses_currently_met_threshold() -> None:
+    """An already-met sun threshold exposes the current held-condition target."""
 
     controller = object.__new__(CoverController)
     now = dt_util.utcnow()
@@ -203,8 +206,8 @@ def test_next_sun_event_does_not_follow_now() -> None:
 
     controller._refresh_next_events(now)
 
-    assert controller._next_open == next_rising
-    assert controller._next_open != now
+    assert controller._next_open == now + timedelta(seconds=30)
+    assert controller._next_open != next_rising
     controller._reschedule_next_event_timers.assert_called_once_with(now)
 
 
@@ -288,6 +291,56 @@ def test_next_close_fixed_sun_only() -> None:
     controller._refresh_next_events(now)
     assert calls[1][0] == -4
     assert controller._next_close == now + timedelta(hours=3)
+
+
+def test_next_open_when_sun_threshold_already_reached_inside_window() -> None:
+    """An already passed rising threshold is available immediately in-window."""
+
+    location = LocationInfo(latitude=50.0, longitude=8.0, timezone="UTC")
+    crossing = dt_util.as_utc(
+        time_at_elevation(
+            location.observer, 6, date=datetime(2026, 6, 15).date(),
+            direction=SunDirection.RISING, tzinfo=timezone.utc
+        )
+    )
+    now = crossing + timedelta(minutes=30)
+    controller = _schedule_probe({
+        CONF_AUTO_SUN: True, CONF_AUTO_TIME: True, CONF_AUTO_UP: True,
+        CONF_SUN_ELEVATION_MODE: "fixed", CONF_SUN_ELEVATION_OPEN: 6,
+        CONF_SUN_ELEVATION_CLOSE: -4, CONF_SUN_TIME_DURATION: 0,
+    }, states={"sun.sun": SimpleNamespace(attributes={"elevation": 7})})
+    controller._time_bounds = Mock(return_value=(
+        (dt_util.as_local(crossing) - timedelta(hours=1)).time(),
+        (dt_util.as_local(crossing) + timedelta(hours=1)).time(),
+    ))
+    controller._refresh_next_events(now)
+    assert crossing < now
+    assert controller._next_open == now
+
+
+def test_next_close_when_sun_threshold_already_reached_inside_window() -> None:
+    """An already passed setting threshold is available immediately in-window."""
+
+    location = LocationInfo(latitude=50.0, longitude=8.0, timezone="UTC")
+    crossing = dt_util.as_utc(
+        time_at_elevation(
+            location.observer, -4, date=datetime(2026, 6, 15).date(),
+            direction=SunDirection.SETTING, tzinfo=timezone.utc
+        )
+    )
+    now = crossing + timedelta(minutes=30)
+    controller = _schedule_probe({
+        CONF_AUTO_SUN: True, CONF_AUTO_TIME: True, CONF_AUTO_DOWN: True,
+        CONF_SUN_ELEVATION_MODE: "fixed", CONF_SUN_ELEVATION_OPEN: 6,
+        CONF_SUN_ELEVATION_CLOSE: -4, CONF_SUN_TIME_DURATION: 0,
+    }, states={"sun.sun": SimpleNamespace(attributes={"elevation": -5})})
+    controller._time_bounds = Mock(return_value=(
+        (dt_util.as_local(crossing) - timedelta(hours=1)).time(),
+        (dt_util.as_local(crossing) + timedelta(hours=1)).time(),
+    ))
+    controller._refresh_next_events(now)
+    assert crossing < now
+    assert controller._next_close == now
 
 
 @pytest.mark.parametrize("mode", ["dynamic", "hybrid"])

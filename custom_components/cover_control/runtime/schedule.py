@@ -33,6 +33,7 @@ from ..const import (
     CONF_OPEN_POSITION,
     CONF_RESIDENT_SENSOR,
     CONF_SUN_ELEVATION_MODE,
+    CONF_SUN_TIME_DURATION,
     CONF_TIME_DOWN_EARLY_NON_WORKDAY,
     CONF_TIME_DOWN_EARLY_WORKDAY,
     CONF_TIME_DOWN_LATE_NON_WORKDAY,
@@ -48,6 +49,7 @@ from ..const import (
     DEFAULT_CLOSE_POSITION,
     DEFAULT_OPEN_POSITION,
     DEFAULT_SUN_ELEVATION_MODE,
+    DEFAULT_SUN_TIME_DURATION,
     DEFAULT_TIME_SETTINGS,
 )
 from .common import (
@@ -561,6 +563,57 @@ class ScheduleMixin:
                 down_early_time, down_late_time, now, 1
             )
 
+        current_elevation = _coerce_float(
+            sun_state and sun_state.attributes.get("elevation")
+        )
+
+        def _already_met_target(kind: str, threshold: float | None) -> datetime | None:
+            """Return the earliest valid target when the current sun state qualifies."""
+
+            if current_elevation is None or threshold is None:
+                return None
+            passed = (
+                current_elevation > threshold
+                if kind == "open"
+                else current_elevation < threshold
+            )
+            if not passed:
+                return None
+            enabled = time_up_enabled if kind == "open" else time_down_enabled
+            if enabled:
+                early, late = (
+                    (up_early_time, up_late_time)
+                    if kind == "open"
+                    else (down_early_time, down_late_time)
+                )
+                window_start = self._today_at(now, early)
+                window_end = self._today_at(now, late)
+                local_now = dt_util.as_local(now)
+                if not window_start or not window_end or not (
+                    window_start <= local_now < window_end
+                ):
+                    return None
+            duration = self._duration_value(
+                CONF_SUN_TIME_DURATION, DEFAULT_SUN_TIME_DURATION
+            )
+            condition_key = "sun_open" if kind == "open" else "sun_close"
+            condition_since = getattr(self, "_condition_since", {}).get(condition_key)
+            if duration <= 0:
+                return now
+            ready_at = (
+                condition_since + timedelta(seconds=duration)
+                if isinstance(condition_since, datetime)
+                else now + timedelta(seconds=duration)
+            )
+            return now if ready_at <= now else ready_at
+
+        sun_open_met = (
+            _already_met_target("open", open_threshold) if sun_enabled else None
+        )
+        sun_close_met = (
+            _already_met_target("close", close_threshold) if sun_enabled else None
+        )
+
         def _clamp_candidate(
             candidate: datetime | None,
             earliest: datetime | None,
@@ -586,14 +639,18 @@ class ScheduleMixin:
             # Dynamic/Hybrid use the elevation-based calculation first.
             # If unavailable, fall back to the native sun integration times
             # so next_open/next_close still remain sun-based.
-            open_base = sun_open_target or sun_next_rising
+            open_base = sun_open_met or sun_open_target or sun_next_rising
         else:
-            open_base = (sun_open_target or sun_next_rising) if sun_enabled else None
+            open_base = (
+                sun_open_met or sun_open_target or sun_next_rising
+            ) if sun_enabled else None
 
         if sun_enabled and mode in {"dynamic", "hybrid"}:
-            close_base = sun_close_target or sun_next_setting
+            close_base = sun_close_met or sun_close_target or sun_next_setting
         else:
-            close_base = (sun_close_target or sun_next_setting) if sun_enabled else None
+            close_base = (
+                sun_close_met or sun_close_target or sun_next_setting
+            ) if sun_enabled else None
 
         if time_up_enabled:
             self._next_open = _clamp_candidate(

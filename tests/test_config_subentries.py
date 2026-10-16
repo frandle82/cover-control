@@ -2,6 +2,7 @@
 
 from copy import deepcopy
 from types import MappingProxyType
+from datetime import datetime, timedelta
 from types import SimpleNamespace
 
 from pytest_homeassistant_custom_component.common import MockConfigEntry
@@ -21,6 +22,7 @@ from custom_components.cover_control.switch import async_setup_entry as async_se
 from custom_components.cover_control.runtime_data import CoverControlRuntime
 from custom_components.cover_control.const import (
     CONF_AUTO_TIME,
+    CONF_AUTO_SUN,
     CONF_CLOSE_POSITION,
     CONF_CONTROLLER_ENTRY_ID,
     CONF_COVERS,
@@ -46,10 +48,14 @@ from custom_components.cover_control.const import (
     CONF_SHADING_POSITION,
     CONF_VENTILATE_POSITION,
     CONF_TIME_UP_EARLY_WORKDAY,
+    CONF_TIME_UP_LATE_WORKDAY,
+    CONF_TIME_DOWN_EARLY_WORKDAY,
+    CONF_TIME_DOWN_LATE_WORKDAY,
     ENTRY_TYPE_CONTROLLER,
     ENTRY_TYPE_ROOM,
     FUNCTION_RESIDENT,
     FUNCTION_TIME,
+    FUNCTION_SUN,
     PROFILE_TYPE_SHADING,
     PROFILE_TYPES,
 )
@@ -658,6 +664,78 @@ async def test_room_entries_own_room_managers_and_entities(hass) -> None:
     assert "room-office" in entry.runtime_data.hub.managers
     assert await hass.config_entries.async_unload(room_office.entry_id)
     assert await hass.config_entries.async_unload(entry.entry_id)
+
+
+async def test_loaded_room_next_open_entity_matches_sun_schedule(hass) -> None:
+    """A loaded room exposes the controller schedule through its HA sensor."""
+
+    now = datetime.now().astimezone().replace(microsecond=0)
+    early = (now - timedelta(hours=1)).time().isoformat()
+    late = (now + timedelta(hours=1)).time().isoformat()
+    hass.states.async_set(
+        "cover.living", "open", {"current_position": 100}
+    )
+    hass.states.async_set("sun.sun", "above_horizon", {"elevation": 7})
+    controller_entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Cover Control",
+        version=12,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
+            CONF_GLOBAL: {"sources": {}, "defaults": {}},
+            CONF_PROFILES: {
+                "profile-living": {
+                    CONF_PROFILE_ID: "profile-living",
+                    CONF_PROFILE_NAME: "Living",
+                    CONF_PROFILE_FUNCTIONS: [FUNCTION_TIME, FUNCTION_SUN],
+                    CONF_PROFILE_SETTINGS: {
+                        CONF_AUTO_TIME: True,
+                        CONF_AUTO_SUN: True,
+                        CONF_TIME_UP_EARLY_WORKDAY: early,
+                        CONF_TIME_UP_LATE_WORKDAY: late,
+                        CONF_TIME_DOWN_EARLY_WORKDAY: early,
+                        CONF_TIME_DOWN_LATE_WORKDAY: late,
+                    },
+                }
+            },
+        },
+    )
+    controller_entry.add_to_hass(hass)
+    room_entry = MockConfigEntry(
+        domain=DOMAIN,
+        title="Living",
+        version=12,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_ROOM,
+            CONF_CONTROLLER_ENTRY_ID: controller_entry.entry_id,
+            CONF_ROOM_ID: "room-living",
+            CONF_NAME: "Living",
+            CONF_ROOM_PROFILE_ID: "profile-living",
+            CONF_PROFILE_FUNCTIONS: [FUNCTION_TIME, FUNCTION_SUN],
+            CONF_ROOM_SETTINGS: {CONF_COVERS: ["cover.living"]},
+            CONF_SOURCE_OVERRIDES: {},
+        },
+    )
+    room_entry.add_to_hass(hass)
+
+    assert await hass.config_entries.async_setup(controller_entry.entry_id)
+    await hass.async_block_till_done()
+    if room_entry.state is ConfigEntryState.NOT_LOADED:
+        assert await hass.config_entries.async_setup(room_entry.entry_id)
+        await hass.async_block_till_done()
+
+    manager = room_entry.runtime_data.room_managers["room-living"]
+    controller = manager.controllers["cover.living"]
+    manager.refresh_schedule_snapshot()
+    snapshot = manager.entry_snapshot()
+    assert controller._next_open == snapshot["next_open"][0]
+    assert snapshot["next_open"][1] == "cover.living"
+    assert hass.states.get("sensor.living_next_opening").state == (
+        snapshot["next_open"][0].isoformat()
+    )
+
+    assert await hass.config_entries.async_unload(room_entry.entry_id)
+    assert await hass.config_entries.async_unload(controller_entry.entry_id)
 
 
 async def test_legacy_entry_migrates_to_parent_and_v11_room_entries(hass) -> None:
