@@ -18,11 +18,13 @@ from ..const import (
     CONF_SUN_ELEVATION_MODE,
     CONF_SUN_ELEVATION_OPEN,
     CONF_SUN_SENSOR,
+    CONF_SUN_TIME_DURATION,
     CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
     CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
     DEFAULT_SUN_ELEVATION_CLOSE,
     DEFAULT_SUN_ELEVATION_MODE,
     DEFAULT_SUN_ELEVATION_OPEN,
+    DEFAULT_SUN_TIME_DURATION,
     DEFAULT_SUN_SENSOR,
 )
 from .schedule import ScheduleMixin
@@ -35,6 +37,7 @@ class _TimeProfileProbe(ScheduleMixin):
         self.hass = hass
         self.config = config
         self._last_action_dates: dict[str, object] = {}
+        self._condition_since: dict[str, datetime] = {}
         self._next_open: datetime | None = None
         self._next_close: datetime | None = None
 
@@ -47,6 +50,14 @@ class _TimeProfileProbe(ScheduleMixin):
     def _sun_entity(self) -> str:
         value = self.config.get(CONF_SUN_SENSOR, DEFAULT_SUN_SENSOR)
         return value if isinstance(value, str) and value else DEFAULT_SUN_SENSOR
+
+    def _duration_value(self, key: str, default: int) -> int:
+        value = self.config.get(key, default)
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            return default
+        return max(0, int(value))
 
     def _dynamic_sun_threshold(self, kind: str) -> float | None:
         mode = str(

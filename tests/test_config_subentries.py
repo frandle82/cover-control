@@ -23,6 +23,7 @@ from custom_components.cover_control.runtime_data import CoverControlRuntime
 from custom_components.cover_control.const import (
     CONF_AUTO_TIME,
     CONF_AUTO_SUN,
+    CONF_SUN_TIME_DURATION,
     CONF_CLOSE_POSITION,
     CONF_CONTROLLER_ENTRY_ID,
     CONF_COVERS,
@@ -691,6 +692,7 @@ async def test_loaded_room_next_open_entity_matches_sun_schedule(hass) -> None:
                     CONF_PROFILE_SETTINGS: {
                         CONF_AUTO_TIME: True,
                         CONF_AUTO_SUN: True,
+                        CONF_SUN_TIME_DURATION: 30,
                         CONF_TIME_UP_EARLY_WORKDAY: early,
                         CONF_TIME_UP_LATE_WORKDAY: late,
                         CONF_TIME_DOWN_EARLY_WORKDAY: early,
