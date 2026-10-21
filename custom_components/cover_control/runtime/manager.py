@@ -667,6 +667,9 @@ class ControllerManager:
         affected = affected_rooms or {room_id}
         if room_id not in affected:
             return set()
+        runtime = getattr(self.entry, "runtime_data", None)
+        if runtime is not None:
+            runtime.model = model
         resolved = resolve_config_model(model, room_id)
         self._resolved_config = resolved
         for controller in self.controllers.values():

@@ -296,8 +296,8 @@ from .const import (
     PROFILE_TYPE_BEHAVIOR,
     PROFILE_TYPE_SHADING,
     PROFILE_TYPE_TIME,
-    PROFILE_FUNCTIONS,
     PROFILE_TYPES,
+    PROFILE_FUNCTIONS,
     MANUAL_OVERRIDE_RESET_NONE,
     MANUAL_OVERRIDE_RESET_TIME,
     MANUAL_OVERRIDE_RESET_TIMEOUT,
@@ -1096,17 +1096,12 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             return self.async_abort(reason="profile_controller_only")
         model = self._model()
         profile_id = getattr(self, "_editing_profile_id", None)
+        profile_steps = [f"profile_{function}" for function in PROFILE_FUNCTIONS]
         return self.async_show_menu(
             step_id="profile_sections",
             menu_options=[
                 "profile_setup",
-                "profile_time",
-                "profile_brightness",
-                "profile_sun",
-                "profile_shading",
-                "profile_ventilation",
-                "profile_resident",
-                "profile_behavior",
+                *profile_steps,
                 "profile_done",
                 "profile_back",
             ],

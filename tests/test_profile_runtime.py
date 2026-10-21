@@ -76,7 +76,9 @@ def _model() -> ConfigProfileModel:
 
 def _manager() -> ControllerManager:
     manager = object.__new__(ControllerManager)
-    manager.entry = SimpleNamespace(entry_id="living", data={})
+    manager.entry = SimpleNamespace(
+        entry_id="living", data={}, runtime_data=SimpleNamespace(model={})
+    )
     manager.controllers = {"cover.living": Mock()}
     manager._config_model = {}
     manager._resolved_config = None
@@ -116,6 +118,7 @@ def test_profile_change_refreshes_config_listeners_and_timers() -> None:
     resolved = manager.controllers["cover.living"].update_config.call_args.args[0]
     assert resolved[CONF_SHADING_WAITINGTIME_END] == 90
     manager._setup_shared_listener.assert_called_once_with()
+    assert manager.entry.runtime_data.model is manager._config_model
 
 
 def test_room_source_override_changes_only_its_effective_route() -> None:
