@@ -122,6 +122,7 @@ class EvaluationMixin:
         context_now = context.get("now") if context is not None else None
         now = context_now if isinstance(context_now, datetime) else dt_util.utcnow()
         self._current_evaluation_triggers = triggers or frozenset({trigger})
+        self._decision_controls.clear()
         self._expire_manual_override(now)
         self._ensure_manual_expiry_timer(now)
         cover_state = self.hass.states.get(self.cover)
@@ -398,6 +399,29 @@ class EvaluationMixin:
         is_time_down_late = self._is_time_down_late(now) or self._calendar_after_end(
             calendar_close_window, now
         )
+        if auto_time_enabled and (is_opening_phase or is_closing_phase):
+            self._decision_controls.add("time")
+        if self._auto_enabled(CONF_AUTO_SUN):
+            open_threshold = self._dynamic_sun_threshold("open")
+            close_threshold = self._dynamic_sun_threshold("close")
+            if (
+                is_opening_phase
+                and sun_elevation is not None
+                and open_threshold is not None
+                and sun_elevation > open_threshold
+            ) or (
+                is_closing_phase
+                and sun_elevation is not None
+                and close_threshold is not None
+                and sun_elevation < close_threshold
+            ):
+                self._decision_controls.add("sun")
+        if self._auto_enabled(CONF_AUTO_BRIGHTNESS) and brightness is not None:
+            self._decision_controls.add("brightness")
+        if auto_ventilate and ventilation_contact_active:
+            self._decision_controls.add("ventilation")
+        if resident_sleeping:
+            self._decision_controls.add("resident")
         is_shading_allowed_window = (
             (not auto_time_enabled)
             or self._within_shading_window(now)
@@ -407,6 +431,13 @@ class EvaluationMixin:
                 and calendar_open_window[0] <= now <= calendar_close_window[1]
             )
         )
+        if (
+            self._auto_enabled(CONF_AUTO_SHADING)
+            and is_shading_allowed_window
+            and shading_condition
+            and shading_tilt_condition
+        ):
+            self._decision_controls.add("shading")
         has_environment_control = self._auto_enabled(
             CONF_AUTO_BRIGHTNESS
         ) or self._auto_enabled(CONF_AUTO_SUN)

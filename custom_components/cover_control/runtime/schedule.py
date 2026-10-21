@@ -577,7 +577,11 @@ class ScheduleMixin:
                 if kind == "open"
                 else current_elevation < threshold
             )
+            condition_key = "sun_open" if kind == "open" else "sun_close"
             if not passed:
+                condition_since_map = getattr(self, "_condition_since", None)
+                if isinstance(condition_since_map, dict):
+                    condition_since_map.pop(condition_key, None)
                 return None
             enabled = time_up_enabled if kind == "open" else time_down_enabled
             if enabled:
@@ -593,18 +597,20 @@ class ScheduleMixin:
                     window_start <= local_now < window_end
                 ):
                     return None
+            condition_since_map = getattr(self, "_condition_since", None)
+            if not isinstance(condition_since_map, dict):
+                condition_since_map = {}
+                self._condition_since = condition_since_map
+            condition_since = condition_since_map.get(condition_key)
+            if not isinstance(condition_since, datetime):
+                condition_since = now
+                condition_since_map[condition_key] = now
             duration = self._duration_value(
                 CONF_SUN_TIME_DURATION, DEFAULT_SUN_TIME_DURATION
             )
-            condition_key = "sun_open" if kind == "open" else "sun_close"
-            condition_since = getattr(self, "_condition_since", {}).get(condition_key)
             if duration <= 0:
                 return now
-            ready_at = (
-                condition_since + timedelta(seconds=duration)
-                if isinstance(condition_since, datetime)
-                else now + timedelta(seconds=duration)
-            )
+            ready_at = condition_since + timedelta(seconds=duration)
             return now if ready_at <= now else ready_at
 
         sun_open_met = (

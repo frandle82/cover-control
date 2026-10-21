@@ -536,6 +536,11 @@ class EventsMixin:
             ventilation_active,
         )
 
+    def active_decision_controls(self) -> frozenset[str]:
+        """Return controls involved in the latest evaluation decision."""
+
+        return frozenset(getattr(self, "_decision_controls", set()))
+
     @callback
     def _reschedule_next_event_timers(self, now: datetime) -> None:
         """Keep one point-in-time callback for each calculated schedule event."""

@@ -318,6 +318,46 @@ def test_next_open_when_sun_threshold_already_reached_inside_window() -> None:
     assert controller._next_open == now
 
 
+def test_next_open_duration_does_not_slide_on_repeated_refresh() -> None:
+    now = datetime(2026, 6, 15, 9, 16, 25, tzinfo=timezone.utc)
+    controller = _schedule_probe(
+        {
+            CONF_AUTO_SUN: True,
+            CONF_SUN_ELEVATION_MODE: "fixed",
+            CONF_SUN_ELEVATION_OPEN: 6,
+            CONF_SUN_TIME_DURATION: 30,
+        },
+        states={"sun.sun": SimpleNamespace(attributes={"elevation": 7})},
+    )
+
+    controller._refresh_next_events(now)
+    expected = now + timedelta(seconds=30)
+    controller._refresh_next_events(now + timedelta(seconds=3))
+    controller._refresh_next_events(now + timedelta(seconds=10))
+
+    assert controller._next_open == expected
+
+
+def test_next_close_duration_does_not_slide_on_repeated_refresh() -> None:
+    now = datetime(2026, 6, 15, 21, 16, 25, tzinfo=timezone.utc)
+    controller = _schedule_probe(
+        {
+            CONF_AUTO_SUN: True,
+            CONF_SUN_ELEVATION_MODE: "fixed",
+            CONF_SUN_ELEVATION_CLOSE: -4,
+            CONF_SUN_TIME_DURATION: 30,
+        },
+        states={"sun.sun": SimpleNamespace(attributes={"elevation": -5})},
+    )
+
+    controller._refresh_next_events(now)
+    expected = now + timedelta(seconds=30)
+    controller._refresh_next_events(now + timedelta(seconds=3))
+    controller._refresh_next_events(now + timedelta(seconds=10))
+
+    assert controller._next_close == expected
+
+
 def test_time_profile_evaluation_supports_already_met_open_threshold_with_duration() -> None:
     now = datetime(2026, 6, 15, 12, tzinfo=timezone.utc)
     hass = SimpleNamespace(
@@ -858,6 +898,28 @@ def test_entry_snapshot_exposes_control_diagnostics() -> None:
     assert snapshot["configured_controls"] == ["brightness", "sun", "time"]
     assert snapshot["blocked_by"] == ["manual_override"]
     assert snapshot["reason"] == "manual_override"
+
+
+def test_entry_snapshot_exposes_active_decision_controls_without_action_reason() -> None:
+    controller = Mock()
+    controller.config = {}
+    controller.state_snapshot.return_value = (
+        None, "idle", None, False, None, None, 100, False, False, False
+    )
+    controller.active_decision_controls.return_value = {"time", "sun"}
+    manager = object.__new__(ControllerManager)
+    manager.controllers = {"cover.living": controller}
+    manager.hass = SimpleNamespace(states=SimpleNamespace(get=Mock(return_value=None)))
+    manager._resolved_config = SimpleNamespace(
+        configured_functions=frozenset({"time", "sun"})
+    )
+
+    manager._rebuild_entry_snapshot()
+
+    snapshot = manager.entry_snapshot()
+    assert snapshot["active_controls"] == ["sun", "time"]
+    assert snapshot["control_state"] == "multiple"
+    assert snapshot["reason"] == "idle"
 
 
 def test_schedule_snapshot_refresh_dispatches_without_pending_cover_state() -> None:
