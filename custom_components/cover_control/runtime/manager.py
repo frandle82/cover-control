@@ -85,7 +85,9 @@ def _configured_controls(resolved: ResolvedRoomConfig | None) -> set[str]:
     return set(resolved.configured_functions)
 
 
-def _control_state(active_reasons: list[str]) -> str:
+def _control_state(
+    active_reasons: list[str], active_controls: set[str] | None = None
+) -> str:
     """Return the stable, translatable state for active runtime reasons."""
 
     controls = {
@@ -93,6 +95,7 @@ def _control_state(active_reasons: list[str]) -> str:
         for reason in active_reasons
         for control in _controls_for_reason(reason)
     }
+    controls.update(active_controls or ())
     if not controls:
         return IDLE_REASON
     if len(controls) > 1:
@@ -380,6 +383,7 @@ class ControllerManager:
         open_candidates: list[tuple[datetime, str]] = []
         close_candidates: list[tuple[datetime, str]] = []
         active_reasons: list[str] = []
+        active_controls: set[str] = set()
         now = dt_util.utcnow()
         for cover, controller in self.controllers.items():
             (
@@ -395,6 +399,11 @@ class ControllerManager:
                 ventilation_active,
             ) = controller.state_snapshot()
             reason_value = reason or IDLE_REASON
+            decision_controls = getattr(controller, "active_decision_controls", None)
+            if callable(decision_controls):
+                values = decision_controls()
+                if isinstance(values, (set, frozenset, list, tuple)):
+                    active_controls.update(values)
             covers[cover] = {
                 "reason": reason_value,
                 "current_position": current_position,
@@ -414,7 +423,12 @@ class ControllerManager:
             if reason_value != IDLE_REASON and reason_value not in active_reasons:
                 active_reasons.append(reason_value)
 
-        control_state = _control_state(active_reasons)
+        active_controls.update(
+            control
+            for reason in active_reasons
+            for control in _controls_for_reason(reason)
+        )
+        control_state = _control_state(active_reasons, active_controls)
         first_controller = next(iter(self.controllers.values()), None)
         resident_entity = (
             first_controller.config.get(CONF_RESIDENT_SENSOR)
@@ -427,13 +441,7 @@ class ControllerManager:
             "next_open": min(open_candidates) if open_candidates else None,
             "next_close": min(close_candidates) if close_candidates else None,
             "control_state": control_state,
-            "active_controls": sorted(
-                {
-                    control
-                    for reason in active_reasons
-                    for control in _controls_for_reason(reason)
-                }
-            ),
+            "active_controls": sorted(active_controls),
             "configured_controls": sorted(
                 _configured_controls(getattr(self, "_resolved_config", None))
             ),

@@ -14,6 +14,7 @@ Diese Datei enthält projektweite Arbeitsanweisungen für KI-Coding-Agenten und 
   * `quality.md`: Teststrategie, Code-Reviews, Home Assistant Standards.
   * `task-completion.md`: Verbindliche Kriterien zur vollständigen Aufgabenerledigung.
 * **Internes Wissenssystem (Obsidian-Vault):** Das Verzeichnis `.agents/knowledge/` dient als lokales Second Brain. Vor jeder Aufgabe Wissen abrufen, nach jeder neuen Erkenntnis oder Architekturentscheidung strukturiert aufnehmen (Skill [`knowledge`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/knowledge/SKILL.md)). Keine externen Obsidian-MCP-Server nötig.
+* **Knowledge-Pflege ist Pflicht:** `.agents/knowledge/` gehört zur aktiven Projektdokumentation und muss bei jeder fachlich relevanten Änderung auf Aktualität, Root Causes und bestätigte Invarianten geprüft und bei Bedarf im selben Auftrag aktualisiert werden.
 * **Git-Sicherheit:** Keine eigenständigen Commits, Pushes, Tags, Pull Requests oder Releases ohne ausdrücklichen Auftrag von Andreas.
 * **Änderungsschutz:** Vorhandene Änderungen des Benutzers müssen zwingend erhalten bleiben.
 * **Berichterstattung:** Nach Änderungen immer die ausgeführten Tests und den aktuellen `git status` auf Deutsch berichten.
@@ -214,6 +215,7 @@ Vor dem Melden einer abgeschlossenen Aufgabe:
 3. Relevante Tests und Validierungen ausführen.
 4. `.venv/bin/python -m compileall -q custom_components tests scripts` und `git diff --check` ausführen.
 5. Neues Wissen in `.agents/knowledge/` aufnehmen (ADR, Domäne oder Troubleshooting), falls neue Erkenntnisse gewonnen wurden.
+6. Knowledge-Pflege abschließend prüfen: Code, Tests, Skills, Rules und `.agents/knowledge/` müssen widerspruchsfrei den tatsächlichen Stand abbilden. Im Abschlussbericht die aktualisierten Knowledge-Dateien, aufgenommenen Erkenntnisse/Invarianten sowie bereinigte Widersprüche nennen.
 6. Übersetzungen synchronisieren, falls Texte geändert wurden.
 7. Keine temporären Dateien, ZIP-Dateien oder Debug-Artefakte hinterlassen.
 8. **Berichterstattung:** Nach Änderungen immer die ausgeführten Tests und den aktuellen `git status` auf Deutsch berichten.

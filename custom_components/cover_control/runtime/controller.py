@@ -106,6 +106,7 @@ class CoverController(
         self._logbook_dedupe: set[str] = set()
         self._shading_forecast_cache: dict[str, object] | None = None
         self._reason: str | None = None
+        self._decision_controls: set[str] = set()
         self._next_open: datetime | None = None
         self._next_close: datetime | None = None
         self._master_entity_id: str | None = None

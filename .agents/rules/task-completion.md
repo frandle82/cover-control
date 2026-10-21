@@ -40,6 +40,7 @@ Example:
 - [ ] v7 migrates to v8
 - [ ] migration is idempotent
 - [ ] regression tests updated
+- [ ] Knowledge-Bestand geprüft und bei fachlicher Relevanz aktualisiert
 - [ ] full suite passes
 
 Do not mark a requirement complete because adjacent code was changed.
@@ -225,11 +226,12 @@ Before finalizing an implementation task, perform this gate:
 8. Run git diff --check.
 9. Run repository validation scripts.
 10. Inspect git diff and git status.
-11. Commit.
-12. Push working branch.
-13. Inspect CI when available.
-14. Fix task-related CI failures.
-15. Only then report completion.
+11. Prüfe Knowledge-Pflege: Welche Dateien wurden aktualisiert, welche bestätigten Erkenntnisse/Invarianten aufgenommen und welche Widersprüche zu Skills oder Rules bereinigt?
+12. Commit.
+13. Push working branch.
+14. Inspect CI when available.
+15. Fix task-related CI failures.
+16. Only then report completion, including Knowledge-Dateien, Erkenntnisse/Invarianten und bereinigte Widersprüche.
 
 If any requested item is still incomplete, continue working instead of
 finalizing.
