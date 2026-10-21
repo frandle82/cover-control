@@ -88,6 +88,8 @@ Der Ordner `.agents/` fungiert als lokales Second Brain für das Projekt:
 * **Struktur:** Reines Markdown mit Frontmatter (`type`, `tags`, `status`), Querverweisen und zentralem Index ([`INDEX.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/INDEX.md)).
 * **Abruf vor Aufgaben (Retrieval):** Vor Anforderungsanalyse oder Implementierung immer relevante Notizen und ADRs aus `.agents/knowledge/` abrufen (Skill `knowledge`).
 * **Wissensaufnahme (Capture):** Neue architektonische Entscheidungen, gelöste Edge Cases und Best Practices werden nach Abschluss sofort strukturiert als Notiz festgehalten und im `INDEX.md` verlinkt.
+* **Pflicht bei fachlich relevanten Änderungen:** Änderungen an ConfigEntry-/Profil-/Room-Architektur, Resolver, Runtime-Lifecycle, Schedule/Time/Sun/Workday/Calendar, CCA-Parität, Aktivitäts-/Diagnose-Entitäten, Migrationen, Release-Prozess oder wichtigen Bugfixes mit neuer Root Cause/Invariante erfordern die Prüfung und gegebenenfalls Aktualisierung des Knowledge-Bestands im selben Auftrag.
+* **Widerspruchsfreiheit:** Veraltete Aussagen sind zu korrigieren oder zu entfernen. Es dürfen nur bestätigte technische Fakten aufgenommen werden. Knowledge muss mit Code, Tests, `AGENTS.md`, `.agents/rules/` und `.agents/skills/` übereinstimmen.
 * **Keine externen Abhängigkeiten:** Reines lokales Markdown; keine MCP-Server oder proprietäre Cloud-Tools erforderlich.
 
 ---
