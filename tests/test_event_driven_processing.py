@@ -318,6 +318,32 @@ def test_next_open_when_sun_threshold_already_reached_inside_window() -> None:
     assert controller._next_open == now
 
 
+def test_time_profile_evaluation_supports_already_met_open_threshold_with_duration() -> None:
+    now = datetime(2026, 6, 15, 12, tzinfo=timezone.utc)
+    hass = SimpleNamespace(
+        states=SimpleNamespace(
+            get=lambda entity_id: SimpleNamespace(
+                attributes={"elevation": 7}
+            ) if entity_id == "sun.sun" else None
+        ),
+        config=SimpleNamespace(latitude=50.0, longitude=8.0, time_zone="UTC"),
+    )
+
+    next_open, _next_close = evaluate_time_profile(
+        hass,
+        {
+            CONF_AUTO_SUN: True,
+            CONF_SUN_ELEVATION_MODE: "fixed",
+            CONF_SUN_ELEVATION_OPEN: 6,
+            CONF_SUN_TIME_DURATION: 30,
+        },
+        now,
+        capabilities=("sun",),
+    )
+
+    assert next_open == now + timedelta(seconds=30)
+
+
 def test_next_close_when_sun_threshold_already_reached_inside_window() -> None:
     """An already passed setting threshold is available immediately in-window."""
 
@@ -341,6 +367,32 @@ def test_next_close_when_sun_threshold_already_reached_inside_window() -> None:
     controller._refresh_next_events(now)
     assert crossing < now
     assert controller._next_close == now
+
+
+def test_time_profile_evaluation_supports_already_met_close_threshold_with_duration() -> None:
+    now = datetime(2026, 6, 15, 12, tzinfo=timezone.utc)
+    hass = SimpleNamespace(
+        states=SimpleNamespace(
+            get=lambda entity_id: SimpleNamespace(
+                attributes={"elevation": -5}
+            ) if entity_id == "sun.sun" else None
+        ),
+        config=SimpleNamespace(latitude=50.0, longitude=8.0, time_zone="UTC"),
+    )
+
+    _next_open, next_close = evaluate_time_profile(
+        hass,
+        {
+            CONF_AUTO_SUN: True,
+            CONF_SUN_ELEVATION_MODE: "fixed",
+            CONF_SUN_ELEVATION_CLOSE: -4,
+            CONF_SUN_TIME_DURATION: 30,
+        },
+        now,
+        capabilities=("sun",),
+    )
+
+    assert next_close == now + timedelta(seconds=30)
 
 
 @pytest.mark.parametrize("mode", ["dynamic", "hybrid"])
