@@ -36,6 +36,7 @@ from .common import _normalize_cover_status
 from .evaluation import EvaluationMixin
 from .events import EventsMixin
 from .schedule import ScheduleMixin
+from .safety import SafetyMixin
 from .shading import ShadingMixin
 from .status import StatusMixin
 
@@ -46,6 +47,7 @@ if TYPE_CHECKING:
 class CoverController(
     StatusMixin,
     EventsMixin,
+    SafetyMixin,
     EvaluationMixin,
     ShadingMixin,
     ScheduleMixin,
@@ -107,6 +109,8 @@ class CoverController(
         self._shading_forecast_cache: dict[str, object] | None = None
         self._reason: str | None = None
         self._decision_controls: set[str] = set()
+        self._active_safety: str | None = None
+        self._safety_target: float | None = None
         self._next_open: datetime | None = None
         self._next_close: datetime | None = None
         self._master_entity_id: str | None = None

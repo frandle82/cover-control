@@ -39,6 +39,17 @@ TRIGGER_WINDOW_OPEN = "window_open"
 TRIGGER_WINDOW_TILTED = "window_tilted"
 TRIGGER_WORKDAY_CHANGED = "workday_changed"
 TRIGGER_WORKDAY_TOMORROW_CHANGED = "workday_tomorrow_changed"
+TRIGGER_FIRE_ALARM_ON = "fire_alarm_on"
+TRIGGER_FIRE_ALARM_OFF = "fire_alarm_off"
+TRIGGER_RAIN_ALARM_ON = "rain_alarm_on"
+TRIGGER_RAIN_ALARM_OFF = "rain_alarm_off"
+TRIGGER_WIND_ALARM_2_ON = "wind_alarm_2_on"
+TRIGGER_WIND_ALARM_2_OFF = "wind_alarm_2_off"
+TRIGGER_WIND_ALARM_1_ON = "wind_alarm_1_on"
+TRIGGER_WIND_ALARM_1_OFF = "wind_alarm_1_off"
+TRIGGER_FROST_ALARM_ON = "frost_alarm_on"
+TRIGGER_FROST_ALARM_OFF = "frost_alarm_off"
+TRIGGER_FIRE_LATCH_RESET = "fire_latch_reset"
 
 CONDITION_TIMER_TRIGGERS = {
     "sun_open": TRIGGER_SUN_OPEN_TIMER,
@@ -55,6 +66,17 @@ CALENDAR_BOUNDARY_TRIGGERS = {
 }
 
 _TRIGGER_PRIORITY = {
+    TRIGGER_FIRE_ALARM_ON: 20,
+    TRIGGER_FIRE_ALARM_OFF: 20,
+    TRIGGER_FIRE_LATCH_RESET: 20,
+    TRIGGER_RAIN_ALARM_ON: 19,
+    TRIGGER_RAIN_ALARM_OFF: 19,
+    TRIGGER_WIND_ALARM_2_ON: 18,
+    TRIGGER_WIND_ALARM_2_OFF: 18,
+    TRIGGER_WIND_ALARM_1_ON: 17,
+    TRIGGER_WIND_ALARM_1_OFF: 17,
+    TRIGGER_FROST_ALARM_ON: 16,
+    TRIGGER_FROST_ALARM_OFF: 16,
     TRIGGER_SUN_CHANGED: 1,
     TRIGGER_SUN_OPEN_TIMER: 1,
     TRIGGER_SUN_CLOSE_TIMER: 1,
@@ -187,6 +209,7 @@ def _default_cover_status() -> dict:
             "background": {"open": False, "close": False, "shading": False},
             "ts": 0,
         },
+        "safety": {"fire_latched": False, "ts": 0},
         "manual": {"active": False, "scope_all": False, "until": None, "ts": 0},
         "reason": None,
         "target": None,
@@ -236,6 +259,11 @@ def _normalize_cover_status(raw: object) -> dict:
             for key in ("open", "close", "shading"):
                 status["force"]["background"][key] = bool(background.get(key))
         status["force"]["ts"] = int(force.get("ts") or 0)
+
+    safety = raw.get("safety")
+    if isinstance(safety, dict):
+        status["safety"]["fire_latched"] = bool(safety.get("fire_latched", False))
+        status["safety"]["ts"] = int(safety.get("ts") or 0)
 
     manual = raw.get("manual")
     if isinstance(manual, dict):

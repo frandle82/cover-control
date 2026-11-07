@@ -88,6 +88,8 @@ from ..const import (
     CONF_WINDOW_SENSOR_TILT,
     CONF_WORKDAY_SENSOR,
     CONF_WORKDAY_TOMORROW_SENSOR,
+    FUNCTION_SAFETY,
+    SAFETY_ALARMS,
     COVER_TILT_WAIT_BEFORE_POSITION,
     COVER_TILT_WAIT_IDLE,
     DEFAULT_AUTOMATION_FLAGS,
@@ -129,9 +131,20 @@ from .common import (
     TRIGGER_SUN_CHANGED,
     TRIGGER_WORKDAY_CHANGED,
     TRIGGER_WORKDAY_TOMORROW_CHANGED,
+    TRIGGER_FIRE_ALARM_ON,
+    TRIGGER_FIRE_ALARM_OFF,
+    TRIGGER_RAIN_ALARM_ON,
+    TRIGGER_RAIN_ALARM_OFF,
+    TRIGGER_WIND_ALARM_2_ON,
+    TRIGGER_WIND_ALARM_2_OFF,
+    TRIGGER_WIND_ALARM_1_ON,
+    TRIGGER_WIND_ALARM_1_OFF,
+    TRIGGER_FROST_ALARM_ON,
+    TRIGGER_FROST_ALARM_OFF,
     _coerce_float,
     _float_state,
 )
+from .safety import SAFETY_REASONS
 
 _COVER_ENTITY_FEATURE = None
 _CONDITION_API = None
@@ -395,6 +408,14 @@ class ActuatorMixin:
     async def _set_position(self, position: float | None, reason: str) -> None:
         if position is None:
             return
+        frost_target = self._frost_target_if_active()
+        if (
+            reason not in SAFETY_REASONS
+            and frost_target is not None
+            and float(position) < frost_target
+        ):
+            position = frost_target
+            reason = "frost_alarm"
         if self._group_position_callback is not None:
             await self._group_position_callback(self, float(position), reason)
             return
@@ -446,10 +467,11 @@ class ActuatorMixin:
         delay = self._drive_delay_seconds()
         if delay > 0:
             await asyncio.sleep(delay)
-            if self._entity_active(CONF_FORCE_PAUSE_ENTITY):
+            safety_move = reason in SAFETY_REASONS
+            if not safety_move and self._entity_active(CONF_FORCE_PAUSE_ENTITY):
                 self.async_request_evaluate("force_pause_during_delay")
                 return
-            if self._manual_active or not self._master_enabled():
+            if not safety_move and (self._manual_active or not self._master_enabled()):
                 self.async_request_evaluate("movement_gate_changed_during_delay")
                 return
             force_reasons = {
@@ -458,14 +480,14 @@ class ActuatorMixin:
                 "force_ventilate": "force_ventilate_entity",
                 "force_shading": "force_shading_entity",
             }
-            if any(
+            if not safety_move and any(
                 self._entity_active(key)
                 for key in force_reasons.values()
                 if key != force_reasons.get(reason)
             ):
                 self.async_request_evaluate("force_changed_during_delay")
                 return
-            if "close" in reason and self._contacts_active(
+            if not safety_move and "close" in reason and self._contacts_active(
                 self._full_open_sensors(), dt_util.utcnow()
             ):
                 self.async_request_evaluate("window_lockout_during_delay")
@@ -721,6 +743,12 @@ class ActuatorMixin:
             )
         if self._auto_enabled(CONF_RESIDENT_STATUS):
             keys.append(CONF_RESIDENT_SENSOR)
+        if FUNCTION_SAFETY in getattr(
+            self.config, "configured_functions", frozenset()
+        ):
+            for _alarm, entity_key, enabled_key, _target, room_key, _default in SAFETY_ALARMS:
+                if self.config.get(enabled_key) and self.config.get(room_key):
+                    keys.append(entity_key)
         if self.config.get(CONF_POSITION_SOURCE) == CONF_POSITION_SOURCE_CUSTOM_SENSOR:
             keys.append(CONF_CUSTOM_POSITION_SENSOR)
 
@@ -851,6 +879,30 @@ class ActuatorMixin:
                 triggers.add(TRIGGER_RESIDENT_OFF)
             else:
                 triggers.add("resident_changed")
+
+        alarm_triggers = {
+            "fire": (TRIGGER_FIRE_ALARM_ON, TRIGGER_FIRE_ALARM_OFF),
+            "rain": (TRIGGER_RAIN_ALARM_ON, TRIGGER_RAIN_ALARM_OFF),
+            "wind_alarm_2": (TRIGGER_WIND_ALARM_2_ON, TRIGGER_WIND_ALARM_2_OFF),
+            "wind_alarm_1": (TRIGGER_WIND_ALARM_1_ON, TRIGGER_WIND_ALARM_1_OFF),
+            "frost": (TRIGGER_FROST_ALARM_ON, TRIGGER_FROST_ALARM_OFF),
+        }
+        active_values = {"on", "true", "1", "open", "active"}
+        inactive_values = {"off", "false", "0", "closed", "inactive"}
+        old_active = str(old_value).strip().lower() in active_values
+        new_active = str(new_value).strip().lower() in active_values
+        new_inactive = str(new_value).strip().lower() in inactive_values
+        for alarm, entity_key, enabled_key, _target, room_key, _default in SAFETY_ALARMS:
+            if (
+                self.config.get(entity_key) == entity_id
+                and self.config.get(enabled_key)
+                and self.config.get(room_key)
+            ):
+                on_trigger, off_trigger = alarm_triggers[alarm]
+                if new_active and not old_active:
+                    triggers.add(on_trigger)
+                elif old_active and new_inactive:
+                    triggers.add(off_trigger)
 
         for key in (
             *self._auto_entity_map.values(),

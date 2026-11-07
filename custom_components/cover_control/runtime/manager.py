@@ -44,8 +44,10 @@ from .common import (
     IDLE_REASON,
     STORAGE_VERSION,
     _unique_covers,
+    TRIGGER_FIRE_LATCH_RESET,
 )
 from .controller import CoverController
+from .safety import SAFETY_REASONS
 from ..feature_state import FeatureState, feature_configured
 
 
@@ -70,6 +72,8 @@ def _controls_for_reason(reason: str) -> set[str]:
         return {"brightness"}
     if "calendar" in reason:
         return {"calendar"}
+    if reason in SAFETY_REASONS:
+        return {reason}
     return set()
 
 
@@ -148,6 +152,9 @@ class ControllerManager:
             "reason": IDLE_REASON,
             "resident_status": "off",
             "resident_entity": None,
+            "active_safety": None,
+            "fire_latched": False,
+            "safety_target": None,
         }
         self._shared_listener_unsub = None
         self._shared_entities: set[str] = set()
@@ -267,7 +274,11 @@ class ControllerManager:
     ) -> None:
         """Apply non-ventilation room movements consistently to all covers."""
 
-        if "ventilation" in reason or reason.startswith("manual_"):
+        if (
+            "ventilation" in reason
+            or reason.startswith("manual_")
+            or reason == "frost_alarm"
+        ):
             await source._set_position_local(position, reason)
             return
 
@@ -289,7 +300,8 @@ class ControllerManager:
             eligible = [
                 controller
                 for controller in self.controllers.values()
-                if not controller._manual_blocks_action(action)
+                if reason in SAFETY_REASONS
+                or not controller._manual_blocks_action(action)
             ]
             independent = [
                 controller
@@ -354,6 +366,9 @@ class ControllerManager:
                 "control_state": IDLE_REASON,
                 "resident_status": "off",
                 "resident_entity": None,
+                "active_safety": None,
+                "fire_latched": False,
+                "safety_target": None,
             },
         )
         previous = (
@@ -388,6 +403,9 @@ class ControllerManager:
         close_candidates: list[tuple[datetime, str]] = []
         active_reasons: list[str] = []
         active_controls: set[str] = set()
+        active_safety: str | None = None
+        safety_target: float | None = None
+        fire_latched = False
         now = dt_util.utcnow()
         for cover, controller in self.controllers.items():
             (
@@ -408,6 +426,10 @@ class ControllerManager:
                 values = decision_controls()
                 if isinstance(values, (set, frozenset, list, tuple)):
                     active_controls.update(values)
+            safety_snapshot = getattr(controller, "safety_snapshot", None)
+            safety = safety_snapshot() if callable(safety_snapshot) else {}
+            if not isinstance(safety, dict):
+                safety = {}
             covers[cover] = {
                 "reason": reason_value,
                 "current_position": current_position,
@@ -419,7 +441,15 @@ class ControllerManager:
                 "shading_enabled": shading_enabled,
                 "shading_active": shading_active,
                 "ventilation_active": ventilation_active,
+                **safety,
             }
+            active_safety = active_safety or safety.get("active_safety")
+            safety_target = (
+                safety.get("safety_target")
+                if safety.get("safety_target") is not None
+                else safety_target
+            )
+            fire_latched = fire_latched or bool(safety.get("fire_latched"))
             if isinstance(next_open, datetime) and next_open >= now:
                 open_candidates.append((next_open, cover))
             if isinstance(next_close, datetime) and next_close >= now:
@@ -464,6 +494,9 @@ class ControllerManager:
                 else "off"
             ),
             "resident_entity": resident_entity,
+            "active_safety": active_safety,
+            "fire_latched": fire_latched,
+            "safety_target": safety_target,
         }
 
     def entry_snapshot(self) -> dict[str, object]:
@@ -765,6 +798,21 @@ class ControllerManager:
 
         for controller in self.controllers.values():
             controller.clear_manual_override()
+
+    def reset_fire_latch(self) -> bool:
+        latched = [
+            controller
+            for controller in self.controllers.values()
+            if controller.fire_latched()
+        ]
+        if not latched or not all(
+            controller.can_reset_fire_latch() for controller in latched
+        ):
+            return False
+        for controller in latched:
+            controller.reset_fire_latch()
+            controller.async_request_evaluate(TRIGGER_FIRE_LATCH_RESET)
+        return True
 
     async def recalibrate_cover(self, cover: str, full_open: float | None) -> bool:
         controller = self.controllers.get(cover)

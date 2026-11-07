@@ -161,6 +161,9 @@ class EvaluationMixin:
         if self._cover_unavailable_logged:
             _LOGGER.info("Cover Control resumed evaluation for %s", self.cover)
             self._cover_unavailable_logged = False
+        if await self._evaluate_safety():
+            self._refresh_next_events(now)
+            return
         if self._manual_active:
             if self._manual_scope_all or all(
                 self._manual_blocks_action(action)

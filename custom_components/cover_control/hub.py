@@ -27,10 +27,15 @@ from .const import (
     CONF_GLOBAL,
     CONF_GLOBAL_DEFAULTS,
     CONF_GLOBAL_SOURCES,
+    CONF_FIRE_ALARM_ENTITY,
+    CONF_FROST_ALARM_ENTITY,
     CONF_PROFILE_NAME,
     CONF_PROFILES,
+    CONF_RAIN_ALARM_ENTITY,
     CONF_ROOMS,
     CONF_ROOM_OVERRIDES,
+    CONF_WIND_ALARM_1_ENTITY,
+    CONF_WIND_ALARM_2_ENTITY,
     PROFILE_TYPES,
     PROFILE_TYPE_TIME,
     PROFILE_TYPE_SHADING,
@@ -41,6 +46,7 @@ from .const import (
     FUNCTION_SHADING,
     FUNCTION_SUN,
     FUNCTION_TIME,
+    FUNCTION_SAFETY,
 )
 from .runtime.profile_evaluation import evaluate_time_profile
 from .runtime.common import TRIGGER_SCHEDULED_CLOSE, TRIGGER_SCHEDULED_OPEN
@@ -167,6 +173,11 @@ class CoverControlHub:
             "shading_forecast_sensor": FUNCTION_SHADING,
             "shading_forecast_temp_sensor": FUNCTION_SHADING,
             "resident_sensor": FUNCTION_RESIDENT,
+            CONF_FIRE_ALARM_ENTITY: FUNCTION_SAFETY,
+            CONF_RAIN_ALARM_ENTITY: FUNCTION_SAFETY,
+            CONF_WIND_ALARM_2_ENTITY: FUNCTION_SAFETY,
+            CONF_WIND_ALARM_1_ENTITY: FUNCTION_SAFETY,
+            CONF_FROST_ALARM_ENTITY: FUNCTION_SAFETY,
         }
         function = function_by_source.get(source_key)
         if function is None:
