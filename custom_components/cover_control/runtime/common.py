@@ -35,6 +35,9 @@ TRIGGER_SUN_CHANGED = "sun_elevation_changed"
 TRIGGER_SUN_CLOSE_TIMER = "sun_close_duration_elapsed"
 TRIGGER_SUN_OPEN_TIMER = "sun_open_duration_elapsed"
 TRIGGER_WINDOW_CLOSED = "window_closed"
+TRIGGER_WINDOW_DOWN_SEQUENCE_TARGET_REACHED = (
+    "window_down_sequence_target_reached"
+)
 TRIGGER_WINDOW_OPEN = "window_open"
 TRIGGER_WINDOW_TILTED = "window_tilted"
 TRIGGER_WORKDAY_CHANGED = "workday_changed"
@@ -50,6 +53,10 @@ TRIGGER_WIND_ALARM_1_OFF = "wind_alarm_1_off"
 TRIGGER_FROST_ALARM_ON = "frost_alarm_on"
 TRIGGER_FROST_ALARM_OFF = "frost_alarm_off"
 TRIGGER_FIRE_LATCH_RESET = "fire_latch_reset"
+
+WINDOW_DOWN_SEQUENCE_REASONS = frozenset(
+    {"scheduled_close", "sun_close", "brightness_close"}
+)
 
 CONDITION_TIMER_TRIGGERS = {
     "sun_open": TRIGGER_SUN_OPEN_TIMER,
@@ -77,6 +84,7 @@ _TRIGGER_PRIORITY = {
     TRIGGER_WIND_ALARM_1_OFF: 17,
     TRIGGER_FROST_ALARM_ON: 16,
     TRIGGER_FROST_ALARM_OFF: 16,
+    TRIGGER_WINDOW_DOWN_SEQUENCE_TARGET_REACHED: 15,
     TRIGGER_SUN_CHANGED: 1,
     TRIGGER_SUN_OPEN_TIMER: 1,
     TRIGGER_SUN_CLOSE_TIMER: 1,

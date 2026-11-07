@@ -145,6 +145,7 @@ class EvaluationMixin:
             },
         )
         if not cover_available:
+            self._cancel_window_down_sequence()
             if self._startup_complete:
                 self._runtime_outage_active = True
                 self._outage_dependencies.add(self.cover)
@@ -165,6 +166,7 @@ class EvaluationMixin:
             self._refresh_next_events(now)
             return
         if self._manual_active:
+            self._cancel_window_down_sequence()
             if self._manual_scope_all or all(
                 self._manual_blocks_action(action)
                 for action in ("open", "close", "ventilation", "shading")
@@ -178,11 +180,13 @@ class EvaluationMixin:
                 return
 
         if not self._master_enabled():
+            self._cancel_window_down_sequence()
             self._refresh_next_events(now)
             self._publish_state()
             return
 
         if self._entity_active(CONF_FORCE_PAUSE_ENTITY):
+            self._cancel_window_down_sequence()
             self._reason = "force_pause"
             self._refresh_next_events(now)
             self._publish_state()
@@ -190,6 +194,7 @@ class EvaluationMixin:
 
         unavailable_dependencies = self._unavailable_decision_entities()
         if unavailable_dependencies:
+            self._cancel_window_down_sequence()
             if self._startup_complete:
                 self._runtime_outage_active = True
                 self._outage_dependencies.update(unavailable_dependencies)
@@ -373,6 +378,10 @@ class EvaluationMixin:
             await self._set_position(target, reason)
             return
 
+        if await self._evaluate_window_down_sequence(trigger):
+            self._refresh_next_events(now)
+            return
+
         auto_time_enabled = self._auto_enabled(CONF_AUTO_TIME)
         calendar_open_window, calendar_close_window = (
             await self._calendar_windows(now) if auto_time_enabled else (None, None)
@@ -453,7 +462,63 @@ class EvaluationMixin:
             sun_elevation, brightness
         )
 
-        if auto_ventilate and full_contact_active:
+        current_position = self._current_position()
+        close_target = self._position_value(
+            CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION
+        )
+        close_status_satisfied = self._status_active(
+            "close"
+        ) and self._position_matches(close_target, current_position)
+        regular_close_event: tuple[datetime, str, float | None] | None = None
+        if (
+            close_condition
+            and not self._manual_blocks_action("close")
+            and not close_status_satisfied
+            and not tilt_lock_close
+            and not self._action_already_done_today(
+                "close", CONF_PREVENT_CLOSING_MULTIPLE_TIMES
+            )
+            and not self._close_position_protected(current_position)
+        ):
+            close_due = (
+                (not auto_time_enabled and environment_allows_closing)
+                or is_time_down_late
+                or (
+                    (is_closing_phase or is_evening_phase)
+                    and ((not has_environment_control) or environment_allows_closing)
+                )
+            )
+            if (
+                close_due
+                and self._auto_enabled(CONF_AUTO_SUN)
+                and self._sun_allows_close(sun_elevation)
+            ):
+                regular_close_event = (now, "sun_close", close_target)
+            elif (
+                close_due
+                and self._auto_enabled(CONF_AUTO_BRIGHTNESS)
+                and brightness is not None
+                and self._brightness_allows_close(brightness)
+            ):
+                regular_close_event = (now, "brightness_close", close_target)
+            elif (
+                self._auto_enabled(CONF_AUTO_TIME)
+                and self._auto_enabled(CONF_AUTO_DOWN)
+                and close_due
+                and not self._manual_schedule_adopted_today("close")
+            ):
+                regular_close_event = (
+                    self._next_close or now,
+                    "scheduled_close",
+                    close_target,
+                )
+
+        if (
+            auto_ventilate
+            and full_contact_active
+            and self._active_safety != "frost"
+            and regular_close_event is None
+        ):
             if (
                 ventilation_condition
                 and not resident_blocks_ventilation
@@ -473,8 +538,6 @@ class EvaluationMixin:
                 self.persist_status()
                 self._publish_state()
             return
-
-        current_position = self._current_position()
 
         shading_over_ventilation_active = False
         if (
@@ -500,6 +563,8 @@ class EvaluationMixin:
         if (
             auto_ventilate
             and tilt_contact_active
+            and self._active_safety != "frost"
+            and regular_close_event is None
             and ventilation_condition
             and not resident_blocks_ventilation
             and not shading_over_ventilation_active
@@ -839,75 +904,13 @@ class EvaluationMixin:
             self._set_ventilation_status(False, False)
             self.persist_status()
 
-        close_target = self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION)
         open_target = self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)
-        close_status_satisfied = self._status_active(
-            "close"
-        ) and self._position_matches(close_target, current_position)
         open_status_satisfied = self._status_active("open") and self._position_matches(
             open_target, current_position
         )
 
-        if (
-            close_condition
-            and not self._manual_blocks_action("close")
-            and not close_status_satisfied
-            and not self._action_already_done_today(
-                "close", CONF_PREVENT_CLOSING_MULTIPLE_TIMES
-            )
-        ):
-            close_due = (
-                (not auto_time_enabled and environment_allows_closing)
-                or is_time_down_late
-                or (
-                    (is_closing_phase or is_evening_phase)
-                    and ((not has_environment_control) or environment_allows_closing)
-                )
-            )
-            if (
-                close_due
-                and self._auto_enabled(CONF_AUTO_SUN)
-                and self._sun_allows_close(sun_elevation)
-                and not self._close_position_protected(current_position)
-            ):
-                close_events.append(
-                    (
-                        now,
-                        "sun_close",
-                        close_target,
-                    )
-                )
-            if (
-                close_due
-                and self._auto_enabled(CONF_AUTO_BRIGHTNESS)
-                and brightness is not None
-                and self._brightness_allows_close(brightness)
-                and not self._close_position_protected(current_position)
-            ):
-                close_events.append(
-                    (
-                        now,
-                        "brightness_close",
-                        close_target,
-                    )
-                )
-
-            if (
-                self._auto_enabled(CONF_AUTO_TIME)
-                and self._auto_enabled(CONF_AUTO_DOWN)
-                and close_due
-                and not close_events
-                and not self._manual_schedule_adopted_today("close")
-                and not self._close_position_protected(current_position)
-            ):
-                close_events.append(
-                    (
-                        self._next_close or now,
-                        "scheduled_close",
-                        close_target,
-                    )
-                )
-
+        if regular_close_event is not None:
+            close_events.append(regular_close_event)
         if tilt_lock_close:
             close_events = []
 

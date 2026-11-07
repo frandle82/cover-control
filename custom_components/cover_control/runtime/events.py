@@ -93,6 +93,7 @@ class EventsMixin:
         self.async_request_evaluate("startup")
 
     async def async_unload(self) -> None:
+        self._cancel_window_down_sequence()
         self._clear_scheduled_event_timers()
         self._clear_runtime_condition_timers()
         self._clear_manual_expiry()
@@ -103,6 +104,7 @@ class EventsMixin:
 
     @callback
     def update_config(self, new_config: ConfigType) -> None:
+        self._cancel_window_down_sequence()
         old_config = self.config
         pending_started: dict[str, datetime] = {}
         for kind, due_at in getattr(self, "_shading_pending", {}).items():

@@ -101,6 +101,7 @@ class SafetyMixin:
             self._set_fire_latched(True)
 
         if self.fire_latched():
+            self._cancel_window_down_sequence()
             self._active_safety = "fire" if fire_active is True else "fire_latched"
             self._safety_target = self._configured_safety_target("fire")
             self._decision_controls.add(
@@ -117,6 +118,7 @@ class SafetyMixin:
         for alarm, *_rest in SAFETY_ALARMS:
             state = self._safety_alarm_active(alarm)
             if state is None:
+                self._cancel_window_down_sequence()
                 self._active_safety = "unavailable"
                 self._safety_target = None
                 self._decision_controls.add("safety")
@@ -139,6 +141,7 @@ class SafetyMixin:
         self._active_safety = alarm
         self._safety_target = target
         self._decision_controls.add(reason)
+        self._cancel_window_down_sequence()
         if alarm == "frost":
             close_target = self._position_value(
                 CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION

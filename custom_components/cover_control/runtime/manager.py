@@ -45,6 +45,7 @@ from .common import (
     STORAGE_VERSION,
     _unique_covers,
     TRIGGER_FIRE_LATCH_RESET,
+    WINDOW_DOWN_SEQUENCE_REASONS,
 )
 from .controller import CoverController
 from .safety import SAFETY_REASONS
@@ -155,6 +156,7 @@ class ControllerManager:
             "active_safety": None,
             "fire_latched": False,
             "safety_target": None,
+            "window_down_sequences": {},
         }
         self._shared_listener_unsub = None
         self._shared_entities: set[str] = set()
@@ -307,6 +309,7 @@ class ControllerManager:
                 controller
                 for controller in eligible
                 if controller is not source
+                and reason not in WINDOW_DOWN_SEQUENCE_REASONS
                 and controller._ventilation_requires_independent_control(now)
             ]
             for controller in independent:
@@ -369,6 +372,7 @@ class ControllerManager:
                 "active_safety": None,
                 "fire_latched": False,
                 "safety_target": None,
+                "window_down_sequences": {},
             },
         )
         previous = (
@@ -406,6 +410,7 @@ class ControllerManager:
         active_safety: str | None = None
         safety_target: float | None = None
         fire_latched = False
+        window_down_sequences: dict[str, dict[str, object]] = {}
         now = dt_util.utcnow()
         for cover, controller in self.controllers.items():
             (
@@ -430,6 +435,12 @@ class ControllerManager:
             safety = safety_snapshot() if callable(safety_snapshot) else {}
             if not isinstance(safety, dict):
                 safety = {}
+            sequence_snapshot = getattr(
+                controller, "window_down_sequence_snapshot", None
+            )
+            sequence = sequence_snapshot() if callable(sequence_snapshot) else {}
+            if not isinstance(sequence, dict):
+                sequence = {}
             covers[cover] = {
                 "reason": reason_value,
                 "current_position": current_position,
@@ -442,7 +453,10 @@ class ControllerManager:
                 "shading_active": shading_active,
                 "ventilation_active": ventilation_active,
                 **safety,
+                "window_down_sequence": sequence,
             }
+            if sequence:
+                window_down_sequences[cover] = sequence
             active_safety = active_safety or safety.get("active_safety")
             safety_target = (
                 safety.get("safety_target")
@@ -497,6 +511,7 @@ class ControllerManager:
             "active_safety": active_safety,
             "fire_latched": fire_latched,
             "safety_target": safety_target,
+            "window_down_sequences": window_down_sequences,
         }
 
     def entry_snapshot(self) -> dict[str, object]:

@@ -42,6 +42,7 @@ from ..const import (
     CONF_AUTO_VENTILATE,
     CONF_BRIGHTNESS_SENSOR,
     CONF_CALENDAR_ENTITY,
+    CONF_CLOSE_POSITION,
     CONF_CLOSE_TILT_POSITION,
     CONF_COVER_TILT_WAIT_MODE,
     CONF_COVER_TILT_WAIT_TIMEOUT,
@@ -94,6 +95,7 @@ from ..const import (
     COVER_TILT_WAIT_IDLE,
     DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_CLOSE_TILT_POSITION,
+    DEFAULT_CLOSE_POSITION,
     DEFAULT_COVER_TILT_WAIT_MODE,
     DEFAULT_COVER_TILT_WAIT_TIMEOUT,
     DEFAULT_DRIVE_TIME,
@@ -141,6 +143,8 @@ from .common import (
     TRIGGER_WIND_ALARM_1_OFF,
     TRIGGER_FROST_ALARM_ON,
     TRIGGER_FROST_ALARM_OFF,
+    TRIGGER_WINDOW_DOWN_SEQUENCE_TARGET_REACHED,
+    WINDOW_DOWN_SEQUENCE_REASONS,
     _coerce_float,
     _float_state,
 )
@@ -424,6 +428,9 @@ class ActuatorMixin:
     async def _set_position_local(self, position: float, reason: str) -> None:
         """Move only this cover after room-level coordination is resolved."""
 
+        sequence_needed = self._window_down_sequence_target(reason) is not None
+        if self._window_down_sequence is not None and not sequence_needed:
+            self._cancel_window_down_sequence()
         tilt_position = self._tilt_position_value(reason)
         tolerance = float(
             self._position_value(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE)
@@ -462,6 +469,8 @@ class ActuatorMixin:
                 self._reason = reason
             self._target = target
             self._record_action_status(reason, target)
+            if sequence_needed:
+                self._start_window_down_sequence(target, reason)
             self._publish_state()
             return
         delay = self._drive_delay_seconds()
@@ -487,8 +496,13 @@ class ActuatorMixin:
             ):
                 self.async_request_evaluate("force_changed_during_delay")
                 return
-            if not safety_move and "close" in reason and self._contacts_active(
-                self._full_open_sensors(), dt_util.utcnow()
+            if (
+                not safety_move
+                and not sequence_needed
+                and "close" in reason
+                and self._contacts_active(
+                    self._full_open_sensors(), dt_util.utcnow()
+                )
             ):
                 self.async_request_evaluate("window_lockout_during_delay")
                 return
@@ -512,8 +526,104 @@ class ActuatorMixin:
         self._target = target
         self._reason = reason
         self._record_action_status(reason, target)
+        if sequence_needed:
+            self._start_window_down_sequence(target, reason)
         self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
+
+    def _window_down_sequence_target(
+        self, reason: str
+    ) -> tuple[str, float] | None:
+        if (
+            reason not in WINDOW_DOWN_SEQUENCE_REASONS
+            or self._is_awning()
+            or not self._auto_enabled(CONF_AUTO_VENTILATE)
+        ):
+            return None
+        for entity_id in self._full_open_sensors():
+            state = self._state_for(entity_id)
+            if state is not None and state.state in {STATE_ON, "true", "1"}:
+                open_position = self._position_value(
+                    CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION
+                )
+                return (
+                    "open",
+                    self._position_value(CONF_LOCKOUT_POSITION, open_position),
+                )
+        for entity_id in self._tilt_sensors():
+            state = self._state_for(entity_id)
+            if state is not None and state.state in {STATE_ON, "true", "1"}:
+                return (
+                    "tilted",
+                    self._position_value(
+                        CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION
+                    ),
+                )
+        return None
+
+    def _start_window_down_sequence(self, close_target: float, reason: str) -> None:
+        window = self._window_down_sequence_target(reason)
+        if window is None:
+            return
+        window_state, final_target = window
+        self._pre_ventilation_position = close_target
+        section = self._status.setdefault("ventilation", {})
+        section["background"] = {"open": False, "close": True, "shading": False}
+        section["restore_position"] = close_target
+        self._window_down_sequence = {
+            "phase": "closing",
+            "initial_target": close_target,
+            "window_state": window_state,
+            "final_target": final_target,
+            "reason": reason,
+        }
+        self.persist_status()
+        self._schedule_delayed_evaluate(
+            TRIGGER_WINDOW_DOWN_SEQUENCE_TARGET_REACHED,
+            self._duration_value(CONF_DRIVE_TIME, DEFAULT_DRIVE_TIME),
+            timer_key="window_down_sequence",
+        )
+
+    def _cancel_window_down_sequence(self) -> None:
+        timers = getattr(self, "_delayed_evaluation_unsubs", {})
+        unsubscribe = timers.pop("window_down_sequence", None)
+        if unsubscribe is not None:
+            unsubscribe()
+        self._window_down_sequence = None
+
+    async def _evaluate_window_down_sequence(self, trigger: str) -> bool:
+        sequence = self._window_down_sequence
+        if sequence is None:
+            return False
+        reason = str(sequence.get("reason") or "")
+        latest = self._window_down_sequence_target(reason)
+        if latest is not None:
+            sequence["window_state"], sequence["final_target"] = latest
+        if trigger != TRIGGER_WINDOW_DOWN_SEQUENCE_TARGET_REACHED:
+            self._decision_controls.add("ventilation")
+            self._publish_state()
+            return True
+
+        initial_target = _coerce_float(sequence.get("initial_target"))
+        self._cancel_window_down_sequence()
+        if latest is None or initial_target is None:
+            self._reason = reason or self._reason
+            self._publish_state()
+            return True
+
+        window_state, final_target = latest
+        self._pre_ventilation_position = initial_target
+        section = self._status.setdefault("ventilation", {})
+        section["background"] = {"open": False, "close": True, "shading": False}
+        section["restore_position"] = initial_target
+        await self._set_position_local(
+            final_target,
+            "ventilation_full" if window_state == "open" else "ventilation",
+        )
+        return True
+
+    def window_down_sequence_snapshot(self) -> dict[str, object]:
+        return dict(self._window_down_sequence or {})
 
     def _drive_delay_seconds(self) -> float:
         """Return the combined pre-drive delay for a real movement."""

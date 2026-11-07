@@ -88,6 +88,7 @@ class CoverController(
         self._target: float | None = None
         self._last_position: float | None = None
         self._pre_ventilation_position: float | None = None
+        self._window_down_sequence: dict[str, object] | None = None
         self._last_command_at: datetime | None = None
         self._ignore_service_call_until: datetime | None = None
         self._manual_expire_unsub: CALLBACK_TYPE | None = None
