@@ -52,12 +52,12 @@ Referenz: [`simatec/ioBroker.shuttercontrol@64ccaedc4f413f187e2a6f6d5164c83b5d6a
 | Wiederherstellung nach Fensterschließen | Gesicherte Höhe/Aktion wird wieder angefahren | Persistierter Ventilationshintergrund und Restore-Ziel | FULL | – |
 | Automatik schließt bei offenem Fenster auf Lüftung | Erst vollständig schließen, Fahrzeit warten, Kontakt erneut prüfen, dann Lüftungsposition | Kontakt-/Lüftungslogik vorhanden, aber keine zweistufige Fahrt | PARTIAL | 2.1.0-Sequenz samt Frost-/Unload-/Manual-Schutz fehlt |
 | Schließen bei offenem Fenster | Je nach `autoDrive` blockieren oder schließen | Full-Open-Lockout verhindert Force-Close; Tilt-Locks sind konfigurierbar | MAPPED | Referenzrichtungen nicht 1:1 als Select vorhanden |
-| Fire Safety | Zielposition, höchste Priorität, Latch, keine Rückkehr, bewusste Reinitialisierung | Normale Force-Entities haben weder Safety-Persistenz noch Fire-Latch | MISSING | Eigene Safety-Ebene zwingend |
-| Rain Safety | Zielposition, Rückkehr oder nächsthöherer Alarm | Kein Alarmmodell | MISSING | Eigene Safety-Ebene |
-| Wind 2 Safety | Zweite Windstufe mit Zielposition und Priorität | Kein Alarmmodell | MISSING | Eigene Safety-Ebene |
-| Wind 1 Safety | Erste Windstufe mit Zielposition und Priorität | Kein Alarmmodell | MISSING | Eigene Safety-Ebene |
-| Frost Safety | Nur geschlossenes/Schließen begrenzen; priorisierte Rückkehr | `cold_protection_*` existiert nur in Schema/Resolver, nicht in Runtime | MISSING | Keine Feldnamen ohne vollständige Safety-Kette weiterverwenden |
-| Alarmdiagnose | `autoState`, gespeicherte Alarmaktion/-höhe | Control-State kennt Force, aber keine Alarmart/Prioritätskette | MISSING | Safety-Status und Nutzerdiagnose fehlen |
+| Fire Safety | Zielposition, höchste Priorität, Latch, keine automatische Rückkehr, bewusste Reinitialisierung | Eigene `safety`-Profilfunktion, globale Quelle, Room-Teilnahme, persistenter Runtime-Latch, Reset-Button, Listener/Trigger, Movement und Restart-/Entity-Tests | FULL | – |
+| Rain Safety | Zielposition und nächsthöherer verbleibender Alarm | Profilziel, Room-Teilnahme, feste Priorität, unmittelbare Reevaluation und Reality-Test | FULL | Referenz ist bei Aktivierung eventreihenfolgeabhängig; Cover Control folgt bewusst der deterministischen Zielrangfolge |
+| Wind 2 Safety | Zweite Windstufe mit Zielposition und Priorität | Profilziel, globale Quelle, Room-Teilnahme, Listener, Runtime und Regressionstest | FULL | – |
+| Wind 1 Safety | Erste Windstufe mit Zielposition und Priorität | Profilziel, globale Quelle, Room-Teilnahme, Listener, Runtime und Regressionstest | FULL | – |
+| Frost Safety | Nur geschlossenes Cover anheben; spätere Schließfahrt begrenzen | Frostziel im Profil, per-Cover Prüfung ohne Gruppenfahrt, Clamp späterer Schließziele und Referenztest | FULL | Kein paralleler Restore-Zustand; normale Runtime evaluiert nach Ende neu |
+| Alarmdiagnose | `autoState`, gespeicherte Alarmaktion/-höhe | Konkrete Control-State-Gründe sowie `active_safety`, `fire_latched` und `safety_target` im Entry-/Cover-Snapshot | FULL | – |
 | Sommerzeitraum | Je Rollladen im Zeitraum nicht schließen | Nicht vorhanden | MISSING | Nur einfache Profilregel plus Room-Auswahl, keine neue Kategorie |
 | Weihnachtszeitraum/-position | Im Zeitraum alternatives Schließziel | Nicht vorhanden | MISSING | Einfache Profilperiode plus Room-Position |
 | Saison über Jahreswechsel | Zeitraum wie 01.12–06.01 | Nicht vorhanden | MISSING | Periodenresolver muss Jahreswechsel testen |
@@ -72,11 +72,9 @@ Zur Runtime unbenutzt sind die globalen Felder `UseAstro`, `UseSunMode`, `driveH
 
 ## Priorisierte Implementierungsreihenfolge
 
-1. Eigene Safety-Ebene mit `Fire > Rain > Wind 2 > Wind 1 > Frost`, Fire-Latch, Rückkehrzustand, Diagnose und Restart-Tests implementieren.
-2. Fenster-Parität 2.1.0: schließen → Fahrzeit → Kontakt-Recheck → Lüftungsposition; Frost, Unload, manuelle Erkennung und Wiederherstellung testen.
-3. Heat Protection als einfache Schwelle mit Schließziel ergänzen.
-4. Zwischenposition plus spätes Komplettschließen und exakte No-Go-Time ergänzen.
-5. Sommer- und Weihnachtsperiode minimal in vorhandene Profile/Rooms integrieren.
-6. Abschließender Reality Check gegen denselben SHA; Matrix erst nach vollständiger Kette auf `FULL` anheben.
+1. Fenster-Parität 2.1.0: schließen → Fahrzeit → Kontakt-Recheck → Lüftungsposition; Frost, Unload, manuelle Erkennung und Wiederherstellung testen.
+2. Heat Protection als einfache Schwelle mit Schließziel ergänzen.
+3. Zwischenposition plus spätes Komplettschließen und exakte No-Go-Time ergänzen.
+4. Sommer- und Weihnachtsperiode minimal in vorhandene Profile/Rooms integrieren.
 
 Nicht geplant sind feste Living/Sleep/Children-Profile, separate Urlaubs-/Ferien-/Feiertagsarchitektur oder eine technische Portierung des JavaScript-Modulaufbaus.

@@ -92,21 +92,17 @@ Seit 2.1.0 kann `useOpenWindowLevel` bei einer automatischen Schließfahrt:
 
 Schließt das Fenster während der ersten Fahrt, bleibt der Rollladen geschlossen. Frost verhindert die zweite Fahrt. `oldHeight` wird auf die Schließposition gesetzt, damit die zweite automatische Fahrt nicht als manuelle Bewegung erkannt wird. Die Verdunklungsposition bleibt als `triggerHeight` für die spätere Wiederherstellung erhalten. Dies ist durch `lib/windowLevel.test.js` abgedeckt.
 
-## Safety-Alarme und exakte Priorität
+## Safety-Alarme und Prioritätsabweichung
 
 Jeder Alarm besitzt eine globale Entity und Zielposition sowie eine Aktivierung pro Rollladen.
 
-1. `Fire`
-2. `Rain`
-3. `Wind 2`
-4. `Wind 1`
-5. `Frost`
+Der Referenzcode besitzt keine durchgehend feste Rangfolge für Nicht-Feuer-Alarme: `Fire` gewinnt immer; bei der Aktivierung von Rain, Wind 2, Wind 1 und Frost gewinnt dagegen das zuletzt verarbeitete Event. Erst bei der Rücknahme weist `shutterAlarm.js` in fester Reihenfolge `Rain > Wind 2 > Wind 1 > Frost` zu. Dokumentation und gewünschtes Cover-Control-Verhalten formulieren dagegen eine feste Rangfolge.
 
-Feuer übersteuert alle anderen Alarme. Nach Rücknahme fährt der Rollladen **nicht** automatisch zurück; `currentAction == fire` hält Safety blockiert, bis bewusst über die globalen Buttons neu initialisiert wurde.
+Cover Control übernimmt deshalb bewusst die deterministische Zielinvariante `Fire > Rain > Wind 2 > Wind 1 > Frost` für Aktivierung, gleichzeitige Zustände, Restart und Fallback. Diese Abweichung beseitigt die eventreihenfolgeabhängige Referenzsemantik. Feuer bleibt nach Rücknahme verriegelt: der persistente `fire_latched`-Zustand blockiert normale Automation, bis der Feuer-Sensor inaktiv ist und der Nutzer den Reset-Button betätigt.
 
-Regen, Wind 2 und Wind 1 fahren bei Aktivierung auf ihre Zielposition und kehren nach Rücknahme entweder zur gespeicherten Position oder zum nächsthöheren aktiven Alarm zurück. Bei gleichzeitig aktiven Nicht-Feuer-Alarmen gewinnt die zuletzt ausgelöste Zielposition während der Aktivierung; bei Rücknahme wird die obige feste Priorität angewandt.
+Regen, Wind 2 und Wind 1 fahren bei Aktivierung auf ihre Profil-Zielposition. Nach Rücknahme wird kein separater Restore-Befehl erzeugt; die normale Cover-Control-Evaluation beziehungsweise der höchste verbleibende Alarm entscheidet unmittelbar neu.
 
-Frost fährt einen bereits offenen Rollladen nicht präventiv. Er begrenzt eine Schließfahrt auf die Frostposition und hebt einen bereits vollständig geschlossenen Rollladen gegebenenfalls bis dorthin an. Nach Rücknahme wird der gespeicherte Zustand wiederhergestellt, sofern kein höherer Alarm aktiv ist.
+Frost fährt einen bereits offenen Rollladen nicht präventiv. Er begrenzt eine spätere Schließfahrt auf die Frostposition und hebt nur einen bereits vollständig geschlossenen Rollladen bis dorthin an. Nach Rücknahme entscheidet die normale Evaluation neu; ein eigener Restore-Zustand wird nicht parallel aufgebaut.
 
 ## Saisonale Funktionen
 
@@ -147,7 +143,8 @@ Die gleichnamigen **per-Rollladen** Felder `heatProtection` und `useXmasLevel` w
 - Controller/Global/Profile/Room/Runtime bleiben unverändert die Zielarchitektur.
 - Feste Referenzbereiche werden durch frei benennbare Profile abgebildet.
 - Ferien-/Urlaubs-/Schulferienlogik wird ausschließlich auf den bestehenden Workday-/Non-Workday-Mechanismus gemappt.
-- Safety benötigt eine eigene Ebene; normale Force-Entities bilden Alarmpriorität, Feuer-Latch und Rückkehrlogik nicht ab.
+- Safety ist als eigene Profilfunktion umgesetzt: globale Quellen, Profil-Enabled/Zielwerte, Room-Teilnahme, Listener, eindeutige Trigger, Runtime-Priorität, Diagnose und Tests bilden die vollständige Kette.
+- Safety wird vor Force, Manual, Kontakten und Komfortautomation ausgewertet. Der Fire-Latch liegt ausschließlich im persistenten Laufzeitstatus, nicht im Profil.
 - Der 2.1.0-Fensterablauf ist eine echte Lücke: Cover Control besitzt Kontakt-, Lockout-, Lüftungs- und Wiederherstellungslogik, aber nicht die vollständige Sequenz „schließen → Fahrzeit warten → Kontakt erneut prüfen → Lüftungsposition“.
 - Die Runtime-Trigger sind fachlich eindeutig; neue Safety-Trigger müssen dieselbe Trennung von `trigger` (Evaluationsursache) und `reason` (Fahrentscheidung) beibehalten.
 - Saisonale Funktionen, Zwischenposition/spätes Komplettschließen und exaktes No-Go-Verhalten fehlen.
