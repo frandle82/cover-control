@@ -111,6 +111,7 @@ from ..const import (
 from .common import (
     _LOGGER,
     _coerce_float,
+    TRIGGER_RESIDENT_OFF,
 )
 
 
@@ -298,7 +299,7 @@ class EvaluationMixin:
             )
         )
         resident_sleeping = resident_mode_enabled and self._is_resident_sleeping()
-        resident_woke = trigger == "resident_woke"
+        resident_woke = trigger == TRIGGER_RESIDENT_OFF
 
         resident_allow_open = bool(
             self.config.get(

@@ -152,7 +152,7 @@ def test_config_update_clears_pending_timers_before_rescheduling() -> None:
 
     controller._clear_runtime_condition_timers.assert_called_once_with()
     controller._refresh_next_events.assert_called_once()
-    controller.async_request_evaluate.assert_called_once_with("config")
+    controller.async_request_evaluate.assert_called_once_with("config_updated")
 
 
 def test_profile_waiting_time_reschedules_existing_pending_timer() -> None:

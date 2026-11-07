@@ -52,7 +52,19 @@ from ..const import (
     MANUAL_OVERRIDE_RESET_TIMEOUT,
 )
 from .common import (
+    CALENDAR_BOUNDARY_TRIGGERS,
+    CONDITION_TIMER_TRIGGERS,
     IDLE_REASON,
+    TRIGGER_COVER_POSITION_CHANGED,
+    TRIGGER_RESIDENT_OFF,
+    TRIGGER_RESIDENT_ON,
+    TRIGGER_SCHEDULED_CLOSE,
+    TRIGGER_SCHEDULED_OPEN,
+    TRIGGER_SHADING_END_TIMER,
+    TRIGGER_SHADING_START_TIMER,
+    TRIGGER_WINDOW_CLOSED,
+    TRIGGER_WINDOW_OPEN,
+    TRIGGER_WINDOW_TILTED,
     _coerce_float,
     _parse_time,
     _ts_now,
@@ -124,7 +136,7 @@ class EventsMixin:
         self._refresh_next_events(now)
         self._schedule_manual_expiry()
         self.persist_status()
-        self.async_request_evaluate("config")
+        self.async_request_evaluate("config_updated")
         self._publish_state()
 
     @callback
@@ -151,7 +163,7 @@ class EventsMixin:
         self._local_listener_entities.clear()
 
     @callback
-    def async_request_evaluate(self, trigger: str = "runtime_toggle") -> None:
+    def async_request_evaluate(self, trigger: str) -> None:
         """Request re-evaluation after runtime-only toggle changes."""
 
         if self._evaluate_callback is not None:
@@ -166,7 +178,7 @@ class EventsMixin:
         self._ensure_manual_expiry_timer(now)
         previous_position = self._last_position
         entity_id = event.data.get("entity_id")
-        trigger = "state"
+        trigger = TRIGGER_COVER_POSITION_CHANGED
         if entity_id == self.config.get(CONF_RESIDENT_SENSOR):
             old_state = event.data.get("old_state")
             new_state = event.data.get("new_state")
@@ -175,11 +187,11 @@ class EventsMixin:
             if self._resident_state_is_on(old_value) and self._resident_state_is_off(
                 new_value
             ):
-                trigger = "resident_woke"
+                trigger = TRIGGER_RESIDENT_OFF
             elif self._resident_state_is_off(old_value) and self._resident_state_is_on(
                 new_value
             ):
-                trigger = "resident_asleep"
+                trigger = TRIGGER_RESIDENT_ON
 
         if self._is_position_state_event(entity_id):
             tolerance = float(
@@ -256,11 +268,20 @@ class EventsMixin:
                 if no_delay_on_start
                 else (self._contact_trigger_delay() + self._contact_status_delay())
             )
+            trigger = self._window_trigger(entity_id, contact_now_active)
             if delay > 0:
-                self._schedule_delayed_evaluate("contact", delay)
+                self._schedule_delayed_evaluate(
+                    trigger, delay, timer_key=f"contact:{entity_id}"
+                )
                 return
-            trigger = "contact"
         self.async_request_evaluate(trigger)
+
+    def _window_trigger(self, entity_id: str, active: bool) -> str:
+        if active and entity_id in self._full_open_sensors():
+            return TRIGGER_WINDOW_OPEN
+        if active and entity_id in self._tilt_sensors():
+            return TRIGGER_WINDOW_TILTED
+        return TRIGGER_WINDOW_CLOSED
 
     def _is_position_state_event(self, entity_id: str | None) -> bool:
         if entity_id == self.cover:
@@ -333,18 +354,21 @@ class EventsMixin:
         self.async_request_evaluate("manual_service")
 
     @callback
-    def _schedule_delayed_evaluate(self, trigger: str, delay: int) -> None:
-        unsubscribe = self._delayed_evaluation_unsubs.pop(trigger, None)
+    def _schedule_delayed_evaluate(
+        self, trigger: str, delay: int, *, timer_key: str | None = None
+    ) -> None:
+        key = timer_key or trigger
+        unsubscribe = self._delayed_evaluation_unsubs.pop(key, None)
         if unsubscribe is not None:
             unsubscribe()
         due_at = dt_util.utcnow() + timedelta(seconds=delay)
 
         @callback
         def _handle_delayed_evaluation(_now: datetime) -> None:
-            self._delayed_evaluation_unsubs.pop(trigger, None)
+            self._delayed_evaluation_unsubs.pop(key, None)
             self.async_request_evaluate(trigger)
 
-        self._delayed_evaluation_unsubs[trigger] = async_track_point_in_time(
+        self._delayed_evaluation_unsubs[key] = async_track_point_in_time(
             self.hass, _handle_delayed_evaluation, due_at
         )
 
@@ -597,7 +621,9 @@ class EventsMixin:
             else:
                 self._scheduled_close_unsub = None
                 self._scheduled_close_at = None
-            self.async_request_evaluate(f"scheduled_{kind}")
+            self.async_request_evaluate(
+                TRIGGER_SCHEDULED_OPEN if kind == "open" else TRIGGER_SCHEDULED_CLOSE
+            )
 
         return (
             async_track_point_in_time(self.hass, _handle_scheduled_event, next_event),
@@ -621,7 +647,11 @@ class EventsMixin:
         @callback
         def _handle_shading_timer(_now: datetime) -> None:
             self._shading_timer_unsubs.pop(kind, None)
-            self.async_request_evaluate(f"shading_{kind}_timer")
+            self.async_request_evaluate(
+                TRIGGER_SHADING_START_TIMER
+                if kind == "start"
+                else TRIGGER_SHADING_END_TIMER
+            )
 
         self._shading_timer_unsubs[kind] = async_track_point_in_time(
             self.hass, _handle_shading_timer, due_at
@@ -641,7 +671,7 @@ class EventsMixin:
         @callback
         def _handle_condition_timer(_now: datetime) -> None:
             self._condition_timer_unsubs.pop(key, None)
-            self.async_request_evaluate(f"condition_timer:{key}")
+            self.async_request_evaluate(CONDITION_TIMER_TRIGGERS[key])
 
         self._condition_timer_unsubs[key] = async_track_point_in_time(
             self.hass, _handle_condition_timer, due_at
@@ -698,7 +728,7 @@ class EventsMixin:
             def _handle_calendar_boundary(_now: datetime, boundary: str = key) -> None:
                 self._calendar_timer_unsubs.pop(boundary, None)
                 self._calendar_timer_times.pop(boundary, None)
-                self.async_request_evaluate(f"calendar_boundary:{boundary}")
+                self.async_request_evaluate(CALENDAR_BOUNDARY_TRIGGERS[boundary])
 
             self._calendar_timer_times[key] = due_at
             self._calendar_timer_unsubs[key] = async_track_point_in_time(

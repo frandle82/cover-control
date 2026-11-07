@@ -13,23 +13,77 @@ IDLE_REASON = "idle"
 STORAGE_VERSION = 1
 _LOGGER = logging.getLogger(__name__)
 
+TRIGGER_BRIGHTNESS_CHANGED = "brightness_changed"
+TRIGGER_BRIGHTNESS_CLOSE_TIMER = "brightness_close_duration_elapsed"
+TRIGGER_BRIGHTNESS_OPEN_TIMER = "brightness_open_duration_elapsed"
+TRIGGER_CALENDAR_CLOSE_END = "calendar_close_end"
+TRIGGER_CALENDAR_CLOSE_START = "calendar_close_start"
+TRIGGER_CALENDAR_OPEN_END = "calendar_open_end"
+TRIGGER_CALENDAR_OPEN_START = "calendar_open_start"
+TRIGGER_COVER_POSITION_CHANGED = "cover_position_changed"
+TRIGGER_DYNAMIC_SUN_CLOSE_CHANGED = "dynamic_sun_close_changed"
+TRIGGER_DYNAMIC_SUN_OPEN_CHANGED = "dynamic_sun_open_changed"
+TRIGGER_RESIDENT_OFF = "resident_off"
+TRIGGER_RESIDENT_ON = "resident_on"
+TRIGGER_SCHEDULED_CLOSE = "scheduled_close"
+TRIGGER_SCHEDULED_OPEN = "scheduled_open"
+TRIGGER_SHADING_END_CHANGED = "shading_end_condition_changed"
+TRIGGER_SHADING_END_TIMER = "shading_end_timer"
+TRIGGER_SHADING_START_CHANGED = "shading_start_condition_changed"
+TRIGGER_SHADING_START_TIMER = "shading_start_timer"
+TRIGGER_SUN_CHANGED = "sun_elevation_changed"
+TRIGGER_SUN_CLOSE_TIMER = "sun_close_duration_elapsed"
+TRIGGER_SUN_OPEN_TIMER = "sun_open_duration_elapsed"
+TRIGGER_WINDOW_CLOSED = "window_closed"
+TRIGGER_WINDOW_OPEN = "window_open"
+TRIGGER_WINDOW_TILTED = "window_tilted"
+TRIGGER_WORKDAY_CHANGED = "workday_changed"
+TRIGGER_WORKDAY_TOMORROW_CHANGED = "workday_tomorrow_changed"
+
+CONDITION_TIMER_TRIGGERS = {
+    "sun_open": TRIGGER_SUN_OPEN_TIMER,
+    "sun_close": TRIGGER_SUN_CLOSE_TIMER,
+    "brightness_open": TRIGGER_BRIGHTNESS_OPEN_TIMER,
+    "brightness_close": TRIGGER_BRIGHTNESS_CLOSE_TIMER,
+}
+
+CALENDAR_BOUNDARY_TRIGGERS = {
+    "open_start": TRIGGER_CALENDAR_OPEN_START,
+    "open_end": TRIGGER_CALENDAR_OPEN_END,
+    "close_start": TRIGGER_CALENDAR_CLOSE_START,
+    "close_end": TRIGGER_CALENDAR_CLOSE_END,
+}
+
 _TRIGGER_PRIORITY = {
-    "state": 0,
-    "time": 1,
-    "sun": 1,
-    "scheduled_open": 2,
-    "scheduled_close": 2,
-    "shading_start_timer": 4,
-    "shading_end_timer": 4,
+    TRIGGER_SUN_CHANGED: 1,
+    TRIGGER_SUN_OPEN_TIMER: 1,
+    TRIGGER_SUN_CLOSE_TIMER: 1,
+    TRIGGER_BRIGHTNESS_OPEN_TIMER: 1,
+    TRIGGER_BRIGHTNESS_CLOSE_TIMER: 1,
+    TRIGGER_CALENDAR_OPEN_START: 1,
+    TRIGGER_CALENDAR_OPEN_END: 1,
+    TRIGGER_CALENDAR_CLOSE_START: 1,
+    TRIGGER_CALENDAR_CLOSE_END: 1,
+    TRIGGER_SCHEDULED_OPEN: 2,
+    TRIGGER_SCHEDULED_CLOSE: 2,
+    TRIGGER_SHADING_START_TIMER: 4,
+    TRIGGER_SHADING_END_TIMER: 4,
     "startup": 2,
-    "config": 3,
-    "runtime_toggle": 3,
-    "contact": 4,
+    "config_updated": 3,
+    "toggle_time": 3,
+    "toggle_sun": 3,
+    "toggle_brightness": 3,
+    "toggle_shading": 3,
+    "toggle_ventilation": 3,
+    "toggle_resident": 3,
+    TRIGGER_WINDOW_OPEN: 4,
+    TRIGGER_WINDOW_TILTED: 4,
+    TRIGGER_WINDOW_CLOSED: 4,
     "manual_expired": 5,
     "manual_cleared": 6,
     "manual_service": 6,
-    "resident_asleep": 7,
-    "resident_woke": 7,
+    TRIGGER_RESIDENT_ON: 7,
+    TRIGGER_RESIDENT_OFF: 7,
 }
 
 _FIRST_NUMBER_RE = re.compile(r"[-+]?\d+(?:[.,]\d+)?")

@@ -43,6 +43,7 @@ from .const import (
     FUNCTION_TIME,
 )
 from .runtime.profile_evaluation import evaluate_time_profile
+from .runtime.common import TRIGGER_SCHEDULED_CLOSE, TRIGGER_SCHEDULED_OPEN
 from .shared_input import SharedInputCoordinator
 
 if TYPE_CHECKING:
@@ -303,7 +304,11 @@ class CoverControlHub:
                 rooms = self.profile_users.get(("profile", key[0]), set())
                 for manager in self.managers.values():
                     if manager.room_id in rooms:
-                        manager.request_evaluate_all(f"profile_{key[1]}")
+                        manager.request_evaluate_all(
+                            TRIGGER_SCHEDULED_OPEN
+                            if key[1] == "open"
+                            else TRIGGER_SCHEDULED_CLOSE
+                        )
                 self.refresh_profile_evaluations()
 
             self._profile_timer_unsubs[timer_key] = async_track_point_in_time(

@@ -119,6 +119,16 @@ from ..const import (
 from .common import (
     _LOGGER,
     IDLE_REASON,
+    TRIGGER_BRIGHTNESS_CHANGED,
+    TRIGGER_DYNAMIC_SUN_CLOSE_CHANGED,
+    TRIGGER_DYNAMIC_SUN_OPEN_CHANGED,
+    TRIGGER_RESIDENT_OFF,
+    TRIGGER_RESIDENT_ON,
+    TRIGGER_SHADING_END_CHANGED,
+    TRIGGER_SHADING_START_CHANGED,
+    TRIGGER_SUN_CHANGED,
+    TRIGGER_WORKDAY_CHANGED,
+    TRIGGER_WORKDAY_TOMORROW_CHANGED,
     _coerce_float,
     _float_state,
 )
@@ -778,6 +788,81 @@ class ActuatorMixin:
         """Return entry-wide decision inputs owned by the manager."""
 
         return self._decision_entities() - self._local_decision_entities()
+
+    def _shared_state_triggers(
+        self, entity_id: str, old_value: str | None, new_value: str | None
+    ) -> set[str]:
+        """Identify every configured role affected by one shared entity update."""
+
+        triggers: set[str] = set()
+        role_triggers = {
+            CONF_BRIGHTNESS_SENSOR: (TRIGGER_BRIGHTNESS_CHANGED,),
+            CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR: (
+                TRIGGER_DYNAMIC_SUN_OPEN_CHANGED,
+            ),
+            CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR: (
+                TRIGGER_DYNAMIC_SUN_CLOSE_CHANGED,
+            ),
+            CONF_WORKDAY_SENSOR: (TRIGGER_WORKDAY_CHANGED,),
+            CONF_WORKDAY_TOMORROW_SENSOR: (TRIGGER_WORKDAY_TOMORROW_CHANGED,),
+            CONF_CALENDAR_ENTITY: ("calendar_changed",),
+            CONF_SHADING_POSITION_ALT_ENTITY: ("shading_position_changed",),
+        }
+        for key in (
+            CONF_SHADING_BRIGHTNESS_SENSOR,
+            CONF_SHADING_TEMPERATURE_SENSOR_1,
+            CONF_SHADING_TEMPERATURE_SENSOR_2,
+            CONF_SHADING_FORECAST_SENSOR,
+            CONF_SHADING_FORECAST_TEMP_SENSOR,
+        ):
+            role_triggers[key] = (
+                TRIGGER_SHADING_START_CHANGED,
+                TRIGGER_SHADING_END_CHANGED,
+            )
+        for key in (
+            CONF_ADDITIONAL_CONDITION_GLOBAL,
+            CONF_ADDITIONAL_CONDITION_OPEN,
+            CONF_ADDITIONAL_CONDITION_CLOSE,
+            CONF_ADDITIONAL_CONDITION_VENTILATE,
+            CONF_ADDITIONAL_CONDITION_VENTILATE_END,
+            CONF_ADDITIONAL_CONDITION_SHADING,
+            CONF_ADDITIONAL_CONDITION_SHADING_TILT,
+            CONF_ADDITIONAL_CONDITION_SHADING_END,
+        ):
+            role_triggers[key] = (f"{key}_changed",)
+        for key, values in role_triggers.items():
+            if self.config.get(key) == entity_id:
+                triggers.update(values)
+
+        if entity_id == self._sun_entity():
+            triggers.add(TRIGGER_SUN_CHANGED)
+            if self._auto_enabled(CONF_AUTO_SHADING):
+                triggers.update(
+                    (TRIGGER_SHADING_START_CHANGED, TRIGGER_SHADING_END_CHANGED)
+                )
+        if self.config.get(CONF_RESIDENT_SENSOR) == entity_id:
+            if self._resident_state_is_off(old_value) and self._resident_state_is_on(
+                new_value
+            ):
+                triggers.add(TRIGGER_RESIDENT_ON)
+            elif self._resident_state_is_on(old_value) and self._resident_state_is_off(
+                new_value
+            ):
+                triggers.add(TRIGGER_RESIDENT_OFF)
+            else:
+                triggers.add("resident_changed")
+
+        for key in (
+            *self._auto_entity_map.values(),
+            "force_open_entity",
+            "force_close_entity",
+            "force_ventilate_entity",
+            "force_shading_entity",
+            "force_pause_entity",
+        ):
+            if self.config.get(key) == entity_id:
+                triggers.add(f"{key}_changed")
+        return triggers
 
     def _unavailable_decision_entities(self) -> set[str]:
         """Return required decision inputs which do not have a usable state."""
