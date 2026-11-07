@@ -29,6 +29,11 @@ GLOBAL_SOURCE_KEYS = frozenset(
         CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
         CONF_SUN_SENSOR,
         CONF_ADDITIONAL_CONDITION_GLOBAL,
+        CONF_FIRE_ALARM_ENTITY,
+        CONF_RAIN_ALARM_ENTITY,
+        CONF_WIND_ALARM_2_ENTITY,
+        CONF_WIND_ALARM_1_ENTITY,
+        CONF_FROST_ALARM_ENTITY,
     }
 )
 
@@ -111,6 +116,8 @@ ROOM_CONTROL_KEYS = frozenset(
         CONF_FORCE_PAUSE_ENTITY,
     }
 )
+
+ROOM_SAFETY_KEYS = frozenset(DEFAULT_SAFETY_PARTICIPATION)
 
 TIME_PROFILE_KEYS = frozenset(
     {
@@ -209,6 +216,7 @@ SHADING_PROFILE_KEYS = frozenset(
 BEHAVIOR_PROFILE_KEYS = frozenset(
     {
         *DEFAULT_BEHAVIOR_SETTINGS,
+        *DEFAULT_SAFETY_SETTINGS,
         *DEFAULT_MANUAL_OVERRIDE_FLAGS,
         *DEFAULT_CONTACT_SETTINGS,
         CONF_MANUAL_OVERRIDE_MINUTES,
@@ -238,6 +246,8 @@ RESIDENT_PROFILE_KEYS = frozenset(
     }
 )
 
+SAFETY_PROFILE_KEYS = frozenset(DEFAULT_SAFETY_SETTINGS)
+
 PROFILE_KEYS = {
     PROFILE_TYPE_TIME: TIME_PROFILE_KEYS,
     PROFILE_TYPE_SHADING: SHADING_PROFILE_KEYS,
@@ -258,7 +268,9 @@ PROFILE_FUNCTION_KEYS = {
     - ROOM_POSITION_KEYS
     - ROOM_SENSOR_KEYS
     - ROOM_GEOMETRY_KEYS
-    - ROOM_CONTROL_KEYS,
+    - ROOM_CONTROL_KEYS
+    - SAFETY_PROFILE_KEYS,
+    FUNCTION_SAFETY: SAFETY_PROFILE_KEYS,
 }
 
 FUNCTION_TOGGLE_KEYS = {
@@ -352,6 +364,8 @@ def configured_functions_from_profile(profile: Mapping[str, Any]) -> frozenset[s
             "tilt_behavior",
         }:
             configured.add(FUNCTION_BEHAVIOR)
+        if "safety" in capabilities:
+            configured.add(FUNCTION_SAFETY)
         if configured:
             return frozenset(configured)
 
@@ -378,6 +392,7 @@ NATIVE_PROFILE_BLOCKED_KEYS = (
     | ROOM_SENSOR_KEYS
     | ROOM_GEOMETRY_KEYS
     | ROOM_CONTROL_KEYS
+    | ROOM_SAFETY_KEYS
 )
 
 
@@ -539,6 +554,8 @@ def system_defaults() -> dict[str, Any]:
         **DEFAULT_CONTACT_SETTINGS,
         **DEFAULT_BEHAVIOR_SETTINGS,
         **DEFAULT_BUTTON_SETTINGS,
+        **DEFAULT_SAFETY_SETTINGS,
+        **DEFAULT_SAFETY_PARTICIPATION,
         **DEFAULT_SHADING_TIMING_SETTINGS,
         **{
             key: list(value) if isinstance(value, list) else value

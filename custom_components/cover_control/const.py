@@ -56,6 +56,7 @@ FUNCTION_SHADING = "shading"
 FUNCTION_VENTILATION = "ventilation"
 FUNCTION_RESIDENT = "resident"
 FUNCTION_BEHAVIOR = "behavior"
+FUNCTION_SAFETY = "safety"
 PROFILE_FUNCTIONS = (
     FUNCTION_TIME,
     FUNCTION_BRIGHTNESS,
@@ -64,6 +65,7 @@ PROFILE_FUNCTIONS = (
     FUNCTION_VENTILATION,
     FUNCTION_RESIDENT,
     FUNCTION_BEHAVIOR,
+    FUNCTION_SAFETY,
 )
 DEFAULT_NAME = "Cover Control"
 PLATFORMS: list[Platform] = [Platform.SWITCH, Platform.SENSOR, Platform.BUTTON]
@@ -275,6 +277,26 @@ CONF_RESIDENT_CLOSE_ENABLED = "resident_close_enabled"
 CONF_RESIDENT_ALLOW_SHADING = "resident_allow_shading"
 CONF_RESIDENT_ALLOW_OPEN = "resident_allow_open"
 CONF_RESIDENT_ALLOW_VENTILATION = "resident_allow_ventilation"
+CONF_FIRE_ALARM_ENTITY = "fire_alarm_entity"
+CONF_RAIN_ALARM_ENTITY = "rain_alarm_entity"
+CONF_WIND_ALARM_2_ENTITY = "wind_alarm_2_entity"
+CONF_WIND_ALARM_1_ENTITY = "wind_alarm_1_entity"
+CONF_FROST_ALARM_ENTITY = "frost_alarm_entity"
+CONF_FIRE_ALARM_ENABLED = "fire_alarm_enabled"
+CONF_RAIN_ALARM_ENABLED = "rain_alarm_enabled"
+CONF_WIND_ALARM_2_ENABLED = "wind_alarm_2_enabled"
+CONF_WIND_ALARM_1_ENABLED = "wind_alarm_1_enabled"
+CONF_FROST_ALARM_ENABLED = "frost_alarm_enabled"
+CONF_FIRE_ALARM_TARGET = "fire_alarm_target"
+CONF_RAIN_ALARM_TARGET = "rain_alarm_target"
+CONF_WIND_ALARM_2_TARGET = "wind_alarm_2_target"
+CONF_WIND_ALARM_1_TARGET = "wind_alarm_1_target"
+CONF_FROST_ALARM_TARGET = "frost_alarm_target"
+CONF_FIRE_ALARM_PARTICIPATE = "fire_alarm_participate"
+CONF_RAIN_ALARM_PARTICIPATE = "rain_alarm_participate"
+CONF_WIND_ALARM_2_PARTICIPATE = "wind_alarm_2_participate"
+CONF_WIND_ALARM_1_PARTICIPATE = "wind_alarm_1_participate"
+CONF_FROST_ALARM_PARTICIPATE = "frost_alarm_participate"
 CONF_ADDITIONAL_CONDITIONS_ENABLED = "additional_conditions_enabled"
 CONF_EXPOSE_SWITCH_SETTINGS = "expose_switch_settings"
 CONF_MANUAL_CONTROL = "manual_control_enabled"
@@ -298,6 +320,62 @@ DEFAULT_AUTOMATION_FLAGS: dict[str, bool] = {
     CONF_RESIDENT_ALLOW_OPEN: False,
     CONF_RESIDENT_ALLOW_VENTILATION: False,
     CONF_ADDITIONAL_CONDITIONS_ENABLED: False,
+}
+
+SAFETY_ALARMS = (
+    (
+        "fire",
+        CONF_FIRE_ALARM_ENTITY,
+        CONF_FIRE_ALARM_ENABLED,
+        CONF_FIRE_ALARM_TARGET,
+        CONF_FIRE_ALARM_PARTICIPATE,
+        100,
+    ),
+    (
+        "rain",
+        CONF_RAIN_ALARM_ENTITY,
+        CONF_RAIN_ALARM_ENABLED,
+        CONF_RAIN_ALARM_TARGET,
+        CONF_RAIN_ALARM_PARTICIPATE,
+        100,
+    ),
+    (
+        "wind_alarm_2",
+        CONF_WIND_ALARM_2_ENTITY,
+        CONF_WIND_ALARM_2_ENABLED,
+        CONF_WIND_ALARM_2_TARGET,
+        CONF_WIND_ALARM_2_PARTICIPATE,
+        100,
+    ),
+    (
+        "wind_alarm_1",
+        CONF_WIND_ALARM_1_ENTITY,
+        CONF_WIND_ALARM_1_ENABLED,
+        CONF_WIND_ALARM_1_TARGET,
+        CONF_WIND_ALARM_1_PARTICIPATE,
+        100,
+    ),
+    (
+        "frost",
+        CONF_FROST_ALARM_ENTITY,
+        CONF_FROST_ALARM_ENABLED,
+        CONF_FROST_ALARM_TARGET,
+        CONF_FROST_ALARM_PARTICIPATE,
+        80,
+    ),
+)
+
+DEFAULT_SAFETY_SETTINGS = {
+    enabled_key: False
+    for _alarm, _entity_key, enabled_key, _target_key, _room_key, _target in SAFETY_ALARMS
+} | {
+    target_key: target
+    for _alarm, _entity_key, _enabled_key, target_key, _room_key, target in SAFETY_ALARMS
+}
+
+DEFAULT_SAFETY_PARTICIPATION = {
+    room_key: False
+    for _alarm, _entity_key, _enabled_key, _target_key, room_key, _target in SAFETY_ALARMS
 }
 
 DEFAULT_MASTER_FLAGS: dict[str, bool] = {CONF_MASTER_ENABLED: True}

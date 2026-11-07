@@ -94,6 +94,10 @@ _BOOLEAN_KEYS = frozenset(
         c.CONF_LOCKOUT_TILT_CLOSE,
         c.CONF_LOCKOUT_TILT_SHADING_START,
         c.CONF_LOCKOUT_TILT_SHADING_END,
+        *(
+            enabled_key
+            for _alarm, _entity, enabled_key, _target, _room, _default in c.SAFETY_ALARMS
+        ),
     }
 )
 
@@ -127,6 +131,11 @@ _POSITION_KEYS = frozenset(
         c.CONF_SHADING_TILT_POSITION_1,
         c.CONF_SHADING_TILT_POSITION_2,
         c.CONF_SHADING_TILT_POSITION_3,
+        c.CONF_FIRE_ALARM_TARGET,
+        c.CONF_RAIN_ALARM_TARGET,
+        c.CONF_WIND_ALARM_2_TARGET,
+        c.CONF_WIND_ALARM_1_TARGET,
+        c.CONF_FROST_ALARM_TARGET,
     }
 )
 
@@ -400,6 +409,10 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
             ),
         ),
         (
+            "safety",
+            tuple(c.DEFAULT_SAFETY_SETTINGS),
+        ),
+        (
             "runtime_control",
             (
                 c.CONF_RECOVERY_MODE,
@@ -580,6 +593,7 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
                 c.CONF_RESIDENT_ALLOW_VENTILATION,
             }
         ),
+        "safety": frozenset(c.DEFAULT_SAFETY_SETTINGS),
         "runtime_control": frozenset(
             {
                 c.CONF_RECOVERY_MODE,
@@ -651,6 +665,7 @@ def _build_profile_field_metadata() -> dict[str, ProfileFieldMetadata]:
         c.CONF_RESIDENT_ALLOW_OPEN,
         c.CONF_RESIDENT_ALLOW_SHADING,
         c.CONF_RESIDENT_ALLOW_VENTILATION,
+        *c.DEFAULT_SAFETY_SETTINGS.keys(),
     }
     groups = {
         profile_type: {

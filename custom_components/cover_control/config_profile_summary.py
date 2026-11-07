@@ -17,6 +17,7 @@ _FUNCTION_LABELS = {
         c.FUNCTION_VENTILATION: "Ventilation",
         c.FUNCTION_RESIDENT: "Resident",
         c.FUNCTION_BEHAVIOR: "Manual behavior",
+        c.FUNCTION_SAFETY: "Safety",
     },
     "de": {
         c.FUNCTION_TIME: "Zeit",
@@ -26,6 +27,7 @@ _FUNCTION_LABELS = {
         c.FUNCTION_VENTILATION: "Lüftung",
         c.FUNCTION_RESIDENT: "Bewohner",
         c.FUNCTION_BEHAVIOR: "Manuelles Verhalten",
+        c.FUNCTION_SAFETY: "Sicherheit",
     },
 }
 
