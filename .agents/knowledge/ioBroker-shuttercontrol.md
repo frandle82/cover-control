@@ -145,7 +145,7 @@ Die gleichnamigen **per-Rollladen** Felder `heatProtection` und `useXmasLevel` w
 - Ferien-/Urlaubs-/Schulferienlogik wird ausschließlich auf den bestehenden Workday-/Non-Workday-Mechanismus gemappt.
 - Safety ist als eigene Profilfunktion umgesetzt: globale Quellen, Profil-Enabled/Zielwerte, Room-Teilnahme, Listener, eindeutige Trigger, Runtime-Priorität, Diagnose und Tests bilden die vollständige Kette.
 - Safety wird vor Force, Manual, Kontakten und Komfortautomation ausgewertet. Der Fire-Latch liegt ausschließlich im persistenten Laufzeitstatus, nicht im Profil.
-- Der 2.1.0-Fensterablauf ist eine echte Lücke: Cover Control besitzt Kontakt-, Lockout-, Lüftungs- und Wiederherstellungslogik, aber nicht die vollständige Sequenz „schließen → Fahrzeit warten → Kontakt erneut prüfen → Lüftungsposition“.
+- Der 2.1.0-Fensterablauf ist umgesetzt: reguläre automatische Schließfahrten fahren bei offenem oder gekipptem Fenster zuerst das Schließziel an, warten die konfigurierte `drive_time`, lesen den Kontakt erneut und fahren erst danach die aktuelle Lockout-/Lüftungsposition an. Die Sequenz ist pro Cover und wird durch Safety, Force, Manual, Unload oder Reconfigure abgebrochen.
 - Die Runtime-Trigger sind fachlich eindeutig; neue Safety-Trigger müssen dieselbe Trennung von `trigger` (Evaluationsursache) und `reason` (Fahrentscheidung) beibehalten.
 - Saisonale Funktionen, Zwischenposition/spätes Komplettschließen und exaktes No-Go-Verhalten fehlen.
 

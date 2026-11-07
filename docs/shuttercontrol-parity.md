@@ -50,7 +50,7 @@ Referenz: [`simatec/ioBroker.shuttercontrol@64ccaedc4f413f187e2a6f6d5164c83b5d6a
 | Triggerverzögerung Fenster | Getrennte Verzögerung für Öffnen und Schließen | Trigger- plus Statusdelay, Managed Point-Timer | MAPPED | Nicht richtungsgetrennt |
 | Aussperrschutz/Fahrerlaubnis | Off, onlyUp, onlyDown, upDown bei offenem Kontakt | Lockoutposition, Tilt-Locks und Ventilation-Gates | MAPPED | Kein einzelner vierstufiger Modus; Zielarchitektur bleibt granular |
 | Wiederherstellung nach Fensterschließen | Gesicherte Höhe/Aktion wird wieder angefahren | Persistierter Ventilationshintergrund und Restore-Ziel | FULL | – |
-| Automatik schließt bei offenem Fenster auf Lüftung | Erst vollständig schließen, Fahrzeit warten, Kontakt erneut prüfen, dann Lüftungsposition | Kontakt-/Lüftungslogik vorhanden, aber keine zweistufige Fahrt | PARTIAL | 2.1.0-Sequenz samt Frost-/Unload-/Manual-Schutz fehlt |
+| Automatik schließt bei offenem Fenster auf Lüftung | Erst vollständig schließen, Fahrzeit warten, Kontakt erneut prüfen, dann Lüftungsposition | Per-Cover-Sequenz für `scheduled_close`, `sun_close` und `brightness_close`; aktueller Kontakt bestimmt das zweite Ziel, Safety/Force/Manual/Unload brechen ab und das Schließziel bleibt als Restore-Ziel erhalten | FULL | – |
 | Schließen bei offenem Fenster | Je nach `autoDrive` blockieren oder schließen | Full-Open-Lockout verhindert Force-Close; Tilt-Locks sind konfigurierbar | MAPPED | Referenzrichtungen nicht 1:1 als Select vorhanden |
 | Fire Safety | Zielposition, höchste Priorität, Latch, keine automatische Rückkehr, bewusste Reinitialisierung | Eigene `safety`-Profilfunktion, globale Quelle, Room-Teilnahme, persistenter Runtime-Latch, Reset-Button, Listener/Trigger, Movement und Restart-/Entity-Tests | FULL | – |
 | Rain Safety | Zielposition und nächsthöherer verbleibender Alarm | Profilziel, Room-Teilnahme, feste Priorität, unmittelbare Reevaluation und Reality-Test | FULL | Referenz ist bei Aktivierung eventreihenfolgeabhängig; Cover Control folgt bewusst der deterministischen Zielrangfolge |
@@ -72,9 +72,8 @@ Zur Runtime unbenutzt sind die globalen Felder `UseAstro`, `UseSunMode`, `driveH
 
 ## Priorisierte Implementierungsreihenfolge
 
-1. Fenster-Parität 2.1.0: schließen → Fahrzeit → Kontakt-Recheck → Lüftungsposition; Frost, Unload, manuelle Erkennung und Wiederherstellung testen.
-2. Heat Protection als einfache Schwelle mit Schließziel ergänzen.
-3. Zwischenposition plus spätes Komplettschließen und exakte No-Go-Time ergänzen.
-4. Sommer- und Weihnachtsperiode minimal in vorhandene Profile/Rooms integrieren.
+1. Heat Protection als einfache Schwelle mit Schließziel ergänzen.
+2. Zwischenposition plus spätes Komplettschließen und exakte No-Go-Time ergänzen.
+3. Sommer- und Weihnachtsperiode minimal in vorhandene Profile/Rooms integrieren.
 
 Nicht geplant sind feste Living/Sleep/Children-Profile, separate Urlaubs-/Ferien-/Feiertagsarchitektur oder eine technische Portierung des JavaScript-Modulaufbaus.
