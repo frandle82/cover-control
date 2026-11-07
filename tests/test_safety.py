@@ -384,6 +384,18 @@ async def test_safety_reality_sequence() -> None:
 
 
 @pytest.mark.asyncio
+async def test_safety_interrupts_window_down_sequence() -> None:
+    controller = _controller({"binary_sensor.rain": "on"})
+    controller._window_down_sequence = {"phase": "closing"}
+    controller._delayed_evaluation_unsubs = {"window_down_sequence": Mock()}
+
+    assert await controller._evaluate_safety()
+
+    assert controller._window_down_sequence is None
+    assert "window_down_sequence" not in controller._delayed_evaluation_unsubs
+
+
+@pytest.mark.asyncio
 async def test_config_entry_exposes_fire_latch_reset_button(hass) -> None:
     manager = Mock()
     manager._resolved_config = resolve_config_model(_safety_model(), "living")
