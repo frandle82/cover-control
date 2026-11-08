@@ -79,6 +79,8 @@ Startbedingungen verwenden strikte Schwellenvergleiche. Endbedingungen verwenden
 
 Bei geschlossenem Rollladen kann `OpenInSunProtect` vorgemerkt werden, damit ein späteres automatisches Öffnen direkt auf die Beschattungsposition fährt. Eine manuelle Zwischenposition setzt `Manu_Mode`; manuelles Fahren auf bekannte Zielpositionen hält die zugehörige Automatik dagegen aktiv.
 
+Eine manuell erreichte Beschattungsposition ist ein besonderer bekannter Zielwert: `main.js` rundet die gemeldete Position zunächst mit `shutterStateRound`. Entspricht sie danach exakt `heightDownSun`, werden `currentAction` und `triggerAction` auf `sunProtect` sowie beide Höhen auf den gerundeten Wert gesetzt. Damit startet Sun Protection nicht erneut, und der normale Endpfad darf später öffnen, sofern `KeepSunProtect` das nicht verhindert. Andere manuelle Zwischenpositionen werden `Manu_Mode`. Cover Control adoptiert derzeit nur bekannte Open-/Close-Ziele optional; eine unerwartet erreichte Beschattungsposition bleibt Manual Override. Das ist eine bestätigte Paritätslücke und keine bloße Architekturabweichung.
+
 ## Fenster, Aussperrschutz und Wiederherstellung
 
 Ein Trigger kennt geschlossen, optional gekippt und sonst offen. `triggerChange` kann nur beim Öffnen, nur beim Schließen, in beide Richtungen oder gar nicht fahren. Vor einer Fensterfahrt werden Höhe und Aktion gesichert; beim Schließen kann die vorherige Verdunklungs-/Beschattungsposition wiederhergestellt werden.
@@ -115,6 +117,8 @@ Die Funktionen sind im aktuellen Quellcode aktiv und daher nicht historisch:
 - `IsSummerTime()` behandelt `End < Start` als Jahreswechsel und verschiebt abhängig vom aktuellen Datum Start- oder Endjahr. Start- und Endtag gehören zum Zeitraum.
 
 Cover Control mappt die wiederkehrenden Grenzen ins Time-Profil; Teilnahme und physische Weihnachtsposition bleiben Room-Eigentum. Eine gemeinsame Datumsfunktion wertet lokale HA-Zeit ohne persistiertes Kalenderjahr aus. Sommer blockiert nur normale Komfort-Schließentscheidungen und meldet `summer_period`; Safety, Force, Frost, Ventilation und Lockout bleiben aktiv. Weihnachten modifiziert das gemeinsame Schließziel und läuft anschließend durch den bestehenden Fenster-/Ventilations- und Aktorpfad. Abweichend von der Referenz bleiben Safety und Frost auch gegenüber Christmas dominant.
+
+Golden Hour und Astro-Offsets sind nur fachlich gemappt: Die Referenz plant täglich konkrete SunCalc-Zeitpunkte (`goldenHourEnd`/`goldenHour`) und verschiebt sie um Minuten. Cover Control reagiert stattdessen auf fixe, dynamische oder hybride Elevationsschwellen innerhalb von Early-/Late-Fenstern. Das löst denselben Nutzerfall, garantiert aber insbesondere über Sommer und Winter weder denselben Zeitpunkt noch einen konstanten Minutenversatz.
 
 ## Restart, manuelle Eingriffe und Edge Cases
 

@@ -23,19 +23,19 @@ Referenz: [`simatec/ioBroker.shuttercontrol@64ccaedc4f413f187e2a6f6d5164c83b5d6a
 | Früheste/späteste Öffnung | Astro/Helligkeit wird durch Min/Max-Zeitfenster begrenzt | Early/Late Workday/Non-Workday, `_time_bounds()`, stabile Point-Timer und Tests | FULL | – |
 | Schließfenster | Frühe/späte Schließgrenzen | Getrennte Down-Early/Down-Late-Profilwerte, Runtime- und Schedule-Diagnose | FULL | – |
 | Sunrise/Sunset | Tägliche SunCalc-Zeitpunkte plus Offset | `sun.sun`-Elevation in Zeitfenstern; Ereignisse werden aus HA-Standortdaten berechnet | MAPPED | Keine direkte Sunrise-/Sunset-Auswahl oder Minutenoffsets |
-| Golden Hour | Golden-Hour-Beginn/-Ende als Zeitquelle | Über konfigurierbare Elevationsschwellen fachlich abbildbar | MAPPED | Kein benannter Golden-Hour-Modus; Schwellen müssen bewusst gewählt werden |
+| Golden Hour | SunCalc berechnet täglich `goldenHourEnd` zum Öffnen und `goldenHour` zum Schließen; Early/Late begrenzen den Zeitpunkt, globale Minutenoffsets verschieben ihn | Über konfigurierbare fixe/dynamische/hybride Elevationsschwellen innerhalb der Zeitfenster fachlich abbildbar | MAPPED | Nur derselbe Anwendungsfall, nicht derselbe astronomische Zeitpunkt; ein statischer Elevationswert ist saisonal keine exakte Golden-Hour-Entsprechung |
 | Elevation öffnen/schließen | Per-Rollladen Elevationsschließen; globales Ende für Beschattung | Fixe/dynamische/hybride Profil-Schwellen, Dauer, Timer, Diagnose und Tests | FULL | Referenzfeld liegt pro Rollladen, Ziel bewusst im Profil |
-| Astro-Offsets | Minutenoffset auf Sunrise/Sunset/Golden Hour | Elevationswerte/-sensoren statt Zeitoffset | MAPPED | Keine direkte Minutenoffset-UI |
+| Astro-Offsets | Minutenoffset auf Sunrise/Sunset/Golden Hour | Elevationswerte/-sensoren und Early/Late-Fenster statt Zeitoffset | MAPPED | Löst denselben Planungsfall, ist aber nicht verhaltensidentisch; keine direkte Minutenoffset-UI |
 | Helligkeit öffnen/schließen | Separate Schwellen und früheste Zeiten | Profil-Schwellen, Hysterese, Dauer, Listener, Runtime, Status und Tests | FULL | – |
 | Versetztes Fahren | Bereichs-/Astro-Verzögerung zwischen Rollläden | Fester plus zufälliger Fahrdelay pro Raum; Aktor prüft Gates nach Delay erneut | FULL | – |
-| Spätes Schließen | Ausgewählte Rollläden später vollständig schließen | Down-Late-Zeit und normale Profil-/Room-Auswahl | MAPPED | Referenz besitzt separaten `LateDown`-Schalter je Rollladen |
+| Spätes Schließen | `LateAllDownTime` fährt nur Covers mit `LateDown`; unabhängig von Zwischenfahrt, Sommer und Christmas | Down-Late-/Final-Close-Zeit und normale Profil-/Room-Auswahl; Safety, Frost, Fenster und Recovery bleiben im gemeinsamen Pfad | MAPPED | Keine unabhängige `LateDown`-Teilnahme je Cover; Räume benötigen bei abweichender Teilnahme ein eigenes Profil |
 | Zwischenposition, später komplett schließen | Normale Abfahrt fährt bei aktiviertem `betweenPosition` zuerst `betweenPositionLevel`; `betweenPositionTime` löst für Covers im Zustand `middle` die vollständige Fahrt auf `heightDown` aus. `LateAllDown`/`LateDown` ist davon unabhängig | Time-Profil aktiviert die Zwischenfahrt und besitzt `final_close_time`; die Room-Position `intermediate_close_position` bleibt physisch raumeigen. Der vorhandene Scheduler verwendet getrennte Reasons/Trigger, die Schlussfahrt läuft durch Safety-, Frost- und Fenstersequenz, und „Nächste Schließung“ zeigt das tatsächlich frühere Ereignis | FULL | Covers unterhalb der Zwischenposition werden bewusst nicht wieder geöffnet; sicherere Cover-Control-Invariante gegenüber der Referenz |
 | No-Go-Time / letzte Bewegung | `noGoTime` wird ausschließlich in den zeitgesteuerten `shutterUpLiving/Sleep/Children`-Callbacks geprüft. Maßgeblich ist pro Cover `state.lc`, also jede manuelle oder automatische echte Zustandsänderung; `0` deaktiviert, es gibt keinen Retry-Timer | Behavior-Profil `no_go_time_minutes`; die Runtime verwendet pro Cover Home Assistants `State.last_changed`, blockiert nur `scheduled_open`, setzt keinen Manual Override und meldet `blocked_by=no_go_time`. Safety und Force laufen vorher und bleiben unbeeinflusst | FULL | Sunrise/Golden Hour/Helligkeit werden entsprechend dem Referenzcode nicht gesperrt |
 | Getrenntes Auto-Up/Auto-Down | Richtung je Rollladen schaltbar | Room-Schalter/Entities für Auto-Up und Auto-Down, Feature-State-Tests | FULL | – |
 | Manuelle Gruppenbuttons | Open/Close/SunProtect/Auto für alle oder Bereiche | Force-Entities und Room-Koordination bilden Aktionen ab | MAPPED | Keine festen Bereichsbuttons gewünscht |
-| Positionsinversion | `heightDown > heightUp` kehrt Vergleiche um | HA standardisiert Positionen; `cover_type=awning` passt Richtungslogik an | MAPPED | Keine freie Inversion zweier beliebiger Endwerte |
+| Positionsinversion | `heightDown > heightUp` kehrt Vergleiche um | HA standardisiert `0 = geschlossen`, `100 = offen`; `cover_type=awning` passt Bewegungsrichtung an, alle Safety-/Saison-/Lüftungsziele bleiben kanonische HA-Positionen | MAPPED | Keine freie Inversion zweier beliebiger Endwerte; nicht HA-konforme Aktoren benötigen eine Template-/Adapter-Normalisierung |
 | Manuelle Bewegungserkennung | Unerwartete Endposition setzt `Manu_Mode`; eigene Fahrten ausgenommen | Service-Kontext, Ziel/Fahrfenster, Zwischenzustände, persistenter Override und Regressionstests | FULL | – |
-| Manuelle bekannte Zielposition | Öffnen/Schließen/Beschatten kann Automatikzustand erhalten | Optionale Schedule-Adoption erkennt finale Open-/Close-Ziele; Beschattungsziel bleibt Override | PARTIAL | Exakte Referenzsemantik für manuell erreichte Beschattungsposition fehlt |
+| Manuelle bekannte Zielposition | Nach `shutterStateRound`-Rundung setzt eine exakt erreichte `heightDownSun` `currentAction` und `triggerAction` auf `sunProtect`; dadurch wird erneutes Beschatten unterdrückt und das reguläre Beschattungsende darf später öffnen, sofern `KeepSunProtect` nicht gilt. Andere Zwischenpositionen werden `Manu_Mode`; der Zustand endet durch die normalen Sun-Protection-End-/Resetpfade | Optionale Schedule-Adoption erkennt finale Open-/Close-Ziele; eine unerwartet manuell erreichte Beschattungsposition bleibt bewusst Manual Override | PARTIAL | Echte Paritätslücke: keine toleranzbasierte Adoption einer manuell erreichten Beschattungsposition als aktive Beschattung |
 | Restart-Zustand | Aktions-/Zielzustände persistiert; tägliche Initialisierung | HA `Store`, Status-Hydration, Recovery-Modi, Unload-Save und Recovery-Tests | MAPPED | Referenz-Reset um 02:30 wird bewusst nicht kopiert |
 | Azimutbereich | Fensterrichtung ± Bereich | Start-/Endazimut im Room/Profil-Resolver, Listener, Shading-Runtime und Diagnose | FULL | Referenz-2.1.1-Rohwert-Inkonsistenz nicht übernehmen |
 | Elevationsbereich Beschattung | Mindest-/Maximalhöhe und globales Endfenster | Min/Max-Elevation, sofortiges Ende nach Sonnenposition, Tests | FULL | – |
@@ -47,7 +47,7 @@ Referenz: [`simatec/ioBroker.shuttercontrol@64ccaedc4f413f187e2a6f6d5164c83b5d6a
 | Beschattungs-Rückkehr | Öffnen, Zustand halten oder Fensterziel beachten | Status-Hintergrund, Shading-End-Optionen, Ventilation und Logbook | FULL | – |
 | `KeepSunProtect` | Kein Öffnen beim Beschattungsende | `prevent_opening_after_shading_end` | MAPPED | – |
 | Fenster geschlossen/gekippt/offen | Drei Zustände und getrennte Zielhöhen | Full-/Tilt-Sensoren, Lüftungs-/Lockoutpositionen und Kontakt-Listener | FULL | – |
-| Triggerverzögerung Fenster | Getrennte Verzögerung für Öffnen und Schließen | Trigger- plus Statusdelay, Managed Point-Timer | MAPPED | Nicht richtungsgetrennt |
+| Triggerverzögerung Fenster | `trigDelyUp` verzögert die Öffnungsreaktion, `trigDelyDown` die Schließreaktion | `contact_trigger_delay`, `contact_status_delay` und `ventilation_delay_after_close` decken Entprellung, stabilen Status und zweistufige Rückfahrt ab | MAPPED | Nicht richtungsgetrennt und deshalb nicht parameteridentisch; der vorhandene Pfad deckt den Nutzerfall ohne Doppelkonfiguration ab |
 | Aussperrschutz/Fahrerlaubnis | Off, onlyUp, onlyDown, upDown bei offenem Kontakt | Lockoutposition, Tilt-Locks und Ventilation-Gates | MAPPED | Kein einzelner vierstufiger Modus; Zielarchitektur bleibt granular |
 | Wiederherstellung nach Fensterschließen | Gesicherte Höhe/Aktion wird wieder angefahren | Persistierter Ventilationshintergrund und Restore-Ziel | FULL | – |
 | Automatik schließt bei offenem Fenster auf Lüftung | Erst vollständig schließen, Fahrzeit warten, Kontakt erneut prüfen, dann Lüftungsposition | Per-Cover-Sequenz für `scheduled_close`, `sun_close` und `brightness_close`; aktueller Kontakt bestimmt das zweite Ziel, Safety/Force/Manual/Unload brechen ab und das Schließziel bleibt als Restore-Ziel erhalten | FULL | – |
@@ -64,6 +64,37 @@ Referenz: [`simatec/ioBroker.shuttercontrol@64ccaedc4f413f187e2a6f6d5164c83b5d6a
 | Eindeutige Trigger-IDs | Nutzer fordert fachlich eindeutige IDs | Rollenbezogene State-Trigger, getrennte Open-/Close-/Shading-/Kalender-Timer, kollisionsfreie Fenster-Timer, priorisierte Pending-Sets und unveränderte Event-Struktur; Regressionstests in `test_event_driven_processing.py` | FULL | – |
 | Status/Diagnose normaler Automation | Aktionsstatus und Zielhöhe je Rollladen | Persistenter Status, Reason, Active/Configured/Blocked Controls, Sensoren, Logbook und Tests | FULL | – |
 
+## Konfliktmatrix
+
+Die Tabelle beschreibt den tatsächlich geprüften Gewinner. „Safety“ umfasst die feste Cover-Control-Rangfolge `Fire > Rain > Wind 2 > Wind 1 > Frost`; die Referenz ist bei der Aktivierung der Nicht-Feuer-Alarme teilweise eventreihenfolgeabhängig.
+
+| Konflikt | Gewünschter/tatsächlicher Gewinner in Cover Control | Referenzverhalten | Bewertung |
+|---|---|---|---|
+| Safety vs Force/Window/Shading/Heat Protection | Safety | Alarmstatus sperrt normale und manuelle Komfortfahrten | funktional äquivalent, deterministischer |
+| Safety vs Christmas/Summer | Safety | Alarmwege sind separat; normale Sommerfahrt wird blockiert, Christmas kann in normalen Close-Pfaden Frost überschreiben | bewusst sicherer |
+| Force vs Manual Override | Force | explizite Gruppenaktion setzt neuen Aktionszustand | funktional äquivalent |
+| Force vs Window | Full-Open-Lockout vor erzwungenem Schließen, sonst Force | `autoDrive`/Triggerzustand entscheidet richtungsabhängig | HA-native, granularere Abbildung |
+| Window vs Shading/Heat Protection | Window/Lockout bzw. Lüftungssequenz | Kontaktfreigabe und Fensterziel begrenzen Sun Protection | funktional äquivalent |
+| Shading vs Heat Protection | Heat Protection als Zielvariante der gültigen Beschattung | `heatProtection` ersetzt innerhalb gültiger Sun Protection das Ziel | funktional äquivalent |
+| Summer vs Intermediate/Final Close | Summer blockiert beide normalen Schließstufen | `inSummerNotDown` blockiert normale Abfahrt und `shutterDownComplete`, nicht `LateDown` | FULL für die gestufte Schließung; LateDown bleibt MAPPED |
+| Christmas vs Intermediate/Final Close | Christmas-Ziel ersetzt beide Ziele | `XmasLevel` ersetzt Zwischen- und Vollschließziel | funktional äquivalent |
+| Frost vs Window | Frostziel; laufende Fenstersequenz wird abgebrochen beziehungsweise geklemmt | Frost verhindert die zweite Fahrt auf Fensterhöhe | bewusst sicherer gemeinsamer Safety-Pfad |
+| Frost vs Christmas | Frost | In normalen Close-Pfaden bleibt `Xmas` vom Frost-Override ausgenommen | bewusst sicherer |
+
+Die fünf geforderten Frost-/Christmas-Sequenzen führen deshalb in Cover Control alle zu Frost: bei `scheduled_close`, `final_close`, offenem Fenster, später startendem Christmas und später startendem Frost. In der Referenz gewinnt Christmas in den normalen geplanten Close-Pfaden; ein späteres Alarmereignis läuft über den separaten Alarmhandler. Das unsicherere Verhalten wird nicht nachgebaut.
+
+## Reality- und Lifecycle-Nachweis
+
+- Ein geladener Controller- und Room-ConfigEntry erzeugt Resolver, Manager, Controller und Next-Event-Sensor. Wiederholtes Refreshing bleibt identisch und ohne `unavailable`-Flattern; ein zentrales Profilupdate propagiert ohne Reload, anschließend läuft der Fahrbefehl über den realen HA-Servicepfad (`test_loaded_room_next_open_entity_matches_sun_schedule`).
+- Safety-Prioritätswechsel, Fire-Latch, Fenstersequenz-Abbruch, Heat Protection und Frost-Clamp sind als reale Controller-Sequenzen abgedeckt (`test_safety_reality_sequence` und Konflikttests in `test_safety.py`).
+- Sommer/Christmas, Jahreswechsel, Intermediate/Final Close, Restart-Neuberechnung sowie stabile Sun-/Brightness-/Final-Close-Prognosen sind in `test_seasonal_schedule.py`, `test_intermediate_close.py` und `test_event_driven_processing.py` abgedeckt.
+- Profiländerungen für Time, Brightness, Sun, Shading, Ventilation, Resident, Behavior und Safety laufen zentral über `CoverControlHub.apply_model()` und `ControllerManager.apply_config_model()`; Resolver, Listener und Timer werden neu aufgebaut. Profile bleiben Daten im Controller-Entry, Rooms eigenständige ConfigEntries, unterstützte Subentry-Typen bleiben leer.
+- Eindeutige Triggerrollen, Pending-Sets sowie Cancel/Recreate/Dedup von Condition-, Fenster-, Schedule- und Final-Close-Timern sind durch `test_event_driven_processing.py`, `test_profile_runtime.py`, `test_window_down_sequence.py` und Unload-Tests abgedeckt. Es wurde kein neuer Polling-Loop eingeführt.
+
+## Release-Entscheidung
+
+Der Reality-Check bestätigt alle `FULL`-Ketten und die dokumentierten `MAPPED`-/`NOT_APPLICABLE`-Architekturentscheidungen. Die manuell erreichte Beschattungsposition bleibt jedoch eine echte `PARTIAL`-Lücke. Für einen Release mit beanspruchter ioBroker-Parität ist der Stand deshalb **NOT READY FOR RELEASE**. In diesem Arbeitsblock wird gemäß Auftrag keine neue Funktion daraus abgeleitet oder implementiert.
+
 ## Aktive Referenzfelder versus historische Felder
 
 Aktiv und deshalb relevant sind unter anderem `inSummerNotDown`, `useXmasLevel`/`XmasLevel`, `betweenPosition`, `LateDown`, `noGoTime`, `heatProtection`, `useOpenWindowLevel`, sämtliche fünf Alarmaktivierungen und alle Fenster-/Beschattungsfelder.
@@ -72,7 +103,7 @@ Zur Runtime unbenutzt sind die globalen Felder `UseAstro`, `UseSunMode`, `driveH
 
 ## Priorisierte Implementierungsreihenfolge
 
-Die bestätigten saisonalen Referenzfunktionen sind umgesetzt. Vor weiteren Features folgt ein separater finaler Paritäts- und Reality-Check der verbleibenden `PARTIAL`-/`MAPPED`-Zeilen.
+Die bestätigten saisonalen Referenzfunktionen sind umgesetzt. Der finale Reality-Check hat die verbleibenden `MAPPED`-Zeilen bestätigt und die manuelle Beschattungsadoption als einzige echte `PARTIAL`-Lücke isoliert.
 
 Schedule-Prognosen sind an der zentralen Berechnungsgrenze auf volle Sekunden normalisiert. Wiederholtes Refreshing mit unveränderten Eingängen liefert dadurch identische `next_open`-/`next_close`-Werte; „Nächste Schließung“ wählt bei gestuftem Schließen das frühere reguläre oder endgültige Ereignis.
 

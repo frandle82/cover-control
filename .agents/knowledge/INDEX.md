@@ -19,7 +19,7 @@ Willkommen in der internen Wissensdatenbank von `cover-control`. Dieser Ordner d
 ### 1. Architektur & Designentscheidungen (ADRs)
 Grundsatzentscheidungen zur Struktur, Datenhaltung und Integration:
 * 📄 [`architecture/adr-001-mixin-architecture.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/architecture/adr-001-mixin-architecture.md) – Aufteilung der Controller-Verantwortlichkeiten auf spezialisierte Mixins.
-* 📄 [`architecture/adr-002-config-entry-vs-subentry.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/architecture/adr-002-config-entry-vs-subentry.md) – Single Config Entry Modell vs. Subentries und Reconfigure Flow.
+* 📄 [`architecture/adr-002-config-entry-vs-subentry.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/architecture/adr-002-config-entry-vs-subentry.md) – Zentraler Controller plus eigenständige Room-ConfigEntries; Profile bleiben zentrale Datenobjekte, Subentries bleiben deaktiviert.
 * 📄 [`architecture/adr-003-state-hierarchy-configured-enabled-eligible.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/architecture/adr-003-state-hierarchy-configured-enabled-eligible.md) – Das dreistufige Zustandsmodell für Profilfunktionen.
 
 ### 2. Domänenwissen & Steuerungslogik
