@@ -61,6 +61,9 @@
           "brightness_sensor": "Global brightness sensor",
           "calendar_entity": "Calendar entity",
           "cold_protection_forecast_sensor": "Cold protection forecast source",
+          "fire_alarm_entity": "Fire alarm entity",
+          "frost_alarm_entity": "Frost alarm entity",
+          "rain_alarm_entity": "Rain alarm entity",
           "shading_brightness_sensor": "Global shading brightness sensor",
           "shading_forecast_sensor": "Weather forecast source",
           "shading_forecast_temp_sensor": "Forecast temperature sensor",
@@ -68,6 +71,8 @@
           "sun_elevation_dynamic_open_sensor": "Dynamic sun elevation for opening",
           "sun_sensor": "Sun sensor",
           "temperature_sensor_outdoor": "Outdoor temperature sensor",
+          "wind_alarm_1_entity": "Wind alarm 1 entity",
+          "wind_alarm_2_entity": "Wind alarm 2 entity",
           "workday_sensor": "Workday today entity",
           "workday_tomorrow_sensor": "Workday tomorrow entity"
         },
@@ -76,6 +81,9 @@
           "brightness_sensor": "Shared illuminance sensor used by rooms without a local brightness source.",
           "calendar_entity": "Shared calendar used by time profiles that evaluate calendar titles.",
           "cold_protection_forecast_sensor": "Shared weather or sensor source for cold protection forecast values.",
+          "fire_alarm_entity": "Shared binary entity that activates the persistent fire safety latch.",
+          "frost_alarm_entity": "Shared binary entity that activates frost protection.",
+          "rain_alarm_entity": "Shared binary entity that activates rain protection.",
           "shading_brightness_sensor": "Shared illuminance sensor used for sun shading decisions.",
           "shading_forecast_sensor": "Shared weather entity used for forecast and weather-condition based shading.",
           "shading_forecast_temp_sensor": "Shared sensor that provides forecast temperature values for shading.",
@@ -83,6 +91,8 @@
           "sun_elevation_dynamic_open_sensor": "Shared sensor that provides a dynamic opening sun elevation.",
           "sun_sensor": "Sun entity providing elevation and azimuth (default: sun.sun).",
           "temperature_sensor_outdoor": "Shared outdoor temperature sensor for shading and protection rules.",
+          "wind_alarm_1_entity": "Shared binary entity that activates wind alarm level 1.",
+          "wind_alarm_2_entity": "Shared binary entity that activates wind alarm level 2.",
           "workday_sensor": "Shared entity that indicates whether today is a workday.",
           "workday_tomorrow_sensor": "Shared entity that indicates whether tomorrow is a workday."
         }
@@ -120,6 +130,7 @@
           "profile_shading": "Shading",
           "profile_ventilation": "Ventilation",
           "profile_resident": "Resident behavior",
+          "profile_safety": "Safety",
           "profile_behavior": "Manual behavior",
           "profile_done": "Done and save",
           "profile_back": "Back to profile overview"
@@ -132,6 +143,7 @@
           "profile_shading": "Configure shading conditions, thresholds, waits, temperature, brightness, and forecast rules.",
           "profile_ventilation": "Configure behavior for window contacts, delays, priorities, and ventilation rules.",
           "profile_resident": "Configure resident behavior.",
+          "profile_safety": "Configure fire, rain, wind, and frost alarm behavior.",
           "profile_behavior": "Configure manual behavior, movement protection, and additional behavior rules.",
           "profile_done": "Save profile changes and return to the profile catalog.",
           "profile_back": "Return to the profile overview."
@@ -146,6 +158,12 @@
             "data": {
               "auto_brightness_enabled": "Brightness automation",
               "auto_down_enabled": "Automatic closing",
+              "intermediate_close_enabled": "Use intermediate closing position",
+              "final_close_time": "Final close time",
+              "summer_start": "Summer period start (DD.MM.)",
+              "summer_end": "Summer period end (DD.MM.)",
+              "christmas_start": "Christmas period start (DD.MM.)",
+              "christmas_end": "Christmas period end (DD.MM.)",
               "auto_sun_enabled": "Sun automation",
               "auto_time_enabled": "Time automation",
               "auto_up_enabled": "Automatic opening",
@@ -157,6 +175,12 @@
             "data_description": {
               "auto_brightness_enabled": "Value for Brightness automation in this profile or default.",
               "auto_down_enabled": "Value for Automatic closing in this profile or default.",
+              "intermediate_close_enabled": "Use the room-owned intermediate position before the final close time.",
+              "final_close_time": "Time for the final full closing movement.",
+              "summer_start": "First inclusive day of the recurring summer period.",
+              "summer_end": "Last inclusive day of the recurring summer period.",
+              "christmas_start": "First inclusive day of the recurring Christmas period.",
+              "christmas_end": "Last inclusive day of the recurring Christmas period.",
               "auto_sun_enabled": "Value for Sun automation in this profile or default.",
               "auto_time_enabled": "Value for Time automation in this profile or default.",
               "auto_up_enabled": "Value for Automatic opening in this profile or default.",
@@ -218,6 +242,12 @@
             "data": {
               "auto_brightness_enabled": "Brightness automation",
               "auto_down_enabled": "Automatic closing",
+              "intermediate_close_enabled": "Use intermediate closing position",
+              "final_close_time": "Final close time",
+              "summer_start": "Summer period start (DD.MM.)",
+              "summer_end": "Summer period end (DD.MM.)",
+              "christmas_start": "Christmas period start (DD.MM.)",
+              "christmas_end": "Christmas period end (DD.MM.)",
               "auto_sun_enabled": "Sun automation",
               "auto_time_enabled": "Time automation",
               "auto_up_enabled": "Automatic opening",
@@ -229,6 +259,12 @@
             "data_description": {
               "auto_brightness_enabled": "Value for Brightness automation in this profile or default.",
               "auto_down_enabled": "Value for Automatic closing in this profile or default.",
+              "intermediate_close_enabled": "Use the room-owned intermediate position before the final close time.",
+              "final_close_time": "Time for the final full closing movement.",
+              "summer_start": "First inclusive day of the recurring summer period.",
+              "summer_end": "Last inclusive day of the recurring summer period.",
+              "christmas_start": "First inclusive day of the recurring Christmas period.",
+              "christmas_end": "Last inclusive day of the recurring Christmas period.",
               "auto_sun_enabled": "Value for Sun automation in this profile or default.",
               "auto_time_enabled": "Value for Time automation in this profile or default.",
               "auto_up_enabled": "Value for Automatic opening in this profile or default.",
@@ -266,6 +302,12 @@
             "data": {
               "auto_brightness_enabled": "Brightness automation",
               "auto_down_enabled": "Automatic closing",
+              "intermediate_close_enabled": "Use intermediate closing position",
+              "final_close_time": "Final close time",
+              "summer_start": "Summer period start (DD.MM.)",
+              "summer_end": "Summer period end (DD.MM.)",
+              "christmas_start": "Christmas period start (DD.MM.)",
+              "christmas_end": "Christmas period end (DD.MM.)",
               "auto_sun_enabled": "Sun automation",
               "auto_time_enabled": "Time automation",
               "auto_up_enabled": "Automatic opening",
@@ -277,6 +319,12 @@
             "data_description": {
               "auto_brightness_enabled": "Value for Brightness automation in this profile or default.",
               "auto_down_enabled": "Value for Automatic closing in this profile or default.",
+              "intermediate_close_enabled": "Use the room-owned intermediate position before the final close time.",
+              "final_close_time": "Time for the final full closing movement.",
+              "summer_start": "First inclusive day of the recurring summer period.",
+              "summer_end": "Last inclusive day of the recurring summer period.",
+              "christmas_start": "First inclusive day of the recurring Christmas period.",
+              "christmas_end": "Last inclusive day of the recurring Christmas period.",
               "auto_sun_enabled": "Value for Sun automation in this profile or default.",
               "auto_time_enabled": "Value for Time automation in this profile or default.",
               "auto_up_enabled": "Value for Automatic opening in this profile or default.",
@@ -359,6 +407,8 @@
             "name": "Shading temperature",
             "data": {
               "cold_protection_temperature": "Cold-protection temperature",
+              "heat_protection_enabled": "Heat protection enabled",
+              "heat_protection_threshold": "Heat-protection threshold",
               "shading_independent_temp": "Independent temperature",
               "shading_min_temperatur1": "Minimum temperature 1",
               "shading_min_temperatur2": "Minimum temperature 2",
@@ -370,6 +420,8 @@
             },
             "data_description": {
               "cold_protection_temperature": "Value for Cold-protection temperature in this profile or default.",
+              "heat_protection_enabled": "Close completely when the outside temperature exceeds the heat-protection threshold and all shading conditions are met.",
+              "heat_protection_threshold": "Outside-temperature threshold for complete heat-protection closing.",
               "shading_independent_temp": "Value for Independent temperature in this profile or default.",
               "shading_min_temperatur1": "Value for Minimum temperature 1 in this profile or default.",
               "shading_min_temperatur2": "Value for Minimum temperature 2 in this profile or default.",
@@ -511,7 +563,8 @@
               "manual_override_minutes": "Manual override duration",
               "manual_override_reset_mode": "Manual override reset mode",
               "manual_override_reset_time": "Manual override reset time",
-              "manual_schedule_adoption": "Manual schedule adoption"
+              "manual_schedule_adoption": "Manual schedule adoption",
+              "no_go_time_minutes": "Opening no-go time"
             },
             "data_description": {
               "manual_override_block_close": "Value for Manual override blocks closing in this profile or default.",
@@ -521,7 +574,8 @@
               "manual_override_minutes": "Value for Manual override duration in this profile or default.",
               "manual_override_reset_mode": "Value for Manual override reset mode in this profile or default.",
               "manual_override_reset_time": "Value for Manual override reset time in this profile or default.",
-              "manual_schedule_adoption": "Value for Manual schedule adoption in this profile or default."
+              "manual_schedule_adoption": "Value for Manual schedule adoption in this profile or default.",
+              "no_go_time_minutes": "Minutes after a cover state change during which scheduled opening is blocked."
             }
           },
           "prevention": {
@@ -564,6 +618,72 @@
           }
         }
       },
+      "profile_safety": {
+        "title": "Profile safety",
+        "description": "Configure safety alarms for this profile. Active safety alarms override force, manual, contact, and comfort actions.\n\nUsed by: {profile_usage}",
+        "sections": {
+          "safety": {
+            "name": "Safety alarms",
+            "data": {
+              "fire_alarm_enabled": "Enable fire alarm",
+              "fire_alarm_target": "Fire alarm position",
+              "rain_alarm_enabled": "Enable rain alarm",
+              "rain_alarm_target": "Rain alarm position",
+              "wind_alarm_2_enabled": "Enable wind alarm 2",
+              "wind_alarm_2_target": "Wind alarm 2 position",
+              "wind_alarm_1_enabled": "Enable wind alarm 1",
+              "wind_alarm_1_target": "Wind alarm 1 position",
+              "frost_alarm_enabled": "Enable frost alarm",
+              "frost_alarm_target": "Frost protection position"
+            },
+            "data_description": {
+              "fire_alarm_enabled": "Enable or disable this alarm in the profile.",
+              "fire_alarm_target": "Target position from 0 to 100.",
+              "rain_alarm_enabled": "Enable or disable this alarm in the profile.",
+              "rain_alarm_target": "Target position from 0 to 100.",
+              "wind_alarm_2_enabled": "Enable or disable this alarm in the profile.",
+              "wind_alarm_2_target": "Target position from 0 to 100.",
+              "wind_alarm_1_enabled": "Enable or disable this alarm in the profile.",
+              "wind_alarm_1_target": "Target position from 0 to 100.",
+              "frost_alarm_enabled": "Enable or disable this alarm in the profile.",
+              "frost_alarm_target": "Minimum position used while frost protection is active."
+            }
+          }
+        }
+      },
+      "profile_safety": {
+        "title": "Profile safety",
+        "description": "Configure safety alarms for this profile. Active safety alarms override force, manual, contact, and comfort actions.\n\nUsed by: {profile_usage}",
+        "sections": {
+          "safety": {
+            "name": "Safety alarms",
+            "data": {
+              "fire_alarm_enabled": "Enable fire alarm",
+              "fire_alarm_target": "Fire alarm position",
+              "rain_alarm_enabled": "Enable rain alarm",
+              "rain_alarm_target": "Rain alarm position",
+              "wind_alarm_2_enabled": "Enable wind alarm 2",
+              "wind_alarm_2_target": "Wind alarm 2 position",
+              "wind_alarm_1_enabled": "Enable wind alarm 1",
+              "wind_alarm_1_target": "Wind alarm 1 position",
+              "frost_alarm_enabled": "Enable frost alarm",
+              "frost_alarm_target": "Frost protection position"
+            },
+            "data_description": {
+              "fire_alarm_enabled": "Enable or disable this alarm in the profile.",
+              "fire_alarm_target": "Target position from 0 to 100.",
+              "rain_alarm_enabled": "Enable or disable this alarm in the profile.",
+              "rain_alarm_target": "Target position from 0 to 100.",
+              "wind_alarm_2_enabled": "Enable or disable this alarm in the profile.",
+              "wind_alarm_2_target": "Target position from 0 to 100.",
+              "wind_alarm_1_enabled": "Enable or disable this alarm in the profile.",
+              "wind_alarm_1_target": "Target position from 0 to 100.",
+              "frost_alarm_enabled": "Enable or disable this alarm in the profile.",
+              "frost_alarm_target": "Minimum position used while frost protection is active."
+            }
+          }
+        }
+      },
       "diagnostics": {
         "title": "Diagnostics",
         "description": "Profile usage:\n{profiles}"
@@ -587,6 +707,10 @@
             "data": {
               "open_position": "Open position",
               "close_position": "Close position",
+              "intermediate_close_position": "Intermediate close position",
+              "christmas_position": "Christmas position",
+              "summer_skip_close_enabled": "Skip normal closing in summer",
+              "christmas_position_enabled": "Use Christmas position",
               "shading_position": "Shading position",
               "shading_position_alt": "Alternative shading position",
               "shading_position_alt_entity": "Alternative shading position entity",
@@ -596,6 +720,10 @@
             "data_description": {
               "open_position": "Set the room-owned open position.",
               "close_position": "Set the room-owned close position.",
+              "intermediate_close_position": "Set the room-owned intermediate closing position.",
+              "christmas_position": "Set the room-owned Christmas closing position.",
+              "summer_skip_close_enabled": "Suppress normal closing decisions during the configured summer period.",
+              "christmas_position_enabled": "Use the room-owned Christmas position during the configured Christmas period.",
               "shading_position": "Set the room-owned shading position.",
               "shading_position_alt": "Set the room-owned alternative shading position.",
               "shading_position_alt_entity": "Set the room-owned alternative shading position entity.",
@@ -666,6 +794,28 @@
           "force_pause_entity": "Force pause entity"
         }
       },
+      "safety": {
+        "title": "Room - Safety",
+        "description": "Choose which safety alarms apply to this room.",
+        "data": {
+          "fire_alarm_participate": "Participate in fire alarm",
+          "rain_alarm_participate": "Participate in rain alarm",
+          "wind_alarm_2_participate": "Participate in wind alarm 2",
+          "wind_alarm_1_participate": "Participate in wind alarm 1",
+          "frost_alarm_participate": "Participate in frost alarm"
+        }
+      },
+      "safety": {
+        "title": "Room - Safety",
+        "description": "Choose which safety alarms apply to this room.",
+        "data": {
+          "fire_alarm_participate": "Participate in fire alarm",
+          "rain_alarm_participate": "Participate in rain alarm",
+          "wind_alarm_2_participate": "Participate in wind alarm 2",
+          "wind_alarm_1_participate": "Participate in wind alarm 1",
+          "frost_alarm_participate": "Participate in frost alarm"
+        }
+      },
       "source_overrides": {
         "title": "Room - Local data sources",
         "description": "Only choose a different source here when this room intentionally differs from the global source.",
@@ -725,8 +875,8 @@
           "drive_time": "Drive time",
           "cover_tilt_wait_mode": "Tilt wait mode",
           "cover_tilt_wait_timeout": "Tilt wait timeout",
-          "position_tolerance": "Position tolerance"
-          ,"tilt_position_tolerance": "Tilt position tolerance"
+          "position_tolerance": "Position tolerance",
+          "tilt_position_tolerance": "Tilt position tolerance"
         },
         "data_description": {
           "covers": "All covers that belong to this room and are controlled together by Cover Control.",
@@ -750,6 +900,7 @@
           "geometry": "Geometry",
           "source_overrides": "Local data sources",
           "controls": "Controls",
+          "safety": "Safety",
           "positions": "Positions",
           "profile_assignment": "Profile & automation",
           "room_diagnostics": "Diagnostics",
@@ -763,6 +914,7 @@
           "geometry": "Describe the physical window orientation evaluated with sun and shading rules.",
           "source_overrides": "Choose a local data source only when this room should use a different source than the globally configured one.",
           "controls": "Choose which optional controls and room functions Cover Control provides for this room.",
+          "safety": "Choose the profile safety alarms that apply to this room.",
           "positions": "Configure this room's physical target positions and tilt positions.",
           "profile_assignment": "Choose the profile for this room and the functions used from it.",
           "room_diagnostics": "Inspect the room structure and selected profile references.",
@@ -926,12 +1078,17 @@
           "brightness_sensor": "Global brightness sensor",
           "calendar_entity": "Calendar entity",
           "cold_protection_forecast_sensor": "Cold protection forecast source",
+          "fire_alarm_entity": "Fire alarm entity",
+          "frost_alarm_entity": "Frost alarm entity",
+          "rain_alarm_entity": "Rain alarm entity",
           "shading_brightness_sensor": "Global shading brightness sensor",
           "shading_forecast_sensor": "Weather forecast source",
           "shading_forecast_temp_sensor": "Forecast temperature sensor",
           "sun_elevation_dynamic_close_sensor": "Dynamic sun elevation for closing",
           "sun_elevation_dynamic_open_sensor": "Dynamic sun elevation for opening",
           "temperature_sensor_outdoor": "Outdoor temperature sensor",
+          "wind_alarm_1_entity": "Wind alarm 1 entity",
+          "wind_alarm_2_entity": "Wind alarm 2 entity",
           "workday_sensor": "Workday today entity",
           "workday_tomorrow_sensor": "Workday tomorrow entity"
         },
@@ -940,12 +1097,17 @@
           "brightness_sensor": "Shared illuminance sensor used by rooms without a local brightness source.",
           "calendar_entity": "Shared calendar used by time profiles that evaluate calendar titles.",
           "cold_protection_forecast_sensor": "Shared weather or sensor source for cold protection forecast values.",
+          "fire_alarm_entity": "Shared binary entity that activates the persistent fire safety latch.",
+          "frost_alarm_entity": "Shared binary entity that activates frost protection.",
+          "rain_alarm_entity": "Shared binary entity that activates rain protection.",
           "shading_brightness_sensor": "Shared illuminance sensor used for sun shading decisions.",
           "shading_forecast_sensor": "Shared weather entity used for forecast and weather-condition based shading.",
           "shading_forecast_temp_sensor": "Shared sensor that provides forecast temperature values for shading.",
           "sun_elevation_dynamic_close_sensor": "Shared sensor that provides a dynamic closing sun elevation.",
           "sun_elevation_dynamic_open_sensor": "Shared sensor that provides a dynamic opening sun elevation.",
           "temperature_sensor_outdoor": "Shared outdoor temperature sensor for shading and protection rules.",
+          "wind_alarm_1_entity": "Shared binary entity that activates wind alarm level 1.",
+          "wind_alarm_2_entity": "Shared binary entity that activates wind alarm level 2.",
           "workday_sensor": "Shared entity that indicates whether today is a workday.",
           "workday_tomorrow_sensor": "Shared entity that indicates whether tomorrow is a workday."
         }
@@ -983,6 +1145,7 @@
           "profile_shading": "Shading",
           "profile_ventilation": "Ventilation",
           "profile_resident": "Resident behavior",
+          "profile_safety": "Safety",
           "profile_behavior": "Manual behavior",
           "profile_back": "Back to profile overview"
         },
@@ -994,6 +1157,7 @@
           "profile_shading": "Configure shading conditions, thresholds, waits, temperature, brightness, and forecast rules.",
           "profile_ventilation": "Configure behavior for window contacts, delays, priorities, and ventilation rules.",
           "profile_resident": "Configure resident behavior.",
+          "profile_safety": "Configure fire, rain, wind, and frost alarm behavior.",
           "profile_behavior": "Configure manual behavior, movement protection, and additional behavior rules.",
           "profile_back": "Return to the profile overview."
         }
@@ -1007,6 +1171,12 @@
             "data": {
               "auto_brightness_enabled": "Brightness automation",
               "auto_down_enabled": "Automatic closing",
+              "intermediate_close_enabled": "Use intermediate closing position",
+              "final_close_time": "Final close time",
+              "summer_start": "Summer period start (DD.MM.)",
+              "summer_end": "Summer period end (DD.MM.)",
+              "christmas_start": "Christmas period start (DD.MM.)",
+              "christmas_end": "Christmas period end (DD.MM.)",
               "auto_sun_enabled": "Sun automation",
               "auto_time_enabled": "Time automation",
               "auto_up_enabled": "Automatic opening",
@@ -1018,6 +1188,12 @@
             "data_description": {
               "auto_brightness_enabled": "Value for Brightness automation in this profile or default.",
               "auto_down_enabled": "Value for Automatic closing in this profile or default.",
+              "intermediate_close_enabled": "Use the room-owned intermediate position before the final close time.",
+              "final_close_time": "Time for the final full closing movement.",
+              "summer_start": "First inclusive day of the recurring summer period.",
+              "summer_end": "Last inclusive day of the recurring summer period.",
+              "christmas_start": "First inclusive day of the recurring Christmas period.",
+              "christmas_end": "Last inclusive day of the recurring Christmas period.",
               "auto_sun_enabled": "Value for Sun automation in this profile or default.",
               "auto_time_enabled": "Value for Time automation in this profile or default.",
               "auto_up_enabled": "Value for Automatic opening in this profile or default.",
@@ -1079,6 +1255,12 @@
             "data": {
               "auto_brightness_enabled": "Brightness automation",
               "auto_down_enabled": "Automatic closing",
+              "intermediate_close_enabled": "Use intermediate closing position",
+              "final_close_time": "Final close time",
+              "summer_start": "Summer period start (DD.MM.)",
+              "summer_end": "Summer period end (DD.MM.)",
+              "christmas_start": "Christmas period start (DD.MM.)",
+              "christmas_end": "Christmas period end (DD.MM.)",
               "auto_sun_enabled": "Sun automation",
               "auto_time_enabled": "Time automation",
               "auto_up_enabled": "Automatic opening",
@@ -1090,6 +1272,12 @@
             "data_description": {
               "auto_brightness_enabled": "Value for Brightness automation in this profile or default.",
               "auto_down_enabled": "Value for Automatic closing in this profile or default.",
+              "intermediate_close_enabled": "Use the room-owned intermediate position before the final close time.",
+              "final_close_time": "Time for the final full closing movement.",
+              "summer_start": "First inclusive day of the recurring summer period.",
+              "summer_end": "Last inclusive day of the recurring summer period.",
+              "christmas_start": "First inclusive day of the recurring Christmas period.",
+              "christmas_end": "Last inclusive day of the recurring Christmas period.",
               "auto_sun_enabled": "Value for Sun automation in this profile or default.",
               "auto_time_enabled": "Value for Time automation in this profile or default.",
               "auto_up_enabled": "Value for Automatic opening in this profile or default.",
@@ -1127,6 +1315,12 @@
             "data": {
               "auto_brightness_enabled": "Brightness automation",
               "auto_down_enabled": "Automatic closing",
+              "intermediate_close_enabled": "Use intermediate closing position",
+              "final_close_time": "Final close time",
+              "summer_start": "Summer period start (DD.MM.)",
+              "summer_end": "Summer period end (DD.MM.)",
+              "christmas_start": "Christmas period start (DD.MM.)",
+              "christmas_end": "Christmas period end (DD.MM.)",
               "auto_sun_enabled": "Sun automation",
               "auto_time_enabled": "Time automation",
               "auto_up_enabled": "Automatic opening",
@@ -1138,6 +1332,12 @@
             "data_description": {
               "auto_brightness_enabled": "Value for Brightness automation in this profile or default.",
               "auto_down_enabled": "Value for Automatic closing in this profile or default.",
+              "intermediate_close_enabled": "Use the room-owned intermediate position before the final close time.",
+              "final_close_time": "Time for the final full closing movement.",
+              "summer_start": "First inclusive day of the recurring summer period.",
+              "summer_end": "Last inclusive day of the recurring summer period.",
+              "christmas_start": "First inclusive day of the recurring Christmas period.",
+              "christmas_end": "Last inclusive day of the recurring Christmas period.",
               "auto_sun_enabled": "Value for Sun automation in this profile or default.",
               "auto_time_enabled": "Value for Time automation in this profile or default.",
               "auto_up_enabled": "Value for Automatic opening in this profile or default.",
@@ -1220,6 +1420,8 @@
             "name": "Shading temperature",
             "data": {
               "cold_protection_temperature": "Cold-protection temperature",
+              "heat_protection_enabled": "Heat protection enabled",
+              "heat_protection_threshold": "Heat-protection threshold",
               "shading_independent_temp": "Independent temperature",
               "shading_min_temperatur1": "Minimum temperature 1",
               "shading_min_temperatur2": "Minimum temperature 2",
@@ -1231,6 +1433,8 @@
             },
             "data_description": {
               "cold_protection_temperature": "Value for Cold-protection temperature in this profile or default.",
+              "heat_protection_enabled": "Close completely when the outside temperature exceeds the heat-protection threshold and all shading conditions are met.",
+              "heat_protection_threshold": "Outside-temperature threshold for complete heat-protection closing.",
               "shading_independent_temp": "Value for Independent temperature in this profile or default.",
               "shading_min_temperatur1": "Value for Minimum temperature 1 in this profile or default.",
               "shading_min_temperatur2": "Value for Minimum temperature 2 in this profile or default.",
@@ -1372,7 +1576,8 @@
               "manual_override_minutes": "Manual override duration",
               "manual_override_reset_mode": "Manual override reset mode",
               "manual_override_reset_time": "Manual override reset time",
-              "manual_schedule_adoption": "Manual schedule adoption"
+              "manual_schedule_adoption": "Manual schedule adoption",
+              "no_go_time_minutes": "Opening no-go time"
             },
             "data_description": {
               "manual_override_block_close": "Value for Manual override blocks closing in this profile or default.",
@@ -1382,7 +1587,8 @@
               "manual_override_minutes": "Value for Manual override duration in this profile or default.",
               "manual_override_reset_mode": "Value for Manual override reset mode in this profile or default.",
               "manual_override_reset_time": "Value for Manual override reset time in this profile or default.",
-              "manual_schedule_adoption": "Value for Manual schedule adoption in this profile or default."
+              "manual_schedule_adoption": "Value for Manual schedule adoption in this profile or default.",
+              "no_go_time_minutes": "Minutes after a cover state change during which scheduled opening is blocked."
             }
           },
           "prevention": {
@@ -1448,6 +1654,10 @@
             "data": {
               "open_position": "Open position",
               "close_position": "Close position",
+              "intermediate_close_position": "Intermediate close position",
+              "christmas_position": "Christmas position",
+              "summer_skip_close_enabled": "Skip normal closing in summer",
+              "christmas_position_enabled": "Use Christmas position",
               "shading_position": "Shading position",
               "shading_position_alt": "Alternative shading position",
               "shading_position_alt_entity": "Alternative shading position entity",
@@ -1457,6 +1667,10 @@
             "data_description": {
               "open_position": "Set the room-owned open position.",
               "close_position": "Set the room-owned close position.",
+              "intermediate_close_position": "Set the room-owned intermediate closing position.",
+              "christmas_position": "Set the room-owned Christmas closing position.",
+              "summer_skip_close_enabled": "Suppress normal closing decisions during the configured summer period.",
+              "christmas_position_enabled": "Use the room-owned Christmas position during the configured Christmas period.",
               "shading_position": "Set the room-owned shading position.",
               "shading_position_alt": "Set the room-owned alternative shading position.",
               "shading_position_alt_entity": "Set the room-owned alternative shading position entity.",
@@ -1605,6 +1819,7 @@
           "geometry": "Geometry",
           "source_overrides": "Local data sources",
           "controls": "Controls",
+          "safety": "Safety",
           "positions": "Positions",
           "profile_assignment": "Profile & automation",
           "room_diagnostics": "Diagnostics",
@@ -1618,6 +1833,7 @@
           "geometry": "Describe the physical window orientation evaluated with sun and shading rules.",
           "source_overrides": "Choose a local data source only when this room should use a different source than the globally configured one.",
           "controls": "Choose which optional controls and room functions Cover Control provides for this room.",
+          "safety": "Choose the profile safety alarms that apply to this room.",
           "positions": "Configure this room's physical target positions and tilt positions.",
           "profile_assignment": "Choose the profile for this room and the functions used from it.",
           "room_diagnostics": "Inspect the room structure and selected profile references.",
@@ -1738,6 +1954,7 @@
         "shading": "Shading",
         "ventilation": "Ventilation",
         "resident": "Resident behavior",
+        "safety": "Safety alarms",
         "behavior": "Manual behavior"
       }
     },
@@ -1765,7 +1982,7 @@
         "custom_sensor": "Custom position sensor"
       }
     },
-      "sun_elevation_mode": {
+    "sun_elevation_mode": {
       "options": {
         "fixed": "Fixed",
         "dynamic": "Dynamic",
@@ -1861,6 +2078,14 @@
           "resident": "Resident control",
           "ventilation": "Ventilation control",
           "shading": "Shading control",
+          "heat_protection": "Heat protection",
+          "safety": "Safety control",
+          "fire_alarm": "Fire alarm",
+          "rain_alarm": "Rain alarm",
+          "wind_alarm_2": "Wind alarm 2",
+          "wind_alarm_1": "Wind alarm 1",
+          "frost_alarm": "Frost protection",
+          "fire_latched": "Fire alarm latched",
           "manual_override": "Manual override",
           "force_open": "Forced opening",
           "force_close": "Forced closing",
@@ -1869,6 +2094,8 @@
           "force_pause": "Force pause",
           "window_lockout": "Window lockout",
           "additional_condition": "Additional condition",
+          "no_go_time": "Opening no-go time",
+          "summer_period": "Summer period",
           "recovery": "Recovery",
           "multiple": "Multiple controls"
         }
@@ -1903,6 +2130,9 @@
       },
       "clear_manual_override": {
         "name": "Clear manual override"
+      },
+      "reset_fire_latch": {
+        "name": "Reset fire alarm latch"
       }
     }
   }

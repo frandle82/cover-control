@@ -13,23 +13,109 @@ IDLE_REASON = "idle"
 STORAGE_VERSION = 1
 _LOGGER = logging.getLogger(__name__)
 
+TRIGGER_BRIGHTNESS_CHANGED = "brightness_changed"
+TRIGGER_BRIGHTNESS_CLOSE_TIMER = "brightness_close_duration_elapsed"
+TRIGGER_BRIGHTNESS_OPEN_TIMER = "brightness_open_duration_elapsed"
+TRIGGER_CALENDAR_CLOSE_END = "calendar_close_end"
+TRIGGER_CALENDAR_CLOSE_START = "calendar_close_start"
+TRIGGER_CALENDAR_OPEN_END = "calendar_open_end"
+TRIGGER_CALENDAR_OPEN_START = "calendar_open_start"
+TRIGGER_COVER_POSITION_CHANGED = "cover_position_changed"
+TRIGGER_DYNAMIC_SUN_CLOSE_CHANGED = "dynamic_sun_close_changed"
+TRIGGER_DYNAMIC_SUN_OPEN_CHANGED = "dynamic_sun_open_changed"
+TRIGGER_RESIDENT_OFF = "resident_off"
+TRIGGER_RESIDENT_ON = "resident_on"
+TRIGGER_SCHEDULED_CLOSE = "scheduled_close"
+TRIGGER_SCHEDULED_FINAL_CLOSE = "scheduled_final_close"
+TRIGGER_SCHEDULED_OPEN = "scheduled_open"
+TRIGGER_SHADING_END_CHANGED = "shading_end_condition_changed"
+TRIGGER_SHADING_END_TIMER = "shading_end_timer"
+TRIGGER_SHADING_START_CHANGED = "shading_start_condition_changed"
+TRIGGER_SHADING_START_TIMER = "shading_start_timer"
+TRIGGER_SUN_CHANGED = "sun_elevation_changed"
+TRIGGER_SUN_CLOSE_TIMER = "sun_close_duration_elapsed"
+TRIGGER_SUN_OPEN_TIMER = "sun_open_duration_elapsed"
+TRIGGER_WINDOW_CLOSED = "window_closed"
+TRIGGER_WINDOW_DOWN_SEQUENCE_TARGET_REACHED = (
+    "window_down_sequence_target_reached"
+)
+TRIGGER_WINDOW_OPEN = "window_open"
+TRIGGER_WINDOW_TILTED = "window_tilted"
+TRIGGER_WORKDAY_CHANGED = "workday_changed"
+TRIGGER_WORKDAY_TOMORROW_CHANGED = "workday_tomorrow_changed"
+TRIGGER_FIRE_ALARM_ON = "fire_alarm_on"
+TRIGGER_FIRE_ALARM_OFF = "fire_alarm_off"
+TRIGGER_RAIN_ALARM_ON = "rain_alarm_on"
+TRIGGER_RAIN_ALARM_OFF = "rain_alarm_off"
+TRIGGER_WIND_ALARM_2_ON = "wind_alarm_2_on"
+TRIGGER_WIND_ALARM_2_OFF = "wind_alarm_2_off"
+TRIGGER_WIND_ALARM_1_ON = "wind_alarm_1_on"
+TRIGGER_WIND_ALARM_1_OFF = "wind_alarm_1_off"
+TRIGGER_FROST_ALARM_ON = "frost_alarm_on"
+TRIGGER_FROST_ALARM_OFF = "frost_alarm_off"
+TRIGGER_FIRE_LATCH_RESET = "fire_latch_reset"
+
+WINDOW_DOWN_SEQUENCE_REASONS = frozenset(
+    {"scheduled_close", "scheduled_final_close", "sun_close", "brightness_close"}
+)
+
+CONDITION_TIMER_TRIGGERS = {
+    "sun_open": TRIGGER_SUN_OPEN_TIMER,
+    "sun_close": TRIGGER_SUN_CLOSE_TIMER,
+    "brightness_open": TRIGGER_BRIGHTNESS_OPEN_TIMER,
+    "brightness_close": TRIGGER_BRIGHTNESS_CLOSE_TIMER,
+}
+
+CALENDAR_BOUNDARY_TRIGGERS = {
+    "open_start": TRIGGER_CALENDAR_OPEN_START,
+    "open_end": TRIGGER_CALENDAR_OPEN_END,
+    "close_start": TRIGGER_CALENDAR_CLOSE_START,
+    "close_end": TRIGGER_CALENDAR_CLOSE_END,
+}
+
 _TRIGGER_PRIORITY = {
-    "state": 0,
-    "time": 1,
-    "sun": 1,
-    "scheduled_open": 2,
-    "scheduled_close": 2,
-    "shading_start_timer": 4,
-    "shading_end_timer": 4,
+    TRIGGER_FIRE_ALARM_ON: 20,
+    TRIGGER_FIRE_ALARM_OFF: 20,
+    TRIGGER_FIRE_LATCH_RESET: 20,
+    TRIGGER_RAIN_ALARM_ON: 19,
+    TRIGGER_RAIN_ALARM_OFF: 19,
+    TRIGGER_WIND_ALARM_2_ON: 18,
+    TRIGGER_WIND_ALARM_2_OFF: 18,
+    TRIGGER_WIND_ALARM_1_ON: 17,
+    TRIGGER_WIND_ALARM_1_OFF: 17,
+    TRIGGER_FROST_ALARM_ON: 16,
+    TRIGGER_FROST_ALARM_OFF: 16,
+    TRIGGER_WINDOW_DOWN_SEQUENCE_TARGET_REACHED: 15,
+    TRIGGER_SUN_CHANGED: 1,
+    TRIGGER_SUN_OPEN_TIMER: 1,
+    TRIGGER_SUN_CLOSE_TIMER: 1,
+    TRIGGER_BRIGHTNESS_OPEN_TIMER: 1,
+    TRIGGER_BRIGHTNESS_CLOSE_TIMER: 1,
+    TRIGGER_CALENDAR_OPEN_START: 1,
+    TRIGGER_CALENDAR_OPEN_END: 1,
+    TRIGGER_CALENDAR_CLOSE_START: 1,
+    TRIGGER_CALENDAR_CLOSE_END: 1,
+    TRIGGER_SCHEDULED_OPEN: 2,
+    TRIGGER_SCHEDULED_CLOSE: 2,
+    TRIGGER_SCHEDULED_FINAL_CLOSE: 2,
+    TRIGGER_SHADING_START_TIMER: 4,
+    TRIGGER_SHADING_END_TIMER: 4,
     "startup": 2,
-    "config": 3,
-    "runtime_toggle": 3,
-    "contact": 4,
+    "config_updated": 3,
+    "toggle_time": 3,
+    "toggle_sun": 3,
+    "toggle_brightness": 3,
+    "toggle_shading": 3,
+    "toggle_ventilation": 3,
+    "toggle_resident": 3,
+    TRIGGER_WINDOW_OPEN: 4,
+    TRIGGER_WINDOW_TILTED: 4,
+    TRIGGER_WINDOW_CLOSED: 4,
     "manual_expired": 5,
     "manual_cleared": 6,
     "manual_service": 6,
-    "resident_asleep": 7,
-    "resident_woke": 7,
+    TRIGGER_RESIDENT_ON: 7,
+    TRIGGER_RESIDENT_OFF: 7,
 }
 
 _FIRST_NUMBER_RE = re.compile(r"[-+]?\d+(?:[.,]\d+)?")
@@ -120,6 +206,7 @@ def _default_cover_status() -> dict:
         "open": {"active": False, "ts": 0},
         "close": {"active": False, "ts": 0},
         "shading": {"active": False, "start_pending": 0, "end_pending": 0, "ts": 0},
+        "heat_protection": {"active": False, "hold": False},
         "ventilation": {
             "partial": False,
             "full": False,
@@ -133,6 +220,7 @@ def _default_cover_status() -> dict:
             "background": {"open": False, "close": False, "shading": False},
             "ts": 0,
         },
+        "safety": {"fire_latched": False, "ts": 0},
         "manual": {"active": False, "scope_all": False, "until": None, "ts": 0},
         "reason": None,
         "target": None,
@@ -158,6 +246,15 @@ def _normalize_cover_status(raw: object) -> dict:
         status["shading"]["end_pending"] = int(shading.get("end_pending") or 0)
         status["shading"]["ts"] = int(shading.get("ts") or 0)
 
+    heat_protection = raw.get("heat_protection")
+    if isinstance(heat_protection, dict):
+        status["heat_protection"]["active"] = bool(
+            heat_protection.get("active", False)
+        )
+        status["heat_protection"]["hold"] = bool(
+            heat_protection.get("hold", False)
+        )
+
     ventilation = raw.get("ventilation")
     if isinstance(ventilation, dict):
         status["ventilation"]["partial"] = bool(ventilation.get("partial", False))
@@ -182,6 +279,11 @@ def _normalize_cover_status(raw: object) -> dict:
             for key in ("open", "close", "shading"):
                 status["force"]["background"][key] = bool(background.get(key))
         status["force"]["ts"] = int(force.get("ts") or 0)
+
+    safety = raw.get("safety")
+    if isinstance(safety, dict):
+        status["safety"]["fire_latched"] = bool(safety.get("fire_latched", False))
+        status["safety"]["ts"] = int(safety.get("ts") or 0)
 
     manual = raw.get("manual")
     if isinstance(manual, dict):

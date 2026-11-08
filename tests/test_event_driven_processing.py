@@ -20,6 +20,12 @@ from custom_components.cover_control.const import (
     CONF_AUTO_SUN,
     CONF_AUTO_TIME,
     CONF_AUTO_UP,
+    CONF_FINAL_CLOSE_TIME,
+    CONF_INTERMEDIATE_CLOSE_ENABLED,
+    CONF_INTERMEDIATE_CLOSE_POSITION,
+    CONF_NO_GO_TIME_MINUTES,
+    CONF_BRIGHTNESS_SENSOR,
+    CONF_SHADING_BRIGHTNESS_SENSOR,
     CONF_SUN_ELEVATION_CLOSE,
     CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
     CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
@@ -84,7 +90,7 @@ def test_runtime_control_states_are_valid_sensor_options() -> None:
     assert set(sensor.options or ()) == CONTROL_STATE_OPTION_SET
     assert {
         "idle", "time", "sun", "brightness", "calendar", "resident",
-        "ventilation", "shading", "manual_override", "force_open",
+        "ventilation", "shading", "heat_protection", "manual_override", "force_open",
         "force_close", "force_ventilate", "force_shading", "force_pause",
         "window_lockout", "additional_condition", "recovery", "multiple",
     } <= CONTROL_STATE_OPTION_SET
@@ -115,6 +121,7 @@ def test_state_snapshot_is_read_only() -> None:
     controller._manual_active = False
     controller._next_open = dt_util.utcnow() + timedelta(hours=1)
     controller._next_close = dt_util.utcnow() + timedelta(hours=2)
+    controller._next_final_close = controller._next_close - timedelta(minutes=30)
     controller._current_position = Mock(return_value=40)
     controller._auto_enabled = Mock(return_value=True)
     controller._shading_is_active = Mock(return_value=False)
@@ -126,6 +133,7 @@ def test_state_snapshot_is_read_only() -> None:
     second = controller.state_snapshot()
 
     assert first == second
+    assert first[5] == controller._next_final_close
     controller._refresh_next_events.assert_not_called()
     controller._publish_state.assert_not_called()
 
@@ -206,7 +214,9 @@ def test_next_sun_event_uses_currently_met_threshold() -> None:
 
     controller._refresh_next_events(now)
 
-    assert controller._next_open == now + timedelta(seconds=30)
+    assert controller._next_open == (now + timedelta(seconds=30)).replace(
+        microsecond=0
+    )
     assert controller._next_open != next_rising
     controller._reschedule_next_event_timers.assert_called_once_with(now)
 
@@ -273,7 +283,7 @@ def test_next_open_fixed_sun_only() -> None:
     now = dt_util.utcnow()
     controller._refresh_next_events(now)
     assert calls[0][0] == 6
-    assert controller._next_open == now + timedelta(hours=2)
+    assert controller._next_open == (now + timedelta(hours=2)).replace(microsecond=0)
 
 
 def test_next_close_fixed_sun_only() -> None:
@@ -290,7 +300,7 @@ def test_next_close_fixed_sun_only() -> None:
     now = dt_util.utcnow()
     controller._refresh_next_events(now)
     assert calls[1][0] == -4
-    assert controller._next_close == now + timedelta(hours=3)
+    assert controller._next_close == (now + timedelta(hours=3)).replace(microsecond=0)
 
 
 def test_next_open_when_sun_threshold_already_reached_inside_window() -> None:
@@ -315,7 +325,7 @@ def test_next_open_when_sun_threshold_already_reached_inside_window() -> None:
     ))
     controller._refresh_next_events(now)
     assert crossing < now
-    assert controller._next_open == now
+    assert controller._next_open == now.replace(microsecond=0)
 
 
 def test_next_open_duration_does_not_slide_on_repeated_refresh() -> None:
@@ -406,7 +416,7 @@ def test_next_close_when_sun_threshold_already_reached_inside_window() -> None:
     ))
     controller._refresh_next_events(now)
     assert crossing < now
-    assert controller._next_close == now
+    assert controller._next_close == now.replace(microsecond=0)
 
 
 def test_time_profile_evaluation_supports_already_met_close_threshold_with_duration() -> None:
@@ -596,11 +606,112 @@ def test_point_timer_triggers_have_deterministic_priority() -> None:
     """Precise timer causes outrank generic state changes in a coalesced batch."""
 
     assert ControllerManager._trigger_priority("scheduled_open") > (
-        ControllerManager._trigger_priority("state")
+        ControllerManager._trigger_priority("sun_elevation_changed")
     )
-    assert ControllerManager._trigger_priority("condition_timer:sun_open") > (
-        ControllerManager._trigger_priority("state")
+    assert ControllerManager._trigger_priority("sun_open_duration_elapsed") > (
+        ControllerManager._trigger_priority("brightness_changed")
     )
+
+
+def test_open_and_close_schedule_use_distinct_triggers() -> None:
+    controller = object.__new__(CoverController)
+    controller.hass = object()
+    controller.async_request_evaluate = Mock()
+    callbacks = {}
+
+    def _track(_hass, callback, due):
+        callbacks[due] = callback
+        return Mock()
+
+    now = dt_util.utcnow()
+    with patch(
+        "custom_components.cover_control.runtime.events.async_track_point_in_time",
+        side_effect=_track,
+    ):
+        controller._reschedule_event_timer(None, None, now + timedelta(minutes=1), now, "open")
+        controller._reschedule_event_timer(None, None, now + timedelta(minutes=2), now, "close")
+        for due, callback in callbacks.items():
+            callback(due)
+
+    assert [call.args[0] for call in controller.async_request_evaluate.call_args_list] == [
+        "scheduled_open",
+        "scheduled_close",
+    ]
+
+
+def test_final_close_timer_uses_distinct_trigger() -> None:
+    controller = object.__new__(CoverController)
+    controller.hass = object()
+    controller.async_request_evaluate = Mock()
+    now = dt_util.utcnow()
+    callback = None
+
+    def _track(_hass, scheduled_callback, _due):
+        nonlocal callback
+        callback = scheduled_callback
+        return Mock()
+
+    with patch(
+        "custom_components.cover_control.runtime.events.async_track_point_in_time",
+        side_effect=_track,
+    ):
+        controller._reschedule_event_timer(
+            None, None, now + timedelta(minutes=1), now, "final_close"
+        )
+
+    assert callback is not None
+    callback(now + timedelta(minutes=1))
+    controller.async_request_evaluate.assert_called_once_with("scheduled_final_close")
+
+
+def test_opening_no_go_uses_cover_last_changed(hass) -> None:
+    controller = object.__new__(CoverController)
+    controller.hass = hass
+    controller.cover = "cover.office"
+    controller.config = {CONF_NO_GO_TIME_MINUTES: 10}
+    hass.states.async_set(controller.cover, "closed", {"current_position": 0})
+    changed_at = hass.states.get(controller.cover).last_changed
+
+    assert controller._opening_no_go_remaining(changed_at + timedelta(minutes=4)) == 360
+    assert controller._opening_no_go_remaining(changed_at + timedelta(minutes=10)) == 0
+
+
+def test_final_close_forecast_uses_existing_schedule_timer() -> None:
+    controller = object.__new__(CoverController)
+    controller.config = {
+        CONF_INTERMEDIATE_CLOSE_ENABLED: True,
+        CONF_FINAL_CLOSE_TIME: "22:00:00",
+    }
+    controller._auto_enabled = Mock(return_value=True)
+    controller._state_for = Mock(return_value=None)
+    controller._sun_entity = Mock(return_value="sun.sun")
+    controller._dynamic_sun_threshold = Mock(return_value=None)
+    controller._is_workday = Mock(return_value=True)
+    controller._is_workday_tomorrow = Mock(return_value=True)
+    controller._last_action_dates = {}
+    controller._condition_since = {}
+    controller._reschedule_next_event_timers = Mock()
+    controller._next_sun_time_for_elevation = Mock(return_value=None)
+    now = datetime(2026, 11, 8, 20, 0, tzinfo=timezone.utc)
+
+    controller._refresh_next_events(now)
+
+    assert controller._next_final_close.date().isoformat() == "2026-11-08"
+    assert controller._next_final_close.timetz().replace(tzinfo=None) == time(22, 0)
+
+
+def test_intermediate_close_never_raises_cover_below_target() -> None:
+    controller = object.__new__(CoverController)
+    controller.config = {
+        CONF_INTERMEDIATE_CLOSE_ENABLED: True,
+        CONF_INTERMEDIATE_CLOSE_POSITION: 50,
+        CONF_FINAL_CLOSE_TIME: "22:00:00",
+    }
+    controller._position_value = lambda key, default: controller.config.get(key, default)
+    now = datetime(2026, 11, 8, 20, 0, tzinfo=timezone.utc)
+
+    assert controller._intermediate_close_target(now, 40, False) == (True, None)
+    assert controller._intermediate_close_target(now, 80, False) == (True, 50)
 
 
 def test_shading_pending_timer_cancels_and_restarts() -> None:
@@ -678,32 +789,145 @@ def test_duration_condition_uses_timer_and_cancels_on_fall() -> None:
     assert "sun_open" not in controller._condition_since
 
 
-def test_duration_condition_timer_requests_one_evaluation() -> None:
-    """A duration callback contributes its precise condition trigger."""
-
+def _condition_timer_triggers(*keys: str) -> list[str]:
     controller = object.__new__(CoverController)
     controller.hass = object()
     controller._condition_timer_unsubs = {}
     controller.async_request_evaluate = Mock()
-    due = dt_util.utcnow() + timedelta(seconds=30)
-    callback = None
+    callbacks = []
 
     def _track(_hass, tracked_callback, _due):
-        nonlocal callback
-        callback = tracked_callback
+        callbacks.append(tracked_callback)
         return Mock()
 
     with patch(
         "custom_components.cover_control.runtime.events.async_track_point_in_time",
         side_effect=_track,
     ):
-        controller._schedule_condition_timer("brightness_close", due)
-        assert callback is not None
-        callback(due)
+        for index, key in enumerate(keys, 1):
+            controller._schedule_condition_timer(
+                key, dt_util.utcnow() + timedelta(seconds=index)
+            )
+        for callback in callbacks:
+            callback(dt_util.utcnow())
+    return [call.args[0] for call in controller.async_request_evaluate.call_args_list]
 
-    controller.async_request_evaluate.assert_called_once_with(
-        "condition_timer:brightness_close"
-    )
+
+def test_sun_open_and_close_duration_use_distinct_timer_keys() -> None:
+    assert _condition_timer_triggers("sun_open", "sun_close") == [
+        "sun_open_duration_elapsed",
+        "sun_close_duration_elapsed",
+    ]
+
+
+def test_brightness_open_and_close_duration_use_distinct_timer_keys() -> None:
+    assert _condition_timer_triggers("brightness_open", "brightness_close") == [
+        "brightness_open_duration_elapsed",
+        "brightness_close_duration_elapsed",
+    ]
+
+
+def test_shading_start_and_end_use_distinct_triggers() -> None:
+    controller = object.__new__(CoverController)
+    controller.hass = object()
+    controller._shading_timer_unsubs = {}
+    controller.async_request_evaluate = Mock()
+    callbacks = []
+
+    with patch(
+        "custom_components.cover_control.runtime.events.async_track_point_in_time",
+        side_effect=lambda _hass, callback, _due: callbacks.append(callback) or Mock(),
+    ):
+        due = dt_util.utcnow() + timedelta(seconds=1)
+        controller._schedule_shading_timer("start", due)
+        controller._schedule_shading_timer("end", due)
+        for callback in callbacks:
+            callback(due)
+
+    assert [call.args[0] for call in controller.async_request_evaluate.call_args_list] == [
+        "shading_start_timer",
+        "shading_end_timer",
+    ]
+
+    source = object.__new__(CoverController)
+    source.config = {CONF_SHADING_BRIGHTNESS_SENSOR: "sensor.shading"}
+    source._auto_entity_map = {}
+    source._sun_entity = Mock(return_value="sun.sun")
+    source._auto_enabled = Mock(return_value=False)
+    assert source._shared_state_triggers("sensor.shading", None, "100") == {
+        "shading_start_condition_changed",
+        "shading_end_condition_changed",
+    }
+
+
+def test_shared_input_roles_use_specific_triggers() -> None:
+    controller = object.__new__(CoverController)
+    controller.config = {
+        CONF_BRIGHTNESS_SENSOR: "sensor.brightness",
+        CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR: "sensor.sun_open",
+        CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR: "sensor.sun_close",
+    }
+    controller._auto_entity_map = {}
+    controller._sun_entity = Mock(return_value="sun.sun")
+    controller._auto_enabled = Mock(return_value=False)
+
+    assert controller._shared_state_triggers(
+        "sensor.brightness", None, "100"
+    ) == {"brightness_changed"}
+    assert controller._shared_state_triggers("sensor.sun_open", None, "5") == {
+        "dynamic_sun_open_changed"
+    }
+    assert controller._shared_state_triggers("sensor.sun_close", None, "-5") == {
+        "dynamic_sun_close_changed"
+    }
+
+
+def test_window_state_triggers_are_unambiguous() -> None:
+    controller = object.__new__(CoverController)
+    controller._full_open_sensors = Mock(return_value=["binary_sensor.window"])
+    controller._tilt_sensors = Mock(return_value=["binary_sensor.tilt"])
+
+    assert controller._window_trigger("binary_sensor.window", True) == "window_open"
+    assert controller._window_trigger("binary_sensor.tilt", True) == "window_tilted"
+    assert controller._window_trigger("binary_sensor.window", False) == "window_closed"
+
+
+def test_window_delay_timer_keys_are_per_sensor() -> None:
+    controller = object.__new__(CoverController)
+    controller.hass = object()
+    controller._delayed_evaluation_unsubs = {}
+    controller.async_request_evaluate = Mock()
+
+    with patch(
+        "custom_components.cover_control.runtime.events.async_track_point_in_time",
+        return_value=Mock(),
+    ):
+        controller._schedule_delayed_evaluate(
+            "window_open", 10, timer_key="contact:binary_sensor.left"
+        )
+        controller._schedule_delayed_evaluate(
+            "window_tilted", 10, timer_key="contact:binary_sensor.right"
+        )
+
+    assert set(controller._delayed_evaluation_unsubs) == {
+        "contact:binary_sensor.left",
+        "contact:binary_sensor.right",
+    }
+
+
+def test_event_payload_exposes_specific_trigger() -> None:
+    controller = object.__new__(CoverController)
+    controller.entry = SimpleNamespace(entry_id="entry")
+    controller.cover = "cover.living"
+    controller._master_entity_id = "switch.master"
+    controller._reason = "sun_open"
+    controller.hass = SimpleNamespace(bus=SimpleNamespace(async_fire=Mock()))
+
+    controller._fire_event("evaluate", {"trigger": "sun_elevation_changed"})
+
+    payload = controller.hass.bus.async_fire.call_args.args[1]
+    assert payload["trigger"] == "sun_elevation_changed"
+    assert payload["reason"] == "sun_open"
 
 
 def test_shared_entities_use_one_manager_listener() -> None:
@@ -738,6 +962,8 @@ def test_shared_sun_event_queues_all_controllers_together() -> None:
 
     manager = object.__new__(ControllerManager)
     manager.controllers = {"cover.first": Mock(), "cover.second": Mock()}
+    for controller in manager.controllers.values():
+        controller._shared_state_triggers.return_value = {"sun_elevation_changed"}
     manager._entity_routes = {"sun.sun": {"cover.first", "cover.second"}}
     manager._request_evaluate = Mock()
     event = SimpleNamespace(data={"entity_id": "sun.sun"})
@@ -745,11 +971,13 @@ def test_shared_sun_event_queues_all_controllers_together() -> None:
     manager._handle_shared_state_event(event)
 
     assert manager._request_evaluate.call_count == 2
-    assert {call.args[1] for call in manager._request_evaluate.call_args_list} == {"sun"}
+    assert {call.args[1] for call in manager._request_evaluate.call_args_list} == {
+        "sun_elevation_changed"
+    }
 
 
 @pytest.mark.asyncio
-async def test_trigger_sets_and_context_are_shared_across_batch() -> None:
+async def test_pending_evaluations_preserve_distinct_trigger_sources() -> None:
     """A batch retains every cause and snapshots global state only once."""
 
     state_reads = []
@@ -761,8 +989,8 @@ async def test_trigger_sets_and_context_are_shared_across_batch() -> None:
     )
     manager._shared_entities = {"sun.sun", "sensor.outdoor"}
     manager._pending_evaluations = {
-        "cover.first": {"state", "resident_woke"},
-        "cover.second": {"sun"},
+        "cover.first": {"sun_elevation_changed", "brightness_changed"},
+        "cover.second": {"resident_off"},
     }
     manager._evaluation_lock = asyncio.Lock()
     manager._evaluation_task = Mock()
@@ -798,10 +1026,10 @@ async def test_trigger_sets_and_context_are_shared_across_batch() -> None:
     ]
     assert contexts[0][0] is contexts[1][0]
     assert contexts[0][1:] == (
-        "resident_woke",
-        frozenset({"state", "resident_woke"}),
+        "sun_elevation_changed",
+        frozenset({"sun_elevation_changed", "brightness_changed"}),
     )
-    assert contexts[1][1:] == ("sun", frozenset({"sun"}))
+    assert contexts[1][1:] == ("resident_off", frozenset({"resident_off"}))
 
 
 @pytest.mark.asyncio
@@ -1022,7 +1250,7 @@ def test_calendar_boundaries_are_rescheduled_as_point_timers() -> None:
         callbacks[second_window[0]](second_window[0])
 
     controller.async_request_evaluate.assert_called_once_with(
-        "calendar_boundary:open_start"
+        "calendar_open_start"
     )
 
 
@@ -1045,10 +1273,10 @@ def test_contact_delay_uses_managed_point_timer() -> None:
         "custom_components.cover_control.runtime.events.async_track_point_in_time",
         side_effect=_track,
     ):
-        controller._schedule_delayed_evaluate("contact", 10)
-        controller._schedule_delayed_evaluate("contact", 20)
+        controller._schedule_delayed_evaluate("window_open", 10)
+        controller._schedule_delayed_evaluate("window_open", 20)
         unsubscribe.assert_called_once_with()
         assert callback is not None
         callback(dt_util.utcnow())
 
-    controller.async_request_evaluate.assert_called_once_with("contact")
+    controller.async_request_evaluate.assert_called_once_with("window_open")

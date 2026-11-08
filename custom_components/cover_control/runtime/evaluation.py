@@ -43,6 +43,9 @@ from ..const import (
     CONF_BRIGHTNESS_SUN_OPERATOR,
     CONF_BRIGHTNESS_TIME_DURATION,
     CONF_CLOSE_POSITION,
+    CONF_FINAL_CLOSE_TIME,
+    CONF_INTERMEDIATE_CLOSE_ENABLED,
+    CONF_INTERMEDIATE_CLOSE_POSITION,
     CONF_COVER_TYPE,
     CONF_COVER_TYPE_AWNING,
     CONF_LOCKOUT_POSITION,
@@ -50,6 +53,7 @@ from ..const import (
     CONF_LOCKOUT_TILT_SHADING_END,
     CONF_LOCKOUT_TILT_SHADING_START,
     CONF_OPEN_POSITION,
+    CONF_NO_GO_TIME_MINUTES,
     CONF_OPEN_TILT_POSITION,
     CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
     CONF_PREVENT_HIGHER_POSITION_CLOSING,
@@ -99,6 +103,8 @@ from ..const import (
     DEFAULT_BRIGHTNESS_SUN_OPERATOR,
     DEFAULT_BRIGHTNESS_TIME_DURATION,
     DEFAULT_CLOSE_POSITION,
+    DEFAULT_FINAL_CLOSE_TIME,
+    DEFAULT_INTERMEDIATE_CLOSE_POSITION,
     DEFAULT_OPEN_POSITION,
     DEFAULT_OPEN_TILT_POSITION,
     DEFAULT_SHADING_TIMING_SETTINGS,
@@ -111,10 +117,67 @@ from ..const import (
 from .common import (
     _LOGGER,
     _coerce_float,
+    _parse_time,
+    TRIGGER_RESIDENT_OFF,
+    TRIGGER_SCHEDULED_FINAL_CLOSE,
 )
 
 
 class EvaluationMixin:
+    def _seasonal_close_target(
+        self, now: datetime, current_position: float | None, final_close_due: bool
+    ) -> tuple[bool, float | None, bool]:
+        """Return summer suppression, effective target, and intermediate state."""
+
+        intermediate_close, intermediate_target = self._intermediate_close_target(
+            now, current_position, final_close_due
+        )
+        christmas_target = self._christmas_close_position(now)
+        uses_intermediate = intermediate_close and christmas_target is None
+        target = (
+            christmas_target
+            if christmas_target is not None
+            else intermediate_target
+            if uses_intermediate
+            else self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION)
+        )
+        return self._summer_close_suppressed(now), target, uses_intermediate
+
+    def _opening_no_go_remaining(self, now: datetime) -> float:
+        """Return seconds until a scheduled opening may follow a cover change."""
+
+        minutes = max(0, int(self.config.get(CONF_NO_GO_TIME_MINUTES, 0) or 0))
+        state = self.hass.states.get(self.cover)
+        if minutes == 0 or state is None:
+            return 0
+        return max(
+            0,
+            (state.last_changed + timedelta(minutes=minutes) - now).total_seconds(),
+        )
+
+    def _intermediate_close_target(
+        self, now: datetime, current_position: float | None, final_close_due: bool
+    ) -> tuple[bool, float | None]:
+        final_time = _parse_time(
+            str(self.config.get(CONF_FINAL_CLOSE_TIME, DEFAULT_FINAL_CLOSE_TIME))
+        )
+        active = bool(
+            self.config.get(CONF_INTERMEDIATE_CLOSE_ENABLED, False)
+            and final_time
+            and dt_util.as_local(now).timetz().replace(tzinfo=None) < final_time
+            and not final_close_due
+        )
+        if not active:
+            return False, None
+        target = self._position_value(
+            CONF_INTERMEDIATE_CLOSE_POSITION, DEFAULT_INTERMEDIATE_CLOSE_POSITION
+        )
+        if current_position is not None and not self._position_is_above(
+            current_position, target
+        ):
+            return True, None
+        return True, target
+
     async def _evaluate(
         self, trigger: str, triggers: frozenset[str] | None = None
     ) -> None:
@@ -144,6 +207,7 @@ class EvaluationMixin:
             },
         )
         if not cover_available:
+            self._cancel_window_down_sequence()
             if self._startup_complete:
                 self._runtime_outage_active = True
                 self._outage_dependencies.add(self.cover)
@@ -160,7 +224,11 @@ class EvaluationMixin:
         if self._cover_unavailable_logged:
             _LOGGER.info("Cover Control resumed evaluation for %s", self.cover)
             self._cover_unavailable_logged = False
+        if await self._evaluate_safety():
+            self._refresh_next_events(now)
+            return
         if self._manual_active:
+            self._cancel_window_down_sequence()
             if self._manual_scope_all or all(
                 self._manual_blocks_action(action)
                 for action in ("open", "close", "ventilation", "shading")
@@ -174,11 +242,13 @@ class EvaluationMixin:
                 return
 
         if not self._master_enabled():
+            self._cancel_window_down_sequence()
             self._refresh_next_events(now)
             self._publish_state()
             return
 
         if self._entity_active(CONF_FORCE_PAUSE_ENTITY):
+            self._cancel_window_down_sequence()
             self._reason = "force_pause"
             self._refresh_next_events(now)
             self._publish_state()
@@ -186,6 +256,7 @@ class EvaluationMixin:
 
         unavailable_dependencies = self._unavailable_decision_entities()
         if unavailable_dependencies:
+            self._cancel_window_down_sequence()
             if self._startup_complete:
                 self._runtime_outage_active = True
                 self._outage_dependencies.update(unavailable_dependencies)
@@ -298,7 +369,7 @@ class EvaluationMixin:
             )
         )
         resident_sleeping = resident_mode_enabled and self._is_resident_sleeping()
-        resident_woke = trigger == "resident_woke"
+        resident_woke = trigger == TRIGGER_RESIDENT_OFF
 
         resident_allow_open = bool(
             self.config.get(
@@ -367,6 +438,10 @@ class EvaluationMixin:
             if reason == "force_close" and full_contact_active:
                 continue
             await self._set_position(target, reason)
+            return
+
+        if await self._evaluate_window_down_sequence(trigger):
+            self._refresh_next_events(now)
             return
 
         auto_time_enabled = self._auto_enabled(CONF_AUTO_TIME)
@@ -449,7 +524,87 @@ class EvaluationMixin:
             sun_elevation, brightness
         )
 
-        if auto_ventilate and full_contact_active:
+        current_position = self._current_position()
+        final_close_due = TRIGGER_SCHEDULED_FINAL_CLOSE in self._current_evaluation_triggers
+        summer_close_suppressed, close_target, uses_intermediate = (
+            self._seasonal_close_target(now, current_position, final_close_due)
+        )
+        intermediate_target = close_target if uses_intermediate else None
+        close_status_satisfied = self._status_active(
+            "close"
+        ) and self._position_matches(close_target, current_position)
+        regular_close_event: tuple[datetime, str, float | None] | None = None
+        if (
+            close_condition
+            and not summer_close_suppressed
+            and not self._manual_blocks_action("close")
+            and not close_status_satisfied
+            and not tilt_lock_close
+            and (final_close_due or not self._action_already_done_today(
+                "close", CONF_PREVENT_CLOSING_MULTIPLE_TIMES
+            ))
+            and not self._close_position_protected(current_position)
+            and (
+                not uses_intermediate
+                or intermediate_target is not None
+            )
+        ):
+            close_due = (
+                final_close_due
+                or
+                (not auto_time_enabled and environment_allows_closing)
+                or is_time_down_late
+                or (
+                    (is_closing_phase or is_evening_phase)
+                    and ((not has_environment_control) or environment_allows_closing)
+                )
+            )
+            if final_close_due:
+                regular_close_event = (now, "scheduled_final_close", close_target)
+            elif (
+                close_due
+                and self._auto_enabled(CONF_AUTO_SUN)
+                and self._sun_allows_close(sun_elevation)
+            ):
+                regular_close_event = (
+                    now,
+                    "scheduled_intermediate_close" if uses_intermediate else "sun_close",
+                    close_target,
+                )
+
+            elif (
+                close_due
+                and self._auto_enabled(CONF_AUTO_BRIGHTNESS)
+                and brightness is not None
+                and self._brightness_allows_close(brightness)
+            ):
+                regular_close_event = (
+                    now,
+                    "scheduled_intermediate_close" if uses_intermediate else "brightness_close",
+                    close_target,
+                )
+            elif (
+                self._auto_enabled(CONF_AUTO_TIME)
+                and self._auto_enabled(CONF_AUTO_DOWN)
+                and close_due
+                and not self._manual_schedule_adopted_today("close")
+            ):
+                regular_close_event = (
+                    self._next_close or now,
+                    "scheduled_intermediate_close" if uses_intermediate else "scheduled_close",
+                    close_target,
+                )
+
+        if close_condition and summer_close_suppressed:
+            self._reason = "summer_period"
+            self._decision_controls.add("time")
+
+        if (
+            auto_ventilate
+            and full_contact_active
+            and self._active_safety != "frost"
+            and regular_close_event is None
+        ):
             if (
                 ventilation_condition
                 and not resident_blocks_ventilation
@@ -469,8 +624,6 @@ class EvaluationMixin:
                 self.persist_status()
                 self._publish_state()
             return
-
-        current_position = self._current_position()
 
         shading_over_ventilation_active = False
         if (
@@ -496,6 +649,8 @@ class EvaluationMixin:
         if (
             auto_ventilate
             and tilt_contact_active
+            and self._active_safety != "frost"
+            and regular_close_event is None
             and ventilation_condition
             and not resident_blocks_ventilation
             and not shading_over_ventilation_active
@@ -628,6 +783,15 @@ class EvaluationMixin:
                 shading_allowed = shading_allowed and shading_tilt_condition
             if tilt_lock_shading_start and not shading_active:
                 shading_allowed = False
+            heat_active_now, _temperature = self._heat_protection_state()
+            if (
+                shading_active
+                and not heat_active_now
+                and self._reason == "heat_protection"
+            ):
+                self._set_heat_protection_status(False, True)
+                self._reason = "shading"
+                self.persist_status()
             if shading_allowed:
                 if self._shading_pending_active("end"):
                     self._clear_shading_pending("end")
@@ -652,10 +816,24 @@ class EvaluationMixin:
                     if started_ts and now.timestamp() - started_ts > max_duration:
                         self._clear_shading_pending("start")
             if shading_active and shading_allowed:
-                shading_target = self._effective_shading_position()
-                if not self._position_matches(shading_target, current_position):
-                    await self._set_position(shading_target, "shading")
+                shading_target, reason, heat_hold = (
+                    self._active_shading_target_reason(current_position)
+                )
+                heat_active = reason == "heat_protection"
+                changed = self._set_heat_protection_status(heat_active, heat_hold)
+                if shading_target is None:
+                    self._reason = "shading"
+                if changed:
+                    self.persist_status()
+                if shading_target is not None and not self._position_matches(
+                    shading_target, current_position
+                ):
+                    await self._set_position(shading_target, reason)
                     return
+                if self._reason != reason:
+                    self._reason = reason
+                    self.persist_status()
+                    self._publish_state()
                 shading_end_conditions_met = False
             shading_end_warranted = sun_immediate_end or (
                 shading_end_conditions_met and is_shading_allowed_window
@@ -694,9 +872,14 @@ class EvaluationMixin:
                     )
                     if started_ts and now.timestamp() - started_ts > max_end_duration:
                         self._clear_shading_pending("end")
-                        if self._reason in {"shading", "manual_shading"}:
+                        if self._reason in {
+                            "shading",
+                            "manual_shading",
+                            "heat_protection",
+                        }:
                             self._reason = None
                         self._set_status_bucket("shading", False)
+                        self._set_heat_protection_status(False, False)
                         self.persist_status()
                         self._publish_state()
                         return
@@ -723,9 +906,14 @@ class EvaluationMixin:
                         or (tilt_contact_active and tilt_lock_shading_end)
                     )
                 ):
-                    if self._reason in {"shading", "manual_shading"}:
+                    if self._reason in {
+                        "shading",
+                        "manual_shading",
+                        "heat_protection",
+                    }:
                         self._reason = None
                     self._set_status_bucket("shading", False)
+                    self._set_heat_protection_status(False, False)
                     self._clear_shading_pending(persist=False)
                     self.persist_status()
                     self._logbook_entry("Sun shading ended")
@@ -764,9 +952,14 @@ class EvaluationMixin:
                         await self._command_tilt_position(
                             float(open_tilt), reason="shading_end_tilt"
                         )
-                if self._reason in {"shading", "manual_shading"}:
+                if self._reason in {
+                    "shading",
+                    "manual_shading",
+                    "heat_protection",
+                }:
                     self._reason = None
                 self._set_status_bucket("shading", False)
+                self._set_heat_protection_status(False, False)
                 self._clear_shading_pending("end", persist=False)
                 self.persist_status()
                 self._logbook_entry("Sun shading ended")
@@ -792,16 +985,18 @@ class EvaluationMixin:
                     return
                 if self._shading_pending_active("start"):
                     self._clear_shading_pending("start")
-                shading_target = self._effective_shading_position()
+                heat_active, _temperature = self._heat_protection_state()
+                shading_target, reason = self._shading_target_reason()
+                self._set_heat_protection_status(heat_active, heat_active)
                 if (
                     current_position is None
                     or self._position_is_above(current_position, shading_target)
                     or self._position_matches(shading_target, current_position)
                     or self._status_active("open")
                 ):
-                    await self._set_position(shading_target, "shading")
+                    await self._set_position(shading_target, reason)
                 else:
-                    self._reason = "shading"
+                    self._reason = reason
                     self._set_status_bucket("shading", True)
                     self.persist_status()
                     self._publish_state()
@@ -835,75 +1030,13 @@ class EvaluationMixin:
             self._set_ventilation_status(False, False)
             self.persist_status()
 
-        close_target = self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION)
         open_target = self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)
-        close_status_satisfied = self._status_active(
-            "close"
-        ) and self._position_matches(close_target, current_position)
         open_status_satisfied = self._status_active("open") and self._position_matches(
             open_target, current_position
         )
 
-        if (
-            close_condition
-            and not self._manual_blocks_action("close")
-            and not close_status_satisfied
-            and not self._action_already_done_today(
-                "close", CONF_PREVENT_CLOSING_MULTIPLE_TIMES
-            )
-        ):
-            close_due = (
-                (not auto_time_enabled and environment_allows_closing)
-                or is_time_down_late
-                or (
-                    (is_closing_phase or is_evening_phase)
-                    and ((not has_environment_control) or environment_allows_closing)
-                )
-            )
-            if (
-                close_due
-                and self._auto_enabled(CONF_AUTO_SUN)
-                and self._sun_allows_close(sun_elevation)
-                and not self._close_position_protected(current_position)
-            ):
-                close_events.append(
-                    (
-                        now,
-                        "sun_close",
-                        close_target,
-                    )
-                )
-            if (
-                close_due
-                and self._auto_enabled(CONF_AUTO_BRIGHTNESS)
-                and brightness is not None
-                and self._brightness_allows_close(brightness)
-                and not self._close_position_protected(current_position)
-            ):
-                close_events.append(
-                    (
-                        now,
-                        "brightness_close",
-                        close_target,
-                    )
-                )
-
-            if (
-                self._auto_enabled(CONF_AUTO_TIME)
-                and self._auto_enabled(CONF_AUTO_DOWN)
-                and close_due
-                and not close_events
-                and not self._manual_schedule_adopted_today("close")
-                and not self._close_position_protected(current_position)
-            ):
-                close_events.append(
-                    (
-                        self._next_close or now,
-                        "scheduled_close",
-                        close_target,
-                    )
-                )
-
+        if regular_close_event is not None:
+            close_events.append(regular_close_event)
         if tilt_lock_close:
             close_events = []
 
@@ -969,13 +1102,18 @@ class EvaluationMixin:
                 and not open_events
                 and not self._manual_schedule_adopted_today("open")
             ):
-                open_events.append(
-                    (
-                        self._next_open or now,
-                        "scheduled_open",
-                        open_target,
+                no_go_remaining = self._opening_no_go_remaining(now)
+                if no_go_remaining <= 0:
+                    open_events.append(
+                        (
+                            self._next_open or now,
+                            "scheduled_open",
+                            open_target,
+                        )
                     )
-                )
+                else:
+                    self._reason = "no_go_time"
+                    self._decision_controls.add("no_go_time")
 
         def _pick_event(
             candidates: list[tuple[datetime, str, float | None]],

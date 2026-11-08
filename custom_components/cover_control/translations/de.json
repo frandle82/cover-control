@@ -61,6 +61,9 @@
           "brightness_sensor": "Globale Helligkeit",
           "calendar_entity": "Kalender",
           "cold_protection_forecast_sensor": "Forecast-Quelle für Kälteschutz",
+          "fire_alarm_entity": "Feueralarm-Entity",
+          "frost_alarm_entity": "Frostalarm-Entity",
+          "rain_alarm_entity": "Regenalarm-Entity",
           "shading_brightness_sensor": "Globale Beschattungshelligkeit",
           "shading_forecast_sensor": "Wetter-/Forecast-Quelle",
           "shading_forecast_temp_sensor": "Forecast-Temperatursensor",
@@ -68,6 +71,8 @@
           "sun_elevation_dynamic_open_sensor": "Dynamische Sonnenhöhe für Öffnen",
           "sun_sensor": "Sonnensensor",
           "temperature_sensor_outdoor": "Außentemperatursensor",
+          "wind_alarm_1_entity": "Windalarm-1-Entity",
+          "wind_alarm_2_entity": "Windalarm-2-Entity",
           "workday_sensor": "Workday heute",
           "workday_tomorrow_sensor": "Workday morgen"
         },
@@ -76,6 +81,9 @@
           "brightness_sensor": "Gemeinsamer Helligkeitssensor für Räume ohne lokale Helligkeitsquelle.",
           "calendar_entity": "Gemeinsamer Kalender für Profile, die Kalendertitel auswerten.",
           "cold_protection_forecast_sensor": "Gemeinsame Wetter- oder Sensorquelle für Forecast-Werte des Kälteschutzes.",
+          "fire_alarm_entity": "Gemeinsame binäre Entity, die die persistente Feueralarm-Verriegelung aktiviert.",
+          "frost_alarm_entity": "Gemeinsame binäre Entity, die den Frostschutz aktiviert.",
+          "rain_alarm_entity": "Gemeinsame binäre Entity, die den Regenschutz aktiviert.",
           "shading_brightness_sensor": "Gemeinsamer Helligkeitssensor für Beschattungsentscheidungen.",
           "shading_forecast_sensor": "Gemeinsame Wetter-Entity für Forecast- und Wetterbedingungsregeln der Beschattung.",
           "shading_forecast_temp_sensor": "Gemeinsamer Sensor für Forecast-Temperaturwerte der Beschattung.",
@@ -83,6 +91,8 @@
           "sun_elevation_dynamic_open_sensor": "Gemeinsamer Sensor für eine dynamische Sonnenhöhe beim Öffnen.",
           "sun_sensor": "Sun-Entity für Sonnenhöhe und Azimut (Standard: sun.sun).",
           "temperature_sensor_outdoor": "Gemeinsamer Außentemperatursensor für Beschattungs- und Schutzregeln.",
+          "wind_alarm_1_entity": "Gemeinsame binäre Entity, die Windalarmstufe 1 aktiviert.",
+          "wind_alarm_2_entity": "Gemeinsame binäre Entity, die Windalarmstufe 2 aktiviert.",
           "workday_sensor": "Gemeinsame Entity, die anzeigt, ob heute ein Arbeitstag ist.",
           "workday_tomorrow_sensor": "Gemeinsame Entity, die anzeigt, ob morgen ein Arbeitstag ist."
         }
@@ -120,6 +130,7 @@
           "profile_shading": "Beschattung",
           "profile_ventilation": "Lüftung",
           "profile_resident": "Bewohner",
+          "profile_safety": "Sicherheit",
           "profile_behavior": "Manuelles Verhalten",
           "profile_done": "Fertig und speichern",
           "profile_back": "Zurück zur Profilübersicht"
@@ -132,6 +143,7 @@
           "profile_shading": "Bedingungen, Grenzwerte, Wartezeiten, Temperatur-, Helligkeits- und Forecast-Regeln der Beschattung konfigurieren.",
           "profile_ventilation": "Verhalten bei Fensterkontakten, Verzögerungen, Prioritäten und Lüftungsregeln konfigurieren.",
           "profile_resident": "Bewohnerverhalten konfigurieren.",
+          "profile_safety": "Verhalten für Feuer-, Regen-, Wind- und Frostalarm konfigurieren.",
           "profile_behavior": "Manuelles Verhalten, Bewegungsschutz und zusätzliche Verhaltensregeln konfigurieren.",
           "profile_done": "Profiländerungen speichern und zur Profilübersicht zurückkehren.",
           "profile_back": "Zurück zur Profilübersicht"
@@ -146,6 +158,12 @@
             "data": {
               "auto_brightness_enabled": "Helligkeitsautomatik",
               "auto_down_enabled": "Automatisches Schließen",
+              "intermediate_close_enabled": "Zwischenschließposition verwenden",
+              "final_close_time": "Zeit der vollständigen Schließung",
+              "summer_start": "Beginn Sommerzeitraum (TT.MM.)",
+              "summer_end": "Ende Sommerzeitraum (TT.MM.)",
+              "christmas_start": "Beginn Weihnachtszeitraum (TT.MM.)",
+              "christmas_end": "Ende Weihnachtszeitraum (TT.MM.)",
               "auto_sun_enabled": "Sonnenautomatik",
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
@@ -157,6 +175,12 @@
             "data_description": {
               "auto_brightness_enabled": "Wert für Helligkeitsautomatik in diesem Profil.",
               "auto_down_enabled": "Wert für Automatisches Schließen in diesem Profil.",
+              "intermediate_close_enabled": "Vor der vollständigen Schließung die raumeigene Zwischenposition verwenden.",
+              "final_close_time": "Zeitpunkt der abschließenden vollständigen Schließfahrt.",
+              "summer_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
+              "summer_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
+              "christmas_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
+              "christmas_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
               "auto_sun_enabled": "Wert für Sonnenautomatik in diesem Profil.",
               "auto_time_enabled": "Wert für Zeitautomatik in diesem Profil.",
               "auto_up_enabled": "Wert für Automatisches Öffnen in diesem Profil.",
@@ -218,6 +242,12 @@
             "data": {
               "auto_brightness_enabled": "Helligkeitsautomatik",
               "auto_down_enabled": "Automatisches Schließen",
+              "intermediate_close_enabled": "Zwischenschließposition verwenden",
+              "final_close_time": "Zeit der vollständigen Schließung",
+              "summer_start": "Beginn Sommerzeitraum (TT.MM.)",
+              "summer_end": "Ende Sommerzeitraum (TT.MM.)",
+              "christmas_start": "Beginn Weihnachtszeitraum (TT.MM.)",
+              "christmas_end": "Ende Weihnachtszeitraum (TT.MM.)",
               "auto_sun_enabled": "Sonnenautomatik",
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
@@ -229,6 +259,12 @@
             "data_description": {
               "auto_brightness_enabled": "Wert für Helligkeitsautomatik in diesem Profil.",
               "auto_down_enabled": "Wert für Automatisches Schließen in diesem Profil.",
+              "intermediate_close_enabled": "Vor der vollständigen Schließung die raumeigene Zwischenposition verwenden.",
+              "final_close_time": "Zeitpunkt der abschließenden vollständigen Schließfahrt.",
+              "summer_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
+              "summer_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
+              "christmas_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
+              "christmas_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
               "auto_sun_enabled": "Wert für Sonnenautomatik in diesem Profil.",
               "auto_time_enabled": "Wert für Zeitautomatik in diesem Profil.",
               "auto_up_enabled": "Wert für Automatisches Öffnen in diesem Profil.",
@@ -266,6 +302,12 @@
             "data": {
               "auto_brightness_enabled": "Helligkeitsautomatik",
               "auto_down_enabled": "Automatisches Schließen",
+              "intermediate_close_enabled": "Zwischenschließposition verwenden",
+              "final_close_time": "Zeit der vollständigen Schließung",
+              "summer_start": "Beginn Sommerzeitraum (TT.MM.)",
+              "summer_end": "Ende Sommerzeitraum (TT.MM.)",
+              "christmas_start": "Beginn Weihnachtszeitraum (TT.MM.)",
+              "christmas_end": "Ende Weihnachtszeitraum (TT.MM.)",
               "auto_sun_enabled": "Sonnenautomatik",
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
@@ -277,6 +319,12 @@
             "data_description": {
               "auto_brightness_enabled": "Wert für Helligkeitsautomatik in diesem Profil.",
               "auto_down_enabled": "Wert für Automatisches Schließen in diesem Profil.",
+              "intermediate_close_enabled": "Vor der vollständigen Schließung die raumeigene Zwischenposition verwenden.",
+              "final_close_time": "Zeitpunkt der abschließenden vollständigen Schließfahrt.",
+              "summer_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
+              "summer_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
+              "christmas_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
+              "christmas_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
               "auto_sun_enabled": "Wert für Sonnenautomatik in diesem Profil.",
               "auto_time_enabled": "Wert für Zeitautomatik in diesem Profil.",
               "auto_up_enabled": "Wert für Automatisches Öffnen in diesem Profil.",
@@ -359,6 +407,8 @@
             "name": "Beschattungstemperatur",
             "data": {
               "cold_protection_temperature": "Kälteschutztemperatur",
+              "heat_protection_enabled": "Hitzeschutz aktiviert",
+              "heat_protection_threshold": "Hitzeschutzschwelle",
               "shading_independent_temp": "Unabhängige Temperatur",
               "shading_min_temperatur1": "Mindesttemperatur 1",
               "shading_min_temperatur2": "Mindesttemperatur 2",
@@ -370,6 +420,8 @@
             },
             "data_description": {
               "cold_protection_temperature": "Wert für Kälteschutztemperatur in diesem Profil.",
+              "heat_protection_enabled": "Bei überschrittener Außentemperaturschwelle und erfüllten Beschattungsbedingungen vollständig schließen.",
+              "heat_protection_threshold": "Außentemperaturschwelle für das vollständige Schließen zum Hitzeschutz.",
               "shading_independent_temp": "Wert für Unabhängige Temperatur in diesem Profil.",
               "shading_min_temperatur1": "Wert für Mindesttemperatur 1 in diesem Profil.",
               "shading_min_temperatur2": "Wert für Mindesttemperatur 2 in diesem Profil.",
@@ -511,7 +563,8 @@
               "manual_override_minutes": "Dauer des manuellen Overrides",
               "manual_override_reset_mode": "Rücksetzmodus des manuellen Overrides",
               "manual_override_reset_time": "Rücksetzzeit des manuellen Overrides",
-              "manual_schedule_adoption": "Manuelle Zeitplanübernahme"
+              "manual_schedule_adoption": "Manuelle Zeitplanübernahme",
+              "no_go_time_minutes": "Öffnungs-Sperrzeit"
             },
             "data_description": {
               "manual_override_block_close": "Wert für Manueller Override blockiert Schließen in diesem Profil.",
@@ -521,7 +574,8 @@
               "manual_override_minutes": "Wert für Dauer des manuellen Overrides in diesem Profil.",
               "manual_override_reset_mode": "Wert für Rücksetzmodus des manuellen Overrides in diesem Profil.",
               "manual_override_reset_time": "Wert für Rücksetzzeit des manuellen Overrides in diesem Profil.",
-              "manual_schedule_adoption": "Wert für Manuelle Zeitplanübernahme in diesem Profil."
+              "manual_schedule_adoption": "Wert für Manuelle Zeitplanübernahme in diesem Profil.",
+              "no_go_time_minutes": "Minuten nach einer Cover-Zustandsänderung, in denen zeitgesteuertes Öffnen blockiert ist."
             }
           },
           "prevention": {
@@ -564,6 +618,72 @@
           }
         }
       },
+      "profile_safety": {
+        "title": "Profilsicherheit",
+        "description": "Konfiguriere Sicherheitsalarme für dieses Profil. Aktive Sicherheitsalarme haben Vorrang vor Zwangs-, manuellen, Kontakt- und Komfortaktionen.",
+        "sections": {
+          "safety": {
+            "name": "Sicherheitsalarme",
+            "data": {
+              "fire_alarm_enabled": "Feueralarm aktivieren",
+              "fire_alarm_target": "Feueralarmposition",
+              "rain_alarm_enabled": "Regenalarm aktivieren",
+              "rain_alarm_target": "Regenalarmposition",
+              "wind_alarm_2_enabled": "Windalarm 2 aktivieren",
+              "wind_alarm_2_target": "Windalarm-2-Position",
+              "wind_alarm_1_enabled": "Windalarm 1 aktivieren",
+              "wind_alarm_1_target": "Windalarm-1-Position",
+              "frost_alarm_enabled": "Frostalarm aktivieren",
+              "frost_alarm_target": "Frostschutzposition"
+            },
+            "data_description": {
+              "fire_alarm_enabled": "Diesen Alarm im Profil aktivieren oder deaktivieren.",
+              "fire_alarm_target": "Zielposition von 0 bis 100.",
+              "rain_alarm_enabled": "Diesen Alarm im Profil aktivieren oder deaktivieren.",
+              "rain_alarm_target": "Zielposition von 0 bis 100.",
+              "wind_alarm_2_enabled": "Diesen Alarm im Profil aktivieren oder deaktivieren.",
+              "wind_alarm_2_target": "Zielposition von 0 bis 100.",
+              "wind_alarm_1_enabled": "Diesen Alarm im Profil aktivieren oder deaktivieren.",
+              "wind_alarm_1_target": "Zielposition von 0 bis 100.",
+              "frost_alarm_enabled": "Diesen Alarm im Profil aktivieren oder deaktivieren.",
+              "frost_alarm_target": "Mindestposition bei aktivem Frostschutz."
+            }
+          }
+        }
+      },
+      "profile_safety": {
+        "title": "Profilsicherheit",
+        "description": "Konfiguriere Sicherheitsalarme für dieses Profil. Aktive Sicherheitsalarme haben Vorrang vor Zwangs-, manuellen, Kontakt- und Komfortaktionen.\n\nVerwendet von: {profile_usage}",
+        "sections": {
+          "safety": {
+            "name": "Sicherheitsalarme",
+            "data": {
+              "fire_alarm_enabled": "Feueralarm aktivieren",
+              "fire_alarm_target": "Feueralarmposition",
+              "rain_alarm_enabled": "Regenalarm aktivieren",
+              "rain_alarm_target": "Regenalarmposition",
+              "wind_alarm_2_enabled": "Windalarm 2 aktivieren",
+              "wind_alarm_2_target": "Windalarm-2-Position",
+              "wind_alarm_1_enabled": "Windalarm 1 aktivieren",
+              "wind_alarm_1_target": "Windalarm-1-Position",
+              "frost_alarm_enabled": "Frostalarm aktivieren",
+              "frost_alarm_target": "Frostschutzposition"
+            },
+            "data_description": {
+              "fire_alarm_enabled": "Diesen Alarm im Profil aktivieren oder deaktivieren.",
+              "fire_alarm_target": "Zielposition von 0 bis 100.",
+              "rain_alarm_enabled": "Diesen Alarm im Profil aktivieren oder deaktivieren.",
+              "rain_alarm_target": "Zielposition von 0 bis 100.",
+              "wind_alarm_2_enabled": "Diesen Alarm im Profil aktivieren oder deaktivieren.",
+              "wind_alarm_2_target": "Zielposition von 0 bis 100.",
+              "wind_alarm_1_enabled": "Diesen Alarm im Profil aktivieren oder deaktivieren.",
+              "wind_alarm_1_target": "Zielposition von 0 bis 100.",
+              "frost_alarm_enabled": "Diesen Alarm im Profil aktivieren oder deaktivieren.",
+              "frost_alarm_target": "Mindestposition bei aktivem Frostschutz."
+            }
+          }
+        }
+      },
       "diagnostics": {
         "title": "Diagnose",
         "description": "Profilnutzung:\n{profiles}"
@@ -587,6 +707,10 @@
             "data": {
               "open_position": "Öffnungsposition",
               "close_position": "Schließposition",
+              "intermediate_close_position": "Zwischenschließposition",
+              "christmas_position": "Weihnachtsposition",
+              "summer_skip_close_enabled": "Normales Schließen im Sommer auslassen",
+              "christmas_position_enabled": "Weihnachtsposition verwenden",
               "shading_position": "Beschattungsposition",
               "shading_position_alt": "Alternative Beschattungsposition",
               "shading_position_alt_entity": "Entity für alternative Beschattungsposition",
@@ -596,6 +720,10 @@
             "data_description": {
               "open_position": "Öffnungsposition dieses Raums festlegen.",
               "close_position": "Schließposition dieses Raums festlegen.",
+              "intermediate_close_position": "Zwischenschließposition dieses Raums festlegen.",
+              "christmas_position": "Weihnachts-Schließposition dieses Raums festlegen.",
+              "summer_skip_close_enabled": "Normale Schließentscheidungen im konfigurierten Sommerzeitraum unterdrücken.",
+              "christmas_position_enabled": "Im konfigurierten Weihnachtszeitraum die raumeigene Weihnachtsposition verwenden.",
               "shading_position": "Beschattungsposition dieses Raums festlegen.",
               "shading_position_alt": "Alternative Beschattungsposition dieses Raums festlegen.",
               "shading_position_alt_entity": "Entity für alternative Beschattungsposition dieses Raums festlegen.",
@@ -666,6 +794,28 @@
           "force_pause_entity": "Entity für Zwangspause"
         }
       },
+      "safety": {
+        "title": "Raum – Sicherheit",
+        "description": "Wähle, welche Sicherheitsalarme für diesen Raum gelten.",
+        "data": {
+          "fire_alarm_participate": "Am Feueralarm teilnehmen",
+          "rain_alarm_participate": "Am Regenalarm teilnehmen",
+          "wind_alarm_2_participate": "Am Windalarm 2 teilnehmen",
+          "wind_alarm_1_participate": "Am Windalarm 1 teilnehmen",
+          "frost_alarm_participate": "Am Frostalarm teilnehmen"
+        }
+      },
+      "safety": {
+        "title": "Raum – Sicherheit",
+        "description": "Wähle, welche Sicherheitsalarme für diesen Raum gelten.",
+        "data": {
+          "fire_alarm_participate": "Am Feueralarm teilnehmen",
+          "rain_alarm_participate": "Am Regenalarm teilnehmen",
+          "wind_alarm_2_participate": "Am Windalarm 2 teilnehmen",
+          "wind_alarm_1_participate": "Am Windalarm 1 teilnehmen",
+          "frost_alarm_participate": "Am Frostalarm teilnehmen"
+        }
+      },
       "source_overrides": {
         "title": "Raum – Lokale Datenquellen",
         "description": "Wähle hier nur eine andere Datenquelle, wenn dieser Raum bewusst von der globalen Quelle abweichen soll.",
@@ -725,8 +875,8 @@
           "drive_time": "Fahrzeit",
           "cover_tilt_wait_mode": "Lamellen-Wartemodus",
           "cover_tilt_wait_timeout": "Lamellen-Wartezeit",
-          "position_tolerance": "Positionstoleranz"
-          ,"tilt_position_tolerance": "Kipp-Positionstoleranz"
+          "position_tolerance": "Positionstoleranz",
+          "tilt_position_tolerance": "Kipp-Positionstoleranz"
         },
         "data_description": {
           "covers": "Alle Cover, die zu diesem Raum gehören und gemeinsam von Cover Control gesteuert werden.",
@@ -750,6 +900,7 @@
           "geometry": "Geometrie",
           "source_overrides": "Lokale Datenquellen",
           "controls": "Bedienelemente",
+          "safety": "Sicherheit",
           "positions": "Positionen",
           "profile_assignment": "Profil & Automatik",
           "room_diagnostics": "Diagnose",
@@ -763,6 +914,7 @@
           "geometry": "Physische Fensterausrichtung beschreiben, die mit Sonne und Beschattungsregeln ausgewertet wird.",
           "source_overrides": "Wähle nur dann eine lokale Datenquelle, wenn dieser Raum eine andere Quelle als die global konfigurierte verwenden soll.",
           "controls": "Lege fest, welche optionalen Bedienelemente und Raumfunktionen Cover Control für diesen Raum bereitstellt.",
+          "safety": "Wähle die Sicherheitsalarme des Profils, die für diesen Raum gelten.",
           "positions": "Physische Zielpositionen und Lamellenpositionen dieses Raums konfigurieren.",
           "profile_assignment": "Profil für diesen Raum und die daraus verwendeten Funktionen auswählen.",
           "room_diagnostics": "Raumstruktur und ausgewählte Profilreferenzen prüfen.",
@@ -926,12 +1078,17 @@
           "brightness_sensor": "Globale Helligkeit",
           "calendar_entity": "Kalender",
           "cold_protection_forecast_sensor": "Forecast-Quelle für Kälteschutz",
+          "fire_alarm_entity": "Feueralarm-Entity",
+          "frost_alarm_entity": "Frostalarm-Entity",
+          "rain_alarm_entity": "Regenalarm-Entity",
           "shading_brightness_sensor": "Globale Beschattungshelligkeit",
           "shading_forecast_sensor": "Wetter-/Forecast-Quelle",
           "shading_forecast_temp_sensor": "Forecast-Temperatursensor",
           "sun_elevation_dynamic_close_sensor": "Dynamische Sonnenhöhe für Schließen",
           "sun_elevation_dynamic_open_sensor": "Dynamische Sonnenhöhe für Öffnen",
           "temperature_sensor_outdoor": "Außentemperatursensor",
+          "wind_alarm_1_entity": "Windalarm-1-Entity",
+          "wind_alarm_2_entity": "Windalarm-2-Entity",
           "workday_sensor": "Workday heute",
           "workday_tomorrow_sensor": "Workday morgen"
         },
@@ -940,12 +1097,17 @@
           "brightness_sensor": "Gemeinsamer Helligkeitssensor für Räume ohne lokale Helligkeitsquelle.",
           "calendar_entity": "Gemeinsamer Kalender für Profile, die Kalendertitel auswerten.",
           "cold_protection_forecast_sensor": "Gemeinsame Wetter- oder Sensorquelle für Forecast-Werte des Kälteschutzes.",
+          "fire_alarm_entity": "Gemeinsame binäre Entity, die die persistente Feueralarm-Verriegelung aktiviert.",
+          "frost_alarm_entity": "Gemeinsame binäre Entity, die den Frostschutz aktiviert.",
+          "rain_alarm_entity": "Gemeinsame binäre Entity, die den Regenschutz aktiviert.",
           "shading_brightness_sensor": "Gemeinsamer Helligkeitssensor für Beschattungsentscheidungen.",
           "shading_forecast_sensor": "Gemeinsame Wetter-Entity für Forecast- und Wetterbedingungsregeln der Beschattung.",
           "shading_forecast_temp_sensor": "Gemeinsamer Sensor für Forecast-Temperaturwerte der Beschattung.",
           "sun_elevation_dynamic_close_sensor": "Gemeinsamer Sensor für eine dynamische Sonnenhöhe beim Schließen.",
           "sun_elevation_dynamic_open_sensor": "Gemeinsamer Sensor für eine dynamische Sonnenhöhe beim Öffnen.",
           "temperature_sensor_outdoor": "Gemeinsamer Außentemperatursensor für Beschattungs- und Schutzregeln.",
+          "wind_alarm_1_entity": "Gemeinsame binäre Entity, die Windalarmstufe 1 aktiviert.",
+          "wind_alarm_2_entity": "Gemeinsame binäre Entity, die Windalarmstufe 2 aktiviert.",
           "workday_sensor": "Gemeinsame Entity, die anzeigt, ob heute ein Arbeitstag ist.",
           "workday_tomorrow_sensor": "Gemeinsame Entity, die anzeigt, ob morgen ein Arbeitstag ist."
         }
@@ -983,6 +1145,7 @@
           "profile_shading": "Beschattung",
           "profile_ventilation": "Lüftung",
           "profile_resident": "Bewohner",
+          "profile_safety": "Sicherheit",
           "profile_behavior": "Manuelles Verhalten",
           "profile_back": "Zurück zur Profilübersicht"
         },
@@ -994,6 +1157,7 @@
           "profile_shading": "Bedingungen, Grenzwerte, Wartezeiten, Temperatur-, Helligkeits- und Forecast-Regeln der Beschattung konfigurieren.",
           "profile_ventilation": "Verhalten bei Fensterkontakten, Verzögerungen, Prioritäten und Lüftungsregeln konfigurieren.",
           "profile_resident": "Bewohnerverhalten konfigurieren.",
+          "profile_safety": "Verhalten für Feuer-, Regen-, Wind- und Frostalarm konfigurieren.",
           "profile_behavior": "Manuelles Verhalten, Bewegungsschutz und zusätzliche Verhaltensregeln konfigurieren.",
           "profile_back": "Zurück zur Profilübersicht"
         }
@@ -1007,6 +1171,12 @@
             "data": {
               "auto_brightness_enabled": "Helligkeitsautomatik",
               "auto_down_enabled": "Automatisches Schließen",
+              "intermediate_close_enabled": "Zwischenschließposition verwenden",
+              "final_close_time": "Zeit der vollständigen Schließung",
+              "summer_start": "Beginn Sommerzeitraum (TT.MM.)",
+              "summer_end": "Ende Sommerzeitraum (TT.MM.)",
+              "christmas_start": "Beginn Weihnachtszeitraum (TT.MM.)",
+              "christmas_end": "Ende Weihnachtszeitraum (TT.MM.)",
               "auto_sun_enabled": "Sonnenautomatik",
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
@@ -1018,6 +1188,12 @@
             "data_description": {
               "auto_brightness_enabled": "Wert für Helligkeitsautomatik in diesem Profil.",
               "auto_down_enabled": "Wert für Automatisches Schließen in diesem Profil.",
+              "intermediate_close_enabled": "Vor der vollständigen Schließung die raumeigene Zwischenposition verwenden.",
+              "final_close_time": "Zeitpunkt der abschließenden vollständigen Schließfahrt.",
+              "summer_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
+              "summer_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
+              "christmas_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
+              "christmas_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
               "auto_sun_enabled": "Wert für Sonnenautomatik in diesem Profil.",
               "auto_time_enabled": "Wert für Zeitautomatik in diesem Profil.",
               "auto_up_enabled": "Wert für Automatisches Öffnen in diesem Profil.",
@@ -1079,6 +1255,12 @@
             "data": {
               "auto_brightness_enabled": "Helligkeitsautomatik",
               "auto_down_enabled": "Automatisches Schließen",
+              "intermediate_close_enabled": "Zwischenschließposition verwenden",
+              "final_close_time": "Zeit der vollständigen Schließung",
+              "summer_start": "Beginn Sommerzeitraum (TT.MM.)",
+              "summer_end": "Ende Sommerzeitraum (TT.MM.)",
+              "christmas_start": "Beginn Weihnachtszeitraum (TT.MM.)",
+              "christmas_end": "Ende Weihnachtszeitraum (TT.MM.)",
               "auto_sun_enabled": "Sonnenautomatik",
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
@@ -1090,6 +1272,12 @@
             "data_description": {
               "auto_brightness_enabled": "Wert für Helligkeitsautomatik in diesem Profil.",
               "auto_down_enabled": "Wert für Automatisches Schließen in diesem Profil.",
+              "intermediate_close_enabled": "Vor der vollständigen Schließung die raumeigene Zwischenposition verwenden.",
+              "final_close_time": "Zeitpunkt der abschließenden vollständigen Schließfahrt.",
+              "summer_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
+              "summer_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
+              "christmas_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
+              "christmas_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
               "auto_sun_enabled": "Wert für Sonnenautomatik in diesem Profil.",
               "auto_time_enabled": "Wert für Zeitautomatik in diesem Profil.",
               "auto_up_enabled": "Wert für Automatisches Öffnen in diesem Profil.",
@@ -1127,6 +1315,12 @@
             "data": {
               "auto_brightness_enabled": "Helligkeitsautomatik",
               "auto_down_enabled": "Automatisches Schließen",
+              "intermediate_close_enabled": "Zwischenschließposition verwenden",
+              "final_close_time": "Zeit der vollständigen Schließung",
+              "summer_start": "Beginn Sommerzeitraum (TT.MM.)",
+              "summer_end": "Ende Sommerzeitraum (TT.MM.)",
+              "christmas_start": "Beginn Weihnachtszeitraum (TT.MM.)",
+              "christmas_end": "Ende Weihnachtszeitraum (TT.MM.)",
               "auto_sun_enabled": "Sonnenautomatik",
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
@@ -1138,6 +1332,12 @@
             "data_description": {
               "auto_brightness_enabled": "Wert für Helligkeitsautomatik in diesem Profil.",
               "auto_down_enabled": "Wert für Automatisches Schließen in diesem Profil.",
+              "intermediate_close_enabled": "Vor der vollständigen Schließung die raumeigene Zwischenposition verwenden.",
+              "final_close_time": "Zeitpunkt der abschließenden vollständigen Schließfahrt.",
+              "summer_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
+              "summer_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
+              "christmas_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
+              "christmas_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
               "auto_sun_enabled": "Wert für Sonnenautomatik in diesem Profil.",
               "auto_time_enabled": "Wert für Zeitautomatik in diesem Profil.",
               "auto_up_enabled": "Wert für Automatisches Öffnen in diesem Profil.",
@@ -1220,6 +1420,8 @@
             "name": "Beschattungstemperatur",
             "data": {
               "cold_protection_temperature": "Kälteschutztemperatur",
+              "heat_protection_enabled": "Hitzeschutz aktiviert",
+              "heat_protection_threshold": "Hitzeschutzschwelle",
               "shading_independent_temp": "Unabhängige Temperatur",
               "shading_min_temperatur1": "Mindesttemperatur 1",
               "shading_min_temperatur2": "Mindesttemperatur 2",
@@ -1231,6 +1433,8 @@
             },
             "data_description": {
               "cold_protection_temperature": "Wert für Kälteschutztemperatur in diesem Profil.",
+              "heat_protection_enabled": "Bei überschrittener Außentemperaturschwelle und erfüllten Beschattungsbedingungen vollständig schließen.",
+              "heat_protection_threshold": "Außentemperaturschwelle für das vollständige Schließen zum Hitzeschutz.",
               "shading_independent_temp": "Wert für Unabhängige Temperatur in diesem Profil.",
               "shading_min_temperatur1": "Wert für Mindesttemperatur 1 in diesem Profil.",
               "shading_min_temperatur2": "Wert für Mindesttemperatur 2 in diesem Profil.",
@@ -1372,7 +1576,8 @@
               "manual_override_minutes": "Dauer des manuellen Overrides",
               "manual_override_reset_mode": "Rücksetzmodus des manuellen Overrides",
               "manual_override_reset_time": "Rücksetzzeit des manuellen Overrides",
-              "manual_schedule_adoption": "Manuelle Zeitplanübernahme"
+              "manual_schedule_adoption": "Manuelle Zeitplanübernahme",
+              "no_go_time_minutes": "Öffnungs-Sperrzeit"
             },
             "data_description": {
               "manual_override_block_close": "Wert für Manueller Override blockiert Schließen in diesem Profil.",
@@ -1382,7 +1587,8 @@
               "manual_override_minutes": "Wert für Dauer des manuellen Overrides in diesem Profil.",
               "manual_override_reset_mode": "Wert für Rücksetzmodus des manuellen Overrides in diesem Profil.",
               "manual_override_reset_time": "Wert für Rücksetzzeit des manuellen Overrides in diesem Profil.",
-              "manual_schedule_adoption": "Wert für Manuelle Zeitplanübernahme in diesem Profil."
+              "manual_schedule_adoption": "Wert für Manuelle Zeitplanübernahme in diesem Profil.",
+              "no_go_time_minutes": "Minuten nach einer Cover-Zustandsänderung, in denen zeitgesteuertes Öffnen blockiert ist."
             }
           },
           "prevention": {
@@ -1448,6 +1654,10 @@
             "data": {
               "open_position": "Öffnungsposition",
               "close_position": "Schließposition",
+              "intermediate_close_position": "Zwischenschließposition",
+              "christmas_position": "Weihnachtsposition",
+              "summer_skip_close_enabled": "Normales Schließen im Sommer auslassen",
+              "christmas_position_enabled": "Weihnachtsposition verwenden",
               "shading_position": "Beschattungsposition",
               "shading_position_alt": "Alternative Beschattungsposition",
               "shading_position_alt_entity": "Entity für alternative Beschattungsposition",
@@ -1457,6 +1667,10 @@
             "data_description": {
               "open_position": "Öffnungsposition dieses Raums festlegen.",
               "close_position": "Schließposition dieses Raums festlegen.",
+              "intermediate_close_position": "Zwischenschließposition dieses Raums festlegen.",
+              "christmas_position": "Weihnachts-Schließposition dieses Raums festlegen.",
+              "summer_skip_close_enabled": "Normale Schließentscheidungen im konfigurierten Sommerzeitraum unterdrücken.",
+              "christmas_position_enabled": "Im konfigurierten Weihnachtszeitraum die raumeigene Weihnachtsposition verwenden.",
               "shading_position": "Beschattungsposition dieses Raums festlegen.",
               "shading_position_alt": "Alternative Beschattungsposition dieses Raums festlegen.",
               "shading_position_alt_entity": "Entity für alternative Beschattungsposition dieses Raums festlegen.",
@@ -1605,6 +1819,7 @@
           "geometry": "Geometrie",
           "source_overrides": "Lokale Datenquellen",
           "controls": "Bedienelemente",
+          "safety": "Sicherheit",
           "positions": "Positionen",
           "profile_assignment": "Profil & Automatik",
           "room_diagnostics": "Diagnose",
@@ -1618,6 +1833,7 @@
           "geometry": "Physische Fensterausrichtung beschreiben, die mit Sonne und Beschattungsregeln ausgewertet wird.",
           "source_overrides": "Wähle nur dann eine lokale Datenquelle, wenn dieser Raum eine andere Quelle als die global konfigurierte verwenden soll.",
           "controls": "Lege fest, welche optionalen Bedienelemente und Raumfunktionen Cover Control für diesen Raum bereitstellt.",
+          "safety": "Wähle die Sicherheitsalarme des Profils, die für diesen Raum gelten.",
           "positions": "Physische Zielpositionen und Lamellenpositionen dieses Raums konfigurieren.",
           "profile_assignment": "Profil für diesen Raum und die daraus verwendeten Funktionen auswählen.",
           "room_diagnostics": "Raumstruktur und ausgewählte Profilreferenzen prüfen.",
@@ -1738,6 +1954,7 @@
         "shading": "Beschattung",
         "ventilation": "Lüftung",
         "resident": "Bewohnerverhalten",
+        "safety": "Sicherheitsalarme",
         "behavior": "Manuelles Verhalten"
       }
     },
@@ -1765,7 +1982,7 @@
         "custom_sensor": "Eigener Positionssensor"
       }
     },
-      "sun_elevation_mode": {
+    "sun_elevation_mode": {
       "options": {
         "fixed": "Fest",
         "dynamic": "Dynamisch",
@@ -1861,6 +2078,14 @@
           "resident": "Bewohnersteuerung",
           "ventilation": "Lüftungssteuerung",
           "shading": "Beschattungssteuerung",
+          "heat_protection": "Hitzeschutz",
+          "safety": "Sicherheitssteuerung",
+          "fire_alarm": "Feueralarm",
+          "rain_alarm": "Regenalarm",
+          "wind_alarm_2": "Windalarm 2",
+          "wind_alarm_1": "Windalarm 1",
+          "frost_alarm": "Frostschutz",
+          "fire_latched": "Feueralarm verriegelt",
           "manual_override": "Manuelle Übersteuerung",
           "force_open": "Erzwungenes Öffnen",
           "force_close": "Erzwungenes Schließen",
@@ -1869,6 +2094,8 @@
           "force_pause": "Zwangspause",
           "window_lockout": "Fenstersperre",
           "additional_condition": "Zusatzbedingung",
+          "no_go_time": "Öffnungs-Sperrzeit",
+          "summer_period": "Sommerzeitraum",
           "recovery": "Wiederherstellung",
           "multiple": "Mehrere Steuerungen"
         }
@@ -1903,6 +2130,9 @@
       },
       "clear_manual_override": {
         "name": "Manuellen Override löschen"
+      },
+      "reset_fire_latch": {
+        "name": "Feueralarm-Verriegelung zurücksetzen"
       }
     }
   }

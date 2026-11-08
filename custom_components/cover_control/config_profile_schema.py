@@ -55,6 +55,7 @@ _BOOLEAN_KEYS = frozenset(
         c.CONF_AUTO_TIME,
         c.CONF_AUTO_BRIGHTNESS,
         c.CONF_AUTO_SUN,
+        c.CONF_INTERMEDIATE_CLOSE_ENABLED,
         c.CONF_USE_WORKDAY_SENSOR,
         c.CONF_USE_BRIGHTNESS_SENSOR,
         c.CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
@@ -64,6 +65,7 @@ _BOOLEAN_KEYS = frozenset(
         c.CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
         c.CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
         c.CONF_SHADING_INDEPENDENT_HOLDS_END,
+        c.CONF_HEAT_PROTECTION_ENABLED,
         c.CONF_AUTO_VENTILATE,
         c.CONF_RESIDENT_STATUS,
         c.CONF_RESIDENT_OPEN_ENABLED,
@@ -94,6 +96,10 @@ _BOOLEAN_KEYS = frozenset(
         c.CONF_LOCKOUT_TILT_CLOSE,
         c.CONF_LOCKOUT_TILT_SHADING_START,
         c.CONF_LOCKOUT_TILT_SHADING_END,
+        *(
+            enabled_key
+            for _alarm, _entity, enabled_key, _target, _room, _default in c.SAFETY_ALARMS
+        ),
     }
 )
 
@@ -108,6 +114,7 @@ _TIME_KEYS = frozenset(
         c.CONF_TIME_DOWN_EARLY_NON_WORKDAY,
         c.CONF_TIME_DOWN_LATE_NON_WORKDAY,
         c.CONF_MANUAL_OVERRIDE_RESET_TIME,
+        c.CONF_FINAL_CLOSE_TIME,
     }
 )
 
@@ -115,6 +122,8 @@ _POSITION_KEYS = frozenset(
     {
         c.CONF_OPEN_POSITION,
         c.CONF_CLOSE_POSITION,
+        c.CONF_INTERMEDIATE_CLOSE_POSITION,
+        c.CONF_CHRISTMAS_POSITION,
         c.CONF_VENTILATE_POSITION,
         c.CONF_LOCKOUT_POSITION,
         c.CONF_SHADING_POSITION,
@@ -127,6 +136,11 @@ _POSITION_KEYS = frozenset(
         c.CONF_SHADING_TILT_POSITION_1,
         c.CONF_SHADING_TILT_POSITION_2,
         c.CONF_SHADING_TILT_POSITION_3,
+        c.CONF_FIRE_ALARM_TARGET,
+        c.CONF_RAIN_ALARM_TARGET,
+        c.CONF_WIND_ALARM_2_TARGET,
+        c.CONF_WIND_ALARM_1_TARGET,
+        c.CONF_FROST_ALARM_TARGET,
     }
 )
 
@@ -154,6 +168,7 @@ _TEMPERATURE_KEYS = frozenset(
         c.CONF_SHADING_MIN_TEMPERATURE_2,
         c.CONF_SHADING_FORECAST_TEMP,
         c.CONF_SHADING_INDEPENDENT_TEMP,
+        c.CONF_HEAT_PROTECTION_THRESHOLD,
         c.CONF_TEMPERATURE_THRESHOLD,
         c.CONF_TEMPERATURE_FORECAST_THRESHOLD,
     }
@@ -233,7 +248,16 @@ _SELECTS = {
     ),
 }
 
-_TEXT_KEYS = frozenset({c.CONF_CALENDAR_OPEN_TITLE, c.CONF_CALENDAR_CLOSE_TITLE})
+_TEXT_KEYS = frozenset(
+    {
+        c.CONF_CALENDAR_OPEN_TITLE,
+        c.CONF_CALENDAR_CLOSE_TITLE,
+        c.CONF_SUMMER_START,
+        c.CONF_SUMMER_END,
+        c.CONF_CHRISTMAS_START,
+        c.CONF_CHRISTMAS_END,
+    }
+)
 
 _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
     c.PROFILE_TYPE_TIME: (
@@ -243,6 +267,7 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_AUTO_TIME,
                 c.CONF_AUTO_UP,
                 c.CONF_AUTO_DOWN,
+                c.CONF_INTERMEDIATE_CLOSE_ENABLED,
                 c.CONF_AUTO_SUN,
                 c.CONF_AUTO_BRIGHTNESS,
                 c.CONF_USE_WORKDAY_SENSOR,
@@ -267,6 +292,11 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_TIME_UP_LATE_NON_WORKDAY,
                 c.CONF_TIME_DOWN_EARLY_NON_WORKDAY,
                 c.CONF_TIME_DOWN_LATE_NON_WORKDAY,
+                c.CONF_FINAL_CLOSE_TIME,
+                c.CONF_SUMMER_START,
+                c.CONF_SUMMER_END,
+                c.CONF_CHRISTMAS_START,
+                c.CONF_CHRISTMAS_END,
             ),
         ),
         (
@@ -323,6 +353,8 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_COLD_PROTECTION_THRESHOLD,
                 c.CONF_SHADING_INDEPENDENT_TEMP,
                 c.CONF_SHADING_INDEPENDENT_HOLDS_END,
+                c.CONF_HEAT_PROTECTION_ENABLED,
+                c.CONF_HEAT_PROTECTION_THRESHOLD,
             ),
         ),
         (
@@ -369,6 +401,7 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
                 c.CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
                 c.CONF_MANUAL_SCHEDULE_ADOPTION,
+                c.CONF_NO_GO_TIME_MINUTES,
             ),
         ),
         (
@@ -398,6 +431,10 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_RESIDENT_ALLOW_OPEN,
                 c.CONF_RESIDENT_ALLOW_VENTILATION,
             ),
+        ),
+        (
+            "safety",
+            tuple(c.DEFAULT_SAFETY_SETTINGS),
         ),
         (
             "runtime_control",
@@ -445,6 +482,12 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
                 c.CONF_TIME_DOWN_LATE_WORKDAY,
                 c.CONF_TIME_DOWN_EARLY_NON_WORKDAY,
                 c.CONF_TIME_DOWN_LATE_NON_WORKDAY,
+                c.CONF_INTERMEDIATE_CLOSE_ENABLED,
+                c.CONF_FINAL_CLOSE_TIME,
+                c.CONF_SUMMER_START,
+                c.CONF_SUMMER_END,
+                c.CONF_CHRISTMAS_START,
+                c.CONF_CHRISTMAS_END,
             }
         ),
         "workday": frozenset({c.CONF_USE_WORKDAY_SENSOR}),
@@ -497,6 +540,8 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
                 c.CONF_TEMPERATURE_THRESHOLD,
                 c.CONF_TEMPERATURE_FORECAST_THRESHOLD,
                 c.CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
+                c.CONF_HEAT_PROTECTION_ENABLED,
+                c.CONF_HEAT_PROTECTION_THRESHOLD,
             }
         ),
         "forecast": frozenset(
@@ -580,6 +625,7 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
                 c.CONF_RESIDENT_ALLOW_VENTILATION,
             }
         ),
+        "safety": frozenset(c.DEFAULT_SAFETY_SETTINGS),
         "runtime_control": frozenset(
             {
                 c.CONF_RECOVERY_MODE,
@@ -598,6 +644,7 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
                 c.CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
                 c.CONF_PREVENT_SHADING_MULTIPLE_TIMES,
                 c.CONF_PREVENT_DEFAULT_COVER_ACTIONS,
+                c.CONF_NO_GO_TIME_MINUTES,
             }
         ),
     },
@@ -651,6 +698,7 @@ def _build_profile_field_metadata() -> dict[str, ProfileFieldMetadata]:
         c.CONF_RESIDENT_ALLOW_OPEN,
         c.CONF_RESIDENT_ALLOW_SHADING,
         c.CONF_RESIDENT_ALLOW_VENTILATION,
+        *c.DEFAULT_SAFETY_SETTINGS.keys(),
     }
     groups = {
         profile_type: {
@@ -776,7 +824,7 @@ def _field_validator(key: str, value: Any, *, stored: bool) -> tuple[Any, Any]:
         return marker(int(value or 0)), _number_selector(0, 100, 1, "%")
     if key in {c.CONF_POSITION_TOLERANCE, c.CONF_TILT_POSITION_TOLERANCE}:
         return marker(int(value or 0)), _number_selector(0, 20, 1, "%")
-    if key == c.CONF_MANUAL_OVERRIDE_MINUTES:
+    if key in {c.CONF_MANUAL_OVERRIDE_MINUTES, c.CONF_NO_GO_TIME_MINUTES}:
         return marker(int(value or 0)), _number_selector(0, 10080, 1, "min")
     if key in _DURATION_KEYS:
         return marker(float(value or 0)), _number_selector(0, 86400, 1, "s")

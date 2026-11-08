@@ -52,7 +52,20 @@ from ..const import (
     MANUAL_OVERRIDE_RESET_TIMEOUT,
 )
 from .common import (
+    CALENDAR_BOUNDARY_TRIGGERS,
+    CONDITION_TIMER_TRIGGERS,
     IDLE_REASON,
+    TRIGGER_COVER_POSITION_CHANGED,
+    TRIGGER_RESIDENT_OFF,
+    TRIGGER_RESIDENT_ON,
+    TRIGGER_SCHEDULED_CLOSE,
+    TRIGGER_SCHEDULED_FINAL_CLOSE,
+    TRIGGER_SCHEDULED_OPEN,
+    TRIGGER_SHADING_END_TIMER,
+    TRIGGER_SHADING_START_TIMER,
+    TRIGGER_WINDOW_CLOSED,
+    TRIGGER_WINDOW_OPEN,
+    TRIGGER_WINDOW_TILTED,
     _coerce_float,
     _parse_time,
     _ts_now,
@@ -81,6 +94,7 @@ class EventsMixin:
         self.async_request_evaluate("startup")
 
     async def async_unload(self) -> None:
+        self._cancel_window_down_sequence()
         self._clear_scheduled_event_timers()
         self._clear_runtime_condition_timers()
         self._clear_manual_expiry()
@@ -91,6 +105,7 @@ class EventsMixin:
 
     @callback
     def update_config(self, new_config: ConfigType) -> None:
+        self._cancel_window_down_sequence()
         old_config = self.config
         pending_started: dict[str, datetime] = {}
         for kind, due_at in getattr(self, "_shading_pending", {}).items():
@@ -124,7 +139,7 @@ class EventsMixin:
         self._refresh_next_events(now)
         self._schedule_manual_expiry()
         self.persist_status()
-        self.async_request_evaluate("config")
+        self.async_request_evaluate("config_updated")
         self._publish_state()
 
     @callback
@@ -151,7 +166,7 @@ class EventsMixin:
         self._local_listener_entities.clear()
 
     @callback
-    def async_request_evaluate(self, trigger: str = "runtime_toggle") -> None:
+    def async_request_evaluate(self, trigger: str) -> None:
         """Request re-evaluation after runtime-only toggle changes."""
 
         if self._evaluate_callback is not None:
@@ -166,7 +181,7 @@ class EventsMixin:
         self._ensure_manual_expiry_timer(now)
         previous_position = self._last_position
         entity_id = event.data.get("entity_id")
-        trigger = "state"
+        trigger = TRIGGER_COVER_POSITION_CHANGED
         if entity_id == self.config.get(CONF_RESIDENT_SENSOR):
             old_state = event.data.get("old_state")
             new_state = event.data.get("new_state")
@@ -175,11 +190,11 @@ class EventsMixin:
             if self._resident_state_is_on(old_value) and self._resident_state_is_off(
                 new_value
             ):
-                trigger = "resident_woke"
+                trigger = TRIGGER_RESIDENT_OFF
             elif self._resident_state_is_off(old_value) and self._resident_state_is_on(
                 new_value
             ):
-                trigger = "resident_asleep"
+                trigger = TRIGGER_RESIDENT_ON
 
         if self._is_position_state_event(entity_id):
             tolerance = float(
@@ -223,9 +238,6 @@ class EventsMixin:
                 ) and not expected_command_move:
                     self._target = current
                     self._manual_movement_pending = True
-                    self._activate_manual_override(
-                        scope_all=True, reason="manual_override"
-                    )
             if getattr(self, "_manual_movement_pending", False) and current is not None:
                 cover_state = self.hass.states.get(self.cover)
                 movement_finished = cover_state is not None and cover_state.state not in {
@@ -235,6 +247,12 @@ class EventsMixin:
                 if movement_finished:
                     action = self._manual_schedule_action_for_position(current)
                     self._manual_movement_pending = False
+                    adopted_shading = self._adopt_manual_shading_position(current)
+                    if not adopted_shading and not self._manual_active:
+                        self._clear_shading_for_manual_override()
+                        self._activate_manual_override(
+                            scope_all=True, reason="manual_override"
+                        )
                     if action is not None:
                         self.hass.async_create_task(
                             self._async_adopt_manual_schedule(action, now)
@@ -256,11 +274,20 @@ class EventsMixin:
                 if no_delay_on_start
                 else (self._contact_trigger_delay() + self._contact_status_delay())
             )
+            trigger = self._window_trigger(entity_id, contact_now_active)
             if delay > 0:
-                self._schedule_delayed_evaluate("contact", delay)
+                self._schedule_delayed_evaluate(
+                    trigger, delay, timer_key=f"contact:{entity_id}"
+                )
                 return
-            trigger = "contact"
         self.async_request_evaluate(trigger)
+
+    def _window_trigger(self, entity_id: str, active: bool) -> str:
+        if active and entity_id in self._full_open_sensors():
+            return TRIGGER_WINDOW_OPEN
+        if active and entity_id in self._tilt_sensors():
+            return TRIGGER_WINDOW_TILTED
+        return TRIGGER_WINDOW_CLOSED
 
     def _is_position_state_event(self, entity_id: str | None) -> bool:
         if entity_id == self.cover:
@@ -329,22 +356,31 @@ class EventsMixin:
         if service != "set_cover_tilt_position":
             self._manual_movement_pending = True
 
-        self._activate_manual_override(scope_all=True, reason="manual_override")
+        shading_adoption_pending = (
+            service != "set_cover_tilt_position"
+            and self._manual_shading_position_matches(position)
+        )
+        if not shading_adoption_pending:
+            self._clear_shading_for_manual_override()
+            self._activate_manual_override(scope_all=True, reason="manual_override")
         self.async_request_evaluate("manual_service")
 
     @callback
-    def _schedule_delayed_evaluate(self, trigger: str, delay: int) -> None:
-        unsubscribe = self._delayed_evaluation_unsubs.pop(trigger, None)
+    def _schedule_delayed_evaluate(
+        self, trigger: str, delay: int, *, timer_key: str | None = None
+    ) -> None:
+        key = timer_key or trigger
+        unsubscribe = self._delayed_evaluation_unsubs.pop(key, None)
         if unsubscribe is not None:
             unsubscribe()
         due_at = dt_util.utcnow() + timedelta(seconds=delay)
 
         @callback
         def _handle_delayed_evaluation(_now: datetime) -> None:
-            self._delayed_evaluation_unsubs.pop(trigger, None)
+            self._delayed_evaluation_unsubs.pop(key, None)
             self.async_request_evaluate(trigger)
 
-        self._delayed_evaluation_unsubs[trigger] = async_track_point_in_time(
+        self._delayed_evaluation_unsubs[key] = async_track_point_in_time(
             self.hass, _handle_delayed_evaluation, due_at
         )
 
@@ -360,6 +396,49 @@ class EventsMixin:
                 CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
             )
         )
+
+    def _manual_shading_position_matches(self, position: float | None) -> bool:
+        """Return whether a manual target is the enabled effective shading target."""
+
+        return self._auto_enabled(CONF_AUTO_SHADING) and self._position_matches(
+            self._effective_shading_position(), position
+        )
+
+    def _adopt_manual_shading_position(self, position: float) -> bool:
+        """Adopt a completed manual move to the effective shading position."""
+
+        if (
+            not self._manual_shading_position_matches(position)
+            or self._active_safety_alarm() is not None
+            or self.fire_latched()
+        ):
+            return False
+        target = self._effective_shading_position()
+        self._target = target
+        self._status["target"] = target
+        self._reason = "shading"
+        self._set_status_bucket("shading", True)
+        self._clear_shading_pending(persist=False)
+        self.persist_status()
+        self._logbook_entry("Manual movement adopted as sun shading")
+        self._fire_event(
+            "manual_shading_adopted",
+            {"trigger": TRIGGER_COVER_POSITION_CHANGED, "reason": "shading"},
+        )
+        self._publish_state()
+        return True
+
+    def _clear_shading_for_manual_override(self) -> None:
+        """End an active shading state before applying a manual override."""
+
+        if self._status_active("shading") or self._reason in {
+            "shading",
+            "manual_shading",
+            "heat_protection",
+        }:
+            self._set_status_bucket("shading", False)
+            self._set_heat_protection_status(False, False)
+            self._clear_shading_pending(persist=False)
 
     def _activate_manual_override(
         self,
@@ -529,7 +608,14 @@ class EventsMixin:
             self._manual_until,
             self._manual_active,
             self._next_open,
-            self._next_close,
+            min(
+                point
+                for point in (self._next_close, getattr(self, "_next_final_close", None))
+                if point is not None
+            )
+            if self._next_close is not None
+            or getattr(self, "_next_final_close", None) is not None
+            else None,
             current_position,
             shading_enabled,
             shading_active,
@@ -553,6 +639,7 @@ class EventsMixin:
             and hub.room_uses_shared_time_timer(room_id)
         ):
             self._clear_scheduled_event_timers()
+            self._reschedule_final_close_timer(now)
             return
 
         self._scheduled_open_unsub, self._scheduled_open_at = (
@@ -571,6 +658,18 @@ class EventsMixin:
                 self._next_close,
                 now,
                 "close",
+            )
+        )
+        self._reschedule_final_close_timer(now)
+
+    def _reschedule_final_close_timer(self, now: datetime) -> None:
+        self._scheduled_final_close_unsub, self._scheduled_final_close_at = (
+            self._reschedule_event_timer(
+                getattr(self, "_scheduled_final_close_unsub", None),
+                getattr(self, "_scheduled_final_close_at", None),
+                getattr(self, "_next_final_close", None),
+                now,
+                "final_close",
             )
         )
 
@@ -594,10 +693,16 @@ class EventsMixin:
             if kind == "open":
                 self._scheduled_open_unsub = None
                 self._scheduled_open_at = None
+            elif kind == "final_close":
+                self._scheduled_final_close_unsub = None
+                self._scheduled_final_close_at = None
             else:
                 self._scheduled_close_unsub = None
                 self._scheduled_close_at = None
-            self.async_request_evaluate(f"scheduled_{kind}")
+            trigger = TRIGGER_SCHEDULED_OPEN if kind == "open" else TRIGGER_SCHEDULED_CLOSE
+            if kind == "final_close":
+                trigger = TRIGGER_SCHEDULED_FINAL_CLOSE
+            self.async_request_evaluate(trigger)
 
         return (
             async_track_point_in_time(self.hass, _handle_scheduled_event, next_event),
@@ -606,13 +711,18 @@ class EventsMixin:
 
     @callback
     def _clear_scheduled_event_timers(self) -> None:
-        for attribute in ("_scheduled_open_unsub", "_scheduled_close_unsub"):
+        for attribute in (
+            "_scheduled_open_unsub",
+            "_scheduled_close_unsub",
+            "_scheduled_final_close_unsub",
+        ):
             unsubscribe = getattr(self, attribute, None)
             if unsubscribe is not None:
                 unsubscribe()
                 setattr(self, attribute, None)
         self._scheduled_open_at = None
         self._scheduled_close_at = None
+        self._scheduled_final_close_at = None
 
     @callback
     def _schedule_shading_timer(self, kind: str, due_at: datetime) -> None:
@@ -621,7 +731,11 @@ class EventsMixin:
         @callback
         def _handle_shading_timer(_now: datetime) -> None:
             self._shading_timer_unsubs.pop(kind, None)
-            self.async_request_evaluate(f"shading_{kind}_timer")
+            self.async_request_evaluate(
+                TRIGGER_SHADING_START_TIMER
+                if kind == "start"
+                else TRIGGER_SHADING_END_TIMER
+            )
 
         self._shading_timer_unsubs[kind] = async_track_point_in_time(
             self.hass, _handle_shading_timer, due_at
@@ -641,7 +755,7 @@ class EventsMixin:
         @callback
         def _handle_condition_timer(_now: datetime) -> None:
             self._condition_timer_unsubs.pop(key, None)
-            self.async_request_evaluate(f"condition_timer:{key}")
+            self.async_request_evaluate(CONDITION_TIMER_TRIGGERS[key])
 
         self._condition_timer_unsubs[key] = async_track_point_in_time(
             self.hass, _handle_condition_timer, due_at
@@ -698,7 +812,7 @@ class EventsMixin:
             def _handle_calendar_boundary(_now: datetime, boundary: str = key) -> None:
                 self._calendar_timer_unsubs.pop(boundary, None)
                 self._calendar_timer_times.pop(boundary, None)
-                self.async_request_evaluate(f"calendar_boundary:{boundary}")
+                self.async_request_evaluate(CALENDAR_BOUNDARY_TRIGGERS[boundary])
 
             self._calendar_timer_times[key] = due_at
             self._calendar_timer_unsubs[key] = async_track_point_in_time(

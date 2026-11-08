@@ -13,6 +13,9 @@ from .const import (
     CONF_ENABLE_RECALIBRATE_BUTTON,
     CONF_CONTROLLER_ENTRY_ID,
     CONF_ENTRY_TYPE,
+    CONF_FIRE_ALARM_ENABLED,
+    CONF_FIRE_ALARM_ENTITY,
+    CONF_FIRE_ALARM_PARTICIPATE,
     CONF_FULL_OPEN_POSITION,
     CONF_MANUAL_CONTROL,
     CONF_NAME,
@@ -45,6 +48,19 @@ async def async_setup_entry(
                 entities.append(
                     ClearManualOverrideButton(
                         hass, entry, "clear_manual_override", room_id=room_id
+                    )
+                )
+            fire_configured = bool(
+                merged.get(CONF_FIRE_ALARM_ENABLED)
+                and merged.get(CONF_FIRE_ALARM_ENTITY)
+                and merged.get(CONF_FIRE_ALARM_PARTICIPATE)
+            )
+            if fire_configured or any(
+                controller.fire_latched() for controller in manager.controllers.values()
+            ):
+                entities.append(
+                    FireLatchResetButton(
+                        hass, entry, "reset_fire_latch", room_id=room_id
                     )
                 )
         desired = {entity.unique_id for entity in entities}
@@ -138,3 +154,14 @@ class ClearManualOverrideButton(_BaseCoverControlButton):
         manager = self._manager()
         if manager:
             manager.clear_all_manual_overrides()
+
+
+class FireLatchResetButton(_BaseCoverControlButton):
+    """Release a persisted fire latch after the fire input is inactive."""
+
+    _attr_icon = "mdi:fire-off"
+
+    async def async_press(self) -> None:
+        manager = self._manager()
+        if manager:
+            manager.reset_fire_latch()

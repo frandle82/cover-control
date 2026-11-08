@@ -30,9 +30,13 @@ from .runtime_data import CoverControlRuntime
 
 CONTROL_STATE_OPTIONS = [
     "idle", "time", "sun", "brightness", "calendar", "resident",
-    "ventilation", "shading", "manual_override", "force_open",
+    "ventilation", "shading", "heat_protection", "manual_override",
+    "force_open",
     "force_close", "force_ventilate", "force_shading", "force_pause",
-    "window_lockout", "additional_condition", "recovery", "multiple",
+    "window_lockout", "additional_condition", "no_go_time", "summer_period",
+    "recovery", "multiple",
+    "safety", "fire_alarm", "rain_alarm", "wind_alarm_2", "wind_alarm_1",
+    "frost_alarm", "fire_latched",
 ]
 
 

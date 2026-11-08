@@ -42,6 +42,7 @@ from ..const import (
     CONF_AUTO_VENTILATE,
     CONF_BRIGHTNESS_SENSOR,
     CONF_CALENDAR_ENTITY,
+    CONF_CLOSE_POSITION,
     CONF_CLOSE_TILT_POSITION,
     CONF_COVER_TILT_WAIT_MODE,
     CONF_COVER_TILT_WAIT_TIMEOUT,
@@ -88,10 +89,13 @@ from ..const import (
     CONF_WINDOW_SENSOR_TILT,
     CONF_WORKDAY_SENSOR,
     CONF_WORKDAY_TOMORROW_SENSOR,
+    FUNCTION_SAFETY,
+    SAFETY_ALARMS,
     COVER_TILT_WAIT_BEFORE_POSITION,
     COVER_TILT_WAIT_IDLE,
     DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_CLOSE_TILT_POSITION,
+    DEFAULT_CLOSE_POSITION,
     DEFAULT_COVER_TILT_WAIT_MODE,
     DEFAULT_COVER_TILT_WAIT_TIMEOUT,
     DEFAULT_DRIVE_TIME,
@@ -119,9 +123,32 @@ from ..const import (
 from .common import (
     _LOGGER,
     IDLE_REASON,
+    TRIGGER_BRIGHTNESS_CHANGED,
+    TRIGGER_DYNAMIC_SUN_CLOSE_CHANGED,
+    TRIGGER_DYNAMIC_SUN_OPEN_CHANGED,
+    TRIGGER_RESIDENT_OFF,
+    TRIGGER_RESIDENT_ON,
+    TRIGGER_SHADING_END_CHANGED,
+    TRIGGER_SHADING_START_CHANGED,
+    TRIGGER_SUN_CHANGED,
+    TRIGGER_WORKDAY_CHANGED,
+    TRIGGER_WORKDAY_TOMORROW_CHANGED,
+    TRIGGER_FIRE_ALARM_ON,
+    TRIGGER_FIRE_ALARM_OFF,
+    TRIGGER_RAIN_ALARM_ON,
+    TRIGGER_RAIN_ALARM_OFF,
+    TRIGGER_WIND_ALARM_2_ON,
+    TRIGGER_WIND_ALARM_2_OFF,
+    TRIGGER_WIND_ALARM_1_ON,
+    TRIGGER_WIND_ALARM_1_OFF,
+    TRIGGER_FROST_ALARM_ON,
+    TRIGGER_FROST_ALARM_OFF,
+    TRIGGER_WINDOW_DOWN_SEQUENCE_TARGET_REACHED,
+    WINDOW_DOWN_SEQUENCE_REASONS,
     _coerce_float,
     _float_state,
 )
+from .safety import SAFETY_REASONS
 
 _COVER_ENTITY_FEATURE = None
 _CONDITION_API = None
@@ -385,7 +412,18 @@ class ActuatorMixin:
     async def _set_position(self, position: float | None, reason: str) -> None:
         if position is None:
             return
-        if self._group_position_callback is not None:
+        frost_target = self._frost_target_if_active()
+        if (
+            reason not in SAFETY_REASONS
+            and frost_target is not None
+            and float(position) < frost_target
+        ):
+            position = frost_target
+            reason = "frost_alarm"
+        if (
+            self._group_position_callback is not None
+            and reason != "scheduled_intermediate_close"
+        ):
             await self._group_position_callback(self, float(position), reason)
             return
         await self._set_position_local(float(position), reason)
@@ -393,6 +431,9 @@ class ActuatorMixin:
     async def _set_position_local(self, position: float, reason: str) -> None:
         """Move only this cover after room-level coordination is resolved."""
 
+        sequence_needed = self._window_down_sequence_target(reason) is not None
+        if self._window_down_sequence is not None and not sequence_needed:
+            self._cancel_window_down_sequence()
         tilt_position = self._tilt_position_value(reason)
         tolerance = float(
             self._position_value(CONF_POSITION_TOLERANCE, DEFAULT_TOLERANCE)
@@ -431,15 +472,18 @@ class ActuatorMixin:
                 self._reason = reason
             self._target = target
             self._record_action_status(reason, target)
+            if sequence_needed:
+                self._start_window_down_sequence(target, reason)
             self._publish_state()
             return
         delay = self._drive_delay_seconds()
         if delay > 0:
             await asyncio.sleep(delay)
-            if self._entity_active(CONF_FORCE_PAUSE_ENTITY):
+            safety_move = reason in SAFETY_REASONS
+            if not safety_move and self._entity_active(CONF_FORCE_PAUSE_ENTITY):
                 self.async_request_evaluate("force_pause_during_delay")
                 return
-            if self._manual_active or not self._master_enabled():
+            if not safety_move and (self._manual_active or not self._master_enabled()):
                 self.async_request_evaluate("movement_gate_changed_during_delay")
                 return
             force_reasons = {
@@ -448,15 +492,20 @@ class ActuatorMixin:
                 "force_ventilate": "force_ventilate_entity",
                 "force_shading": "force_shading_entity",
             }
-            if any(
+            if not safety_move and any(
                 self._entity_active(key)
                 for key in force_reasons.values()
                 if key != force_reasons.get(reason)
             ):
                 self.async_request_evaluate("force_changed_during_delay")
                 return
-            if "close" in reason and self._contacts_active(
-                self._full_open_sensors(), dt_util.utcnow()
+            if (
+                not safety_move
+                and not sequence_needed
+                and "close" in reason
+                and self._contacts_active(
+                    self._full_open_sensors(), dt_util.utcnow()
+                )
             ):
                 self.async_request_evaluate("window_lockout_during_delay")
                 return
@@ -480,8 +529,104 @@ class ActuatorMixin:
         self._target = target
         self._reason = reason
         self._record_action_status(reason, target)
+        if sequence_needed:
+            self._start_window_down_sequence(target, reason)
         self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
+
+    def _window_down_sequence_target(
+        self, reason: str
+    ) -> tuple[str, float] | None:
+        if (
+            reason not in WINDOW_DOWN_SEQUENCE_REASONS
+            or self._is_awning()
+            or not self._auto_enabled(CONF_AUTO_VENTILATE)
+        ):
+            return None
+        for entity_id in self._full_open_sensors():
+            state = self._state_for(entity_id)
+            if state is not None and state.state in {STATE_ON, "true", "1"}:
+                open_position = self._position_value(
+                    CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION
+                )
+                return (
+                    "open",
+                    self._position_value(CONF_LOCKOUT_POSITION, open_position),
+                )
+        for entity_id in self._tilt_sensors():
+            state = self._state_for(entity_id)
+            if state is not None and state.state in {STATE_ON, "true", "1"}:
+                return (
+                    "tilted",
+                    self._position_value(
+                        CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION
+                    ),
+                )
+        return None
+
+    def _start_window_down_sequence(self, close_target: float, reason: str) -> None:
+        window = self._window_down_sequence_target(reason)
+        if window is None:
+            return
+        window_state, final_target = window
+        self._pre_ventilation_position = close_target
+        section = self._status.setdefault("ventilation", {})
+        section["background"] = {"open": False, "close": True, "shading": False}
+        section["restore_position"] = close_target
+        self._window_down_sequence = {
+            "phase": "closing",
+            "initial_target": close_target,
+            "window_state": window_state,
+            "final_target": final_target,
+            "reason": reason,
+        }
+        self.persist_status()
+        self._schedule_delayed_evaluate(
+            TRIGGER_WINDOW_DOWN_SEQUENCE_TARGET_REACHED,
+            self._duration_value(CONF_DRIVE_TIME, DEFAULT_DRIVE_TIME),
+            timer_key="window_down_sequence",
+        )
+
+    def _cancel_window_down_sequence(self) -> None:
+        timers = getattr(self, "_delayed_evaluation_unsubs", {})
+        unsubscribe = timers.pop("window_down_sequence", None)
+        if unsubscribe is not None:
+            unsubscribe()
+        self._window_down_sequence = None
+
+    async def _evaluate_window_down_sequence(self, trigger: str) -> bool:
+        sequence = self._window_down_sequence
+        if sequence is None:
+            return False
+        reason = str(sequence.get("reason") or "")
+        latest = self._window_down_sequence_target(reason)
+        if latest is not None:
+            sequence["window_state"], sequence["final_target"] = latest
+        if trigger != TRIGGER_WINDOW_DOWN_SEQUENCE_TARGET_REACHED:
+            self._decision_controls.add("ventilation")
+            self._publish_state()
+            return True
+
+        initial_target = _coerce_float(sequence.get("initial_target"))
+        self._cancel_window_down_sequence()
+        if latest is None or initial_target is None:
+            self._reason = reason or self._reason
+            self._publish_state()
+            return True
+
+        window_state, final_target = latest
+        self._pre_ventilation_position = initial_target
+        section = self._status.setdefault("ventilation", {})
+        section["background"] = {"open": False, "close": True, "shading": False}
+        section["restore_position"] = initial_target
+        await self._set_position_local(
+            final_target,
+            "ventilation_full" if window_state == "open" else "ventilation",
+        )
+        return True
+
+    def window_down_sequence_snapshot(self) -> dict[str, object]:
+        return dict(self._window_down_sequence or {})
 
     def _drive_delay_seconds(self) -> float:
         """Return the combined pre-drive delay for a real movement."""
@@ -590,7 +735,7 @@ class ActuatorMixin:
             return self._position_value(
                 CONF_OPEN_TILT_POSITION, DEFAULT_OPEN_TILT_POSITION
             )
-        if "close" in reason or reason == "resident_asleep":
+        if "close" in reason or reason in {"resident_asleep", "heat_protection"}:
             return self._position_value(
                 CONF_CLOSE_TILT_POSITION, DEFAULT_CLOSE_TILT_POSITION
             )
@@ -711,6 +856,12 @@ class ActuatorMixin:
             )
         if self._auto_enabled(CONF_RESIDENT_STATUS):
             keys.append(CONF_RESIDENT_SENSOR)
+        if FUNCTION_SAFETY in getattr(
+            self.config, "configured_functions", frozenset()
+        ):
+            for _alarm, entity_key, enabled_key, _target, room_key, _default in SAFETY_ALARMS:
+                if self.config.get(enabled_key) and self.config.get(room_key):
+                    keys.append(entity_key)
         if self.config.get(CONF_POSITION_SOURCE) == CONF_POSITION_SOURCE_CUSTOM_SENSOR:
             keys.append(CONF_CUSTOM_POSITION_SENSOR)
 
@@ -779,6 +930,105 @@ class ActuatorMixin:
 
         return self._decision_entities() - self._local_decision_entities()
 
+    def _shared_state_triggers(
+        self, entity_id: str, old_value: str | None, new_value: str | None
+    ) -> set[str]:
+        """Identify every configured role affected by one shared entity update."""
+
+        triggers: set[str] = set()
+        role_triggers = {
+            CONF_BRIGHTNESS_SENSOR: (TRIGGER_BRIGHTNESS_CHANGED,),
+            CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR: (
+                TRIGGER_DYNAMIC_SUN_OPEN_CHANGED,
+            ),
+            CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR: (
+                TRIGGER_DYNAMIC_SUN_CLOSE_CHANGED,
+            ),
+            CONF_WORKDAY_SENSOR: (TRIGGER_WORKDAY_CHANGED,),
+            CONF_WORKDAY_TOMORROW_SENSOR: (TRIGGER_WORKDAY_TOMORROW_CHANGED,),
+            CONF_CALENDAR_ENTITY: ("calendar_changed",),
+            CONF_SHADING_POSITION_ALT_ENTITY: ("shading_position_changed",),
+        }
+        for key in (
+            CONF_SHADING_BRIGHTNESS_SENSOR,
+            CONF_SHADING_TEMPERATURE_SENSOR_1,
+            CONF_SHADING_TEMPERATURE_SENSOR_2,
+            CONF_SHADING_FORECAST_SENSOR,
+            CONF_SHADING_FORECAST_TEMP_SENSOR,
+        ):
+            role_triggers[key] = (
+                TRIGGER_SHADING_START_CHANGED,
+                TRIGGER_SHADING_END_CHANGED,
+            )
+        for key in (
+            CONF_ADDITIONAL_CONDITION_GLOBAL,
+            CONF_ADDITIONAL_CONDITION_OPEN,
+            CONF_ADDITIONAL_CONDITION_CLOSE,
+            CONF_ADDITIONAL_CONDITION_VENTILATE,
+            CONF_ADDITIONAL_CONDITION_VENTILATE_END,
+            CONF_ADDITIONAL_CONDITION_SHADING,
+            CONF_ADDITIONAL_CONDITION_SHADING_TILT,
+            CONF_ADDITIONAL_CONDITION_SHADING_END,
+        ):
+            role_triggers[key] = (f"{key}_changed",)
+        for key, values in role_triggers.items():
+            if self.config.get(key) == entity_id:
+                triggers.update(values)
+
+        if entity_id == self._sun_entity():
+            triggers.add(TRIGGER_SUN_CHANGED)
+            if self._auto_enabled(CONF_AUTO_SHADING):
+                triggers.update(
+                    (TRIGGER_SHADING_START_CHANGED, TRIGGER_SHADING_END_CHANGED)
+                )
+        if self.config.get(CONF_RESIDENT_SENSOR) == entity_id:
+            if self._resident_state_is_off(old_value) and self._resident_state_is_on(
+                new_value
+            ):
+                triggers.add(TRIGGER_RESIDENT_ON)
+            elif self._resident_state_is_on(old_value) and self._resident_state_is_off(
+                new_value
+            ):
+                triggers.add(TRIGGER_RESIDENT_OFF)
+            else:
+                triggers.add("resident_changed")
+
+        alarm_triggers = {
+            "fire": (TRIGGER_FIRE_ALARM_ON, TRIGGER_FIRE_ALARM_OFF),
+            "rain": (TRIGGER_RAIN_ALARM_ON, TRIGGER_RAIN_ALARM_OFF),
+            "wind_alarm_2": (TRIGGER_WIND_ALARM_2_ON, TRIGGER_WIND_ALARM_2_OFF),
+            "wind_alarm_1": (TRIGGER_WIND_ALARM_1_ON, TRIGGER_WIND_ALARM_1_OFF),
+            "frost": (TRIGGER_FROST_ALARM_ON, TRIGGER_FROST_ALARM_OFF),
+        }
+        active_values = {"on", "true", "1", "open", "active"}
+        inactive_values = {"off", "false", "0", "closed", "inactive"}
+        old_active = str(old_value).strip().lower() in active_values
+        new_active = str(new_value).strip().lower() in active_values
+        new_inactive = str(new_value).strip().lower() in inactive_values
+        for alarm, entity_key, enabled_key, _target, room_key, _default in SAFETY_ALARMS:
+            if (
+                self.config.get(entity_key) == entity_id
+                and self.config.get(enabled_key)
+                and self.config.get(room_key)
+            ):
+                on_trigger, off_trigger = alarm_triggers[alarm]
+                if new_active and not old_active:
+                    triggers.add(on_trigger)
+                elif old_active and new_inactive:
+                    triggers.add(off_trigger)
+
+        for key in (
+            *self._auto_entity_map.values(),
+            "force_open_entity",
+            "force_close_entity",
+            "force_ventilate_entity",
+            "force_shading_entity",
+            "force_pause_entity",
+        ):
+            if self.config.get(key) == entity_id:
+                triggers.add(f"{key}_changed")
+        return triggers
+
     def _unavailable_decision_entities(self) -> set[str]:
         """Return required decision inputs which do not have a usable state."""
 
@@ -834,9 +1084,13 @@ class ActuatorMixin:
     ) -> bool:
         if not shading_enabled:
             return False
-        if self._reason not in {"shading", "manual_shading"}:
+        if self._reason not in {"shading", "manual_shading", "heat_protection"}:
             return False
-        shading_target = self._effective_shading_position()
+        shading_target = (
+            self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION)
+            if self._reason == "heat_protection"
+            else self._effective_shading_position()
+        )
         return self._position_matches(shading_target, current_position)
 
     def _ventilation_is_active(self, current_position: float | None) -> bool:

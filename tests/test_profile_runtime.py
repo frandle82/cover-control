@@ -12,6 +12,12 @@ from custom_components.cover_control.const import (
     CONF_GLOBAL,
     CONF_GLOBAL_DEFAULTS,
     CONF_GLOBAL_SOURCES,
+    CONF_HEAT_PROTECTION_ENABLED,
+    CONF_HEAT_PROTECTION_THRESHOLD,
+    CONF_SUMMER_START,
+    CONF_SUMMER_END,
+    CONF_CHRISTMAS_START,
+    CONF_CHRISTMAS_END,
     CONF_NAME,
     CONF_PROFILE_FUNCTIONS,
     CONF_PROFILE_ID,
@@ -121,6 +127,59 @@ def test_profile_change_refreshes_config_listeners_and_timers() -> None:
     assert manager.entry.runtime_data.model is manager._config_model
 
 
+def test_heat_protection_profile_update_propagates_to_loaded_room() -> None:
+    model = _model()
+    manager = _manager()
+    settings = model.data[CONF_PROFILES]["south"][CONF_PROFILE_SETTINGS]
+    settings[CONF_HEAT_PROTECTION_ENABLED] = True
+    settings[CONF_HEAT_PROTECTION_THRESHOLD] = 32
+
+    applied = manager.apply_config_model(
+        model.data, set(model.profile_users[("profile", "south")])
+    )
+
+    assert applied == {"living"}
+    resolved = manager.controllers["cover.living"].update_config.call_args.args[0]
+    assert resolved[CONF_HEAT_PROTECTION_ENABLED] is True
+    assert resolved[CONF_HEAT_PROTECTION_THRESHOLD] == 32
+
+
+def test_summer_profile_update_propagates() -> None:
+    model = _model()
+    manager = _manager()
+    model.data[CONF_PROFILES]["south"][CONF_PROFILE_FUNCTIONS].append(FUNCTION_TIME)
+    model.data[CONF_ROOMS]["living"][CONF_PROFILE_FUNCTIONS].append(FUNCTION_TIME)
+    settings = model.data[CONF_PROFILES]["south"][CONF_PROFILE_SETTINGS]
+    settings[CONF_SUMMER_START] = "15.04."
+    settings[CONF_SUMMER_END] = "15.10."
+
+    manager.apply_config_model(
+        model.data, set(model.profile_users[("profile", "south")])
+    )
+
+    resolved = manager.controllers["cover.living"].update_config.call_args.args[0]
+    assert resolved[CONF_SUMMER_START] == "15.04."
+    assert resolved[CONF_SUMMER_END] == "15.10."
+
+
+def test_christmas_profile_update_propagates() -> None:
+    model = _model()
+    manager = _manager()
+    model.data[CONF_PROFILES]["south"][CONF_PROFILE_FUNCTIONS].append(FUNCTION_TIME)
+    model.data[CONF_ROOMS]["living"][CONF_PROFILE_FUNCTIONS].append(FUNCTION_TIME)
+    settings = model.data[CONF_PROFILES]["south"][CONF_PROFILE_SETTINGS]
+    settings[CONF_CHRISTMAS_START] = "20.11."
+    settings[CONF_CHRISTMAS_END] = "10.01."
+
+    manager.apply_config_model(
+        model.data, set(model.profile_users[("profile", "south")])
+    )
+
+    resolved = manager.controllers["cover.living"].update_config.call_args.args[0]
+    assert resolved[CONF_CHRISTMAS_START] == "20.11."
+    assert resolved[CONF_CHRISTMAS_END] == "10.01."
+
+
 def test_room_source_override_changes_only_its_effective_route() -> None:
     model = _model()
     model.set_source_override(
@@ -152,7 +211,7 @@ def test_config_update_clears_pending_timers_before_rescheduling() -> None:
 
     controller._clear_runtime_condition_timers.assert_called_once_with()
     controller._refresh_next_events.assert_called_once()
-    controller.async_request_evaluate.assert_called_once_with("config")
+    controller.async_request_evaluate.assert_called_once_with("config_updated")
 
 
 def test_profile_waiting_time_reschedules_existing_pending_timer() -> None:

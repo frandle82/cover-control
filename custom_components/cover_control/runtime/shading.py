@@ -11,6 +11,9 @@ from homeassistant.const import (
 
 from ..const import (
     CONF_BRIGHTNESS_SENSOR,
+    CONF_CLOSE_POSITION,
+    CONF_HEAT_PROTECTION_ENABLED,
+    CONF_HEAT_PROTECTION_THRESHOLD,
     CONF_SHADING_BRIGHTNESS_END,
     CONF_SHADING_BRIGHTNESS_HYSTERESIS,
     CONF_SHADING_BRIGHTNESS_SENSOR,
@@ -45,6 +48,8 @@ from ..const import (
     DEFAULT_SHADING_BRIGHTNESS_END,
     DEFAULT_SHADING_BRIGHTNESS_HYSTERESIS,
     DEFAULT_SHADING_BRIGHTNESS_START,
+    DEFAULT_HEAT_PROTECTION_THRESHOLD,
+    DEFAULT_CLOSE_POSITION,
     DEFAULT_SHADING_CONDITIONS_END_AND,
     DEFAULT_SHADING_CONDITIONS_END_OR,
     DEFAULT_SHADING_CONDITIONS_START_AND,
@@ -89,6 +94,73 @@ class ShadingMixin:
             return fallback
         state = self._state_for(sensor)
         return _coerce_float(state.state if state else None)
+
+    def _heat_protection_state(self) -> tuple[bool, float | None]:
+        sensor = self.config.get(
+            CONF_SHADING_TEMPERATURE_SENSOR_2
+        ) or self.config.get(CONF_TEMPERATURE_SENSOR_OUTDOOR)
+        state = self._state_for(sensor)
+        temperature = _coerce_float(state.state if state else None)
+        threshold = _coerce_float(
+            self.config.get(
+                CONF_HEAT_PROTECTION_THRESHOLD, DEFAULT_HEAT_PROTECTION_THRESHOLD
+            )
+        )
+        active = bool(
+            self.config.get(CONF_HEAT_PROTECTION_ENABLED, False)
+            and temperature is not None
+            and threshold is not None
+            and temperature > threshold
+        )
+        return active, temperature
+
+    def _heat_protection_hold(self) -> bool:
+        section = self._status.get("heat_protection", {})
+        return bool(section.get("hold")) if isinstance(section, dict) else False
+
+    def _shading_target_reason(self) -> tuple[float, str]:
+        active, _temperature = self._heat_protection_state()
+        if active:
+            return (
+                self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
+                "heat_protection",
+            )
+        return self._effective_shading_position(), "shading"
+
+    def _active_shading_target_reason(
+        self, current_position: float | None
+    ) -> tuple[float | None, str, bool]:
+        active, _temperature = self._heat_protection_state()
+        if active:
+            target, reason = self._shading_target_reason()
+            return target, reason, True
+        close_target = self._position_value(
+            CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION
+        )
+        if self._heat_protection_hold() and self._position_matches(
+            close_target, current_position
+        ):
+            return None, "shading", True
+        return self._effective_shading_position(), "shading", False
+
+    def _set_heat_protection_status(self, active: bool, hold: bool) -> bool:
+        section = self._status.setdefault("heat_protection", {})
+        changed = (
+            section.get("active") is not active or section.get("hold") is not hold
+        )
+        section["active"] = active
+        section["hold"] = hold
+        return changed
+
+    def heat_protection_snapshot(self) -> dict[str, object]:
+        active, temperature = self._heat_protection_state()
+        return {
+            "active": active and self._reason == "heat_protection",
+            "threshold": self._number_value(
+                CONF_HEAT_PROTECTION_THRESHOLD, DEFAULT_HEAT_PROTECTION_THRESHOLD
+            ),
+            "temperature": temperature,
+        }
 
     async def _async_update_shading_forecast(self) -> None:
         forecast_entity = self.config.get(CONF_SHADING_FORECAST_SENSOR)

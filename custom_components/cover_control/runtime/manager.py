@@ -23,11 +23,15 @@ from ..config_resolver import (
 from ..config_subentries import model_from_subentries
 from ..const import (
     CONF_AUTO_BRIGHTNESS,
+    CONF_AUTO_DOWN,
     CONF_AUTO_SHADING,
     CONF_AUTO_SUN,
     CONF_AUTO_TIME,
+    CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
     CONF_COVERS,
+    CONF_HEAT_PROTECTION_ENABLED,
+    CONF_HEAT_PROTECTION_THRESHOLD,
     CONF_PROFILE_FUNCTIONS,
     CONF_PROFILE_SELECTIONS,
     CONF_RESIDENT_STATUS,
@@ -42,24 +46,40 @@ from .common import (
     IDLE_REASON,
     STORAGE_VERSION,
     _unique_covers,
+    TRIGGER_FIRE_LATCH_RESET,
+    WINDOW_DOWN_SEQUENCE_REASONS,
 )
 from .controller import CoverController
+from .safety import SAFETY_REASONS
 from ..feature_state import FeatureState, feature_configured
 
 
 def _controls_for_reason(reason: str) -> set[str]:
     """Map the runtime decision reason to diagnostic control names."""
 
-    if reason in {"scheduled_open", "scheduled_close"}:
+    if reason in {
+        "scheduled_open",
+        "scheduled_close",
+        "scheduled_intermediate_close",
+        "scheduled_final_close",
+    }:
         return {"time"}
     if reason in {"sun_open", "sun_close"}:
         return {"sun"}
     if reason.startswith("force_"):
         return {reason}
-    if reason in {"manual_override", "window_lockout", "force_pause"}:
+    if reason in {
+        "manual_override",
+        "window_lockout",
+        "force_pause",
+        "no_go_time",
+        "summer_period",
+    }:
         return {reason}
     if "ventilation" in reason:
         return {"ventilation"}
+    if reason == "heat_protection":
+        return {"heat_protection"}
     if "shading" in reason:
         return {"shading"}
     if "resident" in reason:
@@ -68,11 +88,18 @@ def _controls_for_reason(reason: str) -> set[str]:
         return {"brightness"}
     if "calendar" in reason:
         return {"calendar"}
+    if reason in SAFETY_REASONS:
+        return {reason}
     return set()
 
 
 def _blocking_controls_for_reason(reason: str) -> set[str]:
-    if reason in {"manual_override", "window_lockout", "force_pause"}:
+    if reason in {
+        "manual_override",
+        "window_lockout",
+        "force_pause",
+        "summer_period",
+    }:
         return {reason}
     if reason.startswith("additional_condition"):
         return {"additional_condition"}
@@ -146,6 +173,11 @@ class ControllerManager:
             "reason": IDLE_REASON,
             "resident_status": "off",
             "resident_entity": None,
+            "active_safety": None,
+            "fire_latched": False,
+            "safety_target": None,
+            "window_down_sequences": {},
+            "heat_protection_active": False,
         }
         self._shared_listener_unsub = None
         self._shared_entities: set[str] = set()
@@ -240,7 +272,9 @@ class ControllerManager:
                         for cover, triggers in pending.items():
                             controller = self.controllers.get(cover)
                             if controller is not None:
-                                trigger = max(triggers, key=self._trigger_priority)
+                                trigger = max(
+                                    sorted(triggers), key=self._trigger_priority
+                                )
                                 controller._evaluation_context = context
                                 try:
                                     await controller._evaluate(
@@ -263,7 +297,11 @@ class ControllerManager:
     ) -> None:
         """Apply non-ventilation room movements consistently to all covers."""
 
-        if "ventilation" in reason or reason.startswith("manual_"):
+        if (
+            "ventilation" in reason
+            or reason.startswith("manual_")
+            or reason == "frost_alarm"
+        ):
             await source._set_position_local(position, reason)
             return
 
@@ -277,7 +315,8 @@ class ControllerManager:
             "close"
             if "close" in reason or reason == "resident_asleep"
             else "shading"
-            if "shading" in reason and "end_open" not in reason
+            if ("shading" in reason or reason == "heat_protection")
+            and "end_open" not in reason
             else "open"
         )
         now = dt_util.utcnow()
@@ -285,12 +324,14 @@ class ControllerManager:
             eligible = [
                 controller
                 for controller in self.controllers.values()
-                if not controller._manual_blocks_action(action)
+                if reason in SAFETY_REASONS
+                or not controller._manual_blocks_action(action)
             ]
             independent = [
                 controller
                 for controller in eligible
                 if controller is not source
+                and reason not in WINDOW_DOWN_SEQUENCE_REASONS
                 and controller._ventilation_requires_independent_control(now)
             ]
             for controller in independent:
@@ -350,6 +391,11 @@ class ControllerManager:
                 "control_state": IDLE_REASON,
                 "resident_status": "off",
                 "resident_entity": None,
+                "active_safety": None,
+                "fire_latched": False,
+                "safety_target": None,
+                "window_down_sequences": {},
+                "heat_protection_active": False,
             },
         )
         previous = (
@@ -384,6 +430,11 @@ class ControllerManager:
         close_candidates: list[tuple[datetime, str]] = []
         active_reasons: list[str] = []
         active_controls: set[str] = set()
+        active_safety: str | None = None
+        safety_target: float | None = None
+        fire_latched = False
+        window_down_sequences: dict[str, dict[str, object]] = {}
+        heat_protection_active = False
         now = dt_util.utcnow()
         for cover, controller in self.controllers.items():
             (
@@ -404,6 +455,20 @@ class ControllerManager:
                 values = decision_controls()
                 if isinstance(values, (set, frozenset, list, tuple)):
                     active_controls.update(values)
+            safety_snapshot = getattr(controller, "safety_snapshot", None)
+            safety = safety_snapshot() if callable(safety_snapshot) else {}
+            if not isinstance(safety, dict):
+                safety = {}
+            sequence_snapshot = getattr(
+                controller, "window_down_sequence_snapshot", None
+            )
+            sequence = sequence_snapshot() if callable(sequence_snapshot) else {}
+            if not isinstance(sequence, dict):
+                sequence = {}
+            heat_snapshot_fn = getattr(controller, "heat_protection_snapshot", None)
+            heat_snapshot = heat_snapshot_fn() if callable(heat_snapshot_fn) else {}
+            if not isinstance(heat_snapshot, dict):
+                heat_snapshot = {}
             covers[cover] = {
                 "reason": reason_value,
                 "current_position": current_position,
@@ -415,7 +480,22 @@ class ControllerManager:
                 "shading_enabled": shading_enabled,
                 "shading_active": shading_active,
                 "ventilation_active": ventilation_active,
+                **safety,
+                "window_down_sequence": sequence,
+                "heat_protection": heat_snapshot,
             }
+            if sequence:
+                window_down_sequences[cover] = sequence
+            heat_protection_active = heat_protection_active or bool(
+                heat_snapshot.get("active")
+            )
+            active_safety = active_safety or safety.get("active_safety")
+            safety_target = (
+                safety.get("safety_target")
+                if safety.get("safety_target") is not None
+                else safety_target
+            )
+            fire_latched = fire_latched or bool(safety.get("fire_latched"))
             if isinstance(next_open, datetime) and next_open >= now:
                 open_candidates.append((next_open, cover))
             if isinstance(next_close, datetime) and next_close >= now:
@@ -460,6 +540,11 @@ class ControllerManager:
                 else "off"
             ),
             "resident_entity": resident_entity,
+            "active_safety": active_safety,
+            "fire_latched": fire_latched,
+            "safety_target": safety_target,
+            "window_down_sequences": window_down_sequences,
+            "heat_protection_active": heat_protection_active,
         }
 
     def entry_snapshot(self) -> dict[str, object]:
@@ -478,6 +563,8 @@ class ControllerManager:
             "shading_waitingtime_start",
             "shading_waitingtime_end",
             "temperature_threshold",
+            CONF_HEAT_PROTECTION_ENABLED,
+            CONF_HEAT_PROTECTION_THRESHOLD,
             "manual_override_minutes",
         )
         def readable_source(key: str) -> str:
@@ -559,8 +646,6 @@ class ControllerManager:
 
     @staticmethod
     def _trigger_priority(trigger: str) -> int:
-        if trigger.startswith(("condition_timer:", "calendar_boundary:")):
-            return 1
         return _TRIGGER_PRIORITY.get(trigger, 0)
 
     @callback
@@ -573,32 +658,21 @@ class ControllerManager:
     @callback
     def _handle_shared_state_event(self, event) -> None:
         entity_id = event.data.get("entity_id")
-        trigger = "sun" if entity_id == "sun.sun" or any(
-            entity_id == controller._sun_entity()
-            for controller in self.controllers.values()
-        ) else "state"
         routed_covers = self._entity_routes.get(entity_id, set())
         routed_controllers = [
             self.controllers[cover]
             for cover in routed_covers
             if cover in self.controllers
         ]
-        controller = routed_controllers[0] if routed_controllers else None
-        if controller is not None and entity_id == controller.config.get(CONF_RESIDENT_SENSOR):
-            old_state = event.data.get("old_state")
-            new_state = event.data.get("new_state")
-            old_value = old_state.state if old_state else None
-            new_value = new_state.state if new_state else None
-            if controller._resident_state_is_on(
-                old_value
-            ) and controller._resident_state_is_off(new_value):
-                trigger = "resident_woke"
-            elif controller._resident_state_is_off(
-                old_value
-            ) and controller._resident_state_is_on(new_value):
-                trigger = "resident_asleep"
+        old_state = event.data.get("old_state")
+        new_state = event.data.get("new_state")
+        old_value = old_state.state if old_state else None
+        new_value = new_state.state if new_state else None
         for routed_controller in routed_controllers:
-            self._request_evaluate(routed_controller, trigger)
+            for trigger in routed_controller._shared_state_triggers(
+                entity_id, old_value, new_value
+            ):
+                self._request_evaluate(routed_controller, trigger)
 
     @callback
     def _setup_shared_listener(self) -> None:
@@ -727,8 +801,9 @@ class ControllerManager:
 
         self._runtime_toggles[key] = bool(enabled)
         self._setup_shared_listener()
+        trigger = self._runtime_toggle_trigger(key)
         for controller in self.controllers.values():
-            controller.async_request_evaluate("runtime_toggle")
+            controller.async_request_evaluate(trigger)
 
     @callback
     def clear_runtime_toggle(self, key: str) -> None:
@@ -737,8 +812,22 @@ class ControllerManager:
         if key in self._runtime_toggles:
             self._runtime_toggles.pop(key, None)
             self._setup_shared_listener()
+            trigger = self._runtime_toggle_trigger(key)
             for controller in self.controllers.values():
-                controller.async_request_evaluate("runtime_toggle")
+                controller.async_request_evaluate(trigger)
+
+    @staticmethod
+    def _runtime_toggle_trigger(key: str) -> str:
+        return {
+            CONF_AUTO_TIME: "toggle_time",
+            CONF_AUTO_UP: "toggle_time",
+            CONF_AUTO_DOWN: "toggle_time",
+            CONF_AUTO_SUN: "toggle_sun",
+            CONF_AUTO_BRIGHTNESS: "toggle_brightness",
+            CONF_AUTO_SHADING: "toggle_shading",
+            CONF_AUTO_VENTILATE: "toggle_ventilation",
+            CONF_RESIDENT_STATUS: "toggle_resident",
+        }.get(key, f"toggle_{key}")
 
     def activate_shading(self, cover: str, minutes: int | None) -> bool:
         controller = self.controllers.get(cover)
@@ -759,6 +848,21 @@ class ControllerManager:
 
         for controller in self.controllers.values():
             controller.clear_manual_override()
+
+    def reset_fire_latch(self) -> bool:
+        latched = [
+            controller
+            for controller in self.controllers.values()
+            if controller.fire_latched()
+        ]
+        if not latched or not all(
+            controller.can_reset_fire_latch() for controller in latched
+        ):
+            return False
+        for controller in latched:
+            controller.reset_fire_latch()
+            controller.async_request_evaluate(TRIGGER_FIRE_LATCH_RESET)
+        return True
 
     async def recalibrate_cover(self, cover: str, full_open: float | None) -> bool:
         controller = self.controllers.get(cover)

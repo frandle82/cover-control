@@ -73,6 +73,10 @@ from .const import (
     CONF_CONTACT_STATUS_DELAY,
     CONF_CONTACT_TRIGGER_DELAY,
     CONF_CLOSE_POSITION,
+    CONF_INTERMEDIATE_CLOSE_POSITION,
+    CONF_CHRISTMAS_POSITION,
+    CONF_SUMMER_SKIP_CLOSE_ENABLED,
+    CONF_CHRISTMAS_POSITION_ENABLED,
     CONF_CLOSE_TILT_POSITION,
     CONF_COVER_TILT_WAIT_MODE,
     CONF_COVER_TILT_WAIT_TIMEOUT,
@@ -278,6 +282,8 @@ from .const import (
     DEFAULT_SHADING_TIMING_SETTINGS,
     DEFAULT_SHADING_WAITINGTIME_END,
     DEFAULT_SHADING_WAITINGTIME_START,
+    DEFAULT_SAFETY_PARTICIPATION,
+    DEFAULT_SAFETY_SETTINGS,
     DEFAULT_SUN_ELEVATION_CLOSE,
     DEFAULT_SUN_ELEVATION_OPEN,
     DEFAULT_SUN_ELEVATION_MODE,
@@ -298,6 +304,7 @@ from .const import (
     PROFILE_TYPE_TIME,
     PROFILE_TYPES,
     PROFILE_FUNCTIONS,
+    SAFETY_ALARMS,
     MANUAL_OVERRIDE_RESET_NONE,
     MANUAL_OVERRIDE_RESET_TIME,
     MANUAL_OVERRIDE_RESET_TIMEOUT,
@@ -325,6 +332,8 @@ def _with_config_defaults(config: dict) -> dict:
         **DEFAULT_CONTACT_SETTINGS,
         **DEFAULT_BEHAVIOR_SETTINGS,
         **DEFAULT_BUTTON_SETTINGS,
+        **DEFAULT_SAFETY_SETTINGS,
+        **DEFAULT_SAFETY_PARTICIPATION,
         **DEFAULT_SHADING_TIMING_SETTINGS,
         **{key: list(value) if isinstance(value, list) else value for key, value in DEFAULT_SHADING_CONDITION_SETTINGS.items()},
         CONF_SUN_ELEVATION_MODE: DEFAULT_SUN_ELEVATION_MODE,
@@ -452,6 +461,8 @@ SHADING_CONFIG_OPTIONS = [
 POSITION_FIELD_LIMITS = {
     CONF_OPEN_POSITION: 100,
     CONF_CLOSE_POSITION: 100,
+    CONF_INTERMEDIATE_CLOSE_POSITION: 100,
+    CONF_CHRISTMAS_POSITION: 100,
     CONF_VENTILATE_POSITION: 100,
     CONF_LOCKOUT_POSITION: 100,
     CONF_SHADING_POSITION: 100,
@@ -600,6 +611,9 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
 
     async def async_step_source_overrides(self, user_input=None):
         return await self._forward_step("source_overrides", user_input)
+
+    async def async_step_safety(self, user_input=None):
+        return await self._forward_step("safety", user_input)
 
     async def async_step_controls(self, user_input=None):
         return await self._forward_step("controls", user_input)
@@ -868,7 +882,13 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 fields[vol.Optional(key)] = (
                     selector.ConditionSelector()
                     if key == CONF_ADDITIONAL_CONDITION_GLOBAL
-                    else selector.EntitySelector(selector.EntitySelectorConfig())
+                    else selector.EntitySelector(
+                        selector.EntitySelectorConfig(
+                            domain=["binary_sensor", "input_boolean", "switch"]
+                        )
+                        if key in {alarm[1] for alarm in SAFETY_ALARMS}
+                        else selector.EntitySelectorConfig()
+                    )
                 )
             return self.async_show_form(
                 step_id="global_sources", data_schema=vol.Schema(fields)
@@ -903,7 +923,13 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             schema[marker] = (
                 selector.ConditionSelector()
                 if key == CONF_ADDITIONAL_CONDITION_GLOBAL
-                else selector.EntitySelector(selector.EntitySelectorConfig())
+                else selector.EntitySelector(
+                    selector.EntitySelectorConfig(
+                        domain=["binary_sensor", "input_boolean", "switch"]
+                    )
+                    if key in {alarm[1] for alarm in SAFETY_ALARMS}
+                    else selector.EntitySelectorConfig()
+                )
             )
         return self.async_show_form(
             step_id="global_sources", data_schema=vol.Schema(schema)
@@ -1256,6 +1282,14 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             capabilities=("manual_override", "movement_protection", "tilt_behavior"),
         )
 
+    async def async_step_profile_safety(self, user_input=None) -> FlowResult:
+        return await self._async_unified_profile_function_step(
+            PROFILE_TYPE_BEHAVIOR,
+            "profile_safety",
+            user_input,
+            capabilities=("safety",),
+        )
+
     def _profile_usage_text(
         self, model: ConfigProfileModel, profile_type: str, profile_id: str | None
     ) -> str:
@@ -1401,6 +1435,7 @@ class RoomFlowMixin:
                 "room_sensors",
                 "geometry",
                 "profile_assignment",
+                "safety",
                 "source_overrides",
                 "controls",
                 "room_diagnostics",
@@ -1460,6 +1495,32 @@ class RoomFlowMixin:
                             CONF_FORCE_PAUSE_ENTITY,
                         )
                     },
+                }
+            ),
+            description_placeholders=self._room_context_placeholders(),
+        )
+
+    async def async_step_safety(self, user_input=None) -> FlowResult:
+        data = self._room_data()
+        settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
+        if user_input is not None:
+            for _alarm, _entity, _enabled, _target, room_key, _default in SAFETY_ALARMS:
+                settings[room_key] = bool(user_input.get(room_key, False))
+            data[CONF_ROOM_SETTINGS] = settings
+            return await self._save_room(data)
+        return self.async_show_form(
+            step_id="safety",
+            data_schema=vol.Schema(
+                {
+                    vol.Optional(
+                        room_key,
+                        default=bool(
+                            settings.get(
+                                room_key, DEFAULT_SAFETY_PARTICIPATION[room_key]
+                            )
+                        ),
+                    ): bool
+                    for _alarm, _entity, _enabled, _target, room_key, _default in SAFETY_ALARMS
                 }
             ),
             description_placeholders=self._room_context_placeholders(),
@@ -1788,6 +1849,10 @@ class RoomFlowMixin:
             keys = {
                 CONF_OPEN_POSITION,
                 CONF_CLOSE_POSITION,
+                CONF_INTERMEDIATE_CLOSE_POSITION,
+                CONF_CHRISTMAS_POSITION,
+                CONF_SUMMER_SKIP_CLOSE_ENABLED,
+                CONF_CHRISTMAS_POSITION_ENABLED,
                 CONF_SHADING_POSITION,
                 CONF_SHADING_POSITION_ALT,
                 CONF_SHADING_POSITION_ALT_ENTITY,
@@ -1829,6 +1894,22 @@ class RoomFlowMixin:
                                     CONF_CLOSE_POSITION,
                                     default=_position_default(settings, CONF_CLOSE_POSITION),
                                 ): _position_number_selector(),
+                                vol.Required(
+                                    CONF_INTERMEDIATE_CLOSE_POSITION,
+                                    default=_position_default(settings, CONF_INTERMEDIATE_CLOSE_POSITION),
+                                ): _position_number_selector(),
+                                vol.Required(
+                                    CONF_CHRISTMAS_POSITION,
+                                    default=_position_default(settings, CONF_CHRISTMAS_POSITION),
+                                ): _position_number_selector(),
+                                vol.Required(
+                                    CONF_SUMMER_SKIP_CLOSE_ENABLED,
+                                    default=bool(settings.get(CONF_SUMMER_SKIP_CLOSE_ENABLED, False)),
+                                ): bool,
+                                vol.Required(
+                                    CONF_CHRISTMAS_POSITION_ENABLED,
+                                    default=bool(settings.get(CONF_CHRISTMAS_POSITION_ENABLED, False)),
+                                ): bool,
                                 vol.Required(
                                     CONF_SHADING_POSITION,
                                     default=_position_default(settings, CONF_SHADING_POSITION),
@@ -2107,6 +2188,7 @@ for _room_flow_name in (
     "async_step_geometry",
     "async_step_hardware",
     "async_step_positions",
+    "async_step_safety",
     "async_step_source_overrides",
     "async_step_profile_assignment",
     "async_step_profile_references",

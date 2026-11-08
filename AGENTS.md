@@ -28,6 +28,7 @@ Verwende bei der Bearbeitung von Aufgaben die spezialisierten Skills unter `.age
 | Phase | Skill | Zweck / Einsatzgebiet |
 |---|---|---|
 | **1. Wissensabruf & Anforderungsanalyse** | [`knowledge`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/knowledge/SKILL.md) | Relevantes Vorwissen, ADRs und Troubleshooting-Notizen aus `.agents/knowledge/` abrufen. |
+| | [`reverse-engineering-anything`](.agents/skills/reverse-engineering-anything/SKILL.md) | Fremde Referenzimplementierungen vor einer Portierung quellcodebasiert und an einem fixierten Commit analysieren. |
 | | [`grill-me`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/grill-me/SKILL.md) | Intensives Entwickler-Interview vor Codeerstellung; deckt unklare Anforderungen und Edge Cases auf. |
 | | [`cca-parity`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/cca-parity/SKILL.md) | Blueprint-Parität; Kriterien für vollständige funktionale Integration (FULL-Kette). |
 | **2. Architektur & Runtime-Entwicklung** | [`cover-control`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/cover-control/SKILL.md) | Domänenübersicht und Mixin-Aufteilung (`runtime/`). |

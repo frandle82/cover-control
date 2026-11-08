@@ -163,10 +163,11 @@ def test_parent_reconfigure_steps_have_runtime_translations() -> None:
             "profile_shading",
             "profile_ventilation",
             "profile_resident",
-                "profile_behavior",
-                "profile_done",
-                "profile_back",
-            }
+            "profile_safety",
+            "profile_behavior",
+            "profile_done",
+            "profile_back",
+        }
         assert "{profile_usage}" in steps["profile_setup"]["description"]
         assert "{profiles}" in steps["diagnostics"]["description"]
         assert "{available}" in steps["recovery"]["description"]
@@ -192,6 +193,7 @@ def test_active_room_steps_have_runtime_translations() -> None:
         "room_sensors",
         "geometry",
         "profile_assignment",
+        "safety",
         "source_overrides",
         "controls",
         "room_diagnostics",
@@ -291,6 +293,7 @@ def test_active_v6_translation_details_are_covered() -> None:
         },
         "profile_ventilation": {"ventilation"},
         "profile_resident": {"resident_behavior"},
+        "profile_safety": {"safety"},
         "profile_behavior": {"manual_override", "prevention", "tilt_wait"},
     }
     required_selectors = {
@@ -401,6 +404,7 @@ def test_legacy_config_flow_methods_are_not_active() -> None:
         "profile_shading",
         "profile_ventilation",
         "profile_resident",
+        "profile_safety",
         "profile_behavior",
         "diagnostics",
         "recovery",
@@ -424,6 +428,7 @@ def test_legacy_config_flow_methods_are_not_active() -> None:
         "profile_references",
         "profile_functions",
         "source_overrides",
+        "safety",
         "controls",
         "diagnostics",
     }
@@ -1071,7 +1076,7 @@ def test_options_translation_namespace_and_menus():
     expected_controller = {"global_sources", "profiles", "diagnostics", "recovery", "finish"}
     expected_room = {
         "general", "hardware", "positions", "contacts", "room_sensors",
-        "geometry", "profile_assignment", "source_overrides", "controls",
+            "geometry", "profile_assignment", "safety", "source_overrides", "controls",
         "room_diagnostics",
         "finish",
     }
@@ -1168,6 +1173,7 @@ async def test_parent_reconfigure_menu_exposes_hierarchical_sections(hass):
         "room_sensors",
         "geometry",
         "profile_assignment",
+        "safety",
         "source_overrides",
         "controls",
         "room_diagnostics",
@@ -1207,6 +1213,7 @@ async def test_room_reconfigure_submenus_open_without_errors(hass):
         "room_sensors",
         "geometry",
         "profile_assignment",
+        "safety",
         "source_overrides",
         "room_diagnostics",
     ):
@@ -1250,6 +1257,7 @@ async def test_room_subentry_menu_has_no_parallel_profile_editors(hass):
         "room_sensors",
         "geometry",
         "profile_assignment",
+        "safety",
         "source_overrides",
         "controls",
         "room_diagnostics",
@@ -1302,6 +1310,7 @@ async def test_room_reconfigure_cannot_open_profile_edit_steps(hass):
         "profile_shading",
         "profile_ventilation",
         "profile_resident",
+        "profile_safety",
         "profile_behavior",
     ):
         flow = await hass.config_entries.flow.async_init(
@@ -2092,6 +2101,7 @@ def test_profile_translation_context_does_not_require_title_placeholders() -> No
             "profile_shading",
             "profile_ventilation",
             "profile_resident",
+            "profile_safety",
             "profile_behavior",
         ):
             assert "{profile_name}" not in steps[step_id]["title"]

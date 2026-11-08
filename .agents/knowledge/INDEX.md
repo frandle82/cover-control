@@ -1,7 +1,7 @@
 ---
 title: Map of Content (MOC) – Cover Control Knowledge Base
 type: index
-updated: 2026-10-21
+updated: 2026-11-08
 tags:
   - moc
   - index
@@ -19,14 +19,15 @@ Willkommen in der internen Wissensdatenbank von `cover-control`. Dieser Ordner d
 ### 1. Architektur & Designentscheidungen (ADRs)
 Grundsatzentscheidungen zur Struktur, Datenhaltung und Integration:
 * 📄 [`architecture/adr-001-mixin-architecture.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/architecture/adr-001-mixin-architecture.md) – Aufteilung der Controller-Verantwortlichkeiten auf spezialisierte Mixins.
-* 📄 [`architecture/adr-002-config-entry-vs-subentry.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/architecture/adr-002-config-entry-vs-subentry.md) – Single Config Entry Modell vs. Subentries und Reconfigure Flow.
+* 📄 [`architecture/adr-002-config-entry-vs-subentry.md`](architecture/adr-002-config-entry-vs-subentry.md) – Zentraler Controller plus eigenständige Room-ConfigEntries; Profile bleiben zentrale Datenobjekte, Subentries bleiben deaktiviert.
 * 📄 [`architecture/adr-003-state-hierarchy-configured-enabled-eligible.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/architecture/adr-003-state-hierarchy-configured-enabled-eligible.md) – Das dreistufige Zustandsmodell für Profilfunktionen.
 
 ### 2. Domänenwissen & Steuerungslogik
 Fachliche Regeln für Beschattung, Fahrbefehle und Prioritäten:
-* 📄 [`domain/priorities-and-lockout.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/priorities-and-lockout.md) – Die Prioritätenhierarchie: Lockout > Force > Manual Override > Ventilation > Shading > Resident.
+* 📄 [`ioBroker-shuttercontrol.md`](ioBroker-shuttercontrol.md) – Fixierte Quellcodeanalyse von ioBroker.shuttercontrol 2.1.2 einschließlich Safety, No-Go-Time, gestuftem und saisonalem Schließen, Heat Protection und Fenster-Lüftungsfahrt.
+* 📄 [`domain/priorities-and-lockout.md`](domain/priorities-and-lockout.md) – Die Prioritätenhierarchie mit Safety oberhalb von Lockout, Force und Komfortautomation.
 * 📄 [`domain/shading-and-solar-geometry.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/shading-and-solar-geometry.md) – Sonnenberechnung (Azimut, Elevation), Hysterese und Wetterbewertung.
-* 📄 [`domain/manual-override-vs-automation.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/manual-override-vs-automation.md) – Erkennung manueller Fahrten vs. automatischer Steuerung.
+* 📄 [`domain/manual-override-vs-automation.md`](domain/manual-override-vs-automation.md) – Erkennung manueller Fahrten, Override-Abgrenzung und toleranzbasierte Adoption der effektiven Beschattungsposition.
 
 ### 3. Troubleshooting, Fallstricke & Lessons Learned
 Dokumentierte Lösungen für knifflige Bugs und HA-Spezifika:

@@ -14,6 +14,7 @@ from custom_components.cover_control.config_flow import _normalize_position_valu
 from custom_components.cover_control.const import (
     CONF_ADDITIONAL_CONDITION_OPEN,
     CONF_AUTO_DOWN,
+    CONF_AUTO_SHADING,
     CONF_AUTO_TIME,
     CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
@@ -29,6 +30,7 @@ from custom_components.cover_control.const import (
     CONF_LOCKOUT_POSITION,
     CONF_OPEN_POSITION,
     CONF_MANUAL_SCHEDULE_ADOPTION,
+    CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
     CONF_POSITION_TOLERANCE,
     CONF_SHADING_POSITION,
     CONF_SHADING_POSITION_ALT,
@@ -204,6 +206,169 @@ def test_internal_position_feedback_is_not_manual_override() -> None:
     controller._activate_manual_override.assert_not_called()
     assert controller._last_position == 40
     assert not getattr(controller, "_manual_movement_pending", False)
+
+
+def _manual_shading_controller(
+    position: float = 100,
+) -> tuple[CoverController, SimpleNamespace]:
+    cover_state = SimpleNamespace(
+        state="open",
+        attributes={"current_position": position},
+    )
+    controller = _controller(
+        {
+            CONF_MASTER_ENABLED: True,
+            CONF_AUTO_SHADING: True,
+            CONF_MANUAL_OVERRIDE_BLOCK_SHADING: True,
+            CONF_SHADING_POSITION: 30,
+            CONF_POSITION_TOLERANCE: 2,
+        },
+        {"cover.test": cover_state},
+    )
+    controller.cover = "cover.test"
+    controller._status = {}
+    controller._manual_until = None
+    controller._manual_active = False
+    controller._manual_scope_all = False
+    controller._manual_expire_unsub = None
+    controller._manual_movement_pending = False
+    controller._last_position = position
+    controller._target = position
+    controller._last_command_at = None
+    controller._last_command_context_id = None
+    controller._ignore_service_call_until = None
+    controller._next_open = None
+    controller._next_close = None
+    controller._next_final_close = None
+    controller._shading_pending = {}
+    controller._shading_timer_unsubs = {}
+    controller._last_action_dates = {}
+    controller._decision_controls = set()
+    controller._reason = None
+    controller.persist_status = Mock()
+    controller._logbook_entry = Mock()
+    controller._fire_event = Mock()
+    controller._publish_state = Mock()
+    controller._cancel_shading_timer = Mock()
+    controller._activate_manual_override = Mock()
+    controller.async_request_evaluate = Mock()
+    controller._active_safety_alarm = Mock(return_value=None)
+    controller.fire_latched = Mock(return_value=False)
+    return controller, cover_state
+
+
+def _manual_position_event(controller: CoverController, cover_state: SimpleNamespace) -> None:
+    controller._handle_state_event(
+        SimpleNamespace(
+            data={
+                "entity_id": controller.cover,
+                "old_state": None,
+                "new_state": cover_state,
+            }
+        )
+    )
+
+
+def test_manual_move_to_shading_position_is_adopted() -> None:
+    controller, cover_state = _manual_shading_controller()
+    controller._set_position = AsyncMock()
+    cover_state.attributes["current_position"] = 31
+
+    _manual_position_event(controller, cover_state)
+
+    assert controller._reason == "shading"
+    assert controller._status_active("shading")
+    assert not controller._manual_active
+    controller._activate_manual_override.assert_not_called()
+    controller._set_position.assert_not_awaited()
+    assert controller.state_snapshot()[8] is True
+    controller._fire_event.assert_called_once_with(
+        "manual_shading_adopted",
+        {"trigger": "cover_position_changed", "reason": "shading"},
+    )
+
+
+def test_manual_move_outside_shading_tolerance_sets_override() -> None:
+    controller, cover_state = _manual_shading_controller()
+    cover_state.attributes["current_position"] = 33
+
+    _manual_position_event(controller, cover_state)
+
+    controller._activate_manual_override.assert_called_once_with(
+        scope_all=True, reason="manual_override"
+    )
+    assert not controller._status_active("shading")
+
+
+def test_manual_shading_adoption_uses_position_tolerance() -> None:
+    controller, _cover_state = _manual_shading_controller()
+
+    assert controller._manual_shading_position_matches(28)
+    assert controller._manual_shading_position_matches(32)
+    assert not controller._manual_shading_position_matches(27)
+
+
+def test_manual_service_to_shading_waits_for_position_adoption() -> None:
+    controller, cover_state = _manual_shading_controller()
+    event = SimpleNamespace(
+        data={
+            "domain": "cover",
+            "service": "set_cover_position",
+            "service_data": {"entity_id": "cover.test", "position": 30},
+        },
+        context=None,
+    )
+
+    controller._handle_service_call(event)
+
+    controller._activate_manual_override.assert_not_called()
+    assert controller._manual_movement_pending
+
+    cover_state.attributes["current_position"] = 30
+    _manual_position_event(controller, cover_state)
+
+    assert controller._status_active("shading")
+    assert not controller._manual_movement_pending
+
+
+def test_second_manual_move_after_adoption_sets_override() -> None:
+    controller, cover_state = _manual_shading_controller()
+    cover_state.attributes["current_position"] = 30
+    _manual_position_event(controller, cover_state)
+    controller._activate_manual_override.reset_mock()
+
+    cover_state.attributes["current_position"] = 50
+    _manual_position_event(controller, cover_state)
+
+    controller._activate_manual_override.assert_called_once_with(
+        scope_all=True, reason="manual_override"
+    )
+    assert not controller._status_active("shading")
+
+
+def test_manual_shading_adoption_is_per_cover() -> None:
+    left, left_state = _manual_shading_controller()
+    right, _right_state = _manual_shading_controller()
+    left_state.attributes["current_position"] = 30
+
+    _manual_position_event(left, left_state)
+
+    assert left._status_active("shading")
+    assert not right._status_active("shading")
+    assert right._reason is None
+
+
+def test_safety_overrides_manual_shading_adoption() -> None:
+    controller, cover_state = _manual_shading_controller()
+    controller._active_safety_alarm.return_value = ("rain", 100)
+    cover_state.attributes["current_position"] = 30
+
+    _manual_position_event(controller, cover_state)
+
+    controller._activate_manual_override.assert_called_once_with(
+        scope_all=True, reason="manual_override"
+    )
+    assert not controller._status_active("shading")
 
 
 def test_clearing_manual_override_requests_immediate_evaluation() -> None:
@@ -550,6 +715,8 @@ def test_manual_schedule_adoption_waits_for_final_position_feedback() -> None:
     controller._manual_until = None
     controller._manual_active = False
     controller._manual_expire_unsub = None
+    controller._status = {}
+    controller._reason = None
     controller._last_position = 0
     controller._target = 0
     controller._last_command_at = None
