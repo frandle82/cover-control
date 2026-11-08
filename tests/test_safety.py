@@ -16,6 +16,8 @@ from custom_components.cover_control.const import (
     CONF_GLOBAL,
     CONF_GLOBAL_DEFAULTS,
     CONF_GLOBAL_SOURCES,
+    CONF_HEAT_PROTECTION_ENABLED,
+    CONF_HEAT_PROTECTION_THRESHOLD,
     CONF_NAME,
     CONF_PROFILE_FUNCTIONS,
     CONF_PROFILE_ID,
@@ -24,6 +26,7 @@ from custom_components.cover_control.const import (
     CONF_PROFILES,
     CONF_ROOM_PROFILE_ID,
     CONF_ROOM_SETTINGS,
+    CONF_SHADING_TEMPERATURE_SENSOR_2,
     CONF_ROOMS,
     DOMAIN,
     ENTRY_TYPE_CONTROLLER,
@@ -393,6 +396,43 @@ async def test_safety_interrupts_window_down_sequence() -> None:
 
     assert controller._window_down_sequence is None
     assert "window_down_sequence" not in controller._delayed_evaluation_unsubs
+
+
+@pytest.mark.asyncio
+async def test_heat_protection_does_not_override_safety() -> None:
+    controller = _controller(
+        {"binary_sensor.wind_alarm_1": "on", "sensor.outdoor": "35"}
+    )
+    controller.config.update(
+        {
+            CONF_HEAT_PROTECTION_ENABLED: True,
+            CONF_HEAT_PROTECTION_THRESHOLD: 30,
+            CONF_SHADING_TEMPERATURE_SENSOR_2: "sensor.outdoor",
+        }
+    )
+
+    assert await controller._evaluate_safety()
+    assert controller._active_safety == "wind_alarm_1"
+    controller._set_position.assert_awaited_once_with(100, "wind_alarm_1")
+
+
+@pytest.mark.asyncio
+async def test_heat_protection_resumes_after_safety_when_still_valid() -> None:
+    states = {"binary_sensor.wind_alarm_1": "on", "sensor.outdoor": "35"}
+    controller = _controller(states)
+    controller.config.update(
+        {
+            CONF_HEAT_PROTECTION_ENABLED: True,
+            CONF_HEAT_PROTECTION_THRESHOLD: 30,
+            CONF_SHADING_TEMPERATURE_SENSOR_2: "sensor.outdoor",
+        }
+    )
+    await controller._evaluate_safety()
+
+    states["binary_sensor.wind_alarm_1"] = "off"
+
+    assert not await controller._evaluate_safety()
+    assert controller._heat_protection_state()[0]
 
 
 @pytest.mark.asyncio

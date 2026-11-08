@@ -12,6 +12,8 @@ from custom_components.cover_control.const import (
     CONF_GLOBAL,
     CONF_GLOBAL_DEFAULTS,
     CONF_GLOBAL_SOURCES,
+    CONF_HEAT_PROTECTION_ENABLED,
+    CONF_HEAT_PROTECTION_THRESHOLD,
     CONF_NAME,
     CONF_PROFILE_FUNCTIONS,
     CONF_PROFILE_ID,
@@ -119,6 +121,23 @@ def test_profile_change_refreshes_config_listeners_and_timers() -> None:
     assert resolved[CONF_SHADING_WAITINGTIME_END] == 90
     manager._setup_shared_listener.assert_called_once_with()
     assert manager.entry.runtime_data.model is manager._config_model
+
+
+def test_heat_protection_profile_update_propagates_to_loaded_room() -> None:
+    model = _model()
+    manager = _manager()
+    settings = model.data[CONF_PROFILES]["south"][CONF_PROFILE_SETTINGS]
+    settings[CONF_HEAT_PROTECTION_ENABLED] = True
+    settings[CONF_HEAT_PROTECTION_THRESHOLD] = 32
+
+    applied = manager.apply_config_model(
+        model.data, set(model.profile_users[("profile", "south")])
+    )
+
+    assert applied == {"living"}
+    resolved = manager.controllers["cover.living"].update_config.call_args.args[0]
+    assert resolved[CONF_HEAT_PROTECTION_ENABLED] is True
+    assert resolved[CONF_HEAT_PROTECTION_THRESHOLD] == 32
 
 
 def test_room_source_override_changes_only_its_effective_route() -> None:
