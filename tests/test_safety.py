@@ -260,8 +260,11 @@ async def test_wind2_alarm_moves_to_configured_position() -> None:
     await _assert_alarm_moves("wind_alarm_2", "wind_alarm_2")
 
 
+@pytest.mark.parametrize("close_reason", ["scheduled_close", "final_close"])
 @pytest.mark.asyncio
-async def test_frost_reference_behavior() -> None:
+async def test_frost_wins_over_christmas_close_targets(close_reason: str) -> None:
+    """Frost clamps both Christmas schedule paths to the safer target."""
+
     controller = _controller({"binary_sensor.frost": "on"})
     assert not await controller._evaluate_safety()
     controller._set_position.assert_not_awaited()
@@ -274,7 +277,7 @@ async def test_frost_reference_behavior() -> None:
     controller._set_position = CoverController._set_position.__get__(controller)
     controller._group_position_callback = None
     controller._set_position_local = AsyncMock()
-    await controller._set_position(0, "scheduled_close")
+    await controller._set_position(25, close_reason)
     controller._set_position_local.assert_awaited_once_with(80, "frost_alarm")
 
 
