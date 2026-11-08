@@ -1,4 +1,4 @@
-"""Shared profile-level calculations that deliberately exclude room state."""
+"""Shared group-level calculations that deliberately exclude room state."""
 
 from __future__ import annotations
 
@@ -30,7 +30,7 @@ from ..const import (
 from .schedule import ScheduleMixin
 
 
-class _TimeProfileProbe(ScheduleMixin):
+class _TimeGroupProbe(ScheduleMixin):
     """Reuse schedule logic without creating cover state or room timers."""
 
     def __init__(self, hass, config: Mapping[str, Any]) -> None:
@@ -100,14 +100,14 @@ class _TimeProfileProbe(ScheduleMixin):
         return None
 
 
-def evaluate_time_profile(
+def evaluate_time_group(
     hass,
     config: Mapping[str, Any],
     now: datetime | None = None,
     *,
     capabilities: list[str] | tuple[str, ...] | None = None,
 ) -> tuple[datetime | None, datetime | None]:
-    """Return the next pure profile opportunities using existing schedule logic."""
+    """Return the next pure group opportunities using existing schedule logic."""
 
     effective_config = dict(config)
     capability_set = set(capabilities or ())
@@ -120,6 +120,6 @@ def evaluate_time_profile(
     if "closing" in capability_set:
         effective_config[CONF_AUTO_TIME] = True
         effective_config[CONF_AUTO_DOWN] = True
-    probe = _TimeProfileProbe(hass, effective_config)
+    probe = _TimeGroupProbe(hass, effective_config)
     probe._refresh_next_events(now or dt_util.utcnow())
     return probe._next_open, probe._next_close

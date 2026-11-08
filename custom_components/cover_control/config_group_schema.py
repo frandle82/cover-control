@@ -1,4 +1,4 @@
-"""Reusable native Home Assistant schemas for profiles and room overrides."""
+"""Reusable Home Assistant schemas for fixed groups and room overrides."""
 
 from __future__ import annotations
 
@@ -14,7 +14,7 @@ from homeassistant.helpers import selector
 from homeassistant.util import dt as dt_util
 
 from . import const as c
-from .config_resolver import PROFILE_KEYS
+from .config_resolver import GROUP_SECTION_KEYS
 
 _SHADING_CONDITIONS = [
     c.SHADING_CONDITION_AZIMUTH,
@@ -259,8 +259,8 @@ _TEXT_KEYS = frozenset(
     }
 )
 
-_PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
-    c.PROFILE_TYPE_TIME: (
+_GROUP_FIELDS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
+    c.GROUP_SECTION_TIME: (
         (
             "time_features",
             (
@@ -323,7 +323,7 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
             (c.CONF_CALENDAR_OPEN_TITLE, c.CONF_CALENDAR_CLOSE_TITLE),
         ),
     ),
-    c.PROFILE_TYPE_SHADING: (
+    c.GROUP_SECTION_SHADING: (
         (
             "shading_targets",
             (
@@ -389,7 +389,7 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
             ),
         ),
     ),
-    c.PROFILE_TYPE_BEHAVIOR: (
+    c.GROUP_SECTION_BEHAVIOR: (
         (
             "manual_override",
             (
@@ -463,8 +463,8 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
 
 # A capability is the user-facing ownership boundary for a coherent group of
 # canonical runtime keys. Runtime code continues to consume only those keys.
-PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
-    c.PROFILE_TYPE_TIME: {
+GROUP_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
+    c.GROUP_SECTION_TIME: {
         "opening": frozenset(
             {
                 c.CONF_AUTO_TIME,
@@ -517,7 +517,7 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
             }
         ),
     },
-    c.PROFILE_TYPE_SHADING: {
+    c.GROUP_SECTION_SHADING: {
         "positioning": frozenset(
             {
                 c.CONF_AUTO_SHADING,
@@ -586,7 +586,7 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
             }
         ),
     },
-    c.PROFILE_TYPE_BEHAVIOR: {
+    c.GROUP_SECTION_BEHAVIOR: {
         "manual_override": frozenset(
             {
                 c.CONF_MANUAL_OVERRIDE_MINUTES,
@@ -652,25 +652,25 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
 
 
 @dataclass(frozen=True)
-class ProfileFieldMetadata:
-    """Canonical ownership metadata shared by profile and override forms."""
+class GroupFieldMetadata:
+    """Canonical ownership metadata shared by group and override forms."""
 
     key: str
-    profile_type: str
+    section_type: str
     capability: str
     group: str
     value_type: str
     unit: str | None
     override_allowed: bool = True
-    owner: str = "PROFILE"
+    owner: str = "GROUP"
     feature: str | None = None
     ui_level: str = "advanced"
     selector: str | None = None
     default: Any = None
-    source_scope: str = "profile"
+    source_scope: str = "group"
 
 
-def _build_profile_field_metadata() -> dict[str, ProfileFieldMetadata]:
+def _build_group_field_metadata() -> dict[str, GroupFieldMetadata]:
     basic_fields = {
         c.CONF_AUTO_TIME,
         c.CONF_TIME_UP_EARLY_WORKDAY,
@@ -701,14 +701,14 @@ def _build_profile_field_metadata() -> dict[str, ProfileFieldMetadata]:
         *c.DEFAULT_SAFETY_SETTINGS.keys(),
     }
     groups = {
-        profile_type: {
+        section_type: {
             key: group
-            for group, keys in profile_groups
+            for group, keys in group_fields
             for key in keys
         }
-        for profile_type, profile_groups in _PROFILE_GROUPS.items()
+        for section_type, group_fields in _GROUP_FIELDS.items()
     }
-    metadata: dict[str, ProfileFieldMetadata] = {}
+    metadata: dict[str, GroupFieldMetadata] = {}
 
     def value_type(key: str) -> str:
         if key in _BOOLEAN_KEYS:
@@ -738,46 +738,46 @@ def _build_profile_field_metadata() -> dict[str, ProfileFieldMetadata]:
             return "lx"
         return None
 
-    for profile_type, capabilities in PROFILE_CAPABILITY_KEYS.items():
+    for section_type, capabilities in GROUP_CAPABILITY_KEYS.items():
         for capability, keys in capabilities.items():
             for key in keys:
                 selector_type = value_type(key)
-                metadata[key] = ProfileFieldMetadata(
+                metadata[key] = GroupFieldMetadata(
                     key=key,
-                    profile_type=profile_type,
+                    section_type=section_type,
                     capability=capability,
-                    group=groups[profile_type][key],
+                    group=groups[section_type][key],
                     value_type=selector_type,
                     unit=unit(key),
-                    feature=profile_type,
+                    feature=section_type,
                     ui_level="basic" if key in basic_fields else "advanced",
                     selector=selector_type,
                 )
     return metadata
 
 
-PROFILE_FIELD_METADATA = _build_profile_field_metadata()
+GROUP_FIELD_METADATA = _build_group_field_metadata()
 
 
-def capability_keys(profile_type: str, capabilities: Iterable[str]) -> frozenset[str]:
+def capability_keys(section_type: str, capabilities: Iterable[str]) -> frozenset[str]:
     """Return canonical keys owned by the selected capabilities."""
 
     selected = set(capabilities)
     return frozenset(
         key
-        for key, metadata in PROFILE_FIELD_METADATA.items()
-        if metadata.profile_type == profile_type
+        for key, metadata in GROUP_FIELD_METADATA.items()
+        if metadata.section_type == section_type
         and metadata.capability in selected
     )
 
 
-def infer_capabilities(profile_type: str, settings: Mapping[str, Any]) -> list[str]:
-    """Infer legacy profile metadata without changing effective values."""
+def infer_capabilities(section_type: str, settings: Mapping[str, Any]) -> list[str]:
+    """Infer legacy group metadata without changing effective values."""
 
     configured = set(settings)
     return [
         capability
-        for capability, keys in PROFILE_CAPABILITY_KEYS[profile_type].items()
+        for capability, keys in GROUP_CAPABILITY_KEYS[section_type].items()
         if configured & keys
     ]
 
@@ -856,38 +856,38 @@ def _field_validator(key: str, value: Any, *, stored: bool) -> tuple[Any, Any]:
         )
     if key in _TEXT_KEYS:
         return marker(str(value or "")), selector.TextSelector()
-    raise ValueError(f"No native profile selector for {key}")
+    raise ValueError(f"No native group selector for {key}")
 
 
-def profile_groups(profile_type: str) -> tuple[tuple[str, tuple[str, ...]], ...]:
+def group_fields(section_type: str) -> tuple[tuple[str, tuple[str, ...]], ...]:
     """Return canonical UI groups, ensuring every supported key is reachable."""
 
-    groups = _PROFILE_GROUPS[profile_type]
+    groups = _GROUP_FIELDS[section_type]
     grouped = {key for _name, keys in groups for key in keys}
-    missing = PROFILE_KEYS[profile_type] - grouped
-    extra = grouped - PROFILE_KEYS[profile_type]
+    missing = GROUP_SECTION_KEYS[section_type] - grouped
+    extra = grouped - GROUP_SECTION_KEYS[section_type]
     if missing or extra:
         raise ValueError(
-            f"Profile schema mismatch for {profile_type}: missing={missing}, extra={extra}"
+            f"Group schema mismatch for {section_type}: missing={missing}, extra={extra}"
         )
     return groups
 
 
-def build_profile_schema(
-    profile_type: str,
+def build_group_schema(
+    section_type: str,
     stored: Mapping[str, Any],
     fallbacks: Mapping[str, Any],
     *,
-    profile_name: str | None = None,
+    group_name: str | None = None,
     field_selection: str | None = None,
     allowed_keys: Iterable[str] | None = None,
 ) -> vol.Schema:
     """Build typed, grouped schema while keeping persistence sparse."""
 
-    allowed = frozenset(allowed_keys or PROFILE_KEYS[profile_type])
+    allowed = frozenset(allowed_keys or GROUP_SECTION_KEYS[section_type])
     schema: OrderedDict[Any, Any] = OrderedDict()
-    if profile_name is not None:
-        schema[vol.Required("profile_name", default=profile_name)] = selector.TextSelector()
+    if group_name is not None:
+        schema[vol.Required("group_name", default=group_name)] = selector.TextSelector()
     if field_selection is not None:
         schema[
             vol.Optional(
@@ -904,7 +904,7 @@ def build_profile_schema(
                 multiple=True,
             )
         )
-    for group_name, keys in profile_groups(profile_type):
+    for group_name, keys in group_fields(section_type):
         fields: OrderedDict[Any, Any] = OrderedDict()
         for key in keys:
             if key not in allowed:
@@ -925,7 +925,7 @@ def build_profile_schema(
 
 def extract_sparse_settings(
     user_input: Mapping[str, Any],
-    profile_type: str,
+    section_type: str,
     existing: Mapping[str, Any],
     *,
     field_selection: str | None = None,
@@ -933,7 +933,7 @@ def extract_sparse_settings(
 ) -> dict[str, Any]:
     """Keep selected known keys plus unknown legacy keys, never display defaults."""
 
-    allowed = frozenset(allowed_keys or PROFILE_KEYS[profile_type])
+    allowed = frozenset(allowed_keys or GROUP_SECTION_KEYS[section_type])
     selected = (
         set(user_input.get(field_selection, [])) & allowed
         if field_selection is not None
@@ -942,7 +942,7 @@ def extract_sparse_settings(
     values: dict[str, Any] = {
         key: value
         for key, value in existing.items()
-        if key not in PROFILE_KEYS[profile_type]
+        if key not in GROUP_SECTION_KEYS[section_type]
     }
     for key in selected:
         if key in user_input and user_input[key] is not None:
@@ -951,11 +951,11 @@ def extract_sparse_settings(
 
 
 def flatten_section_input(user_input: Mapping[str, Any]) -> dict[str, Any]:
-    """Flatten grouped profile form output for sparse extraction."""
+    """Flatten grouped group form output for sparse extraction."""
 
     flattened: dict[str, Any] = {}
     for key, value in user_input.items():
-        if key in {name for name, _keys in sum(_PROFILE_GROUPS.values(), ())} and isinstance(value, dict):
+        if key in {name for name, _keys in sum(_GROUP_FIELDS.values(), ())} and isinstance(value, dict):
             flattened.update(value)
         else:
             flattened[key] = value

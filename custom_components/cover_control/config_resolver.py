@@ -1,15 +1,10 @@
-"""Resolve hierarchical Cover Control configuration for one room.
-
-Profiles own automation behavior. Rooms own the physical installation and the
-per-room selection of which configured profile functions are used.
-"""
+"""Resolve controller groups and room-owned configuration for one room."""
 
 from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
 from typing import Any
-from uuid import uuid4
 
 from .const import *  # noqa: F403
 
@@ -123,7 +118,7 @@ ROOM_CONTROL_KEYS = frozenset(
 
 ROOM_SAFETY_KEYS = frozenset(DEFAULT_SAFETY_PARTICIPATION)
 
-TIME_PROFILE_KEYS = frozenset(
+TIME_GROUP_KEYS = frozenset(
     {
         CONF_AUTO_UP,
         CONF_AUTO_DOWN,
@@ -162,7 +157,7 @@ TIME_PROFILE_KEYS = frozenset(
     }
 )
 
-BRIGHTNESS_PROFILE_KEYS = frozenset(
+BRIGHTNESS_GROUP_KEYS = frozenset(
     {
         CONF_AUTO_BRIGHTNESS,
         CONF_USE_BRIGHTNESS_SENSOR,
@@ -174,7 +169,7 @@ BRIGHTNESS_PROFILE_KEYS = frozenset(
     }
 )
 
-SUN_PROFILE_KEYS = frozenset(
+SUN_GROUP_KEYS = frozenset(
     {
         CONF_AUTO_SUN,
         CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
@@ -186,7 +181,7 @@ SUN_PROFILE_KEYS = frozenset(
     }
 )
 
-SHADING_PROFILE_KEYS = frozenset(
+SHADING_GROUP_KEYS = frozenset(
     {
         CONF_AUTO_SHADING,
         CONF_SHADING_BRIGHTNESS_START,
@@ -225,7 +220,7 @@ SHADING_PROFILE_KEYS = frozenset(
     }
 )
 
-BEHAVIOR_PROFILE_KEYS = frozenset(
+BEHAVIOR_GROUP_KEYS = frozenset(
     {
         *DEFAULT_BEHAVIOR_SETTINGS,
         *DEFAULT_SAFETY_SETTINGS,
@@ -244,11 +239,11 @@ BEHAVIOR_PROFILE_KEYS = frozenset(
         CONF_RESIDENT_ALLOW_VENTILATION,
     }
 ) - ROOM_HARDWARE_KEYS - ROOM_POSITION_KEYS - ROOM_SENSOR_KEYS - ROOM_GEOMETRY_KEYS
-BEHAVIOR_PROFILE_KEYS = BEHAVIOR_PROFILE_KEYS - ROOM_CONTROL_KEYS
+BEHAVIOR_GROUP_KEYS = BEHAVIOR_GROUP_KEYS - ROOM_CONTROL_KEYS
 
-VENTILATION_PROFILE_KEYS = frozenset({CONF_AUTO_VENTILATE, *DEFAULT_CONTACT_SETTINGS})
+VENTILATION_GROUP_KEYS = frozenset({CONF_AUTO_VENTILATE, *DEFAULT_CONTACT_SETTINGS})
 
-RESIDENT_PROFILE_KEYS = frozenset(
+RESIDENT_GROUP_KEYS = frozenset(
     {
         CONF_RESIDENT_STATUS,
         CONF_RESIDENT_OPEN_ENABLED,
@@ -259,31 +254,25 @@ RESIDENT_PROFILE_KEYS = frozenset(
     }
 )
 
-SAFETY_PROFILE_KEYS = frozenset(DEFAULT_SAFETY_SETTINGS)
+SAFETY_GROUP_KEYS = frozenset(DEFAULT_SAFETY_SETTINGS)
 
-PROFILE_KEYS = {
-    PROFILE_TYPE_TIME: TIME_PROFILE_KEYS,
-    PROFILE_TYPE_SHADING: SHADING_PROFILE_KEYS,
-    PROFILE_TYPE_BEHAVIOR: BEHAVIOR_PROFILE_KEYS,
-}
-
-PROFILE_FUNCTION_KEYS = {
-    FUNCTION_TIME: TIME_PROFILE_KEYS - BRIGHTNESS_PROFILE_KEYS - SUN_PROFILE_KEYS,
-    FUNCTION_BRIGHTNESS: BRIGHTNESS_PROFILE_KEYS,
-    FUNCTION_SUN: SUN_PROFILE_KEYS,
-    FUNCTION_SHADING: SHADING_PROFILE_KEYS,
-    FUNCTION_VENTILATION: VENTILATION_PROFILE_KEYS,
-    FUNCTION_RESIDENT: RESIDENT_PROFILE_KEYS,
-    FUNCTION_BEHAVIOR: BEHAVIOR_PROFILE_KEYS
-    - VENTILATION_PROFILE_KEYS
-    - RESIDENT_PROFILE_KEYS
+GROUP_SECTION_KEYS = {
+    FUNCTION_TIME: TIME_GROUP_KEYS - BRIGHTNESS_GROUP_KEYS - SUN_GROUP_KEYS,
+    FUNCTION_BRIGHTNESS: BRIGHTNESS_GROUP_KEYS,
+    FUNCTION_SUN: SUN_GROUP_KEYS,
+    FUNCTION_SHADING: SHADING_GROUP_KEYS,
+    FUNCTION_VENTILATION: VENTILATION_GROUP_KEYS,
+    FUNCTION_RESIDENT: RESIDENT_GROUP_KEYS,
+    FUNCTION_BEHAVIOR: BEHAVIOR_GROUP_KEYS
+    - VENTILATION_GROUP_KEYS
+    - RESIDENT_GROUP_KEYS
     - ROOM_HARDWARE_KEYS
     - ROOM_POSITION_KEYS
     - ROOM_SENSOR_KEYS
     - ROOM_GEOMETRY_KEYS
     - ROOM_CONTROL_KEYS
-    - SAFETY_PROFILE_KEYS,
-    FUNCTION_SAFETY: SAFETY_PROFILE_KEYS,
+    - SAFETY_GROUP_KEYS,
+    FUNCTION_SAFETY: SAFETY_GROUP_KEYS,
 }
 
 FUNCTION_TOGGLE_KEYS = {
@@ -301,105 +290,7 @@ TOGGLE_FUNCTION_KEYS = {
 }
 
 
-def stored_profile_functions(profile: Mapping[str, Any]) -> frozenset[str]:
-    """Return legacy persisted function hints from a profile."""
-
-    functions = profile.get(CONF_PROFILE_FUNCTIONS)
-    if isinstance(functions, Mapping):
-        configured = frozenset(
-            function
-            for function, enabled in functions.items()
-            if enabled and function in PROFILE_FUNCTIONS
-        )
-        return configured
-    if isinstance(functions, (list, tuple, set, frozenset)):
-        configured = frozenset(
-            function for function in functions if function in PROFILE_FUNCTIONS
-        )
-        return configured
-    return frozenset()
-
-
-def configured_functions_from_profile_content(
-    profile: Mapping[str, Any],
-) -> frozenset[str]:
-    """Derive native v6 profile functions from stored settings and blocks."""
-
-    settings = profile.get(CONF_PROFILE_SETTINGS, {})
-    if not isinstance(settings, Mapping):
-        settings = profile
-    configured: set[str] = set()
-    for function, keys in PROFILE_FUNCTION_KEYS.items():
-        block = profile.get(function)
-        if (
-            isinstance(block, Mapping)
-            and block
-            or any(key in settings for key in keys)
-        ):
-            configured.add(function)
-    return frozenset(configured)
-
-
-def configured_functions_from_profile(profile: Mapping[str, Any]) -> frozenset[str]:
-    """Return behavior functions that are explicitly configured in a profile."""
-
-    configured = configured_functions_from_profile_content(profile)
-    if configured:
-        return configured
-
-    capabilities = profile.get(CONF_PROFILE_CAPABILITIES)
-    if isinstance(capabilities, (list, tuple, set, frozenset)):
-        configured: set[str] = set()
-        if set(capabilities) & {"opening", "closing", "workday", "calendar"}:
-            configured.add(FUNCTION_TIME)
-        if "brightness" in capabilities:
-            configured.add(FUNCTION_BRIGHTNESS)
-        if "sun" in capabilities:
-            configured.add(FUNCTION_SUN)
-        if set(capabilities) & {
-            "positioning",
-            "temperature",
-            "forecast",
-            "weather",
-            "conditions",
-            "waiting",
-            "tilt",
-            "independent_temperature",
-        }:
-            configured.add(FUNCTION_SHADING)
-        if "ventilation" in capabilities:
-            configured.add(FUNCTION_VENTILATION)
-        if "resident" in capabilities:
-            configured.add(FUNCTION_RESIDENT)
-        if set(capabilities) & {
-            "manual_override",
-            "movement_protection",
-            "tilt_behavior",
-        }:
-            configured.add(FUNCTION_BEHAVIOR)
-        if "safety" in capabilities:
-            configured.add(FUNCTION_SAFETY)
-        if configured:
-            return frozenset(configured)
-
-    return stored_profile_functions(profile)
-
-
-def profile_settings(profile: Mapping[str, Any]) -> dict[str, Any]:
-    """Return flattened runtime settings from legacy or unified profile data."""
-
-    settings: dict[str, Any] = {}
-    legacy_settings = profile.get(CONF_PROFILE_SETTINGS, {})
-    if isinstance(legacy_settings, Mapping):
-        settings.update(legacy_settings)
-    for function in PROFILE_FUNCTIONS:
-        block = profile.get(function)
-        if isinstance(block, Mapping):
-            settings.update(block)
-    return settings
-
-
-NATIVE_PROFILE_BLOCKED_KEYS = (
+GROUP_BLOCKED_KEYS = (
     ROOM_HARDWARE_KEYS
     | ROOM_POSITION_KEYS
     | ROOM_SENSOR_KEYS
@@ -407,130 +298,6 @@ NATIVE_PROFILE_BLOCKED_KEYS = (
     | ROOM_CONTROL_KEYS
     | ROOM_SAFETY_KEYS
 )
-
-
-def sanitize_native_profile_settings(settings: Mapping[str, Any]) -> dict[str, Any]:
-    """Remove room-owned values from native v6 profile settings."""
-
-    return {
-        key: value
-        for key, value in settings.items()
-        if key not in NATIVE_PROFILE_BLOCKED_KEYS
-    }
-
-
-def profile_settings_for_functions(
-    profile: Mapping[str, Any], selected_functions: frozenset[str]
-) -> dict[str, Any]:
-    """Return native profile settings owned by selected profile functions."""
-
-    allowed_keys: set[str] = set()
-    for function in selected_functions:
-        allowed_keys.update(PROFILE_FUNCTION_KEYS.get(function, frozenset()))
-    settings = sanitize_native_profile_settings(profile_settings(profile))
-    return {
-        key: value
-        for key, value in settings.items()
-        if key in allowed_keys
-    }
-
-
-def effective_profile_id(room: Mapping[str, Any]) -> str | None:
-    """Return the room's single active profile reference."""
-
-    profile_id = room.get(CONF_ROOM_PROFILE_ID)
-    if profile_id:
-        return str(profile_id)
-    profile_id = room.get(CONF_PROFILE_ID)
-    if profile_id:
-        return str(profile_id)
-    selections = room.get(CONF_PROFILE_SELECTIONS, {})
-    if isinstance(selections, Mapping) and selections:
-        return "legacy:" + "|".join(
-            f"{profile_type}={selections.get(profile_type, '')}"
-            for profile_type in PROFILE_TYPES
-        )
-    return None
-
-
-def effective_profile(model: Mapping[str, Any], room: Mapping[str, Any]) -> dict[str, Any]:
-    """Return the single active profile, composing legacy typed profiles if needed."""
-
-    profiles = model.get(CONF_PROFILES, {})
-    profile_id = (
-        room.get(CONF_ROOM_PROFILE_ID)
-        or room.get("profile_id")
-        or room.get(CONF_PROFILE_ID)
-    )
-    if profile_id and isinstance(profiles, Mapping):
-        profile = profiles.get(profile_id)
-        if isinstance(profile, Mapping):
-            return dict(profile)
-
-    selections = room.get(CONF_PROFILE_SELECTIONS, {})
-    if not isinstance(selections, Mapping):
-        return {}
-    merged: dict[str, Any] = {
-        CONF_PROFILE_ID: effective_profile_id(room) or "",
-        CONF_PROFILE_NAME: "Legacy profile",
-        CONF_PROFILE_SETTINGS: {},
-        CONF_PROFILE_FUNCTIONS: [],
-    }
-    functions: set[str] = set()
-    settings = merged[CONF_PROFILE_SETTINGS]
-    for profile_type in PROFILE_TYPES:
-        selected_id = selections.get(profile_type)
-        catalog = profiles.get(profile_type, {}) if isinstance(profiles, Mapping) else {}
-        profile = catalog.get(selected_id, {}) if isinstance(catalog, Mapping) else {}
-        if not isinstance(profile, Mapping):
-            continue
-        settings.update(profile_settings(profile))
-        functions.update(configured_functions_from_profile(profile))
-        if merged[CONF_PROFILE_NAME] == "Legacy profile":
-            merged[CONF_PROFILE_NAME] = str(
-                profile.get(CONF_PROFILE_NAME, selected_id or "Legacy profile")
-            )
-    merged[CONF_PROFILE_FUNCTIONS] = sorted(functions)
-    return merged
-
-
-def effective_room_profile_functions(
-    model: Mapping[str, Any], room: Mapping[str, Any]
-) -> frozenset[str]:
-    """Return configured functions selected by the room for its active profile."""
-
-    profile = effective_profile(model, room)
-    available = configured_functions_from_profile(profile)
-    selected = room_selected_functions(room)
-    if selected is None:
-        return available
-    return frozenset(function for function in selected if function in available)
-
-
-def room_selected_functions(room: Mapping[str, Any]) -> frozenset[str] | None:
-    """Return the room's selected profile functions, or None for legacy rooms."""
-
-    selected = room.get(CONF_PROFILE_FUNCTIONS)
-    if selected is None:
-        selections = room.get(CONF_PROFILE_SELECTIONS)
-        if (
-            isinstance(selections, Mapping)
-            and selections
-            and not (room.get(CONF_ROOM_PROFILE_ID) or room.get(CONF_PROFILE_ID))
-        ):
-            return None
-        return frozenset()
-    if isinstance(selected, Mapping):
-        return frozenset(
-            function
-            for function, enabled in selected.items()
-            if enabled and function in PROFILE_FUNCTIONS
-        )
-    if isinstance(selected, (list, tuple, set, frozenset)):
-        return frozenset(
-            function for function in selected if function in PROFILE_FUNCTIONS
-        )
-    return frozenset()
 
 
 @dataclass(frozen=True, slots=True)
@@ -541,8 +308,7 @@ class ResolvedRoomConfig(Mapping[str, Any]):
     room_name: str
     values: Mapping[str, Any]
     sources: Mapping[str, str] = field(default_factory=dict)
-    selected_profiles: Mapping[str, str] = field(default_factory=dict)
-    profile_names: Mapping[str, str] = field(default_factory=dict)
+    group: str = DEFAULT_GROUP
     configured_functions: frozenset[str] = frozenset()
 
     def __getitem__(self, key: str) -> Any:
@@ -587,22 +353,19 @@ def resolve_room_config(
     system_values: Mapping[str, Any],
     global_sources: Mapping[str, Any],
     global_defaults: Mapping[str, Any],
-    selected_profiles: Mapping[str, Mapping[str, Any]],
+    group: str,
+    group_settings: Mapping[str, Any],
     room_settings: Mapping[str, Any],
     room_overrides: Mapping[str, Mapping[str, Any]],
     *,
     room_id: str = "room",
     room_name: str = "Room",
     source_overrides: Mapping[str, Any] | None = None,
-    selected_profile_functions: frozenset[str] | None = None,
 ) -> ResolvedRoomConfig:
     """Resolve all layers once, before runtime modules consume configuration."""
 
     values: dict[str, Any] = {}
     sources: dict[str, str] = {}
-    profile_ids: dict[str, str] = {}
-    profile_names: dict[str, str] = {}
-    profile_functions: set[str] = set()
 
     def merge(layer: Mapping[str, Any], origin: str) -> None:
         for key, value in layer.items():
@@ -611,42 +374,16 @@ def resolve_room_config(
 
     merge(system_values, "system_default")
     merge(global_defaults, "global_default")
-    for profile_type, profile in selected_profiles.items():
-        profile = selected_profiles.get(profile_type)
-        if not isinstance(profile, Mapping):
-            continue
-        profile_id = str(profile.get(CONF_PROFILE_ID, ""))
-        if selected_profile_functions is None:
-            settings = profile_settings(profile)
-        else:
-            profile_available_functions = configured_functions_from_profile(profile)
-            selected_for_profile = frozenset(
-                function
-                for function in selected_profile_functions
-                if function in profile_available_functions
-            )
-            settings = profile_settings_for_functions(profile, selected_for_profile)
-        if not isinstance(settings, Mapping):
-            continue
-        resolved_settings = dict(settings)
-        if CONF_AUTO_TIME in settings:
-            time_enabled = bool(settings[CONF_AUTO_TIME])
-            resolved_settings.setdefault(CONF_AUTO_UP, time_enabled)
-            resolved_settings.setdefault(CONF_AUTO_DOWN, time_enabled)
-        merge(resolved_settings, f"profile:{profile_id}")
-        profile_ids[profile_type] = profile_id
-        profile_names[profile_type] = str(
-            profile.get(CONF_PROFILE_NAME, profile_id)
-        )
-        if selected_profile_functions is None:
-            profile_functions.update(configured_functions_from_profile(profile))
-        else:
-            profile_functions.update(selected_for_profile)
-    if selected_profile_functions is not None:
-        profile_functions &= set(selected_profile_functions)
+    settings = {
+        key: value for key, value in group_settings.items() if key not in GROUP_BLOCKED_KEYS
+    }
+    if CONF_AUTO_TIME in settings:
+        time_enabled = bool(settings[CONF_AUTO_TIME])
+        settings.setdefault(CONF_AUTO_UP, time_enabled)
+        settings.setdefault(CONF_AUTO_DOWN, time_enabled)
+    merge(settings, f"group:{group}")
     merge(room_settings, "room_setting")
-    for profile_type in PROFILE_TYPES:
-        overrides = room_overrides.get(profile_type, {})
+    for overrides in room_overrides.values():
         if isinstance(overrides, Mapping):
             merge(overrides, "room_override")
     merge(global_sources, "global_source")
@@ -658,9 +395,8 @@ def resolve_room_config(
         room_name,
         values,
         sources,
-        profile_ids,
-        profile_names,
-        frozenset(profile_functions),
+        group,
+        frozenset(GROUP_FUNCTIONS),
     )
 
 
@@ -670,64 +406,22 @@ def resolve_config_model(
     """Resolve one room from the native parent/subentry configuration model."""
 
     global_config = model.get(CONF_GLOBAL, {})
-    profiles = model.get(CONF_PROFILES, {})
+    groups = model.get(CONF_GROUPS, {})
     rooms = model.get(CONF_ROOMS, {})
     room = rooms.get(room_id, {}) if isinstance(rooms, Mapping) else {}
-    profile = effective_profile(model, room)
-    selected = {"profile": profile} if profile else {}
-    selected_functions = (
-        effective_room_profile_functions(model, room)
-        if room_selected_functions(room) is not None
-        else None
-    )
+    group = str(room.get(CONF_GROUP, DEFAULT_GROUP))
+    if group not in GROUPS:
+        group = DEFAULT_GROUP
+    group_settings = groups.get(group, {}) if isinstance(groups, Mapping) else {}
     return resolve_room_config(
         system_defaults(),
         global_config.get(CONF_GLOBAL_SOURCES, {}),
         global_config.get(CONF_GLOBAL_DEFAULTS, {}),
-        selected,
+        group,
+        group_settings,
         room.get(CONF_ROOM_SETTINGS, {}),
         room.get(CONF_ROOM_OVERRIDES, {}),
         room_id=room_id,
         room_name=str(room.get(CONF_NAME, room_id)),
         source_overrides=room.get(CONF_SOURCE_OVERRIDES, {}),
-        selected_profile_functions=selected_functions,
-    )
-
-
-def resolve_profile_config(
-    model: Mapping[str, Any], profile_type: str, profile_id: str
-) -> Mapping[str, Any]:
-    """Resolve a profile without room settings, overrides, or runtime toggles."""
-
-    global_config = model.get(CONF_GLOBAL, {})
-    profiles = model.get(CONF_PROFILES, {})
-    profile = profiles.get(profile_id) if isinstance(profiles, Mapping) else None
-    if not isinstance(profile, Mapping) and profile_id.startswith("legacy:"):
-        selections = {}
-        for part in profile_id.removeprefix("legacy:").split("|"):
-            if "=" in part:
-                key, value = part.split("=", 1)
-                if value:
-                    selections[key] = value
-        profile = effective_profile(model, {CONF_PROFILE_SELECTIONS: selections})
-    if not isinstance(profile, Mapping):
-        profile = (
-            profiles.get(profile_type, {}).get(profile_id)
-            if isinstance(profiles, Mapping)
-            else None
-        )
-    selected = {"profile": profile} if isinstance(profile, Mapping) else {}
-    return resolve_room_config(
-        system_defaults(),
-        global_config.get(CONF_GLOBAL_SOURCES, {}),
-        global_config.get(CONF_GLOBAL_DEFAULTS, {}),
-        selected,
-        {},
-        {},
-        room_id="profile",
-        room_name=str(
-            profile.get(CONF_PROFILE_NAME, profile_id)
-            if isinstance(profile, Mapping)
-            else profile_id
-        ),
     )
