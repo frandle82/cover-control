@@ -55,6 +55,7 @@ _BOOLEAN_KEYS = frozenset(
         c.CONF_AUTO_TIME,
         c.CONF_AUTO_BRIGHTNESS,
         c.CONF_AUTO_SUN,
+        c.CONF_INTERMEDIATE_CLOSE_ENABLED,
         c.CONF_USE_WORKDAY_SENSOR,
         c.CONF_USE_BRIGHTNESS_SENSOR,
         c.CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
@@ -113,6 +114,7 @@ _TIME_KEYS = frozenset(
         c.CONF_TIME_DOWN_EARLY_NON_WORKDAY,
         c.CONF_TIME_DOWN_LATE_NON_WORKDAY,
         c.CONF_MANUAL_OVERRIDE_RESET_TIME,
+        c.CONF_FINAL_CLOSE_TIME,
     }
 )
 
@@ -120,6 +122,7 @@ _POSITION_KEYS = frozenset(
     {
         c.CONF_OPEN_POSITION,
         c.CONF_CLOSE_POSITION,
+        c.CONF_INTERMEDIATE_CLOSE_POSITION,
         c.CONF_VENTILATE_POSITION,
         c.CONF_LOCKOUT_POSITION,
         c.CONF_SHADING_POSITION,
@@ -254,6 +257,7 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_AUTO_TIME,
                 c.CONF_AUTO_UP,
                 c.CONF_AUTO_DOWN,
+                c.CONF_INTERMEDIATE_CLOSE_ENABLED,
                 c.CONF_AUTO_SUN,
                 c.CONF_AUTO_BRIGHTNESS,
                 c.CONF_USE_WORKDAY_SENSOR,
@@ -278,6 +282,7 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_TIME_UP_LATE_NON_WORKDAY,
                 c.CONF_TIME_DOWN_EARLY_NON_WORKDAY,
                 c.CONF_TIME_DOWN_LATE_NON_WORKDAY,
+                c.CONF_FINAL_CLOSE_TIME,
             ),
         ),
         (
@@ -382,6 +387,7 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
                 c.CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
                 c.CONF_MANUAL_SCHEDULE_ADOPTION,
+                c.CONF_NO_GO_TIME_MINUTES,
             ),
         ),
         (
@@ -462,6 +468,8 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
                 c.CONF_TIME_DOWN_LATE_WORKDAY,
                 c.CONF_TIME_DOWN_EARLY_NON_WORKDAY,
                 c.CONF_TIME_DOWN_LATE_NON_WORKDAY,
+                c.CONF_INTERMEDIATE_CLOSE_ENABLED,
+                c.CONF_FINAL_CLOSE_TIME,
             }
         ),
         "workday": frozenset({c.CONF_USE_WORKDAY_SENSOR}),
@@ -618,6 +626,7 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
                 c.CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
                 c.CONF_PREVENT_SHADING_MULTIPLE_TIMES,
                 c.CONF_PREVENT_DEFAULT_COVER_ACTIONS,
+                c.CONF_NO_GO_TIME_MINUTES,
             }
         ),
     },
@@ -797,7 +806,7 @@ def _field_validator(key: str, value: Any, *, stored: bool) -> tuple[Any, Any]:
         return marker(int(value or 0)), _number_selector(0, 100, 1, "%")
     if key in {c.CONF_POSITION_TOLERANCE, c.CONF_TILT_POSITION_TOLERANCE}:
         return marker(int(value or 0)), _number_selector(0, 20, 1, "%")
-    if key == c.CONF_MANUAL_OVERRIDE_MINUTES:
+    if key in {c.CONF_MANUAL_OVERRIDE_MINUTES, c.CONF_NO_GO_TIME_MINUTES}:
         return marker(int(value or 0)), _number_selector(0, 10080, 1, "min")
     if key in _DURATION_KEYS:
         return marker(float(value or 0)), _number_selector(0, 86400, 1, "s")

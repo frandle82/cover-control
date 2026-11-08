@@ -57,13 +57,18 @@ from ..feature_state import FeatureState, feature_configured
 def _controls_for_reason(reason: str) -> set[str]:
     """Map the runtime decision reason to diagnostic control names."""
 
-    if reason in {"scheduled_open", "scheduled_close"}:
+    if reason in {
+        "scheduled_open",
+        "scheduled_close",
+        "scheduled_intermediate_close",
+        "scheduled_final_close",
+    }:
         return {"time"}
     if reason in {"sun_open", "sun_close"}:
         return {"sun"}
     if reason.startswith("force_"):
         return {reason}
-    if reason in {"manual_override", "window_lockout", "force_pause"}:
+    if reason in {"manual_override", "window_lockout", "force_pause", "no_go_time"}:
         return {reason}
     if "ventilation" in reason:
         return {"ventilation"}

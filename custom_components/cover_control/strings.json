@@ -158,6 +158,8 @@
             "data": {
               "auto_brightness_enabled": "Brightness automation",
               "auto_down_enabled": "Automatic closing",
+              "intermediate_close_enabled": "Use intermediate closing position",
+              "final_close_time": "Final close time",
               "auto_sun_enabled": "Sun automation",
               "auto_time_enabled": "Time automation",
               "auto_up_enabled": "Automatic opening",
@@ -169,6 +171,8 @@
             "data_description": {
               "auto_brightness_enabled": "Value for Brightness automation in this profile or default.",
               "auto_down_enabled": "Value for Automatic closing in this profile or default.",
+              "intermediate_close_enabled": "Use the room-owned intermediate position before the final close time.",
+              "final_close_time": "Time for the final full closing movement.",
               "auto_sun_enabled": "Value for Sun automation in this profile or default.",
               "auto_time_enabled": "Value for Time automation in this profile or default.",
               "auto_up_enabled": "Value for Automatic opening in this profile or default.",
@@ -230,6 +234,8 @@
             "data": {
               "auto_brightness_enabled": "Brightness automation",
               "auto_down_enabled": "Automatic closing",
+              "intermediate_close_enabled": "Use intermediate closing position",
+              "final_close_time": "Final close time",
               "auto_sun_enabled": "Sun automation",
               "auto_time_enabled": "Time automation",
               "auto_up_enabled": "Automatic opening",
@@ -241,6 +247,8 @@
             "data_description": {
               "auto_brightness_enabled": "Value for Brightness automation in this profile or default.",
               "auto_down_enabled": "Value for Automatic closing in this profile or default.",
+              "intermediate_close_enabled": "Use the room-owned intermediate position before the final close time.",
+              "final_close_time": "Time for the final full closing movement.",
               "auto_sun_enabled": "Value for Sun automation in this profile or default.",
               "auto_time_enabled": "Value for Time automation in this profile or default.",
               "auto_up_enabled": "Value for Automatic opening in this profile or default.",
@@ -278,6 +286,8 @@
             "data": {
               "auto_brightness_enabled": "Brightness automation",
               "auto_down_enabled": "Automatic closing",
+              "intermediate_close_enabled": "Use intermediate closing position",
+              "final_close_time": "Final close time",
               "auto_sun_enabled": "Sun automation",
               "auto_time_enabled": "Time automation",
               "auto_up_enabled": "Automatic opening",
@@ -289,6 +299,8 @@
             "data_description": {
               "auto_brightness_enabled": "Value for Brightness automation in this profile or default.",
               "auto_down_enabled": "Value for Automatic closing in this profile or default.",
+              "intermediate_close_enabled": "Use the room-owned intermediate position before the final close time.",
+              "final_close_time": "Time for the final full closing movement.",
               "auto_sun_enabled": "Value for Sun automation in this profile or default.",
               "auto_time_enabled": "Value for Time automation in this profile or default.",
               "auto_up_enabled": "Value for Automatic opening in this profile or default.",
@@ -527,7 +539,8 @@
               "manual_override_minutes": "Manual override duration",
               "manual_override_reset_mode": "Manual override reset mode",
               "manual_override_reset_time": "Manual override reset time",
-              "manual_schedule_adoption": "Manual schedule adoption"
+              "manual_schedule_adoption": "Manual schedule adoption",
+              "no_go_time_minutes": "Opening no-go time"
             },
             "data_description": {
               "manual_override_block_close": "Value for Manual override blocks closing in this profile or default.",
@@ -537,7 +550,8 @@
               "manual_override_minutes": "Value for Manual override duration in this profile or default.",
               "manual_override_reset_mode": "Value for Manual override reset mode in this profile or default.",
               "manual_override_reset_time": "Value for Manual override reset time in this profile or default.",
-              "manual_schedule_adoption": "Value for Manual schedule adoption in this profile or default."
+              "manual_schedule_adoption": "Value for Manual schedule adoption in this profile or default.",
+              "no_go_time_minutes": "Minutes after a cover state change during which scheduled opening is blocked."
             }
           },
           "prevention": {
@@ -669,6 +683,7 @@
             "data": {
               "open_position": "Open position",
               "close_position": "Close position",
+              "intermediate_close_position": "Intermediate close position",
               "shading_position": "Shading position",
               "shading_position_alt": "Alternative shading position",
               "shading_position_alt_entity": "Alternative shading position entity",
@@ -678,6 +693,7 @@
             "data_description": {
               "open_position": "Set the room-owned open position.",
               "close_position": "Set the room-owned close position.",
+              "intermediate_close_position": "Set the room-owned intermediate closing position.",
               "shading_position": "Set the room-owned shading position.",
               "shading_position_alt": "Set the room-owned alternative shading position.",
               "shading_position_alt_entity": "Set the room-owned alternative shading position entity.",
@@ -1125,6 +1141,8 @@
             "data": {
               "auto_brightness_enabled": "Brightness automation",
               "auto_down_enabled": "Automatic closing",
+              "intermediate_close_enabled": "Use intermediate closing position",
+              "final_close_time": "Final close time",
               "auto_sun_enabled": "Sun automation",
               "auto_time_enabled": "Time automation",
               "auto_up_enabled": "Automatic opening",
@@ -1136,6 +1154,8 @@
             "data_description": {
               "auto_brightness_enabled": "Value for Brightness automation in this profile or default.",
               "auto_down_enabled": "Value for Automatic closing in this profile or default.",
+              "intermediate_close_enabled": "Use the room-owned intermediate position before the final close time.",
+              "final_close_time": "Time for the final full closing movement.",
               "auto_sun_enabled": "Value for Sun automation in this profile or default.",
               "auto_time_enabled": "Value for Time automation in this profile or default.",
               "auto_up_enabled": "Value for Automatic opening in this profile or default.",
@@ -1197,6 +1217,8 @@
             "data": {
               "auto_brightness_enabled": "Brightness automation",
               "auto_down_enabled": "Automatic closing",
+              "intermediate_close_enabled": "Use intermediate closing position",
+              "final_close_time": "Final close time",
               "auto_sun_enabled": "Sun automation",
               "auto_time_enabled": "Time automation",
               "auto_up_enabled": "Automatic opening",
@@ -1208,6 +1230,8 @@
             "data_description": {
               "auto_brightness_enabled": "Value for Brightness automation in this profile or default.",
               "auto_down_enabled": "Value for Automatic closing in this profile or default.",
+              "intermediate_close_enabled": "Use the room-owned intermediate position before the final close time.",
+              "final_close_time": "Time for the final full closing movement.",
               "auto_sun_enabled": "Value for Sun automation in this profile or default.",
               "auto_time_enabled": "Value for Time automation in this profile or default.",
               "auto_up_enabled": "Value for Automatic opening in this profile or default.",
@@ -1245,6 +1269,8 @@
             "data": {
               "auto_brightness_enabled": "Brightness automation",
               "auto_down_enabled": "Automatic closing",
+              "intermediate_close_enabled": "Use intermediate closing position",
+              "final_close_time": "Final close time",
               "auto_sun_enabled": "Sun automation",
               "auto_time_enabled": "Time automation",
               "auto_up_enabled": "Automatic opening",
@@ -1256,6 +1282,8 @@
             "data_description": {
               "auto_brightness_enabled": "Value for Brightness automation in this profile or default.",
               "auto_down_enabled": "Value for Automatic closing in this profile or default.",
+              "intermediate_close_enabled": "Use the room-owned intermediate position before the final close time.",
+              "final_close_time": "Time for the final full closing movement.",
               "auto_sun_enabled": "Value for Sun automation in this profile or default.",
               "auto_time_enabled": "Value for Time automation in this profile or default.",
               "auto_up_enabled": "Value for Automatic opening in this profile or default.",
@@ -1494,7 +1522,8 @@
               "manual_override_minutes": "Manual override duration",
               "manual_override_reset_mode": "Manual override reset mode",
               "manual_override_reset_time": "Manual override reset time",
-              "manual_schedule_adoption": "Manual schedule adoption"
+              "manual_schedule_adoption": "Manual schedule adoption",
+              "no_go_time_minutes": "Opening no-go time"
             },
             "data_description": {
               "manual_override_block_close": "Value for Manual override blocks closing in this profile or default.",
@@ -1504,7 +1533,8 @@
               "manual_override_minutes": "Value for Manual override duration in this profile or default.",
               "manual_override_reset_mode": "Value for Manual override reset mode in this profile or default.",
               "manual_override_reset_time": "Value for Manual override reset time in this profile or default.",
-              "manual_schedule_adoption": "Value for Manual schedule adoption in this profile or default."
+              "manual_schedule_adoption": "Value for Manual schedule adoption in this profile or default.",
+              "no_go_time_minutes": "Minutes after a cover state change during which scheduled opening is blocked."
             }
           },
           "prevention": {
@@ -1570,6 +1600,7 @@
             "data": {
               "open_position": "Open position",
               "close_position": "Close position",
+              "intermediate_close_position": "Intermediate close position",
               "shading_position": "Shading position",
               "shading_position_alt": "Alternative shading position",
               "shading_position_alt_entity": "Alternative shading position entity",
@@ -1579,6 +1610,7 @@
             "data_description": {
               "open_position": "Set the room-owned open position.",
               "close_position": "Set the room-owned close position.",
+              "intermediate_close_position": "Set the room-owned intermediate closing position.",
               "shading_position": "Set the room-owned shading position.",
               "shading_position_alt": "Set the room-owned alternative shading position.",
               "shading_position_alt_entity": "Set the room-owned alternative shading position entity.",
@@ -2002,6 +2034,7 @@
           "force_pause": "Force pause",
           "window_lockout": "Window lockout",
           "additional_condition": "Additional condition",
+          "no_go_time": "Opening no-go time",
           "recovery": "Recovery",
           "multiple": "Multiple controls"
         }

@@ -43,6 +43,9 @@ from ..const import (
     CONF_BRIGHTNESS_SUN_OPERATOR,
     CONF_BRIGHTNESS_TIME_DURATION,
     CONF_CLOSE_POSITION,
+    CONF_FINAL_CLOSE_TIME,
+    CONF_INTERMEDIATE_CLOSE_ENABLED,
+    CONF_INTERMEDIATE_CLOSE_POSITION,
     CONF_COVER_TYPE,
     CONF_COVER_TYPE_AWNING,
     CONF_LOCKOUT_POSITION,
@@ -50,6 +53,7 @@ from ..const import (
     CONF_LOCKOUT_TILT_SHADING_END,
     CONF_LOCKOUT_TILT_SHADING_START,
     CONF_OPEN_POSITION,
+    CONF_NO_GO_TIME_MINUTES,
     CONF_OPEN_TILT_POSITION,
     CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
     CONF_PREVENT_HIGHER_POSITION_CLOSING,
@@ -99,6 +103,8 @@ from ..const import (
     DEFAULT_BRIGHTNESS_SUN_OPERATOR,
     DEFAULT_BRIGHTNESS_TIME_DURATION,
     DEFAULT_CLOSE_POSITION,
+    DEFAULT_FINAL_CLOSE_TIME,
+    DEFAULT_INTERMEDIATE_CLOSE_POSITION,
     DEFAULT_OPEN_POSITION,
     DEFAULT_OPEN_TILT_POSITION,
     DEFAULT_SHADING_TIMING_SETTINGS,
@@ -111,11 +117,48 @@ from ..const import (
 from .common import (
     _LOGGER,
     _coerce_float,
+    _parse_time,
     TRIGGER_RESIDENT_OFF,
+    TRIGGER_SCHEDULED_FINAL_CLOSE,
 )
 
 
 class EvaluationMixin:
+    def _opening_no_go_remaining(self, now: datetime) -> float:
+        """Return seconds until a scheduled opening may follow a cover change."""
+
+        minutes = max(0, int(self.config.get(CONF_NO_GO_TIME_MINUTES, 0) or 0))
+        state = self.hass.states.get(self.cover)
+        if minutes == 0 or state is None:
+            return 0
+        return max(
+            0,
+            (state.last_changed + timedelta(minutes=minutes) - now).total_seconds(),
+        )
+
+    def _intermediate_close_target(
+        self, now: datetime, current_position: float | None, final_close_due: bool
+    ) -> tuple[bool, float | None]:
+        final_time = _parse_time(
+            str(self.config.get(CONF_FINAL_CLOSE_TIME, DEFAULT_FINAL_CLOSE_TIME))
+        )
+        active = bool(
+            self.config.get(CONF_INTERMEDIATE_CLOSE_ENABLED, False)
+            and final_time
+            and dt_util.as_local(now).timetz().replace(tzinfo=None) < final_time
+            and not final_close_due
+        )
+        if not active:
+            return False, None
+        target = self._position_value(
+            CONF_INTERMEDIATE_CLOSE_POSITION, DEFAULT_INTERMEDIATE_CLOSE_POSITION
+        )
+        if current_position is not None and not self._position_is_above(
+            current_position, target
+        ):
+            return True, None
+        return True, target
+
     async def _evaluate(
         self, trigger: str, triggers: frozenset[str] | None = None
     ) -> None:
@@ -463,8 +506,14 @@ class EvaluationMixin:
         )
 
         current_position = self._current_position()
-        close_target = self._position_value(
-            CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION
+        final_close_due = TRIGGER_SCHEDULED_FINAL_CLOSE in self._current_evaluation_triggers
+        intermediate_close, intermediate_target = self._intermediate_close_target(
+            now, current_position, final_close_due
+        )
+        close_target = (
+            intermediate_target
+            if intermediate_close
+            else self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION)
         )
         close_status_satisfied = self._status_active(
             "close"
@@ -475,12 +524,18 @@ class EvaluationMixin:
             and not self._manual_blocks_action("close")
             and not close_status_satisfied
             and not tilt_lock_close
-            and not self._action_already_done_today(
+            and (final_close_due or not self._action_already_done_today(
                 "close", CONF_PREVENT_CLOSING_MULTIPLE_TIMES
-            )
+            ))
             and not self._close_position_protected(current_position)
+            and (
+                not intermediate_close
+                or intermediate_target is not None
+            )
         ):
             close_due = (
+                final_close_due
+                or
                 (not auto_time_enabled and environment_allows_closing)
                 or is_time_down_late
                 or (
@@ -488,19 +543,29 @@ class EvaluationMixin:
                     and ((not has_environment_control) or environment_allows_closing)
                 )
             )
-            if (
+            if final_close_due:
+                regular_close_event = (now, "scheduled_final_close", close_target)
+            elif (
                 close_due
                 and self._auto_enabled(CONF_AUTO_SUN)
                 and self._sun_allows_close(sun_elevation)
             ):
-                regular_close_event = (now, "sun_close", close_target)
+                regular_close_event = (
+                    now,
+                    "scheduled_intermediate_close" if intermediate_close else "sun_close",
+                    close_target,
+                )
             elif (
                 close_due
                 and self._auto_enabled(CONF_AUTO_BRIGHTNESS)
                 and brightness is not None
                 and self._brightness_allows_close(brightness)
             ):
-                regular_close_event = (now, "brightness_close", close_target)
+                regular_close_event = (
+                    now,
+                    "scheduled_intermediate_close" if intermediate_close else "brightness_close",
+                    close_target,
+                )
             elif (
                 self._auto_enabled(CONF_AUTO_TIME)
                 and self._auto_enabled(CONF_AUTO_DOWN)
@@ -509,7 +574,7 @@ class EvaluationMixin:
             ):
                 regular_close_event = (
                     self._next_close or now,
-                    "scheduled_close",
+                    "scheduled_intermediate_close" if intermediate_close else "scheduled_close",
                     close_target,
                 )
 
@@ -1016,13 +1081,18 @@ class EvaluationMixin:
                 and not open_events
                 and not self._manual_schedule_adopted_today("open")
             ):
-                open_events.append(
-                    (
-                        self._next_open or now,
-                        "scheduled_open",
-                        open_target,
+                no_go_remaining = self._opening_no_go_remaining(now)
+                if no_go_remaining <= 0:
+                    open_events.append(
+                        (
+                            self._next_open or now,
+                            "scheduled_open",
+                            open_target,
+                        )
                     )
-                )
+                else:
+                    self._reason = "no_go_time"
+                    self._decision_controls.add("no_go_time")
 
         def _pick_event(
             candidates: list[tuple[datetime, str, float | None]],

@@ -158,6 +158,8 @@
             "data": {
               "auto_brightness_enabled": "Helligkeitsautomatik",
               "auto_down_enabled": "Automatisches Schließen",
+              "intermediate_close_enabled": "Zwischenschließposition verwenden",
+              "final_close_time": "Zeit der vollständigen Schließung",
               "auto_sun_enabled": "Sonnenautomatik",
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
@@ -169,6 +171,8 @@
             "data_description": {
               "auto_brightness_enabled": "Wert für Helligkeitsautomatik in diesem Profil.",
               "auto_down_enabled": "Wert für Automatisches Schließen in diesem Profil.",
+              "intermediate_close_enabled": "Vor der vollständigen Schließung die raumeigene Zwischenposition verwenden.",
+              "final_close_time": "Zeitpunkt der abschließenden vollständigen Schließfahrt.",
               "auto_sun_enabled": "Wert für Sonnenautomatik in diesem Profil.",
               "auto_time_enabled": "Wert für Zeitautomatik in diesem Profil.",
               "auto_up_enabled": "Wert für Automatisches Öffnen in diesem Profil.",
@@ -230,6 +234,8 @@
             "data": {
               "auto_brightness_enabled": "Helligkeitsautomatik",
               "auto_down_enabled": "Automatisches Schließen",
+              "intermediate_close_enabled": "Zwischenschließposition verwenden",
+              "final_close_time": "Zeit der vollständigen Schließung",
               "auto_sun_enabled": "Sonnenautomatik",
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
@@ -241,6 +247,8 @@
             "data_description": {
               "auto_brightness_enabled": "Wert für Helligkeitsautomatik in diesem Profil.",
               "auto_down_enabled": "Wert für Automatisches Schließen in diesem Profil.",
+              "intermediate_close_enabled": "Vor der vollständigen Schließung die raumeigene Zwischenposition verwenden.",
+              "final_close_time": "Zeitpunkt der abschließenden vollständigen Schließfahrt.",
               "auto_sun_enabled": "Wert für Sonnenautomatik in diesem Profil.",
               "auto_time_enabled": "Wert für Zeitautomatik in diesem Profil.",
               "auto_up_enabled": "Wert für Automatisches Öffnen in diesem Profil.",
@@ -278,6 +286,8 @@
             "data": {
               "auto_brightness_enabled": "Helligkeitsautomatik",
               "auto_down_enabled": "Automatisches Schließen",
+              "intermediate_close_enabled": "Zwischenschließposition verwenden",
+              "final_close_time": "Zeit der vollständigen Schließung",
               "auto_sun_enabled": "Sonnenautomatik",
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
@@ -289,6 +299,8 @@
             "data_description": {
               "auto_brightness_enabled": "Wert für Helligkeitsautomatik in diesem Profil.",
               "auto_down_enabled": "Wert für Automatisches Schließen in diesem Profil.",
+              "intermediate_close_enabled": "Vor der vollständigen Schließung die raumeigene Zwischenposition verwenden.",
+              "final_close_time": "Zeitpunkt der abschließenden vollständigen Schließfahrt.",
               "auto_sun_enabled": "Wert für Sonnenautomatik in diesem Profil.",
               "auto_time_enabled": "Wert für Zeitautomatik in diesem Profil.",
               "auto_up_enabled": "Wert für Automatisches Öffnen in diesem Profil.",
@@ -527,7 +539,8 @@
               "manual_override_minutes": "Dauer des manuellen Overrides",
               "manual_override_reset_mode": "Rücksetzmodus des manuellen Overrides",
               "manual_override_reset_time": "Rücksetzzeit des manuellen Overrides",
-              "manual_schedule_adoption": "Manuelle Zeitplanübernahme"
+              "manual_schedule_adoption": "Manuelle Zeitplanübernahme",
+              "no_go_time_minutes": "Öffnungs-Sperrzeit"
             },
             "data_description": {
               "manual_override_block_close": "Wert für Manueller Override blockiert Schließen in diesem Profil.",
@@ -537,7 +550,8 @@
               "manual_override_minutes": "Wert für Dauer des manuellen Overrides in diesem Profil.",
               "manual_override_reset_mode": "Wert für Rücksetzmodus des manuellen Overrides in diesem Profil.",
               "manual_override_reset_time": "Wert für Rücksetzzeit des manuellen Overrides in diesem Profil.",
-              "manual_schedule_adoption": "Wert für Manuelle Zeitplanübernahme in diesem Profil."
+              "manual_schedule_adoption": "Wert für Manuelle Zeitplanübernahme in diesem Profil.",
+              "no_go_time_minutes": "Minuten nach einer Cover-Zustandsänderung, in denen zeitgesteuertes Öffnen blockiert ist."
             }
           },
           "prevention": {
@@ -669,6 +683,7 @@
             "data": {
               "open_position": "Öffnungsposition",
               "close_position": "Schließposition",
+              "intermediate_close_position": "Zwischenschließposition",
               "shading_position": "Beschattungsposition",
               "shading_position_alt": "Alternative Beschattungsposition",
               "shading_position_alt_entity": "Entity für alternative Beschattungsposition",
@@ -678,6 +693,7 @@
             "data_description": {
               "open_position": "Öffnungsposition dieses Raums festlegen.",
               "close_position": "Schließposition dieses Raums festlegen.",
+              "intermediate_close_position": "Zwischenschließposition dieses Raums festlegen.",
               "shading_position": "Beschattungsposition dieses Raums festlegen.",
               "shading_position_alt": "Alternative Beschattungsposition dieses Raums festlegen.",
               "shading_position_alt_entity": "Entity für alternative Beschattungsposition dieses Raums festlegen.",
@@ -1125,6 +1141,8 @@
             "data": {
               "auto_brightness_enabled": "Helligkeitsautomatik",
               "auto_down_enabled": "Automatisches Schließen",
+              "intermediate_close_enabled": "Zwischenschließposition verwenden",
+              "final_close_time": "Zeit der vollständigen Schließung",
               "auto_sun_enabled": "Sonnenautomatik",
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
@@ -1136,6 +1154,8 @@
             "data_description": {
               "auto_brightness_enabled": "Wert für Helligkeitsautomatik in diesem Profil.",
               "auto_down_enabled": "Wert für Automatisches Schließen in diesem Profil.",
+              "intermediate_close_enabled": "Vor der vollständigen Schließung die raumeigene Zwischenposition verwenden.",
+              "final_close_time": "Zeitpunkt der abschließenden vollständigen Schließfahrt.",
               "auto_sun_enabled": "Wert für Sonnenautomatik in diesem Profil.",
               "auto_time_enabled": "Wert für Zeitautomatik in diesem Profil.",
               "auto_up_enabled": "Wert für Automatisches Öffnen in diesem Profil.",
@@ -1197,6 +1217,8 @@
             "data": {
               "auto_brightness_enabled": "Helligkeitsautomatik",
               "auto_down_enabled": "Automatisches Schließen",
+              "intermediate_close_enabled": "Zwischenschließposition verwenden",
+              "final_close_time": "Zeit der vollständigen Schließung",
               "auto_sun_enabled": "Sonnenautomatik",
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
@@ -1208,6 +1230,8 @@
             "data_description": {
               "auto_brightness_enabled": "Wert für Helligkeitsautomatik in diesem Profil.",
               "auto_down_enabled": "Wert für Automatisches Schließen in diesem Profil.",
+              "intermediate_close_enabled": "Vor der vollständigen Schließung die raumeigene Zwischenposition verwenden.",
+              "final_close_time": "Zeitpunkt der abschließenden vollständigen Schließfahrt.",
               "auto_sun_enabled": "Wert für Sonnenautomatik in diesem Profil.",
               "auto_time_enabled": "Wert für Zeitautomatik in diesem Profil.",
               "auto_up_enabled": "Wert für Automatisches Öffnen in diesem Profil.",
@@ -1245,6 +1269,8 @@
             "data": {
               "auto_brightness_enabled": "Helligkeitsautomatik",
               "auto_down_enabled": "Automatisches Schließen",
+              "intermediate_close_enabled": "Zwischenschließposition verwenden",
+              "final_close_time": "Zeit der vollständigen Schließung",
               "auto_sun_enabled": "Sonnenautomatik",
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
@@ -1256,6 +1282,8 @@
             "data_description": {
               "auto_brightness_enabled": "Wert für Helligkeitsautomatik in diesem Profil.",
               "auto_down_enabled": "Wert für Automatisches Schließen in diesem Profil.",
+              "intermediate_close_enabled": "Vor der vollständigen Schließung die raumeigene Zwischenposition verwenden.",
+              "final_close_time": "Zeitpunkt der abschließenden vollständigen Schließfahrt.",
               "auto_sun_enabled": "Wert für Sonnenautomatik in diesem Profil.",
               "auto_time_enabled": "Wert für Zeitautomatik in diesem Profil.",
               "auto_up_enabled": "Wert für Automatisches Öffnen in diesem Profil.",
@@ -1494,7 +1522,8 @@
               "manual_override_minutes": "Dauer des manuellen Overrides",
               "manual_override_reset_mode": "Rücksetzmodus des manuellen Overrides",
               "manual_override_reset_time": "Rücksetzzeit des manuellen Overrides",
-              "manual_schedule_adoption": "Manuelle Zeitplanübernahme"
+              "manual_schedule_adoption": "Manuelle Zeitplanübernahme",
+              "no_go_time_minutes": "Öffnungs-Sperrzeit"
             },
             "data_description": {
               "manual_override_block_close": "Wert für Manueller Override blockiert Schließen in diesem Profil.",
@@ -1504,7 +1533,8 @@
               "manual_override_minutes": "Wert für Dauer des manuellen Overrides in diesem Profil.",
               "manual_override_reset_mode": "Wert für Rücksetzmodus des manuellen Overrides in diesem Profil.",
               "manual_override_reset_time": "Wert für Rücksetzzeit des manuellen Overrides in diesem Profil.",
-              "manual_schedule_adoption": "Wert für Manuelle Zeitplanübernahme in diesem Profil."
+              "manual_schedule_adoption": "Wert für Manuelle Zeitplanübernahme in diesem Profil.",
+              "no_go_time_minutes": "Minuten nach einer Cover-Zustandsänderung, in denen zeitgesteuertes Öffnen blockiert ist."
             }
           },
           "prevention": {
@@ -1570,6 +1600,7 @@
             "data": {
               "open_position": "Öffnungsposition",
               "close_position": "Schließposition",
+              "intermediate_close_position": "Zwischenschließposition",
               "shading_position": "Beschattungsposition",
               "shading_position_alt": "Alternative Beschattungsposition",
               "shading_position_alt_entity": "Entity für alternative Beschattungsposition",
@@ -1579,6 +1610,7 @@
             "data_description": {
               "open_position": "Öffnungsposition dieses Raums festlegen.",
               "close_position": "Schließposition dieses Raums festlegen.",
+              "intermediate_close_position": "Zwischenschließposition dieses Raums festlegen.",
               "shading_position": "Beschattungsposition dieses Raums festlegen.",
               "shading_position_alt": "Alternative Beschattungsposition dieses Raums festlegen.",
               "shading_position_alt_entity": "Entity für alternative Beschattungsposition dieses Raums festlegen.",
@@ -2002,6 +2034,7 @@
           "force_pause": "Zwangspause",
           "window_lockout": "Fenstersperre",
           "additional_condition": "Zusatzbedingung",
+          "no_go_time": "Öffnungs-Sperrzeit",
           "recovery": "Wiederherstellung",
           "multiple": "Mehrere Steuerungen"
         }
