@@ -32,13 +32,13 @@ Verwende bei der Bearbeitung von Aufgaben die spezialisierten Skills unter `.age
 | | [`grill-me`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/grill-me/SKILL.md) | Intensives Entwickler-Interview vor Codeerstellung; deckt unklare Anforderungen und Edge Cases auf. |
 | | [`cca-parity`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/cca-parity/SKILL.md) | Blueprint-Parität; Kriterien für vollständige funktionale Integration (FULL-Kette). |
 | **2. Architektur & Runtime-Entwicklung** | [`cover-control`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/cover-control/SKILL.md) | Domänenübersicht und Mixin-Aufteilung (`runtime/`). |
-| | [`profile-model`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/profile-model/SKILL.md) | Zentrale Profile im Controller, Raum-Referenzen, Resolver und Live-Propagation. |
-| | [`schedule-runtime`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/schedule-runtime/SKILL.md) | Zeitpläne, Early/Late, Workday, Fixed/Dynamic/Hybrid Sun, `_TimeProfileProbe`. |
+| | [`profile-model`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/profile-model/SKILL.md) | Drei feste Gruppen im Controller, Raum-Zuordnung, Resolver und Live-Propagation. |
+| | [`schedule-runtime`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/schedule-runtime/SKILL.md) | Zeitpläne, Early/Late, Workday, Fixed/Dynamic/Hybrid Sun, `_TimeGroupProbe`. |
 | | [`runtime-lifecycle`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/runtime-lifecycle/SKILL.md) | Datenfluss Controller → Hub → Room Manager → Controller → Snapshot → Entity. |
 | | [`home-assistant`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/home-assistant/SKILL.md) | Async-Richtlinien, Non-blocking Callbacks, Event-Loop und Lifecycle-Management. |
 | | [`config-flow`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/config-flow/SKILL.md) | Reconfigure Flows, Standalone Room Entries (`ENTRY_TYPE_ROOM`), UI-Schemas. |
 | | [`migrations`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/migrations/SKILL.md) | Schema-Migrationen zwischen Versionen und Upgradepfade. |
-| | [`entity-registry`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/entity-registry/SKILL.md) | Entity-Registry-Lifecycle, Cleanup verwaister Entitäten bei Raum-/Profiländerungen. |
+| | [`entity-registry`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/entity-registry/SKILL.md) | Entity-Registry-Lifecycle, Cleanup verwaister Entitäten bei Raumänderungen. |
 | | [`translations`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/translations/SKILL.md) | Synchronisation von `strings.json`, `en.json` und `de.json`. |
 | | [`token-budget`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/token-budget/SKILL.md) | Schonung des Kontextfensters und Vermeidung von Tool-Overhead. |
 | **3. Testen & E2E-Verifikation** | [`testing`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/testing/SKILL.md) | Pytest-Ausführung, isolierte Umgebung, Modul- und Integrationstests. |
@@ -107,26 +107,26 @@ Controller-Imports bleiben stabil über `controller.py`. Keine Logik ohne klaren
 
 Strikte Grenzen der Verantwortlichkeit:
 * **GLOBAL:** Besitzt geteilte Home Assistant Datenquellen (Arbeitstage, Kalender, Helligkeit, Außentemperatur, Wetter/Vorhersage, globale Bedingungen) im zentralen Controller-Entry.
-* **PROFILE:** Besitzt Automationsverhalten und Schwellenwerte (Zeitpläne, Helligkeitsschwellen, Hysterese, Wartezeiten, Beschattungs- und Lüftungsregeln) ausschließlich im Controller-Entry unter `controller.data[CONF_PROFILES]`. Profile besitzen niemals raumeigene Entitäten oder Positionen.
-* **ROOM:** Ist ein eigenständiger `ConfigEntry` (`ENTRY_TYPE_ROOM`), kein Subentry (`async_get_supported_subentry_types() == {}`). Besitzt Hardware, Cover-Entitäten, physische Positionen (Offen, Geschlossen, Beschattung, Kippung, Lüftung, Lockout), Fenstersensoren, Geometrie, Raumschalter sowie die Profil-ID (`CONF_ROOM_PROFILE_ID`) und ausgewählte Profilfunktionen (`CONF_PROFILE_FUNCTIONS`).
+* **GROUP:** Genau `living`, `sleep` und `children` besitzen Automationsverhalten und Schwellenwerte ausschließlich im Controller-Entry unter `controller.data[CONF_GROUPS]`. Gruppen besitzen niemals raumeigene Entitäten oder Positionen.
+* **ROOM:** Ist ein eigenständiger `ConfigEntry` (`ENTRY_TYPE_ROOM`), kein Subentry (`async_get_supported_subentry_types() == {}`). Besitzt Hardware, Cover-Entitäten, physische Positionen, Fenstersensoren, Geometrie, Raumschalter und genau eine Gruppenzuordnung (`CONF_GROUP`).
 * **SWITCH:** Steuert, ob eine konfigurierte Raumfunktion zur Laufzeit aktiv (enabled) ist.
 * **RUNTIME:** Entscheidet, ob eine aktive Funktion unter den aktuellen Bedingungen ausführungsberechtigt (eligible) ist.
 
 ### Zustandsmodell
-* **`configured`**: Funktion ist im gewählten Profil vorhanden **UND** vom Raum explizit ausgewählt (`profile_functions`).
+* **`configured`**: Funktion gehört zum festen Gruppenmodell.
 * **`enabled`**: Der zugehörige Laufzeitschalter steht auf **ON**.
 * **`eligible`**: Die aktuellen Bedingungen erlauben der Funktion eine Aktion.
 
-Ein Schalterzustand ändert niemals die Konfiguration. Das Ausschalten eines Schalters löscht keine Raum-/Profilkonfiguration. Erst das Entfernen aus `profile_functions` hebt die Konfiguration auf.
+Ein Schalterzustand ändert niemals die Konfiguration oder Gruppenzuordnung.
 
-### Native Profilfunktionen & Schalter
-* Autonom schaltbare Profilfunktionen mit Laufzeitschalter: `time`, `brightness`, `sun`, `shading`, `ventilation`, `resident`.
+### Gruppenfunktionen & Schalter
+* Autonom schaltbare Gruppenfunktionen mit Laufzeitschalter: `time`, `brightness`, `sun`, `shading`, `ventilation`, `resident`.
 * Automationsverhalten ohne eigenständigen Laufzeitschalter: `behavior`.
 
-### UI-Struktur für Räume & Profile
-* **Raum-UI:** General, Cover & Hardware, Positions, Window contacts, Room sensors, Geometry, Profile & Automation, Local data sources, Controls, Diagnostics.
-* **Profil-UI:** General, Time, Brightness, Sun, Shading, Ventilation, Resident, Manual behavior.
-* Im Raum-Schritt `Profile & Automation` zuerst das Profil wählen und danach die gewünschten Profilfunktionen explizit selektieren (niemals automatisch alle Funktionen aktivieren).
+### UI-Struktur für Räume & Gruppen
+* **Raum-UI:** General, Group, Cover & Hardware, Positions, Window contacts, Room sensors, Geometry, Local data sources, Controls, Diagnostics.
+* **Gruppen-UI:** Time, Brightness, Sun, Shading, Ventilation, Resident, Safety, Manual behavior.
+* Ein Raum wählt genau eine feste Gruppe; einzelne Gruppenfunktionen werden nicht selektiert.
 * Klare Trennung im UI: `Room name` (Konfigurationsobjekt) vs. `Home Assistant area` (zugeordnete physische HA-Area).
 
 ---
@@ -180,7 +180,7 @@ Ein Schalterzustand ändert niemals die Konfiguration. Das Ausschalten eines Sch
 * Parität zum Blueprint (CCA) in `tests/test_blueprint_parity.py` ohne externe Netzwerkabhängigkeit lokal testen.
 * Native Tests klar von Legacy-Migrationstests trennen.
 * `configured`, `enabled` und `eligible` separat abtesten.
-* Entity-Registry-Cleanup testen, wenn Profilfunktionen abgewählt oder Profile entfernt werden.
+* Entity-Registry-Cleanup testen, wenn Raumfunktionen oder Räume entfernt werden.
 * **Testausführung:**
   ```sh
   # Fokussierter Testlauf während der Entwicklung:

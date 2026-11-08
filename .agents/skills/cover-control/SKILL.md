@@ -1,6 +1,6 @@
 ---
 name: cover-control
-description: Domänenübersicht für cover-control. Verweist auf spezialisierte Skills für Mixins, Zeitpläne, Profile und Lebenszyklus.
+description: Domänenübersicht für cover-control. Verweist auf spezialisierte Skills für Mixins, Zeitpläne, Gruppen und Lebenszyklus.
 ---
 
 # Cover Control Domain Skill – Systemübersicht
@@ -15,11 +15,11 @@ Dieser Skill bietet die zentrale Domänenübersicht über die Architektur, Mixin
 
 Für Detailthemen sind die spezialisierten Skills heranzuziehen:
 
-* **Konfiguration & Profile:**
+* **Konfiguration & Gruppen:**
   * [`config-flow`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/config-flow/SKILL.md) – Reconfigure Flows, Standalone Room Entries (`ENTRY_TYPE_ROOM`), Schema-Definitionen.
-  * [`profile-model`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/profile-model/SKILL.md) – Zentrale Profile im Controller, Resolver, `configured/enabled/eligible`, Live-Propagation.
+  * [`profile-model`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/profile-model/SKILL.md) – Drei feste Gruppen im Controller, Resolver, `configured/enabled/eligible`, Live-Propagation.
 * **Laufzeit, Steuerung & Lifecycle:**
-  * [`schedule-runtime`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/schedule-runtime/SKILL.md) – Zeitfenster (Early/Late), Workday, Fixed/Dynamic/Hybrid Sun, `_TimeProfileProbe`.
+  * [`schedule-runtime`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/schedule-runtime/SKILL.md) – Zeitfenster (Early/Late), Workday, Fixed/Dynamic/Hybrid Sun, `_TimeGroupProbe`.
   * [`runtime-lifecycle`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/runtime-lifecycle/SKILL.md) – Datenfluss Controller → Hub → Room Manager → Controller → Snapshot → Entity, Setup/Unload.
 * **Blueprint-Parität & Release:**
   * [`cca-parity`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/cca-parity/SKILL.md) – Vollständigkeitskette UI → Persistenz → Resolver → Runtime → Tests.

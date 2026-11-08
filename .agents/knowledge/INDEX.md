@@ -19,8 +19,8 @@ Willkommen in der internen Wissensdatenbank von `cover-control`. Dieser Ordner d
 ### 1. Architektur & Designentscheidungen (ADRs)
 Grundsatzentscheidungen zur Struktur, Datenhaltung und Integration:
 * 📄 [`architecture/adr-001-mixin-architecture.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/architecture/adr-001-mixin-architecture.md) – Aufteilung der Controller-Verantwortlichkeiten auf spezialisierte Mixins.
-* 📄 [`architecture/adr-002-config-entry-vs-subentry.md`](architecture/adr-002-config-entry-vs-subentry.md) – Zentraler Controller plus eigenständige Room-ConfigEntries; Profile bleiben zentrale Datenobjekte, Subentries bleiben deaktiviert.
-* 📄 [`architecture/adr-003-state-hierarchy-configured-enabled-eligible.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/architecture/adr-003-state-hierarchy-configured-enabled-eligible.md) – Das dreistufige Zustandsmodell für Profilfunktionen.
+* 📄 [`architecture/adr-002-config-entry-vs-subentry.md`](architecture/adr-002-config-entry-vs-subentry.md) – Zentraler Controller mit drei festen Gruppen plus eigenständige Room-ConfigEntries; Subentries bleiben deaktiviert.
+* 📄 [`architecture/adr-003-state-hierarchy-configured-enabled-eligible.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/architecture/adr-003-state-hierarchy-configured-enabled-eligible.md) – Das dreistufige Zustandsmodell für Gruppenfunktionen.
 
 ### 2. Domänenwissen & Steuerungslogik
 Fachliche Regeln für Beschattung, Fahrbefehle und Prioritäten:
@@ -31,7 +31,7 @@ Fachliche Regeln für Beschattung, Fahrbefehle und Prioritäten:
 
 ### 3. Troubleshooting, Fallstricke & Lessons Learned
 Dokumentierte Lösungen für knifflige Bugs und HA-Spezifika:
-* 📄 [`troubleshooting/entity-registry-cleanup.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/troubleshooting/entity-registry-cleanup.md) – Lifecycle-Bereinigung verwaister Entitäten bei Raum- und Profiländerungen.
+* 📄 [`troubleshooting/entity-registry-cleanup.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/troubleshooting/entity-registry-cleanup.md) – Lifecycle-Bereinigung verwaister Entitäten bei Raumänderungen.
 * 📄 [`troubleshooting/home-assistant-async-guidelines.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/troubleshooting/home-assistant-async-guidelines.md) – Vermeidung blockierender I/O im Event-Loop und sauberes Unload.
 * 📄 [`troubleshooting/stable-sun-events-and-active-controls.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/troubleshooting/stable-sun-events-and-active-controls.md) – Stabile Sun-Duration-Ereignisse und getrennte Erfassung aktiver Entscheidungs-Controls.
 

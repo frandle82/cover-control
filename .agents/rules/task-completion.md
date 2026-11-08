@@ -188,8 +188,8 @@ Also verify:
 
 - no duplicate Room ConfigEntries
 - no stale Room ConfigSubentries
-- no stale Profile ConfigSubentries
-- no Profile ConfigEntries
+- no stale legacy ConfigSubentries
+- no legacy standalone configuration entries
 - Registry links remain valid
 
 ---

@@ -17,7 +17,7 @@ Vorgaben für eine robuste und standardkonforme Integration in Home Assistant.
 
 * **State-Listener:** Alle mit `async_track_state_change_event` oder `async_track_point_in_time` registrierten Listener müssen beim Unload abgemeldet werden (`remove_listener()`).
 * **Background Tasks:** Hintergrund-Tasks müssen an den Entry gebunden und beim Unload abgebrochen (`cancel()`) und awaited werden.
-* **Entity Registry:** Wenn Profilfunktionen abgewählt oder Profile gelöscht werden, müssen nicht mehr benötigte Entitäten über die Entity Registry bereinigt werden.
+* **Entity Registry:** Wenn Gruppenfunktionen abgewählt oder Gruppen gewechselt werden, müssen nicht mehr benötigte Entitäten über die Entity Registry bereinigt werden.
 
 ## 3. Entitäten & Plattformen
 

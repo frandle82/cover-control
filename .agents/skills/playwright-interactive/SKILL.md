@@ -28,14 +28,14 @@ Ermöglicht automatisierte und interaktive Browser-Tests für Frontend-Komponent
 ### 1. Config Flow & Reconfigure Flow
 * Start des Flows über Home Assistant Integrationen.
 * Durchklicken der Schritte:
-  * Raum-UI: General → Cover & Hardware → Positions → Window contacts → Room sensors → Geometry → Profile & Automation → Local data sources → Controls → Diagnostics.
-  * Profil-UI: General → Time → Brightness → Sun → Shading → Ventilation → Resident → Manual behavior.
+  * Raum-UI: General → Cover & Hardware → Positions → Window contacts → Room sensors → Geometry → Group → Local data sources → Controls → Diagnostics.
+  * Gruppen-UI: General → Time → Brightness → Sun → Shading → Ventilation → Resident → Manual behavior.
 * Prüfung: Werden Validierungsfehler (z. B. ungültige Positionen, fehlende Pflichtfelder) verständlich und an der richtigen Stelle angezeigt?
 
 ### 2. Dynamische Selektoren & Dropdowns
 * Werden nur gültige `cover`-Entitäten im Cover-Selektor angezeigt?
 * Funktionieren Filter für Fensterkontakte (`binary_sensor` mit Geräteklasse `window` / `door`)?
-* Werden Profilfunktions-Checkboxen korrekt aktiviert/deaktiviert?
+* Werden Gruppenfunktions-Checkboxen korrekt aktiviert/deaktiviert?
 
 ### 3. Visuelle Lokalisierung & Layout
 * Keine unübersetzten Keys (`component.cover_control.config.step...`).

@@ -11,7 +11,7 @@ Vorgaben für sichere Schema-Migrationen und Abwärtskompatibilität in `cover-c
 
 * **Persistenz vs. Memory:** Nur persistierte Daten in Config Entries benötigen Migrationen. Laufzeit-Zustände im Speicher werden nicht migriert.
 * **Kein Datenverlust:** Bestehende Benutzereinstellungen müssen bei Schema-Änderungen erhalten bleiben.
-* **Versionierung:** `ENTRY_VERSION` in `const.py` nur dann erhöhen, wenn sich das persistente Schema tatsächlich inkompatibel ändert.
+* **Versionierung:** ConfigEntry-`VERSION` und `CONFIG_MODEL_VERSION` nur bei inkompatiblen persistierten Änderungen erhöhen.
 * **Aufräumen:** Veraltete Schlüssel werden nach erfolgreicher Migration aus dem Eintrag entfernt.
 
 ## 2. Zentrale Migrationslogik
@@ -24,5 +24,5 @@ Vorgaben für sichere Schema-Migrationen und Abwärtskompatibilität in `cover-c
 * Für jede neue Migration muss mindestens ein Regressionstest existieren, der einen alten Stand erfolgreich auf das neue Schema migriert.
 * Ausführung:
   ```sh
-  .venv/bin/pytest -q tests/test_config_migration.py --asyncio-mode=auto
+  .venv/bin/pytest -q tests/test_group_migration.py --asyncio-mode=auto
   ```

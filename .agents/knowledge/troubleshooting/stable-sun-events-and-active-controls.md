@@ -16,7 +16,7 @@ tags:
 
 Bei wiederholten Aktualisierungen der nächsten Sun-Duration-Ereignisse wurde ein nicht initialisiertes `_condition_since`-Mapping über `getattr(..., {})` nur temporär erzeugt. Dadurch begann die Dauerprüfung bei jedem Refresh neu und der Zielzeitpunkt verschob sich fortlaufend.
 
-Zusätzlich leitete der Activity-/Control-Status aktive Controls ausschließlich aus `_reason` ab. Nach einer bereits erreichten Zielposition konnte eine weiterhin entscheidungsrelevante Zeit-, Sun- oder andere Profilbedingung deshalb als `idle` erscheinen.
+Zusätzlich leitete der Activity-/Control-Status aktive Controls ausschließlich aus `_reason` ab. Nach einer bereits erreichten Zielposition konnte eine weiterhin entscheidungsrelevante Zeit-, Sun- oder andere Gruppenbedingung deshalb als `idle` erscheinen.
 
 ## Invarianten
 

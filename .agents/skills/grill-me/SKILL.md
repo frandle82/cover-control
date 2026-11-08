@@ -17,7 +17,7 @@ Bevor überhaupt eine Zeile Code geschrieben wird, interviewt dieser Skill den E
 
 * Bei neuen Features, Erweiterungen oder Verhaltensänderungen.
 * Bei Änderungen an Zustandsautomaten, Prioritäten oder Timing-Logik.
-* Bei Erweiterungen des Konfigurationsmodells (Global, Profil, Raum).
+* Bei Erweiterungen des Konfigurationsmodells (Global, Gruppe, Raum).
 * Wenn eine Benutzeranforderung vage oder mehrdeutig formuliert ist.
 * Vor großen Refactorings oder Änderungen an Schnittstellen.
 
@@ -35,9 +35,9 @@ Vor Implementierungsbeginn strukturiert folgende Fragen durchgehen und klären:
 ### 2. Architektureinordnung (Cover Control Architektur)
 * **Zuständigkeitsebene:**
   * Ist es eine geteilte Datenquelle? → `GLOBAL`
-  * Ist es ein Automationsverhalten / Schwellenwert? → `PROFILE`
+  * Ist es ein Automationsverhalten / Schwellenwert? → `GROUP`
   * Betrifft es Hardware, physische Positionen oder Raumsensoren? → `ROOM`
-  * Gehört dazu ein manueller Ein-/Ausschalter? → `SWITCH` (`profile_functions`)
+  * Gehört dazu ein manueller Ein-/Ausschalter? → `SWITCH` (`group`)
 * **Mixin-Zuordnung (`custom_components/cover_control/runtime/`):**
   * `actuator.py`: Fahrbefehle, Positionstoleranz, Tilt, Verzögerung.
   * `evaluation.py`: Zielpositionsberechnung, Bedingungsauswertung.
@@ -50,7 +50,7 @@ Vor Implementierungsbeginn strukturiert folgende Fragen durchgehen und klären:
 
 ### 3. Zustandsmodell & Prioritäten
 * Wie interagiert die Funktion mit dem Dreistufen-Modell?
-  * `configured` (im Profil vorhanden UND vom Raum selektiert)
+  * `configured` (im Gruppe vorhanden UND vom Raum selektiert)
   * `enabled` (Laufzeitschalter ON)
   * `eligible` (Bedingungen zur Laufzeit erfüllt)
 * Welche Priorität gilt bei Konflikten?

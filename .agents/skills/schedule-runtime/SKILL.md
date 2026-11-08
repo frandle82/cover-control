@@ -13,7 +13,7 @@ Dieser Skill dokumentiert die zeitbasierte und sonnenabhängige Automationslogik
 
 ## 1. Kernkonzepte des Zeitmanagements
 
-Die Zeit- und Sonnenlogik ist in `custom_components/cover_control/runtime/schedule.py` und `runtime/profile_evaluation.py` implementiert:
+Die Zeit- und Sonnenlogik ist in `custom_components/cover_control/runtime/schedule.py` und `runtime/group_evaluation.py` implementiert:
 
 ### Time Early & Time Late (Zeitfenster)
 * **`open_time_early` / `open_time_late`:** Frühester und spätester erlaubter Öffnungszeitpunkt am Morgen.
@@ -43,20 +43,20 @@ Die Zeit- und Sonnenlogik ist in `custom_components/cover_control/runtime/schedu
 
 ---
 
-## 3. Zustandsfreie Evaluierung: `_TimeProfileProbe`
+## 3. Zustandsfreie Evaluierung: `_TimeGroupProbe`
 
-Für wiederverwendbare Profile, die von mehreren Räumen referenziert werden, wird in `runtime/profile_evaluation.py` eine leichtgewichtige Probe-Klasse eingesetzt:
+Für feste Gruppen, die von mehreren Räumen referenziert werden, wird in `runtime/group_evaluation.py` eine leichtgewichtige Probe-Klasse eingesetzt:
 
 ```python
-class _TimeProfileProbe(ScheduleMixin):
+class _TimeGroupProbe(ScheduleMixin):
     """Zustandsfreie Snapshot-Probe zur Berechnung von Zeitplan-Ereignissen."""
     def __init__(self, hass: HomeAssistant, config: Mapping[str, Any]) -> None:
         self.hass = hass
         self.config = config
 ```
 
-* **Zweck:** Ermittelt die nächsten Schaltzeitpunkte (`next_open`, `next_close`) rein aus der Profilkonfiguration und dem aktuellen Zustand (Workday, Sonne), ohne eine vollständige Controller-Instanz instanziieren zu müssen.
-* **Ergebnis:** Wird im `CoverControlHub` im `ProfileEvaluation`-Dataclass gecacht und bei Bedarf an die Räume propagiert.
+* **Zweck:** Ermittelt die nächsten Schaltzeitpunkte (`next_open`, `next_close`) rein aus der Gruppenkonfiguration und dem aktuellen Zustand (Workday, Sonne), ohne eine vollständige Controller-Instanz instanziieren zu müssen.
+* **Ergebnis:** Wird im `CoverControlHub` im `GroupEvaluation`-Dataclass gecacht und bei Bedarf an die Räume propagiert.
 
 ---
 
