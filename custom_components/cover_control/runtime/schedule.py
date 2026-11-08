@@ -29,6 +29,8 @@ from ..const import (
     CONF_CONTACT_STATUS_DELAY,
     CONF_CONTACT_TRIGGER_DELAY,
     CONF_CLOSE_POSITION,
+    CONF_FINAL_CLOSE_TIME,
+    CONF_INTERMEDIATE_CLOSE_ENABLED,
     CONF_MANUAL_SCHEDULE_ADOPTION,
     CONF_OPEN_POSITION,
     CONF_RESIDENT_SENSOR,
@@ -47,6 +49,7 @@ from ..const import (
     CONF_WORKDAY_TOMORROW_SENSOR,
     DEFAULT_CONTACT_SETTINGS,
     DEFAULT_CLOSE_POSITION,
+    DEFAULT_FINAL_CLOSE_TIME,
     DEFAULT_OPEN_POSITION,
     DEFAULT_SUN_ELEVATION_MODE,
     DEFAULT_SUN_TIME_DURATION,
@@ -693,6 +696,18 @@ class ScheduleMixin:
             self._next_open = self._next_open.replace(microsecond=0)
         if self._next_close is not None:
             self._next_close = self._next_close.replace(microsecond=0)
+
+        self._next_final_close = None
+        if self.config.get(CONF_INTERMEDIATE_CLOSE_ENABLED, False) and time_down_enabled:
+            final_time = _parse_time(
+                str(self.config.get(CONF_FINAL_CLOSE_TIME, DEFAULT_FINAL_CLOSE_TIME))
+            )
+            final_today = self._today_at(now, final_time)
+            if final_today is not None:
+                self._next_final_close = final_today
+                if self._next_final_close <= dt_util.as_local(now):
+                    self._next_final_close += timedelta(days=1)
+                self._next_final_close = self._next_final_close.replace(microsecond=0)
 
         self._reschedule_next_event_timers(now)
 

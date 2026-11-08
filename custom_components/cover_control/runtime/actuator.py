@@ -420,7 +420,10 @@ class ActuatorMixin:
         ):
             position = frost_target
             reason = "frost_alarm"
-        if self._group_position_callback is not None:
+        if (
+            self._group_position_callback is not None
+            and reason != "scheduled_intermediate_close"
+        ):
             await self._group_position_callback(self, float(position), reason)
             return
         await self._set_position_local(float(position), reason)

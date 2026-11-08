@@ -256,7 +256,11 @@ class StatusMixin:
         target_text = f"{target:g}%" if target is not None else "the target position"
         if reason == "scheduled_open":
             self._logbook_entry(f"Moved to {target_text} · scheduled opening")
-        elif reason == "scheduled_close":
+        elif reason in {
+            "scheduled_close",
+            "scheduled_intermediate_close",
+            "scheduled_final_close",
+        }:
             self._logbook_entry(f"Moved to {target_text} · scheduled closing")
         elif reason in {"shading", "manual_shading", "heat_protection"}:
             message = (

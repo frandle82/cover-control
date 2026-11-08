@@ -94,8 +94,10 @@ class CoverController(
         self._manual_expire_unsub: CALLBACK_TYPE | None = None
         self._scheduled_open_unsub: CALLBACK_TYPE | None = None
         self._scheduled_close_unsub: CALLBACK_TYPE | None = None
+        self._scheduled_final_close_unsub: CALLBACK_TYPE | None = None
         self._scheduled_open_at: datetime | None = None
         self._scheduled_close_at: datetime | None = None
+        self._scheduled_final_close_at: datetime | None = None
         self._shading_pending: dict[str, datetime] = {}
         self._shading_timer_unsubs: dict[str, CALLBACK_TYPE] = {}
         self._condition_timer_unsubs: dict[str, CALLBACK_TYPE] = {}
@@ -114,6 +116,7 @@ class CoverController(
         self._safety_target: float | None = None
         self._next_open: datetime | None = None
         self._next_close: datetime | None = None
+        self._next_final_close: datetime | None = None
         self._master_entity_id: str | None = None
         self._condition_since: dict[str, datetime] = {}
         self._last_action_dates: dict[str, datetime.date] = {}

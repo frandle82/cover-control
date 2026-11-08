@@ -26,6 +26,7 @@ TRIGGER_DYNAMIC_SUN_OPEN_CHANGED = "dynamic_sun_open_changed"
 TRIGGER_RESIDENT_OFF = "resident_off"
 TRIGGER_RESIDENT_ON = "resident_on"
 TRIGGER_SCHEDULED_CLOSE = "scheduled_close"
+TRIGGER_SCHEDULED_FINAL_CLOSE = "scheduled_final_close"
 TRIGGER_SCHEDULED_OPEN = "scheduled_open"
 TRIGGER_SHADING_END_CHANGED = "shading_end_condition_changed"
 TRIGGER_SHADING_END_TIMER = "shading_end_timer"
@@ -55,7 +56,7 @@ TRIGGER_FROST_ALARM_OFF = "frost_alarm_off"
 TRIGGER_FIRE_LATCH_RESET = "fire_latch_reset"
 
 WINDOW_DOWN_SEQUENCE_REASONS = frozenset(
-    {"scheduled_close", "sun_close", "brightness_close"}
+    {"scheduled_close", "scheduled_final_close", "sun_close", "brightness_close"}
 )
 
 CONDITION_TIMER_TRIGGERS = {
@@ -96,6 +97,7 @@ _TRIGGER_PRIORITY = {
     TRIGGER_CALENDAR_CLOSE_END: 1,
     TRIGGER_SCHEDULED_OPEN: 2,
     TRIGGER_SCHEDULED_CLOSE: 2,
+    TRIGGER_SCHEDULED_FINAL_CLOSE: 2,
     TRIGGER_SHADING_START_TIMER: 4,
     TRIGGER_SHADING_END_TIMER: 4,
     "startup": 2,

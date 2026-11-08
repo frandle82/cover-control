@@ -59,6 +59,7 @@ from .common import (
     TRIGGER_RESIDENT_OFF,
     TRIGGER_RESIDENT_ON,
     TRIGGER_SCHEDULED_CLOSE,
+    TRIGGER_SCHEDULED_FINAL_CLOSE,
     TRIGGER_SCHEDULED_OPEN,
     TRIGGER_SHADING_END_TIMER,
     TRIGGER_SHADING_START_TIMER,
@@ -555,7 +556,14 @@ class EventsMixin:
             self._manual_until,
             self._manual_active,
             self._next_open,
-            self._next_close,
+            min(
+                point
+                for point in (self._next_close, getattr(self, "_next_final_close", None))
+                if point is not None
+            )
+            if self._next_close is not None
+            or getattr(self, "_next_final_close", None) is not None
+            else None,
             current_position,
             shading_enabled,
             shading_active,
@@ -579,6 +587,7 @@ class EventsMixin:
             and hub.room_uses_shared_time_timer(room_id)
         ):
             self._clear_scheduled_event_timers()
+            self._reschedule_final_close_timer(now)
             return
 
         self._scheduled_open_unsub, self._scheduled_open_at = (
@@ -597,6 +606,18 @@ class EventsMixin:
                 self._next_close,
                 now,
                 "close",
+            )
+        )
+        self._reschedule_final_close_timer(now)
+
+    def _reschedule_final_close_timer(self, now: datetime) -> None:
+        self._scheduled_final_close_unsub, self._scheduled_final_close_at = (
+            self._reschedule_event_timer(
+                getattr(self, "_scheduled_final_close_unsub", None),
+                getattr(self, "_scheduled_final_close_at", None),
+                getattr(self, "_next_final_close", None),
+                now,
+                "final_close",
             )
         )
 
@@ -620,12 +641,16 @@ class EventsMixin:
             if kind == "open":
                 self._scheduled_open_unsub = None
                 self._scheduled_open_at = None
+            elif kind == "final_close":
+                self._scheduled_final_close_unsub = None
+                self._scheduled_final_close_at = None
             else:
                 self._scheduled_close_unsub = None
                 self._scheduled_close_at = None
-            self.async_request_evaluate(
-                TRIGGER_SCHEDULED_OPEN if kind == "open" else TRIGGER_SCHEDULED_CLOSE
-            )
+            trigger = TRIGGER_SCHEDULED_OPEN if kind == "open" else TRIGGER_SCHEDULED_CLOSE
+            if kind == "final_close":
+                trigger = TRIGGER_SCHEDULED_FINAL_CLOSE
+            self.async_request_evaluate(trigger)
 
         return (
             async_track_point_in_time(self.hass, _handle_scheduled_event, next_event),
@@ -634,13 +659,18 @@ class EventsMixin:
 
     @callback
     def _clear_scheduled_event_timers(self) -> None:
-        for attribute in ("_scheduled_open_unsub", "_scheduled_close_unsub"):
+        for attribute in (
+            "_scheduled_open_unsub",
+            "_scheduled_close_unsub",
+            "_scheduled_final_close_unsub",
+        ):
             unsubscribe = getattr(self, attribute, None)
             if unsubscribe is not None:
                 unsubscribe()
                 setattr(self, attribute, None)
         self._scheduled_open_at = None
         self._scheduled_close_at = None
+        self._scheduled_final_close_at = None
 
     @callback
     def _schedule_shading_timer(self, kind: str, due_at: datetime) -> None:

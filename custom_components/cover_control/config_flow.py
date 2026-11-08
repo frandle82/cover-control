@@ -73,6 +73,7 @@ from .const import (
     CONF_CONTACT_STATUS_DELAY,
     CONF_CONTACT_TRIGGER_DELAY,
     CONF_CLOSE_POSITION,
+    CONF_INTERMEDIATE_CLOSE_POSITION,
     CONF_CLOSE_TILT_POSITION,
     CONF_COVER_TILT_WAIT_MODE,
     CONF_COVER_TILT_WAIT_TIMEOUT,
@@ -457,6 +458,7 @@ SHADING_CONFIG_OPTIONS = [
 POSITION_FIELD_LIMITS = {
     CONF_OPEN_POSITION: 100,
     CONF_CLOSE_POSITION: 100,
+    CONF_INTERMEDIATE_CLOSE_POSITION: 100,
     CONF_VENTILATE_POSITION: 100,
     CONF_LOCKOUT_POSITION: 100,
     CONF_SHADING_POSITION: 100,
@@ -1843,6 +1845,7 @@ class RoomFlowMixin:
             keys = {
                 CONF_OPEN_POSITION,
                 CONF_CLOSE_POSITION,
+                CONF_INTERMEDIATE_CLOSE_POSITION,
                 CONF_SHADING_POSITION,
                 CONF_SHADING_POSITION_ALT,
                 CONF_SHADING_POSITION_ALT_ENTITY,
@@ -1883,6 +1886,10 @@ class RoomFlowMixin:
                                 vol.Required(
                                     CONF_CLOSE_POSITION,
                                     default=_position_default(settings, CONF_CLOSE_POSITION),
+                                ): _position_number_selector(),
+                                vol.Required(
+                                    CONF_INTERMEDIATE_CLOSE_POSITION,
+                                    default=_position_default(settings, CONF_INTERMEDIATE_CLOSE_POSITION),
                                 ): _position_number_selector(),
                                 vol.Required(
                                     CONF_SHADING_POSITION,
