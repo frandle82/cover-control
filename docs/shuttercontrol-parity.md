@@ -58,9 +58,9 @@ Referenz: [`simatec/ioBroker.shuttercontrol@64ccaedc4f413f187e2a6f6d5164c83b5d6a
 | Wind 1 Safety | Erste Windstufe mit Zielposition und Priorität | Profilziel, globale Quelle, Room-Teilnahme, Listener, Runtime und Regressionstest | FULL | – |
 | Frost Safety | Nur geschlossenes Cover anheben; spätere Schließfahrt begrenzen | Frostziel im Profil, per-Cover Prüfung ohne Gruppenfahrt, Clamp späterer Schließziele und Referenztest | FULL | Kein paralleler Restore-Zustand; normale Runtime evaluiert nach Ende neu |
 | Alarmdiagnose | `autoState`, gespeicherte Alarmaktion/-höhe | Konkrete Control-State-Gründe sowie `active_safety`, `fire_latched` und `safety_target` im Entry-/Cover-Snapshot | FULL | – |
-| Sommerzeitraum | Je Rollladen im Zeitraum nicht schließen | Nicht vorhanden | MISSING | Nur einfache Profilregel plus Room-Auswahl, keine neue Kategorie |
-| Weihnachtszeitraum/-position | Im Zeitraum alternatives Schließziel | Nicht vorhanden | MISSING | Einfache Profilperiode plus Room-Position |
-| Saison über Jahreswechsel | Zeitraum wie 01.12–06.01 | Nicht vorhanden | MISSING | Periodenresolver muss Jahreswechsel testen |
+| Sommerzeitraum | `SummerStart`/`SummerEnd` gelten global und inklusiv; `inSummerNotDown` unterdrückt je Rollladen Zeit-, Sunset-, Golden-Hour-, Elevation-, Helligkeits- und vollständige Zwischenpositions-Schließfahrten, nicht aber `LateDown` oder Alarmaktionen | Wiederkehrender Zeitraum im Time-Profil, Room-Teilnahme `summer_skip_close_enabled`, gemeinsames Runtime-Gate für normale Close-Entscheidungen, `blocked_by=summer_period`, Safety/Force/Frost bleiben dominant; Flow-, Resolver-, Runtime-, Boundary- und Prioritätstests | FULL | Die Referenz kann selbst eine zuvor berechnete Frost-Komfortfahrt durch Sommer blockieren; Cover Control wahrt bewusst seine stärkere Safety-Priorität |
+| Weihnachtszeitraum/-position | `XMasStart`/`XMasEnd` gelten global und inklusiv; `useXmasLevel` ersetzt je Rollladen das normale, Zwischen- und vollständige Schließziel durch `XmasLevel` | Wiederkehrender Zeitraum im Time-Profil; Room-Teilnahme und physische `christmas_position`; gemeinsame Zielauswahl vor dem bestehenden Aktor-, Fenster-, Frost- und Safety-Pfad; Intermediate-/Final-, Window-, Resolver- und Boundary-Tests | FULL | Referenz lässt `Xmas` nicht durch Frost überschreiben; Cover Control hält Frost bewusst dominant |
+| Saison über Jahreswechsel | `IsSummerTime()` verschiebt Start- oder Endjahr bei `End < Start`, z. B. 01.12.–06.01.; Grenztage sind eingeschlossen | Gemeinsame `_is_date_in_recurring_range()`-Hilfe für Sommer und Weihnachten, lokale HA-Zeit, keine Jahreszahl in Persistenz und Tests für beide Jahreshälften sowie Grenzen | FULL | – |
 | Eindeutige Trigger-IDs | Nutzer fordert fachlich eindeutige IDs | Rollenbezogene State-Trigger, getrennte Open-/Close-/Shading-/Kalender-Timer, kollisionsfreie Fenster-Timer, priorisierte Pending-Sets und unveränderte Event-Struktur; Regressionstests in `test_event_driven_processing.py` | FULL | – |
 | Status/Diagnose normaler Automation | Aktionsstatus und Zielhöhe je Rollladen | Persistenter Status, Reason, Active/Configured/Blocked Controls, Sensoren, Logbook und Tests | FULL | – |
 
@@ -72,7 +72,7 @@ Zur Runtime unbenutzt sind die globalen Felder `UseAstro`, `UseSunMode`, `driveH
 
 ## Priorisierte Implementierungsreihenfolge
 
-1. Sommer- und Weihnachtsperiode minimal in vorhandene Profile/Rooms integrieren.
+Die bestätigten saisonalen Referenzfunktionen sind umgesetzt. Vor weiteren Features folgt ein separater finaler Paritäts- und Reality-Check der verbleibenden `PARTIAL`-/`MAPPED`-Zeilen.
 
 Schedule-Prognosen sind an der zentralen Berechnungsgrenze auf volle Sekunden normalisiert. Wiederholtes Refreshing mit unveränderten Eingängen liefert dadurch identische `next_open`-/`next_close`-Werte; „Nächste Schließung“ wählt bei gestuftem Schließen das frühere reguläre oder endgültige Ereignis.
 

@@ -110,10 +110,11 @@ Frost fährt einen bereits offenen Rollladen nicht präventiv. Er begrenzt eine 
 
 Die Funktionen sind im aktuellen Quellcode aktiv und daher nicht historisch:
 
-- `inSummerNotDown`: unterdrückt Schließfahrten je Rollladen innerhalb `SummerStart`/`SummerEnd`.
-- `useXmasLevel`/`XmasLevel`: ersetzt innerhalb `XMasStart`/`XMasEnd` die normale Schließ- oder Zwischenposition.
+- `SummerStart`/`SummerEnd` sind globale, inklusive `DD.MM.`-Grenzen. `inSummerNotDown` unterdrückt je Rollladen die normalen Zeit-, Sunset-, Golden-Hour-, Elevation-, Helligkeits- und `shutterDownComplete`-Fahrten. `shutterDownLate` verwendet die Sommerprüfung nicht; Alarmaktionen laufen unabhängig.
+- `XMasStart`/`XMasEnd` sind ebenfalls global und inklusiv. `useXmasLevel`/`XmasLevel` ersetzt je Rollladen das normale Ziel, die Zwischenposition und das Ziel von `shutterDownComplete`. `shutterDownLate` verwendet die Weihnachtsposition nicht.
+- `IsSummerTime()` behandelt `End < Start` als Jahreswechsel und verschiebt abhängig vom aktuellen Datum Start- oder Endjahr. Start- und Endtag gehören zum Zeitraum.
 
-Zeiträume über den Jahreswechsel werden unterstützt.
+Cover Control mappt die wiederkehrenden Grenzen ins Time-Profil; Teilnahme und physische Weihnachtsposition bleiben Room-Eigentum. Eine gemeinsame Datumsfunktion wertet lokale HA-Zeit ohne persistiertes Kalenderjahr aus. Sommer blockiert nur normale Komfort-Schließentscheidungen und meldet `summer_period`; Safety, Force, Frost, Ventilation und Lockout bleiben aktiv. Weihnachten modifiziert das gemeinsame Schließziel und läuft anschließend durch den bestehenden Fenster-/Ventilations- und Aktorpfad. Abweichend von der Referenz bleiben Safety und Frost auch gegenüber Christmas dominant.
 
 ## Restart, manuelle Eingriffe und Edge Cases
 
@@ -152,7 +153,7 @@ Die gleichnamigen **per-Rollladen** Felder `heatProtection` und `useXmasLevel` w
 - Die Runtime-Trigger sind fachlich eindeutig; neue Safety-Trigger müssen dieselbe Trennung von `trigger` (Evaluationsursache) und `reason` (Fahrentscheidung) beibehalten.
 - No-Go-Time ist als Behavior-Profilwert umgesetzt und verwendet ohne parallele Historie `State.last_changed`. Die gestufte Schließung verwendet ein Time-Profil, eine Room-Zwischenposition und den vorhandenen Schedule-/Movement-Pfad; Schlussfahrten respektieren Safety, Frost und die Fenstersequenz.
 - Schedule-Prognosen sind nach vollständiger Kandidatenauswahl zentral auf `microsecond=0` normalisiert. Unveränderte Eingänge müssen bei wiederholtem Refresh identische Vorhersagen liefern.
-- Von den bestätigten aktiven Referenzlücken fehlen noch die saisonalen Sommer- und Weihnachtsregeln.
+- Die bestätigten saisonalen Sommer- und Weihnachtsregeln sind einschließlich Jahreswechsel, gestuftem Schließen, Safety-Priorität und Diagnose umgesetzt. Weitere Änderungen benötigen den separaten finalen Paritäts- und Reality-Check.
 
 Die vollständige Statuszuordnung und Priorisierung steht in [`../../docs/shuttercontrol-parity.md`](file:///Users/andreasgrundke/Git/cover-control/docs/shuttercontrol-parity.md).
 
