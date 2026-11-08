@@ -23,6 +23,7 @@ from custom_components.cover_control.runtime_data import CoverControlRuntime
 from custom_components.cover_control.const import (
     CONF_AUTO_TIME,
     CONF_AUTO_SUN,
+    CONF_AUTO_SHADING,
     CONF_SUN_TIME_DURATION,
     CONF_CLOSE_POSITION,
     CONF_CONTROLLER_ENTRY_ID,
@@ -31,6 +32,7 @@ from custom_components.cover_control.const import (
     CONF_GLOBAL,
     CONF_GLOBAL_SOURCES,
     CONF_OPEN_POSITION,
+    CONF_POSITION_TOLERANCE,
     CONF_NAME,
     CONF_PROFILE_FUNCTIONS,
     CONF_PROFILE_CAPABILITIES,
@@ -47,6 +49,11 @@ from custom_components.cover_control.const import (
     CONF_ROOMS,
     CONF_SOURCE_OVERRIDES,
     CONF_SHADING_POSITION,
+    CONF_SHADING_CONDITIONS_END_OR,
+    CONF_SHADING_CONDITIONS_START_AND,
+    CONF_SHADING_WAITINGTIME_END,
+    CONF_SUN_AZIMUTH_END,
+    CONF_SUN_AZIMUTH_START,
     CONF_VENTILATE_POSITION,
     CONF_TIME_UP_EARLY_WORKDAY,
     CONF_TIME_UP_LATE_WORKDAY,
@@ -55,8 +62,10 @@ from custom_components.cover_control.const import (
     ENTRY_TYPE_CONTROLLER,
     ENTRY_TYPE_ROOM,
     FUNCTION_RESIDENT,
+    FUNCTION_SHADING,
     FUNCTION_TIME,
     FUNCTION_SUN,
+    SHADING_CONDITION_AZIMUTH,
     PROFILE_TYPE_SHADING,
     PROFILE_TYPES,
 )
@@ -671,14 +680,16 @@ async def test_loaded_room_next_open_entity_matches_sun_schedule(hass) -> None:
     """Loaded runtime keeps schedule, live config, sensor, and command path aligned."""
 
     now = datetime.now().astimezone().replace(microsecond=0)
-    early = (now - timedelta(hours=1)).time().isoformat()
-    late = (now + timedelta(hours=1)).time().isoformat()
+    early = "00:00:00"
+    late = "23:59:59"
     hass.states.async_set(
         "cover.living",
         "open",
         {"current_position": 100, "supported_features": 4},
     )
-    hass.states.async_set("sun.sun", "above_horizon", {"elevation": 7})
+    hass.states.async_set(
+        "sun.sun", "above_horizon", {"azimuth": 300, "elevation": 7}
+    )
     controller_entry = MockConfigEntry(
         domain=DOMAIN,
         title="Cover Control",
@@ -690,11 +701,25 @@ async def test_loaded_room_next_open_entity_matches_sun_schedule(hass) -> None:
                 "profile-living": {
                     CONF_PROFILE_ID: "profile-living",
                     CONF_PROFILE_NAME: "Living",
-                    CONF_PROFILE_FUNCTIONS: [FUNCTION_TIME, FUNCTION_SUN],
+                    CONF_PROFILE_FUNCTIONS: [
+                        FUNCTION_TIME,
+                        FUNCTION_SUN,
+                        FUNCTION_SHADING,
+                    ],
                     CONF_PROFILE_SETTINGS: {
                         CONF_AUTO_TIME: True,
                         CONF_AUTO_SUN: True,
+                        CONF_AUTO_SHADING: True,
                         CONF_SUN_TIME_DURATION: 30,
+                        CONF_SHADING_CONDITIONS_START_AND: [
+                            SHADING_CONDITION_AZIMUTH
+                        ],
+                        CONF_SHADING_CONDITIONS_END_OR: [
+                            SHADING_CONDITION_AZIMUTH
+                        ],
+                        CONF_SHADING_WAITINGTIME_END: 0,
+                        CONF_SUN_AZIMUTH_START: 90,
+                        CONF_SUN_AZIMUTH_END: 270,
                         CONF_TIME_UP_EARLY_WORKDAY: early,
                         CONF_TIME_UP_LATE_WORKDAY: late,
                         CONF_TIME_DOWN_EARLY_WORKDAY: early,
@@ -715,8 +740,16 @@ async def test_loaded_room_next_open_entity_matches_sun_schedule(hass) -> None:
             CONF_ROOM_ID: "room-living",
             CONF_NAME: "Living",
             CONF_ROOM_PROFILE_ID: "profile-living",
-            CONF_PROFILE_FUNCTIONS: [FUNCTION_TIME, FUNCTION_SUN],
-            CONF_ROOM_SETTINGS: {CONF_COVERS: ["cover.living"]},
+            CONF_PROFILE_FUNCTIONS: [
+                FUNCTION_TIME,
+                FUNCTION_SUN,
+                FUNCTION_SHADING,
+            ],
+            CONF_ROOM_SETTINGS: {
+                CONF_COVERS: ["cover.living"],
+                CONF_POSITION_TOLERANCE: 2,
+                CONF_SHADING_POSITION: 30,
+            },
             CONF_SOURCE_OVERRIDES: {},
         },
     )
@@ -752,8 +785,40 @@ async def test_loaded_room_next_open_entity_matches_sun_schedule(hass) -> None:
 
     assert controller.config[CONF_SUN_TIME_DURATION] == 45
     assert hass.states.get("sensor.living_next_opening").state != "unavailable"
+    assert controller._auto_enabled(CONF_AUTO_SHADING)
+    assert controller._effective_shading_position() == 30
+    assert controller._manual_active is False
 
     calls = async_mock_service(hass, "cover", "set_cover_position")
+    hass.states.async_set(
+        "cover.living",
+        "open",
+        {"current_position": 31, "supported_features": 4},
+    )
+    await hass.async_block_till_done()
+
+    assert controller._manual_active is False
+    assert controller._status_active("shading")
+    assert hass.states.get("sensor.living_active_control").state == "shading"
+    assert calls == []
+
+    hass.states.async_set(
+        "sun.sun", "above_horizon", {"azimuth": 180, "elevation": 7}
+    )
+    controller._evaluation_context = None
+    await controller._evaluate("sun_position")
+
+    assert calls == []
+
+    hass.states.async_set(
+        "sun.sun", "above_horizon", {"azimuth": 300, "elevation": 7}
+    )
+    controller._evaluation_context = None
+    assert controller._shading_end_conditions(300, 7, None)
+    await controller._evaluate("sun_position")
+
+    assert calls[-1].data == {"entity_id": "cover.living", "position": 100.0}
+
     await controller._command_position(42, reason="reality_check")
 
     assert calls[-1].data == {"entity_id": "cover.living", "position": 42.0}
