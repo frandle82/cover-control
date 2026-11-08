@@ -68,6 +68,7 @@ from .common import (
     TRIGGER_WINDOW_TILTED,
     _coerce_float,
     _parse_time,
+    scheduled_trigger,
     _ts_now,
 )
 
@@ -699,7 +700,7 @@ class EventsMixin:
             else:
                 self._scheduled_close_unsub = None
                 self._scheduled_close_at = None
-            trigger = TRIGGER_SCHEDULED_OPEN if kind == "open" else TRIGGER_SCHEDULED_CLOSE
+            trigger = scheduled_trigger(kind, self._control_mode(kind))
             if kind == "final_close":
                 trigger = TRIGGER_SCHEDULED_FINAL_CLOSE
             self.async_request_evaluate(trigger)

@@ -8,23 +8,11 @@ from typing import Any, Mapping
 from homeassistant.util import dt as dt_util
 
 from ..const import (
+    CONF_AUTO_BRIGHTNESS,
     CONF_AUTO_DOWN,
     CONF_AUTO_SUN,
     CONF_AUTO_TIME,
     CONF_AUTO_UP,
-    CONF_SUN_ELEVATION_CLOSE,
-    CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
-    CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
-    CONF_SUN_ELEVATION_MODE,
-    CONF_SUN_ELEVATION_OPEN,
-    CONF_SUN_SENSOR,
-    CONF_SUN_TIME_DURATION,
-    CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
-    CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
-    DEFAULT_SUN_ELEVATION_CLOSE,
-    DEFAULT_SUN_ELEVATION_MODE,
-    DEFAULT_SUN_ELEVATION_OPEN,
-    DEFAULT_SUN_TIME_DURATION,
     DEFAULT_SUN_SENSOR,
 )
 from .schedule import ScheduleMixin
@@ -48,8 +36,7 @@ class _TimeGroupProbe(ScheduleMixin):
         return self.hass.states.get(entity_id) if entity_id else None
 
     def _sun_entity(self) -> str:
-        value = self.config.get(CONF_SUN_SENSOR, DEFAULT_SUN_SENSOR)
-        return value if isinstance(value, str) and value else DEFAULT_SUN_SENSOR
+        return DEFAULT_SUN_SENSOR
 
     def _duration_value(self, key: str, default: int) -> int:
         value = self.config.get(key, default)
@@ -58,43 +45,6 @@ class _TimeGroupProbe(ScheduleMixin):
         except (TypeError, ValueError):
             return default
         return max(0, int(value))
-
-    def _dynamic_sun_threshold(self, kind: str) -> float | None:
-        mode = str(
-            self.config.get(CONF_SUN_ELEVATION_MODE, DEFAULT_SUN_ELEVATION_MODE)
-            or DEFAULT_SUN_ELEVATION_MODE
-        ).lower()
-        if kind == "open":
-            fixed_key = CONF_SUN_ELEVATION_OPEN
-            sensor_key = CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR
-            fixed_default = DEFAULT_SUN_ELEVATION_OPEN
-        else:
-            fixed_key = CONF_SUN_ELEVATION_CLOSE
-            sensor_key = CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR
-            fixed_default = DEFAULT_SUN_ELEVATION_CLOSE
-        use_key = (
-            CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR
-            if kind == "open"
-            else CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR
-        )
-        try:
-            fixed = float(self.config.get(fixed_key, fixed_default))
-        except (TypeError, ValueError):
-            return None
-        if mode == "fixed":
-            return fixed
-        if not bool(self.config.get(use_key, False)):
-            return fixed
-        state = self._state_for(self.config.get(sensor_key))
-        try:
-            dynamic = float(state.state) if state is not None else None
-        except (TypeError, ValueError):
-            dynamic = None
-        if mode == "dynamic":
-            return dynamic if dynamic is not None else fixed
-        if mode == "hybrid":
-            return fixed if dynamic is None else dynamic + fixed
-        return fixed
 
     def _reschedule_next_event_timers(self, now: datetime) -> None:
         return None
@@ -114,6 +64,7 @@ def evaluate_time_group(
     if capabilities is not None:
         effective_config[CONF_AUTO_TIME] = "time" in capability_set
         effective_config[CONF_AUTO_SUN] = "sun" in capability_set
+        effective_config[CONF_AUTO_BRIGHTNESS] = "brightness" in capability_set
     if "opening" in capability_set:
         effective_config[CONF_AUTO_TIME] = True
         effective_config[CONF_AUTO_UP] = True

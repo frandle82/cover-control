@@ -9,7 +9,7 @@ from datetime import (
 )
 
 from astral import LocationInfo
-from astral.sun import SunDirection, time_at_elevation
+from astral.sun import SunDirection, golden_hour, sunrise, sunset, time_at_elevation
 from homeassistant.const import (
     STATE_ON,
     STATE_UNAVAILABLE,
@@ -19,6 +19,7 @@ from homeassistant.util import dt as dt_util
 
 from ..const import (
     CONF_AUTO_DOWN,
+    CONF_AUTO_BRIGHTNESS,
     CONF_AUTO_SUN,
     CONF_AUTO_TIME,
     CONF_AUTO_UP,
@@ -33,16 +34,20 @@ from ..const import (
     CONF_CHRISTMAS_POSITION,
     CONF_CHRISTMAS_POSITION_ENABLED,
     CONF_CHRISTMAS_START,
+    CONF_ASTRO_CLOSE_OFFSET,
+    CONF_ASTRO_OPEN_OFFSET,
+    CONF_CLOSE_MODE,
     CONF_FINAL_CLOSE_TIME,
     CONF_INTERMEDIATE_CLOSE_ENABLED,
     CONF_MANUAL_SCHEDULE_ADOPTION,
     CONF_OPEN_POSITION,
+    CONF_OPEN_MODE,
     CONF_RESIDENT_SENSOR,
     CONF_SUMMER_END,
     CONF_SUMMER_SKIP_CLOSE_ENABLED,
     CONF_SUMMER_START,
-    CONF_SUN_ELEVATION_MODE,
-    CONF_SUN_TIME_DURATION,
+    CONF_SUN_ELEVATION_CLOSE,
+    CONF_SUN_ELEVATION_OPEN,
     CONF_TIME_DOWN_EARLY_NON_WORKDAY,
     CONF_TIME_DOWN_EARLY_WORKDAY,
     CONF_TIME_DOWN_LATE_NON_WORKDAY,
@@ -54,18 +59,28 @@ from ..const import (
     CONF_VENTILATION_DELAY_AFTER_CLOSE,
     CONF_WORKDAY_SENSOR,
     CONF_WORKDAY_TOMORROW_SENSOR,
+    DEFAULT_ASTRO_CLOSE_OFFSET,
+    DEFAULT_ASTRO_OPEN_OFFSET,
+    DEFAULT_CLOSE_MODE,
     DEFAULT_CONTACT_SETTINGS,
     DEFAULT_CLOSE_POSITION,
     DEFAULT_CHRISTMAS_END,
     DEFAULT_CHRISTMAS_POSITION,
     DEFAULT_CHRISTMAS_START,
     DEFAULT_FINAL_CLOSE_TIME,
+    DEFAULT_OPEN_MODE,
     DEFAULT_OPEN_POSITION,
-    DEFAULT_SUN_ELEVATION_MODE,
-    DEFAULT_SUN_TIME_DURATION,
+    DEFAULT_SUN_ELEVATION_CLOSE,
+    DEFAULT_SUN_ELEVATION_OPEN,
     DEFAULT_SUMMER_END,
     DEFAULT_SUMMER_START,
     DEFAULT_TIME_SETTINGS,
+    MODE_BRIGHTNESS,
+    MODE_ELEVATION,
+    MODE_GOLDEN_HOUR,
+    MODE_SUNRISE,
+    MODE_SUNSET,
+    MODE_TIME,
 )
 from .common import (
     _LOGGER,
@@ -570,40 +585,6 @@ class ScheduleMixin:
         return bool(open_dt and close_dt and open_dt <= local_now <= close_dt)
 
     def _refresh_next_events(self, now: datetime) -> None:
-        sun_enabled = self._auto_enabled(CONF_AUTO_SUN)
-        time_up_enabled = self._auto_enabled(CONF_AUTO_TIME) and self._auto_enabled(
-            CONF_AUTO_UP
-        )
-        time_down_enabled = self._auto_enabled(CONF_AUTO_TIME) and self._auto_enabled(
-            CONF_AUTO_DOWN
-        )
-        sun_state = self._state_for(self._sun_entity()) if sun_enabled else None
-        sun_next_rising = self._parse_datetime_attr(
-            sun_state and sun_state.attributes.get("next_rising")
-        )
-        sun_next_setting = self._parse_datetime_attr(
-            sun_state and sun_state.attributes.get("next_setting")
-        )
-        open_threshold = self._dynamic_sun_threshold("open")
-        close_threshold = self._dynamic_sun_threshold("close")
-        mode = str(
-            self.config.get(CONF_SUN_ELEVATION_MODE, DEFAULT_SUN_ELEVATION_MODE)
-            or DEFAULT_SUN_ELEVATION_MODE
-        ).lower()
-
-        sun_open_target = (
-            self._next_sun_time_for_elevation(open_threshold, SunDirection.RISING, now)
-            if sun_enabled
-            else None
-        )
-        sun_close_target = (
-            self._next_sun_time_for_elevation(
-                close_threshold, SunDirection.SETTING, now
-            )
-            if sun_enabled
-            else None
-        )
-
         workday = self._is_workday()
         workday_tomorrow = self._is_workday_tomorrow()
         up_early_time, up_late_time = self._time_bounds(workday, True)
@@ -628,63 +609,6 @@ class ScheduleMixin:
                 down_early_time, down_late_time, now, 1
             )
 
-        current_elevation = _coerce_float(
-            sun_state and sun_state.attributes.get("elevation")
-        )
-
-        def _already_met_target(kind: str, threshold: float | None) -> datetime | None:
-            """Return the earliest valid target when the current sun state qualifies."""
-
-            if current_elevation is None or threshold is None:
-                return None
-            passed = (
-                current_elevation > threshold
-                if kind == "open"
-                else current_elevation < threshold
-            )
-            condition_key = "sun_open" if kind == "open" else "sun_close"
-            if not passed:
-                condition_since_map = getattr(self, "_condition_since", None)
-                if isinstance(condition_since_map, dict):
-                    condition_since_map.pop(condition_key, None)
-                return None
-            enabled = time_up_enabled if kind == "open" else time_down_enabled
-            if enabled:
-                early, late = (
-                    (up_early_time, up_late_time)
-                    if kind == "open"
-                    else (down_early_time, down_late_time)
-                )
-                window_start = self._today_at(now, early)
-                window_end = self._today_at(now, late)
-                local_now = dt_util.as_local(now)
-                if not window_start or not window_end or not (
-                    window_start <= local_now < window_end
-                ):
-                    return None
-            condition_since_map = getattr(self, "_condition_since", None)
-            if not isinstance(condition_since_map, dict):
-                condition_since_map = {}
-                self._condition_since = condition_since_map
-            condition_since = condition_since_map.get(condition_key)
-            if not isinstance(condition_since, datetime):
-                condition_since = now
-                condition_since_map[condition_key] = now
-            duration = self._duration_value(
-                CONF_SUN_TIME_DURATION, DEFAULT_SUN_TIME_DURATION
-            )
-            if duration <= 0:
-                return now
-            ready_at = condition_since + timedelta(seconds=duration)
-            return now if ready_at <= now else ready_at
-
-        sun_open_met = (
-            _already_met_target("open", open_threshold) if sun_enabled else None
-        )
-        sun_close_met = (
-            _already_met_target("close", close_threshold) if sun_enabled else None
-        )
-
         def _clamp_candidate(
             candidate: datetime | None,
             earliest: datetime | None,
@@ -706,31 +630,19 @@ class ScheduleMixin:
             )
             return future_fallbacks[0] if future_fallbacks else None
 
-        if sun_enabled and mode in {"dynamic", "hybrid"}:
-            # Dynamic/Hybrid use the elevation-based calculation first.
-            # If unavailable, fall back to the native sun integration times
-            # so next_open/next_close still remain sun-based.
-            open_base = sun_open_met or sun_open_target or sun_next_rising
-        else:
-            open_base = (
-                sun_open_met or sun_open_target or sun_next_rising
-            ) if sun_enabled else None
+        open_mode = self._control_mode("open")
+        close_mode = self._control_mode("close")
+        open_base = self._next_mode_event("open", open_mode, now)
+        close_base = self._next_mode_event("close", close_mode, now)
 
-        if sun_enabled and mode in {"dynamic", "hybrid"}:
-            close_base = sun_close_met or sun_close_target or sun_next_setting
-        else:
-            close_base = (
-                sun_close_met or sun_close_target or sun_next_setting
-            ) if sun_enabled else None
-
-        if time_up_enabled:
+        if self._auto_enabled(CONF_AUTO_UP) and self._mode_enabled(open_mode):
             self._next_open = _clamp_candidate(
                 open_base, next_up_early, next_up_late, (next_up_early, next_up_late)
             )
         else:
-            self._next_open = open_base
+            self._next_open = None
 
-        if time_down_enabled:
+        if self._auto_enabled(CONF_AUTO_DOWN) and self._mode_enabled(close_mode):
             self._next_close = _clamp_candidate(
                 close_base,
                 next_down_early,
@@ -738,7 +650,7 @@ class ScheduleMixin:
                 (next_down_early, next_down_late),
             )
         else:
-            self._next_close = close_base
+            self._next_close = None
 
         # Avoid reporting identical timestamps when the clamped opening and closing
         # targets converge. Prefer the next distinct closing point that still
@@ -760,7 +672,10 @@ class ScheduleMixin:
             self._next_close = self._next_close.replace(microsecond=0)
 
         self._next_final_close = None
-        if self.config.get(CONF_INTERMEDIATE_CLOSE_ENABLED, False) and time_down_enabled:
+        if (
+            self.config.get(CONF_INTERMEDIATE_CLOSE_ENABLED, False)
+            and self._auto_enabled(CONF_AUTO_DOWN)
+        ):
             final_time = _parse_time(
                 str(self.config.get(CONF_FINAL_CLOSE_TIME, DEFAULT_FINAL_CLOSE_TIME))
             )
@@ -772,6 +687,96 @@ class ScheduleMixin:
                 self._next_final_close = self._next_final_close.replace(microsecond=0)
 
         self._reschedule_next_event_timers(now)
+
+    def _control_mode(self, kind: str) -> str:
+        key, default = (
+            (CONF_OPEN_MODE, DEFAULT_OPEN_MODE)
+            if kind == "open"
+            else (CONF_CLOSE_MODE, DEFAULT_CLOSE_MODE)
+        )
+        config = getattr(self, "config", {})
+        return str(config.get(key, default) or default).lower()
+
+    def _mode_enabled(self, mode: str) -> bool:
+        if mode == MODE_TIME:
+            return self._auto_enabled(CONF_AUTO_TIME)
+        if mode == MODE_BRIGHTNESS:
+            return self._auto_enabled(CONF_AUTO_BRIGHTNESS)
+        return self._auto_enabled(CONF_AUTO_SUN)
+
+    def _next_mode_event(
+        self, kind: str, mode: str, now: datetime
+    ) -> datetime | None:
+        if mode == MODE_TIME:
+            return None
+        if mode == MODE_BRIGHTNESS:
+            return None
+        if mode == MODE_ELEVATION:
+            key = CONF_SUN_ELEVATION_OPEN if kind == "open" else CONF_SUN_ELEVATION_CLOSE
+            default = (
+                DEFAULT_SUN_ELEVATION_OPEN
+                if kind == "open"
+                else DEFAULT_SUN_ELEVATION_CLOSE
+            )
+            direction = SunDirection.RISING if kind == "open" else SunDirection.SETTING
+            return self._next_sun_time_for_elevation(
+                self.config.get(key, default), direction, now
+            )
+        return self._next_astro_event(kind, mode, now)
+
+    def _next_astro_event(
+        self, kind: str, mode: str, now: datetime
+    ) -> datetime | None:
+        if (
+            self.hass.config.latitude is None
+            or self.hass.config.longitude is None
+            or self.hass.config.time_zone is None
+        ):
+            return None
+        location = LocationInfo(
+            latitude=self.hass.config.latitude,
+            longitude=self.hass.config.longitude,
+            timezone=self.hass.config.time_zone,
+        )
+        tzinfo = dt_util.get_time_zone(location.timezone)
+        if tzinfo is None:
+            return None
+        local_now = dt_util.as_local(now)
+        offset_key, offset_default = (
+            (CONF_ASTRO_OPEN_OFFSET, DEFAULT_ASTRO_OPEN_OFFSET)
+            if kind == "open"
+            else (CONF_ASTRO_CLOSE_OFFSET, DEFAULT_ASTRO_CLOSE_OFFSET)
+        )
+        try:
+            offset = float(self.config.get(offset_key, offset_default))
+        except (TypeError, ValueError):
+            offset = float(offset_default)
+        for day_offset in range(370):
+            target_date = local_now.date() + timedelta(days=day_offset)
+            try:
+                if mode == MODE_SUNRISE:
+                    event_local = sunrise(location.observer, target_date, tzinfo=tzinfo)
+                elif mode == MODE_SUNSET:
+                    event_local = sunset(location.observer, target_date, tzinfo=tzinfo)
+                elif mode == MODE_GOLDEN_HOUR:
+                    direction = (
+                        SunDirection.RISING if kind == "open" else SunDirection.SETTING
+                    )
+                    interval = golden_hour(
+                        location.observer,
+                        target_date,
+                        direction=direction,
+                        tzinfo=tzinfo,
+                    )
+                    event_local = interval[1] if kind == "open" else interval[0]
+                else:
+                    return None
+            except (ValueError, TypeError):
+                continue
+            event_utc = dt_util.as_utc(event_local + timedelta(minutes=offset))
+            if event_utc > now:
+                return event_utc
+        return None
 
     def _parse_datetime_attr(self, value: datetime | str | None) -> datetime | None:
         if isinstance(value, datetime):

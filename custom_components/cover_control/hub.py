@@ -11,11 +11,12 @@ from homeassistant.helpers.event import async_track_point_in_time
 from .config_groups import ConfigGroupModel
 from .config_resolver import GLOBAL_SOURCE_KEYS, resolve_room_config, system_defaults
 from .const import (
-    CONF_GLOBAL, CONF_GLOBAL_DEFAULTS, CONF_GLOBAL_SOURCES, CONF_GROUP, CONF_GROUPS,
+    CONF_CLOSE_MODE, CONF_GLOBAL, CONF_GLOBAL_DEFAULTS, CONF_GLOBAL_SOURCES, CONF_GROUP, CONF_GROUPS,
+    CONF_OPEN_MODE,
     CONF_ROOMS, DEFAULT_GROUP, GROUPS, SIGNAL_HUB_STATE_UPDATED,
 )
 from .runtime.group_evaluation import evaluate_time_group
-from .runtime.common import TRIGGER_SCHEDULED_CLOSE, TRIGGER_SCHEDULED_OPEN
+from .runtime.common import scheduled_trigger
 from .shared_input import SharedInputCoordinator
 
 if TYPE_CHECKING:
@@ -132,7 +133,11 @@ class CoverControlHub:
                 self.model.get(CONF_GROUPS, {}).get(group, {}),
                 {}, {}, room_id="group", room_name=group,
             )
-            next_open, next_close = evaluate_time_group(self.hass, config, capabilities={"time", "sun"})
+            next_open, next_close = evaluate_time_group(
+                self.hass,
+                config,
+                capabilities={"time", "sun", "brightness", "opening", "closing"},
+            )
             evaluations[group] = GroupEvaluation(next_open, next_close)
         if evaluations != self.group_evaluations:
             self.group_evaluations = evaluations
@@ -168,7 +173,19 @@ class CoverControlHub:
                 for room_id in self.group_users.get(timer_key[0], set()):
                     manager = self.managers.get(room_id)
                     if manager is not None:
-                        manager.request_evaluate_all(TRIGGER_SCHEDULED_OPEN if timer_key[1] == "open" else TRIGGER_SCHEDULED_CLOSE)
+                        group_config = self.model.get(CONF_GROUPS, {}).get(
+                            timer_key[0], {}
+                        )
+                        mode_key = (
+                            CONF_OPEN_MODE
+                            if timer_key[1] == "open"
+                            else CONF_CLOSE_MODE
+                        )
+                        manager.request_evaluate_all(
+                            scheduled_trigger(
+                                timer_key[1], str(group_config.get(mode_key, "time"))
+                            )
+                        )
                 self.refresh_group_evaluations({timer_key[0]})
             self._group_timer_unsubs[key] = async_track_point_in_time(self.hass, _handle, due_at)
             self._group_timer_at[key] = due_at

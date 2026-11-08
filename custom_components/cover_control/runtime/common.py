@@ -21,13 +21,15 @@ TRIGGER_CALENDAR_CLOSE_START = "calendar_close_start"
 TRIGGER_CALENDAR_OPEN_END = "calendar_open_end"
 TRIGGER_CALENDAR_OPEN_START = "calendar_open_start"
 TRIGGER_COVER_POSITION_CHANGED = "cover_position_changed"
-TRIGGER_DYNAMIC_SUN_CLOSE_CHANGED = "dynamic_sun_close_changed"
-TRIGGER_DYNAMIC_SUN_OPEN_CHANGED = "dynamic_sun_open_changed"
 TRIGGER_RESIDENT_OFF = "resident_off"
 TRIGGER_RESIDENT_ON = "resident_on"
 TRIGGER_SCHEDULED_CLOSE = "scheduled_close"
 TRIGGER_SCHEDULED_FINAL_CLOSE = "scheduled_final_close"
 TRIGGER_SCHEDULED_OPEN = "scheduled_open"
+TRIGGER_SUNRISE_REACHED = "sunrise_reached"
+TRIGGER_SUNSET_REACHED = "sunset_reached"
+TRIGGER_GOLDEN_HOUR_OPEN_REACHED = "golden_hour_open_reached"
+TRIGGER_GOLDEN_HOUR_CLOSE_REACHED = "golden_hour_close_reached"
 TRIGGER_SHADING_END_CHANGED = "shading_end_condition_changed"
 TRIGGER_SHADING_END_TIMER = "shading_end_timer"
 TRIGGER_SHADING_START_CHANGED = "shading_start_condition_changed"
@@ -58,6 +60,20 @@ TRIGGER_FIRE_LATCH_RESET = "fire_latch_reset"
 WINDOW_DOWN_SEQUENCE_REASONS = frozenset(
     {"scheduled_close", "scheduled_final_close", "sun_close", "brightness_close"}
 )
+
+
+def scheduled_trigger(kind: str, mode: str) -> str:
+    """Return a stable trigger identity for one scheduled mode event."""
+
+    return {
+        ("open", "sunrise"): TRIGGER_SUNRISE_REACHED,
+        ("close", "sunset"): TRIGGER_SUNSET_REACHED,
+        ("open", "golden_hour"): TRIGGER_GOLDEN_HOUR_OPEN_REACHED,
+        ("close", "golden_hour"): TRIGGER_GOLDEN_HOUR_CLOSE_REACHED,
+    }.get(
+        (kind, mode),
+        TRIGGER_SCHEDULED_OPEN if kind == "open" else TRIGGER_SCHEDULED_CLOSE,
+    )
 
 CONDITION_TIMER_TRIGGERS = {
     "sun_open": TRIGGER_SUN_OPEN_TIMER,
@@ -96,6 +112,10 @@ _TRIGGER_PRIORITY = {
     TRIGGER_CALENDAR_CLOSE_START: 1,
     TRIGGER_CALENDAR_CLOSE_END: 1,
     TRIGGER_SCHEDULED_OPEN: 2,
+    TRIGGER_SUNRISE_REACHED: 2,
+    TRIGGER_SUNSET_REACHED: 2,
+    TRIGGER_GOLDEN_HOUR_OPEN_REACHED: 2,
+    TRIGGER_GOLDEN_HOUR_CLOSE_REACHED: 2,
     TRIGGER_SCHEDULED_CLOSE: 2,
     TRIGGER_SCHEDULED_FINAL_CLOSE: 2,
     TRIGGER_SHADING_START_TIMER: 4,

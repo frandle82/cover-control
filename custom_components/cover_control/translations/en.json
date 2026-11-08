@@ -73,9 +73,6 @@
           "shading_brightness_sensor": "Global shading brightness sensor",
           "shading_forecast_sensor": "Weather forecast source",
           "shading_forecast_temp_sensor": "Forecast temperature sensor",
-          "sun_elevation_dynamic_close_sensor": "Dynamic sun elevation for closing",
-          "sun_elevation_dynamic_open_sensor": "Dynamic sun elevation for opening",
-          "sun_sensor": "Sun sensor",
           "temperature_sensor_outdoor": "Outdoor temperature sensor",
           "wind_alarm_1_entity": "Wind alarm 1 entity",
           "wind_alarm_2_entity": "Wind alarm 2 entity",
@@ -93,9 +90,6 @@
           "shading_brightness_sensor": "Shared illuminance sensor used for sun shading decisions.",
           "shading_forecast_sensor": "Shared weather entity used for forecast and weather-condition based shading.",
           "shading_forecast_temp_sensor": "Shared sensor that provides forecast temperature values for shading.",
-          "sun_elevation_dynamic_close_sensor": "Shared sensor that provides a dynamic closing sun elevation.",
-          "sun_elevation_dynamic_open_sensor": "Shared sensor that provides a dynamic opening sun elevation.",
-          "sun_sensor": "Sun entity providing elevation and azimuth (default: sun.sun).",
           "temperature_sensor_outdoor": "Shared outdoor temperature sensor for shading and protection rules.",
           "wind_alarm_1_entity": "Shared binary entity that activates wind alarm level 1.",
           "wind_alarm_2_entity": "Shared binary entity that activates wind alarm level 2.",
@@ -430,9 +424,9 @@
               "auto_time_enabled": "Time automation",
               "auto_up_enabled": "Automatic opening",
               "use_brightness_sensor": "Use brightness source",
-              "use_sun_elevation_dynamic_close_sensor": "Use dynamic closing elevation",
-              "use_sun_elevation_dynamic_open_sensor": "Use dynamic opening elevation",
-              "use_workday_sensor": "Use workday source"
+              "use_workday_sensor": "Use workday source",
+              "open_mode": "Opening control mode",
+              "close_mode": "Closing control mode"
             },
             "data_description": {
               "auto_brightness_enabled": "Value for Brightness automation in this group or default.",
@@ -447,9 +441,9 @@
               "auto_time_enabled": "Value for Time automation in this group or default.",
               "auto_up_enabled": "Value for Automatic opening in this group or default.",
               "use_brightness_sensor": "Value for Use brightness source in this group or default.",
-              "use_sun_elevation_dynamic_close_sensor": "Value for Use dynamic closing elevation in this group or default.",
-              "use_sun_elevation_dynamic_open_sensor": "Value for Use dynamic opening elevation in this group or default.",
-              "use_workday_sensor": "Value for Use workday source in this group or default."
+              "use_workday_sensor": "Value for Use workday source in this group or default.",
+              "open_mode": "Opening control mode",
+              "close_mode": "Closing control mode"
             }
           },
           "workday_times": {
@@ -514,9 +508,9 @@
               "auto_time_enabled": "Time automation",
               "auto_up_enabled": "Automatic opening",
               "use_brightness_sensor": "Use brightness source",
-              "use_sun_elevation_dynamic_close_sensor": "Use dynamic closing elevation",
-              "use_sun_elevation_dynamic_open_sensor": "Use dynamic opening elevation",
-              "use_workday_sensor": "Use workday source"
+              "use_workday_sensor": "Use workday source",
+              "open_mode": "Opening control mode",
+              "close_mode": "Closing control mode"
             },
             "data_description": {
               "auto_brightness_enabled": "Value for Brightness automation in this group or default.",
@@ -531,9 +525,9 @@
               "auto_time_enabled": "Value for Time automation in this group or default.",
               "auto_up_enabled": "Value for Automatic opening in this group or default.",
               "use_brightness_sensor": "Value for Use brightness source in this group or default.",
-              "use_sun_elevation_dynamic_close_sensor": "Value for Use dynamic closing elevation in this group or default.",
-              "use_sun_elevation_dynamic_open_sensor": "Value for Use dynamic opening elevation in this group or default.",
-              "use_workday_sensor": "Value for Use workday source in this group or default."
+              "use_workday_sensor": "Value for Use workday source in this group or default.",
+              "open_mode": "Opening control mode",
+              "close_mode": "Closing control mode"
             }
           },
           "brightness_settings": {
@@ -542,15 +536,13 @@
               "brightness_close_below": "Brightness close threshold",
               "brightness_hysteresis": "Brightness hysteresis",
               "brightness_open_above": "Brightness open threshold",
-              "brightness_time_duration": "Brightness duration",
-              "brightness_sun_operator": "Brightness / sun combination"
+              "brightness_time_duration": "Brightness duration"
             },
             "data_description": {
               "brightness_close_below": "Value for Brightness close threshold in this group or default.",
               "brightness_hysteresis": "Value for Brightness hysteresis in this group or default.",
               "brightness_open_above": "Value for Brightness open threshold in this group or default.",
-              "brightness_time_duration": "Value for Brightness duration in this group or default.",
-              "brightness_sun_operator": "Value for Brightness / sun combination in this group or default."
+              "brightness_time_duration": "Value for Brightness duration in this group or default."
             }
           }
         }
@@ -574,9 +566,9 @@
               "auto_time_enabled": "Time automation",
               "auto_up_enabled": "Automatic opening",
               "use_brightness_sensor": "Use brightness source",
-              "use_sun_elevation_dynamic_close_sensor": "Use dynamic closing elevation",
-              "use_sun_elevation_dynamic_open_sensor": "Use dynamic opening elevation",
-              "use_workday_sensor": "Use workday source"
+              "use_workday_sensor": "Use workday source",
+              "open_mode": "Opening control mode",
+              "close_mode": "Closing control mode"
             },
             "data_description": {
               "auto_brightness_enabled": "Value for Brightness automation in this group or default.",
@@ -591,30 +583,24 @@
               "auto_time_enabled": "Value for Time automation in this group or default.",
               "auto_up_enabled": "Value for Automatic opening in this group or default.",
               "use_brightness_sensor": "Value for Use brightness source in this group or default.",
-              "use_sun_elevation_dynamic_close_sensor": "Value for Use dynamic closing elevation in this group or default.",
-              "use_sun_elevation_dynamic_open_sensor": "Value for Use dynamic opening elevation in this group or default.",
-              "use_workday_sensor": "Value for Use workday source in this group or default."
+              "use_workday_sensor": "Value for Use workday source in this group or default.",
+              "open_mode": "Opening control mode",
+              "close_mode": "Closing control mode"
             }
           },
           "sun_settings": {
             "name": "Sun settings",
             "data": {
-              "brightness_sun_operator": "Brightness / sun combination",
               "sun_elevation_close": "Closing sun elevation",
-              "sun_elevation_close_offset": "Closing elevation offset",
-              "sun_elevation_mode": "Sun elevation mode",
               "sun_elevation_open": "Opening sun elevation",
-              "sun_elevation_open_offset": "Opening elevation offset",
-              "sun_time_duration": "Sun duration"
+              "astro_open_offset_minutes": "Opening astro offset (minutes)",
+              "astro_close_offset_minutes": "Closing astro offset (minutes)"
             },
             "data_description": {
-              "brightness_sun_operator": "Value for Brightness / sun combination in this group or default.",
               "sun_elevation_close": "Value for Closing sun elevation in this group or default.",
-              "sun_elevation_close_offset": "Value for Closing elevation offset in this group or default.",
-              "sun_elevation_mode": "Value for Sun elevation mode in this group or default.",
               "sun_elevation_open": "Value for Opening sun elevation in this group or default.",
-              "sun_elevation_open_offset": "Value for Opening elevation offset in this group or default.",
-              "sun_time_duration": "Value for Sun duration in this group or default."
+              "astro_open_offset_minutes": "Opening astro offset (minutes)",
+              "astro_close_offset_minutes": "Closing astro offset (minutes)"
             }
           }
         }
@@ -947,6 +933,64 @@
         },
         "data_description": {
           "group": "All settings of this group apply to the room."
+        }
+      },
+      "group_sun_details": {
+        "title": "Group - e sun position",
+        "description": "Edit settings for {group_name}. Used by: {group_usage}",
+        "sections": {
+          "time_features": {
+            "name": "Time features",
+            "data": {
+              "auto_brightness_enabled": "Brightness automation",
+              "auto_down_enabled": "Automatic closing",
+              "intermediate_close_enabled": "Use intermediate closing position",
+              "final_close_time": "Final close time",
+              "summer_start": "Summer period start (DD.MM.)",
+              "summer_end": "Summer period end (DD.MM.)",
+              "christmas_start": "Christmas period start (DD.MM.)",
+              "christmas_end": "Christmas period end (DD.MM.)",
+              "auto_sun_enabled": "Sun automation",
+              "auto_time_enabled": "Time automation",
+              "auto_up_enabled": "Automatic opening",
+              "use_brightness_sensor": "Use brightness source",
+              "use_workday_sensor": "Use workday source",
+              "open_mode": "Opening control mode",
+              "close_mode": "Closing control mode"
+            },
+            "data_description": {
+              "auto_brightness_enabled": "Value for Brightness automation in this group or default.",
+              "auto_down_enabled": "Value for Automatic closing in this group or default.",
+              "intermediate_close_enabled": "Use the room-owned intermediate position before the final close time.",
+              "final_close_time": "Time for the final full closing movement.",
+              "summer_start": "First inclusive day of the recurring summer period.",
+              "summer_end": "Last inclusive day of the recurring summer period.",
+              "christmas_start": "First inclusive day of the recurring Christmas period.",
+              "christmas_end": "Last inclusive day of the recurring Christmas period.",
+              "auto_sun_enabled": "Value for Sun automation in this group or default.",
+              "auto_time_enabled": "Value for Time automation in this group or default.",
+              "auto_up_enabled": "Value for Automatic opening in this group or default.",
+              "use_brightness_sensor": "Value for Use brightness source in this group or default.",
+              "use_workday_sensor": "Value for Use workday source in this group or default.",
+              "open_mode": "Opening control mode",
+              "close_mode": "Closing control mode"
+            }
+          },
+          "sun_settings": {
+            "name": "Sun settings",
+            "data": {
+              "sun_elevation_close": "Closing sun elevation",
+              "sun_elevation_open": "Opening sun elevation",
+              "astro_open_offset_minutes": "Opening astro offset (minutes)",
+              "astro_close_offset_minutes": "Closing astro offset (minutes)"
+            },
+            "data_description": {
+              "sun_elevation_close": "Value for Closing sun elevation in this group or default.",
+              "sun_elevation_open": "Value for Opening sun elevation in this group or default.",
+              "astro_open_offset_minutes": "Opening astro offset (minutes)",
+              "astro_close_offset_minutes": "Closing astro offset (minutes)"
+            }
+          }
         }
       }
     },
@@ -1020,9 +1064,6 @@
           "shading_brightness_sensor": "Global shading brightness sensor",
           "shading_forecast_sensor": "Weather forecast source",
           "shading_forecast_temp_sensor": "Forecast temperature sensor",
-          "sun_elevation_dynamic_close_sensor": "Dynamic sun elevation for closing",
-          "sun_elevation_dynamic_open_sensor": "Dynamic sun elevation for opening",
-          "sun_sensor": "Sun sensor",
           "temperature_sensor_outdoor": "Outdoor temperature sensor",
           "wind_alarm_1_entity": "Wind alarm 1 entity",
           "wind_alarm_2_entity": "Wind alarm 2 entity",
@@ -1040,9 +1081,6 @@
           "shading_brightness_sensor": "Shared illuminance sensor used for sun shading decisions.",
           "shading_forecast_sensor": "Shared weather entity used for forecast and weather-condition based shading.",
           "shading_forecast_temp_sensor": "Shared sensor that provides forecast temperature values for shading.",
-          "sun_elevation_dynamic_close_sensor": "Shared sensor that provides a dynamic closing sun elevation.",
-          "sun_elevation_dynamic_open_sensor": "Shared sensor that provides a dynamic opening sun elevation.",
-          "sun_sensor": "Sun entity providing elevation and azimuth (default: sun.sun).",
           "temperature_sensor_outdoor": "Shared outdoor temperature sensor for shading and protection rules.",
           "wind_alarm_1_entity": "Shared binary entity that activates wind alarm level 1.",
           "wind_alarm_2_entity": "Shared binary entity that activates wind alarm level 2.",
@@ -1377,9 +1415,9 @@
               "auto_time_enabled": "Time automation",
               "auto_up_enabled": "Automatic opening",
               "use_brightness_sensor": "Use brightness source",
-              "use_sun_elevation_dynamic_close_sensor": "Use dynamic closing elevation",
-              "use_sun_elevation_dynamic_open_sensor": "Use dynamic opening elevation",
-              "use_workday_sensor": "Use workday source"
+              "use_workday_sensor": "Use workday source",
+              "open_mode": "Opening control mode",
+              "close_mode": "Closing control mode"
             },
             "data_description": {
               "auto_brightness_enabled": "Value for Brightness automation in this group or default.",
@@ -1394,9 +1432,9 @@
               "auto_time_enabled": "Value for Time automation in this group or default.",
               "auto_up_enabled": "Value for Automatic opening in this group or default.",
               "use_brightness_sensor": "Value for Use brightness source in this group or default.",
-              "use_sun_elevation_dynamic_close_sensor": "Value for Use dynamic closing elevation in this group or default.",
-              "use_sun_elevation_dynamic_open_sensor": "Value for Use dynamic opening elevation in this group or default.",
-              "use_workday_sensor": "Value for Use workday source in this group or default."
+              "use_workday_sensor": "Value for Use workday source in this group or default.",
+              "open_mode": "Opening control mode",
+              "close_mode": "Closing control mode"
             }
           },
           "workday_times": {
@@ -1461,9 +1499,9 @@
               "auto_time_enabled": "Time automation",
               "auto_up_enabled": "Automatic opening",
               "use_brightness_sensor": "Use brightness source",
-              "use_sun_elevation_dynamic_close_sensor": "Use dynamic closing elevation",
-              "use_sun_elevation_dynamic_open_sensor": "Use dynamic opening elevation",
-              "use_workday_sensor": "Use workday source"
+              "use_workday_sensor": "Use workday source",
+              "open_mode": "Opening control mode",
+              "close_mode": "Closing control mode"
             },
             "data_description": {
               "auto_brightness_enabled": "Value for Brightness automation in this group or default.",
@@ -1478,9 +1516,9 @@
               "auto_time_enabled": "Value for Time automation in this group or default.",
               "auto_up_enabled": "Value for Automatic opening in this group or default.",
               "use_brightness_sensor": "Value for Use brightness source in this group or default.",
-              "use_sun_elevation_dynamic_close_sensor": "Value for Use dynamic closing elevation in this group or default.",
-              "use_sun_elevation_dynamic_open_sensor": "Value for Use dynamic opening elevation in this group or default.",
-              "use_workday_sensor": "Value for Use workday source in this group or default."
+              "use_workday_sensor": "Value for Use workday source in this group or default.",
+              "open_mode": "Opening control mode",
+              "close_mode": "Closing control mode"
             }
           },
           "brightness_settings": {
@@ -1489,15 +1527,13 @@
               "brightness_close_below": "Brightness close threshold",
               "brightness_hysteresis": "Brightness hysteresis",
               "brightness_open_above": "Brightness open threshold",
-              "brightness_time_duration": "Brightness duration",
-              "brightness_sun_operator": "Brightness / sun combination"
+              "brightness_time_duration": "Brightness duration"
             },
             "data_description": {
               "brightness_close_below": "Value for Brightness close threshold in this group or default.",
               "brightness_hysteresis": "Value for Brightness hysteresis in this group or default.",
               "brightness_open_above": "Value for Brightness open threshold in this group or default.",
-              "brightness_time_duration": "Value for Brightness duration in this group or default.",
-              "brightness_sun_operator": "Value for Brightness / sun combination in this group or default."
+              "brightness_time_duration": "Value for Brightness duration in this group or default."
             }
           }
         }
@@ -1521,9 +1557,9 @@
               "auto_time_enabled": "Time automation",
               "auto_up_enabled": "Automatic opening",
               "use_brightness_sensor": "Use brightness source",
-              "use_sun_elevation_dynamic_close_sensor": "Use dynamic closing elevation",
-              "use_sun_elevation_dynamic_open_sensor": "Use dynamic opening elevation",
-              "use_workday_sensor": "Use workday source"
+              "use_workday_sensor": "Use workday source",
+              "open_mode": "Opening control mode",
+              "close_mode": "Closing control mode"
             },
             "data_description": {
               "auto_brightness_enabled": "Value for Brightness automation in this group or default.",
@@ -1538,30 +1574,24 @@
               "auto_time_enabled": "Value for Time automation in this group or default.",
               "auto_up_enabled": "Value for Automatic opening in this group or default.",
               "use_brightness_sensor": "Value for Use brightness source in this group or default.",
-              "use_sun_elevation_dynamic_close_sensor": "Value for Use dynamic closing elevation in this group or default.",
-              "use_sun_elevation_dynamic_open_sensor": "Value for Use dynamic opening elevation in this group or default.",
-              "use_workday_sensor": "Value for Use workday source in this group or default."
+              "use_workday_sensor": "Value for Use workday source in this group or default.",
+              "open_mode": "Opening control mode",
+              "close_mode": "Closing control mode"
             }
           },
           "sun_settings": {
             "name": "Sun settings",
             "data": {
-              "brightness_sun_operator": "Brightness / sun combination",
               "sun_elevation_close": "Closing sun elevation",
-              "sun_elevation_close_offset": "Closing elevation offset",
-              "sun_elevation_mode": "Sun elevation mode",
               "sun_elevation_open": "Opening sun elevation",
-              "sun_elevation_open_offset": "Opening elevation offset",
-              "sun_time_duration": "Sun duration"
+              "astro_open_offset_minutes": "Opening astro offset (minutes)",
+              "astro_close_offset_minutes": "Closing astro offset (minutes)"
             },
             "data_description": {
-              "brightness_sun_operator": "Value for Brightness / sun combination in this group or default.",
               "sun_elevation_close": "Value for Closing sun elevation in this group or default.",
-              "sun_elevation_close_offset": "Value for Closing elevation offset in this group or default.",
-              "sun_elevation_mode": "Value for Sun elevation mode in this group or default.",
               "sun_elevation_open": "Value for Opening sun elevation in this group or default.",
-              "sun_elevation_open_offset": "Value for Opening elevation offset in this group or default.",
-              "sun_time_duration": "Value for Sun duration in this group or default."
+              "astro_open_offset_minutes": "Opening astro offset (minutes)",
+              "astro_close_offset_minutes": "Closing astro offset (minutes)"
             }
           }
         }
@@ -1895,6 +1925,64 @@
         "data_description": {
           "group": "All settings of this group apply to the room."
         }
+      },
+      "group_sun_details": {
+        "title": "Group - e sun position",
+        "description": "Edit settings for {group_name}. Used by: {group_usage}",
+        "sections": {
+          "time_features": {
+            "name": "Time features",
+            "data": {
+              "auto_brightness_enabled": "Brightness automation",
+              "auto_down_enabled": "Automatic closing",
+              "intermediate_close_enabled": "Use intermediate closing position",
+              "final_close_time": "Final close time",
+              "summer_start": "Summer period start (DD.MM.)",
+              "summer_end": "Summer period end (DD.MM.)",
+              "christmas_start": "Christmas period start (DD.MM.)",
+              "christmas_end": "Christmas period end (DD.MM.)",
+              "auto_sun_enabled": "Sun automation",
+              "auto_time_enabled": "Time automation",
+              "auto_up_enabled": "Automatic opening",
+              "use_brightness_sensor": "Use brightness source",
+              "use_workday_sensor": "Use workday source",
+              "open_mode": "Opening control mode",
+              "close_mode": "Closing control mode"
+            },
+            "data_description": {
+              "auto_brightness_enabled": "Value for Brightness automation in this group or default.",
+              "auto_down_enabled": "Value for Automatic closing in this group or default.",
+              "intermediate_close_enabled": "Use the room-owned intermediate position before the final close time.",
+              "final_close_time": "Time for the final full closing movement.",
+              "summer_start": "First inclusive day of the recurring summer period.",
+              "summer_end": "Last inclusive day of the recurring summer period.",
+              "christmas_start": "First inclusive day of the recurring Christmas period.",
+              "christmas_end": "Last inclusive day of the recurring Christmas period.",
+              "auto_sun_enabled": "Value for Sun automation in this group or default.",
+              "auto_time_enabled": "Value for Time automation in this group or default.",
+              "auto_up_enabled": "Value for Automatic opening in this group or default.",
+              "use_brightness_sensor": "Value for Use brightness source in this group or default.",
+              "use_workday_sensor": "Value for Use workday source in this group or default.",
+              "open_mode": "Opening control mode",
+              "close_mode": "Closing control mode"
+            }
+          },
+          "sun_settings": {
+            "name": "Sun settings",
+            "data": {
+              "sun_elevation_close": "Closing sun elevation",
+              "sun_elevation_open": "Opening sun elevation",
+              "astro_open_offset_minutes": "Opening astro offset (minutes)",
+              "astro_close_offset_minutes": "Closing astro offset (minutes)"
+            },
+            "data_description": {
+              "sun_elevation_close": "Value for Closing sun elevation in this group or default.",
+              "sun_elevation_open": "Value for Opening sun elevation in this group or default.",
+              "astro_open_offset_minutes": "Opening astro offset (minutes)",
+              "astro_close_offset_minutes": "Closing astro offset (minutes)"
+            }
+          }
+        }
       }
     },
     "abort": {
@@ -1926,19 +2014,6 @@
         "current_position_attr": "current_position attribute",
         "position_attr": "position attribute",
         "custom_sensor": "Custom position sensor"
-      }
-    },
-    "sun_elevation_mode": {
-      "options": {
-        "fixed": "Fixed",
-        "dynamic": "Dynamic",
-        "hybrid": "Hybrid"
-      }
-    },
-    "brightness_sun_operator": {
-      "options": {
-        "or": "Brightness or sun",
-        "and": "Brightness and sun"
       }
     },
     "forecast_type": {
@@ -1994,6 +2069,24 @@
         "sleep": "Sleeping area",
         "children": "Children's area"
       }
+    },
+    "open_mode": {
+      "options": {
+        "time": "Time",
+        "sunrise": "Sunrise",
+        "golden_hour": "Golden Hour",
+        "elevation": "Sun elevation",
+        "brightness": "Brightness"
+      }
+    },
+    "close_mode": {
+      "options": {
+        "time": "Time",
+        "sunset": "Sunset",
+        "golden_hour": "Golden Hour",
+        "elevation": "Sun elevation",
+        "brightness": "Brightness"
+      }
     }
   },
   "config_subentries": {},
@@ -2009,6 +2102,10 @@
     "fixed_group_migration_conflict": {
       "title": "Ambiguous group migration",
       "description": "Migration completed deterministically. Details: {details}"
+    },
+    "sun_mode_migration": {
+      "title": "Sun configuration migrated",
+      "description": "Dynamic sun elevation was removed. The affected group now uses fixed sun elevation. {details}"
     }
   },
   "entity": {

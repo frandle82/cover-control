@@ -73,9 +73,6 @@
           "shading_brightness_sensor": "Globale Beschattungshelligkeit",
           "shading_forecast_sensor": "Wetter-/Forecast-Quelle",
           "shading_forecast_temp_sensor": "Forecast-Temperatursensor",
-          "sun_elevation_dynamic_close_sensor": "Dynamische Sonnenhöhe für Schließen",
-          "sun_elevation_dynamic_open_sensor": "Dynamische Sonnenhöhe für Öffnen",
-          "sun_sensor": "Sonnensensor",
           "temperature_sensor_outdoor": "Außentemperatursensor",
           "wind_alarm_1_entity": "Windalarm-1-Entity",
           "wind_alarm_2_entity": "Windalarm-2-Entity",
@@ -93,9 +90,6 @@
           "shading_brightness_sensor": "Gemeinsamer Helligkeitssensor für Beschattungsentscheidungen.",
           "shading_forecast_sensor": "Gemeinsame Wetter-Entity für Forecast- und Wetterbedingungsregeln der Beschattung.",
           "shading_forecast_temp_sensor": "Gemeinsamer Sensor für Forecast-Temperaturwerte der Beschattung.",
-          "sun_elevation_dynamic_close_sensor": "Gemeinsamer Sensor für eine dynamische Sonnenhöhe beim Schließen.",
-          "sun_elevation_dynamic_open_sensor": "Gemeinsamer Sensor für eine dynamische Sonnenhöhe beim Öffnen.",
-          "sun_sensor": "Sun-Entity für Sonnenhöhe und Azimut (Standard: sun.sun).",
           "temperature_sensor_outdoor": "Gemeinsamer Außentemperatursensor für Beschattungs- und Schutzregeln.",
           "wind_alarm_1_entity": "Gemeinsame binäre Entity, die Windalarmstufe 1 aktiviert.",
           "wind_alarm_2_entity": "Gemeinsame binäre Entity, die Windalarmstufe 2 aktiviert.",
@@ -430,9 +424,9 @@
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
               "use_brightness_sensor": "Helligkeitsquelle verwenden",
-              "use_sun_elevation_dynamic_close_sensor": "Dynamische Schließhöhe verwenden",
-              "use_sun_elevation_dynamic_open_sensor": "Dynamische Öffnungshöhe verwenden",
-              "use_workday_sensor": "Werktagsquelle verwenden"
+              "use_workday_sensor": "Werktagsquelle verwenden",
+              "open_mode": "Steuerungsart Öffnen",
+              "close_mode": "Steuerungsart Schließen"
             },
             "data_description": {
               "auto_brightness_enabled": "Wert für Helligkeitsautomatik in dieser Gruppe.",
@@ -447,9 +441,9 @@
               "auto_time_enabled": "Wert für Zeitautomatik in dieser Gruppe.",
               "auto_up_enabled": "Wert für Automatisches Öffnen in dieser Gruppe.",
               "use_brightness_sensor": "Wert für Helligkeitsquelle verwenden in dieser Gruppe.",
-              "use_sun_elevation_dynamic_close_sensor": "Wert für Dynamische Schließhöhe verwenden in dieser Gruppe.",
-              "use_sun_elevation_dynamic_open_sensor": "Wert für Dynamische Öffnungshöhe verwenden in dieser Gruppe.",
-              "use_workday_sensor": "Wert für Werktagsquelle verwenden in dieser Gruppe."
+              "use_workday_sensor": "Wert für Werktagsquelle verwenden in dieser Gruppe.",
+              "open_mode": "Steuerungsart Öffnen",
+              "close_mode": "Steuerungsart Schließen"
             }
           },
           "workday_times": {
@@ -514,9 +508,9 @@
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
               "use_brightness_sensor": "Helligkeitsquelle verwenden",
-              "use_sun_elevation_dynamic_close_sensor": "Dynamische Schließhöhe verwenden",
-              "use_sun_elevation_dynamic_open_sensor": "Dynamische Öffnungshöhe verwenden",
-              "use_workday_sensor": "Werktagsquelle verwenden"
+              "use_workday_sensor": "Werktagsquelle verwenden",
+              "open_mode": "Steuerungsart Öffnen",
+              "close_mode": "Steuerungsart Schließen"
             },
             "data_description": {
               "auto_brightness_enabled": "Wert für Helligkeitsautomatik in dieser Gruppe.",
@@ -531,9 +525,9 @@
               "auto_time_enabled": "Wert für Zeitautomatik in dieser Gruppe.",
               "auto_up_enabled": "Wert für Automatisches Öffnen in dieser Gruppe.",
               "use_brightness_sensor": "Wert für Helligkeitsquelle verwenden in dieser Gruppe.",
-              "use_sun_elevation_dynamic_close_sensor": "Wert für Dynamische Schließhöhe verwenden in dieser Gruppe.",
-              "use_sun_elevation_dynamic_open_sensor": "Wert für Dynamische Öffnungshöhe verwenden in dieser Gruppe.",
-              "use_workday_sensor": "Wert für Werktagsquelle verwenden in dieser Gruppe."
+              "use_workday_sensor": "Wert für Werktagsquelle verwenden in dieser Gruppe.",
+              "open_mode": "Steuerungsart Öffnen",
+              "close_mode": "Steuerungsart Schließen"
             }
           },
           "brightness_settings": {
@@ -542,15 +536,13 @@
               "brightness_close_below": "Helligkeitsschwelle zum Schließen",
               "brightness_hysteresis": "Helligkeitshysterese",
               "brightness_open_above": "Helligkeitsschwelle zum Öffnen",
-              "brightness_time_duration": "Helligkeitsdauer",
-              "brightness_sun_operator": "Kombination aus Helligkeit und Sonne"
+              "brightness_time_duration": "Helligkeitsdauer"
             },
             "data_description": {
               "brightness_close_below": "Wert für Helligkeitsschwelle zum Schließen in dieser Gruppe.",
               "brightness_hysteresis": "Wert für Helligkeitshysterese in dieser Gruppe.",
               "brightness_open_above": "Wert für Helligkeitsschwelle zum Öffnen in dieser Gruppe.",
-              "brightness_time_duration": "Wert für Helligkeitsdauer in dieser Gruppe.",
-              "brightness_sun_operator": "Wert für Kombination aus Helligkeit und Sonne in dieser Gruppe."
+              "brightness_time_duration": "Wert für Helligkeitsdauer in dieser Gruppe."
             }
           }
         }
@@ -574,9 +566,9 @@
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
               "use_brightness_sensor": "Helligkeitsquelle verwenden",
-              "use_sun_elevation_dynamic_close_sensor": "Dynamische Schließhöhe verwenden",
-              "use_sun_elevation_dynamic_open_sensor": "Dynamische Öffnungshöhe verwenden",
-              "use_workday_sensor": "Werktagsquelle verwenden"
+              "use_workday_sensor": "Werktagsquelle verwenden",
+              "open_mode": "Steuerungsart Öffnen",
+              "close_mode": "Steuerungsart Schließen"
             },
             "data_description": {
               "auto_brightness_enabled": "Wert für Helligkeitsautomatik in dieser Gruppe.",
@@ -591,30 +583,24 @@
               "auto_time_enabled": "Wert für Zeitautomatik in dieser Gruppe.",
               "auto_up_enabled": "Wert für Automatisches Öffnen in dieser Gruppe.",
               "use_brightness_sensor": "Wert für Helligkeitsquelle verwenden in dieser Gruppe.",
-              "use_sun_elevation_dynamic_close_sensor": "Wert für Dynamische Schließhöhe verwenden in dieser Gruppe.",
-              "use_sun_elevation_dynamic_open_sensor": "Wert für Dynamische Öffnungshöhe verwenden in dieser Gruppe.",
-              "use_workday_sensor": "Wert für Werktagsquelle verwenden in dieser Gruppe."
+              "use_workday_sensor": "Wert für Werktagsquelle verwenden in dieser Gruppe.",
+              "open_mode": "Steuerungsart Öffnen",
+              "close_mode": "Steuerungsart Schließen"
             }
           },
           "sun_settings": {
             "name": "Sonnenstandssteuerung",
             "data": {
-              "brightness_sun_operator": "Kombination aus Helligkeit und Sonne",
               "sun_elevation_close": "Sonnenhöhe zum Schließen",
-              "sun_elevation_close_offset": "Offset der Schließhöhe",
-              "sun_elevation_mode": "Sonnenhöhenmodus",
               "sun_elevation_open": "Sonnenhöhe zum Öffnen",
-              "sun_elevation_open_offset": "Offset der Öffnungshöhe",
-              "sun_time_duration": "Sonnendauer"
+              "astro_open_offset_minutes": "Astro-Offset Öffnen (Minuten)",
+              "astro_close_offset_minutes": "Astro-Offset Schließen (Minuten)"
             },
             "data_description": {
-              "brightness_sun_operator": "Wert für Kombination aus Helligkeit und Sonne in dieser Gruppe.",
               "sun_elevation_close": "Wert für Sonnenhöhe zum Schließen in dieser Gruppe.",
-              "sun_elevation_close_offset": "Wert für Offset der Schließhöhe in dieser Gruppe.",
-              "sun_elevation_mode": "Wert für Sonnenhöhenmodus in dieser Gruppe.",
               "sun_elevation_open": "Wert für Sonnenhöhe zum Öffnen in dieser Gruppe.",
-              "sun_elevation_open_offset": "Wert für Offset der Öffnungshöhe in dieser Gruppe.",
-              "sun_time_duration": "Wert für Sonnendauer in dieser Gruppe."
+              "astro_open_offset_minutes": "Astro-Offset Öffnen (Minuten)",
+              "astro_close_offset_minutes": "Astro-Offset Schließen (Minuten)"
             }
           }
         }
@@ -947,6 +933,64 @@
         },
         "data_description": {
           "group": "Die Einstellungen dieser Gruppe gelten vollständig für den Raum."
+        }
+      },
+      "group_sun_details": {
+        "title": "Gruppe – sonnenstand",
+        "description": "Einstellungen für {group_name} bearbeiten. Verwendet von: {group_usage}",
+        "sections": {
+          "time_features": {
+            "name": "Zeitsteuerung",
+            "data": {
+              "auto_brightness_enabled": "Helligkeitsautomatik",
+              "auto_down_enabled": "Automatisches Schließen",
+              "intermediate_close_enabled": "Zwischenschließposition verwenden",
+              "final_close_time": "Zeit der vollständigen Schließung",
+              "summer_start": "Beginn Sommerzeitraum (TT.MM.)",
+              "summer_end": "Ende Sommerzeitraum (TT.MM.)",
+              "christmas_start": "Beginn Weihnachtszeitraum (TT.MM.)",
+              "christmas_end": "Ende Weihnachtszeitraum (TT.MM.)",
+              "auto_sun_enabled": "Sonnenautomatik",
+              "auto_time_enabled": "Zeitautomatik",
+              "auto_up_enabled": "Automatisches Öffnen",
+              "use_brightness_sensor": "Helligkeitsquelle verwenden",
+              "use_workday_sensor": "Werktagsquelle verwenden",
+              "open_mode": "Steuerungsart Öffnen",
+              "close_mode": "Steuerungsart Schließen"
+            },
+            "data_description": {
+              "auto_brightness_enabled": "Wert für Helligkeitsautomatik in dieser Gruppe.",
+              "auto_down_enabled": "Wert für Automatisches Schließen in dieser Gruppe.",
+              "intermediate_close_enabled": "Vor der vollständigen Schließung die raumeigene Zwischenposition verwenden.",
+              "final_close_time": "Zeitpunkt der abschließenden vollständigen Schließfahrt.",
+              "summer_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
+              "summer_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
+              "christmas_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
+              "christmas_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
+              "auto_sun_enabled": "Wert für Sonnenautomatik in dieser Gruppe.",
+              "auto_time_enabled": "Wert für Zeitautomatik in dieser Gruppe.",
+              "auto_up_enabled": "Wert für Automatisches Öffnen in dieser Gruppe.",
+              "use_brightness_sensor": "Wert für Helligkeitsquelle verwenden in dieser Gruppe.",
+              "use_workday_sensor": "Wert für Werktagsquelle verwenden in dieser Gruppe.",
+              "open_mode": "Steuerungsart Öffnen",
+              "close_mode": "Steuerungsart Schließen"
+            }
+          },
+          "sun_settings": {
+            "name": "Sonnenstandssteuerung",
+            "data": {
+              "sun_elevation_close": "Sonnenhöhe zum Schließen",
+              "sun_elevation_open": "Sonnenhöhe zum Öffnen",
+              "astro_open_offset_minutes": "Astro-Offset Öffnen (Minuten)",
+              "astro_close_offset_minutes": "Astro-Offset Schließen (Minuten)"
+            },
+            "data_description": {
+              "sun_elevation_close": "Wert für Sonnenhöhe zum Schließen in dieser Gruppe.",
+              "sun_elevation_open": "Wert für Sonnenhöhe zum Öffnen in dieser Gruppe.",
+              "astro_open_offset_minutes": "Astro-Offset Öffnen (Minuten)",
+              "astro_close_offset_minutes": "Astro-Offset Schließen (Minuten)"
+            }
+          }
         }
       }
     },
@@ -1020,9 +1064,6 @@
           "shading_brightness_sensor": "Globale Beschattungshelligkeit",
           "shading_forecast_sensor": "Wetter-/Forecast-Quelle",
           "shading_forecast_temp_sensor": "Forecast-Temperatursensor",
-          "sun_elevation_dynamic_close_sensor": "Dynamische Sonnenhöhe für Schließen",
-          "sun_elevation_dynamic_open_sensor": "Dynamische Sonnenhöhe für Öffnen",
-          "sun_sensor": "Sonnensensor",
           "temperature_sensor_outdoor": "Außentemperatursensor",
           "wind_alarm_1_entity": "Windalarm-1-Entity",
           "wind_alarm_2_entity": "Windalarm-2-Entity",
@@ -1040,9 +1081,6 @@
           "shading_brightness_sensor": "Gemeinsamer Helligkeitssensor für Beschattungsentscheidungen.",
           "shading_forecast_sensor": "Gemeinsame Wetter-Entity für Forecast- und Wetterbedingungsregeln der Beschattung.",
           "shading_forecast_temp_sensor": "Gemeinsamer Sensor für Forecast-Temperaturwerte der Beschattung.",
-          "sun_elevation_dynamic_close_sensor": "Gemeinsamer Sensor für eine dynamische Sonnenhöhe beim Schließen.",
-          "sun_elevation_dynamic_open_sensor": "Gemeinsamer Sensor für eine dynamische Sonnenhöhe beim Öffnen.",
-          "sun_sensor": "Sun-Entity für Sonnenhöhe und Azimut (Standard: sun.sun).",
           "temperature_sensor_outdoor": "Gemeinsamer Außentemperatursensor für Beschattungs- und Schutzregeln.",
           "wind_alarm_1_entity": "Gemeinsame binäre Entity, die Windalarmstufe 1 aktiviert.",
           "wind_alarm_2_entity": "Gemeinsame binäre Entity, die Windalarmstufe 2 aktiviert.",
@@ -1377,9 +1415,9 @@
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
               "use_brightness_sensor": "Helligkeitsquelle verwenden",
-              "use_sun_elevation_dynamic_close_sensor": "Dynamische Schließhöhe verwenden",
-              "use_sun_elevation_dynamic_open_sensor": "Dynamische Öffnungshöhe verwenden",
-              "use_workday_sensor": "Werktagsquelle verwenden"
+              "use_workday_sensor": "Werktagsquelle verwenden",
+              "open_mode": "Steuerungsart Öffnen",
+              "close_mode": "Steuerungsart Schließen"
             },
             "data_description": {
               "auto_brightness_enabled": "Wert für Helligkeitsautomatik in dieser Gruppe.",
@@ -1394,9 +1432,9 @@
               "auto_time_enabled": "Wert für Zeitautomatik in dieser Gruppe.",
               "auto_up_enabled": "Wert für Automatisches Öffnen in dieser Gruppe.",
               "use_brightness_sensor": "Wert für Helligkeitsquelle verwenden in dieser Gruppe.",
-              "use_sun_elevation_dynamic_close_sensor": "Wert für Dynamische Schließhöhe verwenden in dieser Gruppe.",
-              "use_sun_elevation_dynamic_open_sensor": "Wert für Dynamische Öffnungshöhe verwenden in dieser Gruppe.",
-              "use_workday_sensor": "Wert für Werktagsquelle verwenden in dieser Gruppe."
+              "use_workday_sensor": "Wert für Werktagsquelle verwenden in dieser Gruppe.",
+              "open_mode": "Steuerungsart Öffnen",
+              "close_mode": "Steuerungsart Schließen"
             }
           },
           "workday_times": {
@@ -1461,9 +1499,9 @@
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
               "use_brightness_sensor": "Helligkeitsquelle verwenden",
-              "use_sun_elevation_dynamic_close_sensor": "Dynamische Schließhöhe verwenden",
-              "use_sun_elevation_dynamic_open_sensor": "Dynamische Öffnungshöhe verwenden",
-              "use_workday_sensor": "Werktagsquelle verwenden"
+              "use_workday_sensor": "Werktagsquelle verwenden",
+              "open_mode": "Steuerungsart Öffnen",
+              "close_mode": "Steuerungsart Schließen"
             },
             "data_description": {
               "auto_brightness_enabled": "Wert für Helligkeitsautomatik in dieser Gruppe.",
@@ -1478,9 +1516,9 @@
               "auto_time_enabled": "Wert für Zeitautomatik in dieser Gruppe.",
               "auto_up_enabled": "Wert für Automatisches Öffnen in dieser Gruppe.",
               "use_brightness_sensor": "Wert für Helligkeitsquelle verwenden in dieser Gruppe.",
-              "use_sun_elevation_dynamic_close_sensor": "Wert für Dynamische Schließhöhe verwenden in dieser Gruppe.",
-              "use_sun_elevation_dynamic_open_sensor": "Wert für Dynamische Öffnungshöhe verwenden in dieser Gruppe.",
-              "use_workday_sensor": "Wert für Werktagsquelle verwenden in dieser Gruppe."
+              "use_workday_sensor": "Wert für Werktagsquelle verwenden in dieser Gruppe.",
+              "open_mode": "Steuerungsart Öffnen",
+              "close_mode": "Steuerungsart Schließen"
             }
           },
           "brightness_settings": {
@@ -1489,15 +1527,13 @@
               "brightness_close_below": "Helligkeitsschwelle zum Schließen",
               "brightness_hysteresis": "Helligkeitshysterese",
               "brightness_open_above": "Helligkeitsschwelle zum Öffnen",
-              "brightness_time_duration": "Helligkeitsdauer",
-              "brightness_sun_operator": "Kombination aus Helligkeit und Sonne"
+              "brightness_time_duration": "Helligkeitsdauer"
             },
             "data_description": {
               "brightness_close_below": "Wert für Helligkeitsschwelle zum Schließen in dieser Gruppe.",
               "brightness_hysteresis": "Wert für Helligkeitshysterese in dieser Gruppe.",
               "brightness_open_above": "Wert für Helligkeitsschwelle zum Öffnen in dieser Gruppe.",
-              "brightness_time_duration": "Wert für Helligkeitsdauer in dieser Gruppe.",
-              "brightness_sun_operator": "Wert für Kombination aus Helligkeit und Sonne in dieser Gruppe."
+              "brightness_time_duration": "Wert für Helligkeitsdauer in dieser Gruppe."
             }
           }
         }
@@ -1521,9 +1557,9 @@
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
               "use_brightness_sensor": "Helligkeitsquelle verwenden",
-              "use_sun_elevation_dynamic_close_sensor": "Dynamische Schließhöhe verwenden",
-              "use_sun_elevation_dynamic_open_sensor": "Dynamische Öffnungshöhe verwenden",
-              "use_workday_sensor": "Werktagsquelle verwenden"
+              "use_workday_sensor": "Werktagsquelle verwenden",
+              "open_mode": "Steuerungsart Öffnen",
+              "close_mode": "Steuerungsart Schließen"
             },
             "data_description": {
               "auto_brightness_enabled": "Wert für Helligkeitsautomatik in dieser Gruppe.",
@@ -1538,30 +1574,24 @@
               "auto_time_enabled": "Wert für Zeitautomatik in dieser Gruppe.",
               "auto_up_enabled": "Wert für Automatisches Öffnen in dieser Gruppe.",
               "use_brightness_sensor": "Wert für Helligkeitsquelle verwenden in dieser Gruppe.",
-              "use_sun_elevation_dynamic_close_sensor": "Wert für Dynamische Schließhöhe verwenden in dieser Gruppe.",
-              "use_sun_elevation_dynamic_open_sensor": "Wert für Dynamische Öffnungshöhe verwenden in dieser Gruppe.",
-              "use_workday_sensor": "Wert für Werktagsquelle verwenden in dieser Gruppe."
+              "use_workday_sensor": "Wert für Werktagsquelle verwenden in dieser Gruppe.",
+              "open_mode": "Steuerungsart Öffnen",
+              "close_mode": "Steuerungsart Schließen"
             }
           },
           "sun_settings": {
             "name": "Sonnenstandssteuerung",
             "data": {
-              "brightness_sun_operator": "Kombination aus Helligkeit und Sonne",
               "sun_elevation_close": "Sonnenhöhe zum Schließen",
-              "sun_elevation_close_offset": "Offset der Schließhöhe",
-              "sun_elevation_mode": "Sonnenhöhenmodus",
               "sun_elevation_open": "Sonnenhöhe zum Öffnen",
-              "sun_elevation_open_offset": "Offset der Öffnungshöhe",
-              "sun_time_duration": "Sonnendauer"
+              "astro_open_offset_minutes": "Astro-Offset Öffnen (Minuten)",
+              "astro_close_offset_minutes": "Astro-Offset Schließen (Minuten)"
             },
             "data_description": {
-              "brightness_sun_operator": "Wert für Kombination aus Helligkeit und Sonne in dieser Gruppe.",
               "sun_elevation_close": "Wert für Sonnenhöhe zum Schließen in dieser Gruppe.",
-              "sun_elevation_close_offset": "Wert für Offset der Schließhöhe in dieser Gruppe.",
-              "sun_elevation_mode": "Wert für Sonnenhöhenmodus in dieser Gruppe.",
               "sun_elevation_open": "Wert für Sonnenhöhe zum Öffnen in dieser Gruppe.",
-              "sun_elevation_open_offset": "Wert für Offset der Öffnungshöhe in dieser Gruppe.",
-              "sun_time_duration": "Wert für Sonnendauer in dieser Gruppe."
+              "astro_open_offset_minutes": "Astro-Offset Öffnen (Minuten)",
+              "astro_close_offset_minutes": "Astro-Offset Schließen (Minuten)"
             }
           }
         }
@@ -1895,6 +1925,64 @@
         "data_description": {
           "group": "Die Einstellungen dieser Gruppe gelten vollständig für den Raum."
         }
+      },
+      "group_sun_details": {
+        "title": "Gruppe – sonnenstand",
+        "description": "Einstellungen für {group_name} bearbeiten. Verwendet von: {group_usage}",
+        "sections": {
+          "time_features": {
+            "name": "Zeitsteuerung",
+            "data": {
+              "auto_brightness_enabled": "Helligkeitsautomatik",
+              "auto_down_enabled": "Automatisches Schließen",
+              "intermediate_close_enabled": "Zwischenschließposition verwenden",
+              "final_close_time": "Zeit der vollständigen Schließung",
+              "summer_start": "Beginn Sommerzeitraum (TT.MM.)",
+              "summer_end": "Ende Sommerzeitraum (TT.MM.)",
+              "christmas_start": "Beginn Weihnachtszeitraum (TT.MM.)",
+              "christmas_end": "Ende Weihnachtszeitraum (TT.MM.)",
+              "auto_sun_enabled": "Sonnenautomatik",
+              "auto_time_enabled": "Zeitautomatik",
+              "auto_up_enabled": "Automatisches Öffnen",
+              "use_brightness_sensor": "Helligkeitsquelle verwenden",
+              "use_workday_sensor": "Werktagsquelle verwenden",
+              "open_mode": "Steuerungsart Öffnen",
+              "close_mode": "Steuerungsart Schließen"
+            },
+            "data_description": {
+              "auto_brightness_enabled": "Wert für Helligkeitsautomatik in dieser Gruppe.",
+              "auto_down_enabled": "Wert für Automatisches Schließen in dieser Gruppe.",
+              "intermediate_close_enabled": "Vor der vollständigen Schließung die raumeigene Zwischenposition verwenden.",
+              "final_close_time": "Zeitpunkt der abschließenden vollständigen Schließfahrt.",
+              "summer_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
+              "summer_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
+              "christmas_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
+              "christmas_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
+              "auto_sun_enabled": "Wert für Sonnenautomatik in dieser Gruppe.",
+              "auto_time_enabled": "Wert für Zeitautomatik in dieser Gruppe.",
+              "auto_up_enabled": "Wert für Automatisches Öffnen in dieser Gruppe.",
+              "use_brightness_sensor": "Wert für Helligkeitsquelle verwenden in dieser Gruppe.",
+              "use_workday_sensor": "Wert für Werktagsquelle verwenden in dieser Gruppe.",
+              "open_mode": "Steuerungsart Öffnen",
+              "close_mode": "Steuerungsart Schließen"
+            }
+          },
+          "sun_settings": {
+            "name": "Sonnenstandssteuerung",
+            "data": {
+              "sun_elevation_close": "Sonnenhöhe zum Schließen",
+              "sun_elevation_open": "Sonnenhöhe zum Öffnen",
+              "astro_open_offset_minutes": "Astro-Offset Öffnen (Minuten)",
+              "astro_close_offset_minutes": "Astro-Offset Schließen (Minuten)"
+            },
+            "data_description": {
+              "sun_elevation_close": "Wert für Sonnenhöhe zum Schließen in dieser Gruppe.",
+              "sun_elevation_open": "Wert für Sonnenhöhe zum Öffnen in dieser Gruppe.",
+              "astro_open_offset_minutes": "Astro-Offset Öffnen (Minuten)",
+              "astro_close_offset_minutes": "Astro-Offset Schließen (Minuten)"
+            }
+          }
+        }
       }
     },
     "abort": {
@@ -1926,19 +2014,6 @@
         "current_position_attr": "Attribut current_position",
         "position_attr": "Attribut position",
         "custom_sensor": "Eigener Positionssensor"
-      }
-    },
-    "sun_elevation_mode": {
-      "options": {
-        "fixed": "Fest",
-        "dynamic": "Dynamisch",
-        "hybrid": "Hybrid"
-      }
-    },
-    "brightness_sun_operator": {
-      "options": {
-        "or": "Helligkeit oder Sonne",
-        "and": "Helligkeit und Sonne"
       }
     },
     "forecast_type": {
@@ -1994,6 +2069,24 @@
         "sleep": "Schlafbereich",
         "children": "Kinderbereich"
       }
+    },
+    "open_mode": {
+      "options": {
+        "time": "Zeit",
+        "sunrise": "Sonnenaufgang",
+        "golden_hour": "Golden Hour",
+        "elevation": "Sonnenhöhe",
+        "brightness": "Helligkeit"
+      }
+    },
+    "close_mode": {
+      "options": {
+        "time": "Zeit",
+        "sunset": "Sonnenuntergang",
+        "golden_hour": "Golden Hour",
+        "elevation": "Sonnenhöhe",
+        "brightness": "Helligkeit"
+      }
     }
   },
   "config_subentries": {},
@@ -2009,6 +2102,10 @@
     "fixed_group_migration_conflict": {
       "title": "Mehrdeutige Gruppenmigration",
       "description": "Die Migration wurde deterministisch abgeschlossen. Details: {details}"
+    },
+    "sun_mode_migration": {
+      "title": "Sonnenkonfiguration migriert",
+      "description": "Dynamische Sonnenhöhe wurde entfernt. Die betroffene Gruppe verwendet jetzt eine feste Sonnenhöhe. {details}"
     }
   },
   "entity": {
