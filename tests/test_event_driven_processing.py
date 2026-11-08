@@ -39,11 +39,8 @@ from custom_components.cover_control.const import (
     CONF_TIME_UP_EARLY_WORKDAY,
     CONF_TIME_UP_LATE_WORKDAY,
     CONF_NAME,
-    CONF_PROFILE_ID,
-    CONF_PROFILE_NAME,
-    CONF_PROFILE_SELECTIONS,
-    CONF_PROFILE_SETTINGS,
-    CONF_PROFILES,
+    CONF_GROUP,
+    CONF_GROUPS,
     CONF_ROOM_OVERRIDES,
     CONF_ROOM_SETTINGS,
     CONF_ROOMS,
@@ -52,14 +49,11 @@ from custom_components.cover_control.const import (
     CONF_TIME_DOWN_LATE_WORKDAY,
     CONF_TIME_UP_EARLY_WORKDAY,
     CONF_TIME_UP_LATE_WORKDAY,
-    PROFILE_TYPE_TIME,
+    GROUP_LIVING,
     SIGNAL_ENTRY_STATE_UPDATED,
 )
-from custom_components.cover_control.const import (
-    DEFAULT_SUN_ELEVATION_MODE,
-)
-from custom_components.cover_control.runtime.profile_evaluation import (
-    evaluate_time_profile,
+from custom_components.cover_control.runtime.group_evaluation import (
+    evaluate_time_group,
 )
 from custom_components.cover_control.config_resolver import resolve_config_model
 from custom_components.cover_control.controller import ControllerManager, CoverController
@@ -379,7 +373,7 @@ def test_time_profile_evaluation_supports_already_met_open_threshold_with_durati
         config=SimpleNamespace(latitude=50.0, longitude=8.0, time_zone="UTC"),
     )
 
-    next_open, _next_close = evaluate_time_profile(
+    next_open, _next_close = evaluate_time_group(
         hass,
         {
             CONF_AUTO_SUN: True,
@@ -430,7 +424,7 @@ def test_time_profile_evaluation_supports_already_met_close_threshold_with_durat
         config=SimpleNamespace(latitude=50.0, longitude=8.0, time_zone="UTC"),
     )
 
-    _next_open, next_close = evaluate_time_profile(
+    _next_open, next_close = evaluate_time_group(
         hass,
         {
             CONF_AUTO_SUN: True,
@@ -548,30 +542,23 @@ def test_missing_location_and_unreachable_sun_are_safe() -> None:
     assert controller._next_close is None
 
 
-def test_active_time_profile_provides_next_open_and_close() -> None:
-    """A time profile using the existing master toggle schedules both events."""
+def test_active_group_provides_next_open_and_close() -> None:
+    """A fixed group using the existing master toggle schedules both events."""
 
-    profile_id = "weekday-profile"
     model = {
-        CONF_PROFILES: {
-            PROFILE_TYPE_TIME: {
-                profile_id: {
-                    CONF_PROFILE_ID: profile_id,
-                    CONF_PROFILE_NAME: "Weekday",
-                    CONF_PROFILE_SETTINGS: {
-                        CONF_AUTO_TIME: True,
-                        CONF_TIME_UP_EARLY_WORKDAY: "06:30:00",
-                        CONF_TIME_UP_LATE_WORKDAY: "07:30:00",
-                        CONF_TIME_DOWN_EARLY_WORKDAY: "20:00:00",
-                        CONF_TIME_DOWN_LATE_WORKDAY: "21:00:00",
-                    },
-                }
+        CONF_GROUPS: {
+            GROUP_LIVING: {
+                CONF_AUTO_TIME: True,
+                CONF_TIME_UP_EARLY_WORKDAY: "06:30:00",
+                CONF_TIME_UP_LATE_WORKDAY: "07:30:00",
+                CONF_TIME_DOWN_EARLY_WORKDAY: "20:00:00",
+                CONF_TIME_DOWN_LATE_WORKDAY: "21:00:00",
             }
         },
         CONF_ROOMS: {
             "living": {
                 CONF_NAME: "Living",
-                CONF_PROFILE_SELECTIONS: {PROFILE_TYPE_TIME: profile_id},
+                CONF_GROUP: GROUP_LIVING,
                 CONF_ROOM_SETTINGS: {},
                 CONF_SOURCE_OVERRIDES: {},
                 CONF_ROOM_OVERRIDES: {},
