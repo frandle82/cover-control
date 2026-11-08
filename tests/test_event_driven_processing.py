@@ -10,8 +10,6 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock, patch
 
 import pytest
-from astral import LocationInfo
-from astral.sun import SunDirection, time_at_elevation
 from homeassistant.util import dt as dt_util
 from homeassistant.components.sensor import SensorDeviceClass
 
@@ -25,15 +23,11 @@ from custom_components.cover_control.const import (
     CONF_INTERMEDIATE_CLOSE_POSITION,
     CONF_NO_GO_TIME_MINUTES,
     CONF_BRIGHTNESS_SENSOR,
+    CONF_CLOSE_MODE,
+    CONF_OPEN_MODE,
     CONF_SHADING_BRIGHTNESS_SENSOR,
     CONF_SUN_ELEVATION_CLOSE,
-    CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
-    CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
-    CONF_SUN_ELEVATION_MODE,
     CONF_SUN_ELEVATION_OPEN,
-    CONF_SUN_TIME_DURATION,
-    CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
-    CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
     CONF_TIME_DOWN_EARLY_WORKDAY,
     CONF_TIME_DOWN_LATE_WORKDAY,
     CONF_TIME_UP_EARLY_WORKDAY,
@@ -50,6 +44,8 @@ from custom_components.cover_control.const import (
     CONF_TIME_UP_EARLY_WORKDAY,
     CONF_TIME_UP_LATE_WORKDAY,
     GROUP_LIVING,
+    MODE_ELEVATION,
+    MODE_TIME,
     SIGNAL_ENTRY_STATE_UPDATED,
 )
 from custom_components.cover_control.runtime.group_evaluation import (
@@ -66,7 +62,6 @@ from custom_components.cover_control.sensor import (
 
 
 CONTROL_STATE_OPTION_SET = set(CONTROL_STATE_OPTIONS)
-
 
 def test_setup_has_no_generic_interval_evaluation() -> None:
     """Controller setup must not restore the removed minute polling loop."""
@@ -177,44 +172,6 @@ def test_scheduled_event_timer_is_single_and_rescheduled() -> None:
     assert controller._scheduled_open_unsub is None
 
 
-def test_next_sun_event_uses_currently_met_threshold() -> None:
-    """An already-met sun threshold exposes the current held-condition target."""
-
-    controller = object.__new__(CoverController)
-    now = dt_util.utcnow()
-    next_rising = now + timedelta(hours=20)
-    sun = SimpleNamespace(
-        attributes={
-            "elevation": 30,
-            "next_rising": next_rising.isoformat(),
-            "next_setting": (now + timedelta(hours=8)).isoformat(),
-        }
-    )
-    controller.hass = SimpleNamespace(
-        states=SimpleNamespace(get=lambda entity_id: sun if entity_id == "sun.sun" else None),
-        config=SimpleNamespace(latitude=None, longitude=None, time_zone=None),
-    )
-    controller.config = {}
-    controller._auto_enabled = lambda key: key == CONF_AUTO_SUN and key not in {
-        CONF_AUTO_TIME,
-        CONF_AUTO_UP,
-        CONF_AUTO_DOWN,
-    }
-    controller._dynamic_sun_threshold = lambda kind: 5 if kind == "open" else -5
-    controller._is_workday = Mock(return_value=True)
-    controller._is_workday_tomorrow = Mock(return_value=True)
-    controller._time_bounds = Mock(return_value=(None, None))
-    controller._reschedule_next_event_timers = Mock()
-
-    controller._refresh_next_events(now)
-
-    assert controller._next_open == (now + timedelta(seconds=30)).replace(
-        microsecond=0
-    )
-    assert controller._next_open != next_rising
-    controller._reschedule_next_event_timers.assert_called_once_with(now)
-
-
 def test_completed_daily_action_advances_to_tomorrow() -> None:
     """A completed opening exposes the next day's stable schedule window."""
 
@@ -226,7 +183,6 @@ def test_completed_daily_action_advances_to_tomorrow() -> None:
     )
     controller.config = {}
     controller._auto_enabled = lambda key: key in {CONF_AUTO_TIME, CONF_AUTO_UP}
-    controller._dynamic_sun_threshold = Mock(return_value=None)
     controller._is_workday = Mock(return_value=True)
     controller._is_workday_tomorrow = Mock(return_value=False)
     controller._time_bounds = Mock(return_value=(time(7), time(8)))
@@ -266,7 +222,9 @@ def _schedule_probe(config: dict, *, states: dict | None = None):
 def test_next_open_fixed_sun_only() -> None:
     controller = _schedule_probe({
         CONF_AUTO_SUN: True,
-        CONF_SUN_ELEVATION_MODE: "fixed",
+        CONF_AUTO_UP: True,
+        CONF_OPEN_MODE: MODE_ELEVATION,
+        CONF_CLOSE_MODE: MODE_ELEVATION,
         CONF_SUN_ELEVATION_OPEN: 6,
         CONF_SUN_ELEVATION_CLOSE: -4,
     })
@@ -283,7 +241,9 @@ def test_next_open_fixed_sun_only() -> None:
 def test_next_close_fixed_sun_only() -> None:
     controller = _schedule_probe({
         CONF_AUTO_SUN: True,
-        CONF_SUN_ELEVATION_MODE: "fixed",
+        CONF_AUTO_DOWN: True,
+        CONF_OPEN_MODE: MODE_ELEVATION,
+        CONF_CLOSE_MODE: MODE_ELEVATION,
         CONF_SUN_ELEVATION_OPEN: 6,
         CONF_SUN_ELEVATION_CLOSE: -4,
     })
@@ -295,199 +255,6 @@ def test_next_close_fixed_sun_only() -> None:
     controller._refresh_next_events(now)
     assert calls[1][0] == -4
     assert controller._next_close == (now + timedelta(hours=3)).replace(microsecond=0)
-
-
-def test_next_open_when_sun_threshold_already_reached_inside_window() -> None:
-    """An already passed rising threshold is available immediately in-window."""
-
-    location = LocationInfo(latitude=50.0, longitude=8.0, timezone="UTC")
-    crossing = dt_util.as_utc(
-        time_at_elevation(
-            location.observer, 6, date=datetime(2026, 6, 15).date(),
-            direction=SunDirection.RISING, tzinfo=timezone.utc
-        )
-    )
-    now = crossing + timedelta(minutes=30)
-    controller = _schedule_probe({
-        CONF_AUTO_SUN: True, CONF_AUTO_TIME: True, CONF_AUTO_UP: True,
-        CONF_SUN_ELEVATION_MODE: "fixed", CONF_SUN_ELEVATION_OPEN: 6,
-        CONF_SUN_ELEVATION_CLOSE: -4, CONF_SUN_TIME_DURATION: 0,
-    }, states={"sun.sun": SimpleNamespace(attributes={"elevation": 7})})
-    controller._time_bounds = Mock(return_value=(
-        (dt_util.as_local(crossing) - timedelta(hours=1)).time(),
-        (dt_util.as_local(crossing) + timedelta(hours=1)).time(),
-    ))
-    controller._refresh_next_events(now)
-    assert crossing < now
-    assert controller._next_open == now.replace(microsecond=0)
-
-
-def test_next_open_duration_does_not_slide_on_repeated_refresh() -> None:
-    now = datetime(2026, 6, 15, 9, 16, 25, tzinfo=timezone.utc)
-    controller = _schedule_probe(
-        {
-            CONF_AUTO_SUN: True,
-            CONF_SUN_ELEVATION_MODE: "fixed",
-            CONF_SUN_ELEVATION_OPEN: 6,
-            CONF_SUN_TIME_DURATION: 30,
-        },
-        states={"sun.sun": SimpleNamespace(attributes={"elevation": 7})},
-    )
-
-    controller._refresh_next_events(now)
-    expected = now + timedelta(seconds=30)
-    controller._refresh_next_events(now + timedelta(seconds=3))
-    controller._refresh_next_events(now + timedelta(seconds=10))
-
-    assert controller._next_open == expected
-
-
-def test_next_close_duration_does_not_slide_on_repeated_refresh() -> None:
-    now = datetime(2026, 6, 15, 21, 16, 25, tzinfo=timezone.utc)
-    controller = _schedule_probe(
-        {
-            CONF_AUTO_SUN: True,
-            CONF_SUN_ELEVATION_MODE: "fixed",
-            CONF_SUN_ELEVATION_CLOSE: -4,
-            CONF_SUN_TIME_DURATION: 30,
-        },
-        states={"sun.sun": SimpleNamespace(attributes={"elevation": -5})},
-    )
-
-    controller._refresh_next_events(now)
-    expected = now + timedelta(seconds=30)
-    controller._refresh_next_events(now + timedelta(seconds=3))
-    controller._refresh_next_events(now + timedelta(seconds=10))
-
-    assert controller._next_close == expected
-
-
-def test_time_profile_evaluation_supports_already_met_open_threshold_with_duration() -> None:
-    now = datetime(2026, 6, 15, 12, tzinfo=timezone.utc)
-    hass = SimpleNamespace(
-        states=SimpleNamespace(
-            get=lambda entity_id: SimpleNamespace(
-                attributes={"elevation": 7}
-            ) if entity_id == "sun.sun" else None
-        ),
-        config=SimpleNamespace(latitude=50.0, longitude=8.0, time_zone="UTC"),
-    )
-
-    next_open, _next_close = evaluate_time_group(
-        hass,
-        {
-            CONF_AUTO_SUN: True,
-            CONF_SUN_ELEVATION_MODE: "fixed",
-            CONF_SUN_ELEVATION_OPEN: 6,
-            CONF_SUN_TIME_DURATION: 30,
-        },
-        now,
-        capabilities=("sun",),
-    )
-
-    assert next_open == now + timedelta(seconds=30)
-
-
-def test_next_close_when_sun_threshold_already_reached_inside_window() -> None:
-    """An already passed setting threshold is available immediately in-window."""
-
-    location = LocationInfo(latitude=50.0, longitude=8.0, timezone="UTC")
-    crossing = dt_util.as_utc(
-        time_at_elevation(
-            location.observer, -4, date=datetime(2026, 6, 15).date(),
-            direction=SunDirection.SETTING, tzinfo=timezone.utc
-        )
-    )
-    now = crossing + timedelta(minutes=30)
-    controller = _schedule_probe({
-        CONF_AUTO_SUN: True, CONF_AUTO_TIME: True, CONF_AUTO_DOWN: True,
-        CONF_SUN_ELEVATION_MODE: "fixed", CONF_SUN_ELEVATION_OPEN: 6,
-        CONF_SUN_ELEVATION_CLOSE: -4, CONF_SUN_TIME_DURATION: 0,
-    }, states={"sun.sun": SimpleNamespace(attributes={"elevation": -5})})
-    controller._time_bounds = Mock(return_value=(
-        (dt_util.as_local(crossing) - timedelta(hours=1)).time(),
-        (dt_util.as_local(crossing) + timedelta(hours=1)).time(),
-    ))
-    controller._refresh_next_events(now)
-    assert crossing < now
-    assert controller._next_close == now.replace(microsecond=0)
-
-
-def test_time_profile_evaluation_supports_already_met_close_threshold_with_duration() -> None:
-    now = datetime(2026, 6, 15, 12, tzinfo=timezone.utc)
-    hass = SimpleNamespace(
-        states=SimpleNamespace(
-            get=lambda entity_id: SimpleNamespace(
-                attributes={"elevation": -5}
-            ) if entity_id == "sun.sun" else None
-        ),
-        config=SimpleNamespace(latitude=50.0, longitude=8.0, time_zone="UTC"),
-    )
-
-    _next_open, next_close = evaluate_time_group(
-        hass,
-        {
-            CONF_AUTO_SUN: True,
-            CONF_SUN_ELEVATION_MODE: "fixed",
-            CONF_SUN_ELEVATION_CLOSE: -4,
-            CONF_SUN_TIME_DURATION: 30,
-        },
-        now,
-        capabilities=("sun",),
-    )
-
-    assert next_close == now + timedelta(seconds=30)
-
-
-@pytest.mark.parametrize("mode", ["dynamic", "hybrid"])
-def test_dynamic_and_hybrid_sun_thresholds(mode: str) -> None:
-    states = {
-        "sensor.open": SimpleNamespace(state="4"),
-        "sensor.close": SimpleNamespace(state="-6"),
-    }
-    controller = _schedule_probe(
-        {
-            CONF_AUTO_SUN: True,
-            CONF_SUN_ELEVATION_MODE: mode,
-            CONF_SUN_ELEVATION_OPEN: 2,
-            CONF_SUN_ELEVATION_CLOSE: -2,
-            CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR: True,
-            CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR: True,
-            CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR: "sensor.open",
-            CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR: "sensor.close",
-        },
-        states=states,
-    )
-    calls = []
-    controller._next_sun_time_for_elevation = lambda elevation, direction, now: (
-        calls.append(elevation) or now + timedelta(hours=1)
-    )
-    now = dt_util.utcnow()
-    controller._refresh_next_events(now)
-    assert calls[:2] == ([6, -8] if mode == "hybrid" else [4, -6])
-
-
-@pytest.mark.parametrize("mode", ["dynamic", "hybrid"])
-def test_invalid_dynamic_and_hybrid_sun_use_fixed_fallback(mode: str) -> None:
-    controller = _schedule_probe(
-        {
-            CONF_AUTO_SUN: True,
-            CONF_SUN_ELEVATION_MODE: mode,
-            CONF_SUN_ELEVATION_OPEN: 7,
-            CONF_SUN_ELEVATION_CLOSE: -5,
-            CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR: True,
-            CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR: True,
-            CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR: "sensor.open",
-            CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR: "sensor.close",
-        },
-        states={"sensor.open": SimpleNamespace(state="unavailable")},
-    )
-    calls = []
-    controller._next_sun_time_for_elevation = lambda elevation, direction, now: (
-        calls.append(elevation) or now + timedelta(hours=1)
-    )
-    controller._refresh_next_events(dt_util.utcnow())
-    assert calls[:2] == [7, -5]
 
 
 def test_next_events_are_none_when_time_and_sun_are_disabled() -> None:
@@ -576,7 +343,6 @@ def test_active_group_provides_next_open_and_close() -> None:
         config=SimpleNamespace(latitude=None, longitude=None, time_zone=None),
     )
     controller._auto_enabled = lambda key: bool(resolved.get(key))
-    controller._dynamic_sun_threshold = Mock(return_value=None)
     controller._is_workday = Mock(return_value=True)
     controller._is_workday_tomorrow = Mock(return_value=True)
     controller._last_action_dates = {}
@@ -672,7 +438,6 @@ def test_final_close_forecast_uses_existing_schedule_timer() -> None:
     controller._auto_enabled = Mock(return_value=True)
     controller._state_for = Mock(return_value=None)
     controller._sun_entity = Mock(return_value="sun.sun")
-    controller._dynamic_sun_threshold = Mock(return_value=None)
     controller._is_workday = Mock(return_value=True)
     controller._is_workday_tomorrow = Mock(return_value=True)
     controller._last_action_dates = {}
@@ -800,13 +565,6 @@ def _condition_timer_triggers(*keys: str) -> list[str]:
     return [call.args[0] for call in controller.async_request_evaluate.call_args_list]
 
 
-def test_sun_open_and_close_duration_use_distinct_timer_keys() -> None:
-    assert _condition_timer_triggers("sun_open", "sun_close") == [
-        "sun_open_duration_elapsed",
-        "sun_close_duration_elapsed",
-    ]
-
-
 def test_brightness_open_and_close_duration_use_distinct_timer_keys() -> None:
     assert _condition_timer_triggers("brightness_open", "brightness_close") == [
         "brightness_open_duration_elapsed",
@@ -851,8 +609,6 @@ def test_shared_input_roles_use_specific_triggers() -> None:
     controller = object.__new__(CoverController)
     controller.config = {
         CONF_BRIGHTNESS_SENSOR: "sensor.brightness",
-        CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR: "sensor.sun_open",
-        CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR: "sensor.sun_close",
     }
     controller._auto_entity_map = {}
     controller._sun_entity = Mock(return_value="sun.sun")
@@ -861,12 +617,6 @@ def test_shared_input_roles_use_specific_triggers() -> None:
     assert controller._shared_state_triggers(
         "sensor.brightness", None, "100"
     ) == {"brightness_changed"}
-    assert controller._shared_state_triggers("sensor.sun_open", None, "5") == {
-        "dynamic_sun_open_changed"
-    }
-    assert controller._shared_state_triggers("sensor.sun_close", None, "-5") == {
-        "dynamic_sun_close_changed"
-    }
 
 
 def test_window_state_triggers_are_unambiguous() -> None:

@@ -8,11 +8,13 @@ from custom_components.cover_control.config_flow import CoverControlFlow
 from custom_components.cover_control.const import (
     CONF_CONTROLLER_ENTRY_ID, CONF_ENTRY_TYPE, CONF_GLOBAL, CONF_GROUP,
     CONF_GROUPS, CONF_NAME, CONF_ROOM, CONF_ROOM_ID, CONF_ROOM_SETTINGS,
-    DOMAIN, ENTRY_TYPE_CONTROLLER, ENTRY_TYPE_ROOM, GROUPS, GROUP_LIVING,
+    CONF_CLOSE_MODE, CONF_OPEN_MODE, CONF_SUN_ELEVATION_OPEN,
+    CONF_ASTRO_CLOSE_OFFSET, DOMAIN, ENTRY_TYPE_CONTROLLER, ENTRY_TYPE_ROOM,
+    GROUPS, GROUP_LIVING, MODE_ELEVATION, MODE_GOLDEN_HOUR,
 )
 
 def _controller(hass):
-    entry = MockConfigEntry(domain=DOMAIN, version=13, unique_id=DOMAIN, data={
+    entry = MockConfigEntry(domain=DOMAIN, version=14, unique_id=DOMAIN, data={
         CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
         CONF_GLOBAL: {"sources": {}, "defaults": {}},
         CONF_GROUPS: {group: {} for group in GROUPS},
@@ -40,7 +42,7 @@ async def test_edit_each_fixed_group_and_back(hass) -> None:
 
 async def test_room_group_selector(hass) -> None:
     controller = _controller(hass)
-    room = MockConfigEntry(domain=DOMAIN, version=13, data={
+    room = MockConfigEntry(domain=DOMAIN, version=14, data={
         CONF_ENTRY_TYPE: ENTRY_TYPE_ROOM, CONF_CONTROLLER_ENTRY_ID: controller.entry_id,
         CONF_ROOM_ID: "room", CONF_NAME: "Room", CONF_GROUP: GROUP_LIVING,
         CONF_ROOM_SETTINGS: {CONF_ROOM: "living"},
@@ -66,3 +68,36 @@ def test_translation_structure_is_synchronized() -> None:
         assert all(set(doc[section]["step"]) == set(documents[0][section]["step"]) for doc in documents)
     assert all(set(doc["selector"]) == set(documents[0]["selector"]) for doc in documents)
     assert "profile_action" not in documents[0]["selector"]
+
+
+async def test_group_sun_only_shows_fields_for_selected_modes(hass) -> None:
+    entry = _controller(hass)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={
+            "source": config_entries.SOURCE_RECONFIGURE,
+            "entry_id": entry.entry_id,
+        },
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "group_living"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "group_sun"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            "time_features": {
+                CONF_OPEN_MODE: MODE_ELEVATION,
+                CONF_CLOSE_MODE: MODE_GOLDEN_HOUR,
+            }
+        },
+    )
+    assert result["step_id"] == "group_sun_details"
+    fields = {
+        field.schema
+        for section_field, schema in result["data_schema"].schema.items()
+        for field in schema.schema.schema
+    }
+    assert fields == {CONF_SUN_ELEVATION_OPEN, CONF_ASTRO_CLOSE_OFFSET}

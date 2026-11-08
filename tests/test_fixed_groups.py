@@ -2,11 +2,13 @@
 import pytest
 from custom_components.cover_control.config_groups import ConfigGroupModel
 from custom_components.cover_control.config_resolver import resolve_config_model
+from custom_components.cover_control.runtime.manager import ControllerManager
 from custom_components.cover_control.const import (
-    CONF_AUTO_TIME, CONF_ENABLE_RECALIBRATE_BUTTON, CONF_FIRE_ALARM_ENABLED,
+    CONF_AUTO_TIME, CONF_CLOSE_MODE, CONF_ENABLE_RECALIBRATE_BUTTON, CONF_FIRE_ALARM_ENABLED,
     CONF_FIRE_ALARM_PARTICIPATE, CONF_GROUP, CONF_GROUPS, CONF_NAME, CONF_OPEN_POSITION,
-    CONF_RESIDENT_STATUS, CONF_ROOM_SETTINGS, CONF_ROOMS, CONF_TIME_UP_EARLY_WORKDAY, DEFAULT_GROUP,
-    GROUP_CHILDREN, GROUP_LIVING, GROUP_SLEEP, GROUPS,
+    CONF_OPEN_MODE, CONF_RESIDENT_STATUS, CONF_ROOM_SETTINGS, CONF_ROOMS,
+    CONF_TIME_UP_EARLY_WORKDAY, DEFAULT_GROUP, GROUP_CHILDREN, GROUP_LIVING,
+    GROUP_SLEEP, GROUPS, MODE_GOLDEN_HOUR, MODE_SUNSET,
 )
 
 def _model() -> ConfigGroupModel:
@@ -66,3 +68,17 @@ def test_room_owned_values_override_group_and_remain_local() -> None:
     assert resolved[CONF_OPEN_POSITION] == 77
     assert resolved[CONF_ENABLE_RECALIBRATE_BUTTON] is True
     assert resolved[CONF_FIRE_ALARM_PARTICIPATE] is False
+
+
+def test_configuration_diagnostics_expose_control_modes() -> None:
+    model = _model().data
+    model[CONF_GROUPS][GROUP_LIVING].update(
+        {CONF_OPEN_MODE: MODE_GOLDEN_HOUR, CONF_CLOSE_MODE: MODE_SUNSET}
+    )
+    manager = object.__new__(ControllerManager)
+    manager._resolved_config = resolve_config_model(model, "living")
+    manager._config_model = model
+    manager._runtime_toggles = {}
+    diagnostics = manager.configuration_diagnostics()
+    assert diagnostics["resolved"][CONF_OPEN_MODE]["value"] == MODE_GOLDEN_HOUR
+    assert diagnostics["resolved"][CONF_CLOSE_MODE]["value"] == MODE_SUNSET
