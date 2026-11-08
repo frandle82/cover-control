@@ -124,6 +124,25 @@ from .common import (
 
 
 class EvaluationMixin:
+    def _seasonal_close_target(
+        self, now: datetime, current_position: float | None, final_close_due: bool
+    ) -> tuple[bool, float | None, bool]:
+        """Return summer suppression, effective target, and intermediate state."""
+
+        intermediate_close, intermediate_target = self._intermediate_close_target(
+            now, current_position, final_close_due
+        )
+        christmas_target = self._christmas_close_position(now)
+        uses_intermediate = intermediate_close and christmas_target is None
+        target = (
+            christmas_target
+            if christmas_target is not None
+            else intermediate_target
+            if uses_intermediate
+            else self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION)
+        )
+        return self._summer_close_suppressed(now), target, uses_intermediate
+
     def _opening_no_go_remaining(self, now: datetime) -> float:
         """Return seconds until a scheduled opening may follow a cover change."""
 
@@ -507,20 +526,17 @@ class EvaluationMixin:
 
         current_position = self._current_position()
         final_close_due = TRIGGER_SCHEDULED_FINAL_CLOSE in self._current_evaluation_triggers
-        intermediate_close, intermediate_target = self._intermediate_close_target(
-            now, current_position, final_close_due
+        summer_close_suppressed, close_target, uses_intermediate = (
+            self._seasonal_close_target(now, current_position, final_close_due)
         )
-        close_target = (
-            intermediate_target
-            if intermediate_close
-            else self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION)
-        )
+        intermediate_target = close_target if uses_intermediate else None
         close_status_satisfied = self._status_active(
             "close"
         ) and self._position_matches(close_target, current_position)
         regular_close_event: tuple[datetime, str, float | None] | None = None
         if (
             close_condition
+            and not summer_close_suppressed
             and not self._manual_blocks_action("close")
             and not close_status_satisfied
             and not tilt_lock_close
@@ -529,7 +545,7 @@ class EvaluationMixin:
             ))
             and not self._close_position_protected(current_position)
             and (
-                not intermediate_close
+                not uses_intermediate
                 or intermediate_target is not None
             )
         ):
@@ -552,9 +568,10 @@ class EvaluationMixin:
             ):
                 regular_close_event = (
                     now,
-                    "scheduled_intermediate_close" if intermediate_close else "sun_close",
+                    "scheduled_intermediate_close" if uses_intermediate else "sun_close",
                     close_target,
                 )
+
             elif (
                 close_due
                 and self._auto_enabled(CONF_AUTO_BRIGHTNESS)
@@ -563,7 +580,7 @@ class EvaluationMixin:
             ):
                 regular_close_event = (
                     now,
-                    "scheduled_intermediate_close" if intermediate_close else "brightness_close",
+                    "scheduled_intermediate_close" if uses_intermediate else "brightness_close",
                     close_target,
                 )
             elif (
@@ -574,9 +591,13 @@ class EvaluationMixin:
             ):
                 regular_close_event = (
                     self._next_close or now,
-                    "scheduled_intermediate_close" if intermediate_close else "scheduled_close",
+                    "scheduled_intermediate_close" if uses_intermediate else "scheduled_close",
                     close_target,
                 )
+
+        if close_condition and summer_close_suppressed:
+            self._reason = "summer_period"
+            self._decision_controls.add("time")
 
         if (
             auto_ventilate
