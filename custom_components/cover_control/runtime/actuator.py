@@ -81,8 +81,6 @@ from ..const import (
     CONF_SHADING_TILT_POSITION_1,
     CONF_SHADING_TILT_POSITION_2,
     CONF_SHADING_TILT_POSITION_3,
-    CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
-    CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
     CONF_VENTILATE_POSITION,
     CONF_VENTILATE_TILT_POSITION,
     CONF_WINDOW_SENSOR_FULL,
@@ -124,8 +122,6 @@ from .common import (
     _LOGGER,
     IDLE_REASON,
     TRIGGER_BRIGHTNESS_CHANGED,
-    TRIGGER_DYNAMIC_SUN_CLOSE_CHANGED,
-    TRIGGER_DYNAMIC_SUN_OPEN_CHANGED,
     TRIGGER_RESIDENT_OFF,
     TRIGGER_RESIDENT_ON,
     TRIGGER_SHADING_END_CHANGED,
@@ -836,13 +832,6 @@ class ActuatorMixin:
             )
         if auto_brightness:
             keys.append(CONF_BRIGHTNESS_SENSOR)
-        if auto_sun:
-            keys.extend(
-                [
-                    CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
-                    CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
-                ]
-            )
         if auto_shading:
             keys.extend(
                 [
@@ -938,12 +927,6 @@ class ActuatorMixin:
         triggers: set[str] = set()
         role_triggers = {
             CONF_BRIGHTNESS_SENSOR: (TRIGGER_BRIGHTNESS_CHANGED,),
-            CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR: (
-                TRIGGER_DYNAMIC_SUN_OPEN_CHANGED,
-            ),
-            CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR: (
-                TRIGGER_DYNAMIC_SUN_CLOSE_CHANGED,
-            ),
             CONF_WORKDAY_SENSOR: (TRIGGER_WORKDAY_CHANGED,),
             CONF_WORKDAY_TOMORROW_SENSOR: (TRIGGER_WORKDAY_TOMORROW_CHANGED,),
             CONF_CALENDAR_ENTITY: ("calendar_changed",),

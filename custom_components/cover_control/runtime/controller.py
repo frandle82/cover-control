@@ -28,7 +28,6 @@ from ..const import (
     CONF_AUTO_UP_ENTITY,
     CONF_AUTO_VENTILATE,
     CONF_AUTO_VENTILATE_ENTITY,
-    CONF_SUN_SENSOR,
     DEFAULT_SUN_SENSOR,
 )
 from .actuator import ActuatorMixin
@@ -153,8 +152,7 @@ class CoverController(
         return self.hass.states.get(entity_id)
 
     def _sun_entity(self) -> str:
-        value = self.config.get(CONF_SUN_SENSOR, DEFAULT_SUN_SENSOR)
-        return value if isinstance(value, str) and value else DEFAULT_SUN_SENSOR
+        return DEFAULT_SUN_SENSOR
 
     def _entity_active(self, config_key: str) -> bool:
         entity_id = self.config.get(config_key)

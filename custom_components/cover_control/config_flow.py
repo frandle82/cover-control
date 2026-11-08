@@ -31,9 +31,11 @@ from .const import (
     CONF_ADDITIONAL_CONDITIONS_ENABLED,
     CONF_ADDITIONAL_CONDITION_GLOBAL,
     CONF_AUTO_BRIGHTNESS,
+    CONF_AUTO_DOWN,
     CONF_AUTO_SHADING,
     CONF_AUTO_SUN,
     CONF_AUTO_TIME,
+    CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
     CONF_BRIGHTNESS_SENSOR,
     CONF_CALENDAR_ENTITY,
@@ -99,11 +101,12 @@ from .const import (
     CONF_SUMMER_SKIP_CLOSE_ENABLED,
     CONF_SUN_AZIMUTH_END,
     CONF_SUN_AZIMUTH_START,
-    CONF_SUN_ELEVATION_CLOSE_OFFSET,
-    CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
-    CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
-    CONF_SUN_ELEVATION_MODE,
-    CONF_SUN_ELEVATION_OPEN_OFFSET,
+    CONF_SUN_ELEVATION_CLOSE,
+    CONF_SUN_ELEVATION_OPEN,
+    CONF_ASTRO_CLOSE_OFFSET,
+    CONF_ASTRO_OPEN_OFFSET,
+    CONF_CLOSE_MODE,
+    CONF_OPEN_MODE,
     CONF_TEMPERATURE_FORECAST_THRESHOLD,
     CONF_TEMPERATURE_SENSOR_INDOOR,
     CONF_TEMPERATURE_SENSOR_OUTDOOR,
@@ -113,8 +116,6 @@ from .const import (
     CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_USE_RESIDENT_SENSOR,
     CONF_USE_SHADING_FORECAST_SENSOR,
-    CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
-    CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
     CONF_USE_TEMPERATURE_SENSOR_INDOOR,
     CONF_USE_TEMPERATURE_SENSOR_OUTDOOR,
     CONF_USE_WORKDAY_SENSOR,
@@ -149,9 +150,10 @@ from .const import (
     DEFAULT_SHADING_TILT_POSITION_2,
     DEFAULT_SHADING_TILT_POSITION_3,
     DEFAULT_SHADING_TIMING_SETTINGS,
-    DEFAULT_SUN_ELEVATION_CLOSE_OFFSET,
-    DEFAULT_SUN_ELEVATION_MODE,
-    DEFAULT_SUN_ELEVATION_OPEN_OFFSET,
+    DEFAULT_ASTRO_CLOSE_OFFSET,
+    DEFAULT_ASTRO_OPEN_OFFSET,
+    DEFAULT_CLOSE_MODE,
+    DEFAULT_OPEN_MODE,
     DEFAULT_TEMPERATURE_FORECAST_THRESHOLD,
     DEFAULT_TEMPERATURE_THRESHOLD,
     DEFAULT_TIME_SETTINGS,
@@ -165,6 +167,12 @@ from .const import (
     GROUP_SECTION_SHADING,
     GROUP_SECTION_TIME,
     GROUP_SLEEP,
+    MODE_ELEVATION,
+    MODE_BRIGHTNESS,
+    MODE_GOLDEN_HOUR,
+    MODE_SUNRISE,
+    MODE_SUNSET,
+    MODE_TIME,
     SAFETY_ALARMS,
     SHADING_CONDITION_AZIMUTH,
     SHADING_CONDITION_BRIGHTNESS,
@@ -194,9 +202,10 @@ def _with_config_defaults(config: dict) -> dict:
         **DEFAULT_SAFETY_PARTICIPATION,
         **DEFAULT_SHADING_TIMING_SETTINGS,
         **{key: list(value) if isinstance(value, list) else value for key, value in DEFAULT_SHADING_CONDITION_SETTINGS.items()},
-        CONF_SUN_ELEVATION_MODE: DEFAULT_SUN_ELEVATION_MODE,
-        CONF_SUN_ELEVATION_OPEN_OFFSET: DEFAULT_SUN_ELEVATION_OPEN_OFFSET,
-        CONF_SUN_ELEVATION_CLOSE_OFFSET: DEFAULT_SUN_ELEVATION_CLOSE_OFFSET,
+        CONF_OPEN_MODE: DEFAULT_OPEN_MODE,
+        CONF_CLOSE_MODE: DEFAULT_CLOSE_MODE,
+        CONF_ASTRO_OPEN_OFFSET: DEFAULT_ASTRO_OPEN_OFFSET,
+        CONF_ASTRO_CLOSE_OFFSET: DEFAULT_ASTRO_CLOSE_OFFSET,
         CONF_TEMPERATURE_THRESHOLD: DEFAULT_TEMPERATURE_THRESHOLD,
         CONF_TEMPERATURE_FORECAST_THRESHOLD: DEFAULT_TEMPERATURE_FORECAST_THRESHOLD,
         **config,
@@ -248,8 +257,6 @@ CLEARABLE_ENTITY_SELECTOR_KEYS = {
     CONF_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_SHADING_FORECAST_SENSOR,
     CONF_SHADING_FORECAST_TEMP_SENSOR,
-    CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
-    CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
     CONF_CUSTOM_POSITION_SENSOR,
 }
 
@@ -261,8 +268,6 @@ ENTITY_TOGGLE_MAP: dict[str, str] = {
     CONF_USE_TEMPERATURE_SENSOR_OUTDOOR: CONF_TEMPERATURE_SENSOR_OUTDOOR,
     CONF_USE_COLD_PROTECTION_FORECAST_SENSOR: CONF_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_USE_SHADING_FORECAST_SENSOR: CONF_SHADING_FORECAST_SENSOR,
-    CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR: CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
-    CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR: CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
 }
 
 
@@ -477,7 +482,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
 class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the config flow."""
 
-    VERSION = 13
+    VERSION = 14
 
     @staticmethod
     @callback
@@ -938,8 +943,86 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_group_sun(self, user_input=None) -> FlowResult:
-        return await self._async_group_section_step(
-            GROUP_SECTION_TIME, "group_sun", user_input, capabilities=("sun",)
+        group = getattr(self, "_editing_group", None)
+        if group not in GROUPS:
+            return await self.async_step_controller_reconfigure()
+        model = self._model()
+        existing = dict(model.data[CONF_GROUPS][group])
+        mode_keys = {CONF_OPEN_MODE, CONF_CLOSE_MODE}
+        if user_input is not None:
+            selected = extract_sparse_settings(
+                flatten_section_input(user_input),
+                GROUP_SECTION_TIME,
+                {key: value for key, value in existing.items() if key in mode_keys},
+                allowed_keys=mode_keys,
+            )
+            model.data[CONF_GROUPS][group] = {
+                **existing,
+                **selected,
+            }
+            modes = {selected.get(CONF_OPEN_MODE), selected.get(CONF_CLOSE_MODE)}
+            model.data[CONF_GROUPS][group].update(
+                {
+                    CONF_AUTO_UP: True,
+                    CONF_AUTO_DOWN: True,
+                    CONF_AUTO_TIME: True,
+                    CONF_AUTO_SUN: bool(
+                        modes - {None, MODE_TIME, MODE_BRIGHTNESS}
+                    ),
+                    CONF_AUTO_BRIGHTNESS: MODE_BRIGHTNESS in modes,
+                }
+            )
+            self._save_parent_model(model)
+            return await self.async_step_group_sun_details()
+        return self.async_show_form(
+            step_id="group_sun",
+            data_schema=build_group_schema(
+                GROUP_SECTION_TIME,
+                existing,
+                system_defaults(),
+                allowed_keys=mode_keys,
+            ),
+            description_placeholders=self._group_context_placeholders(),
+        )
+
+    async def async_step_group_sun_details(self, user_input=None) -> FlowResult:
+        group = getattr(self, "_editing_group", None)
+        if group not in GROUPS:
+            return await self.async_step_controller_reconfigure()
+        model = self._model()
+        existing = dict(model.data[CONF_GROUPS][group])
+        open_mode = str(existing.get(CONF_OPEN_MODE, DEFAULT_OPEN_MODE))
+        close_mode = str(existing.get(CONF_CLOSE_MODE, DEFAULT_CLOSE_MODE))
+        allowed: set[str] = set()
+        if open_mode == MODE_ELEVATION:
+            allowed.add(CONF_SUN_ELEVATION_OPEN)
+        if close_mode == MODE_ELEVATION:
+            allowed.add(CONF_SUN_ELEVATION_CLOSE)
+        if open_mode in {MODE_SUNRISE, MODE_GOLDEN_HOUR}:
+            allowed.add(CONF_ASTRO_OPEN_OFFSET)
+        if close_mode in {MODE_SUNSET, MODE_GOLDEN_HOUR}:
+            allowed.add(CONF_ASTRO_CLOSE_OFFSET)
+        if not allowed:
+            return await self.async_step_group_sections()
+        if user_input is not None:
+            selected = extract_sparse_settings(
+                flatten_section_input(user_input),
+                GROUP_SECTION_TIME,
+                {key: value for key, value in existing.items() if key in allowed},
+                allowed_keys=allowed,
+            )
+            model.data[CONF_GROUPS][group] = {**existing, **selected}
+            self._save_parent_model(model)
+            return await self.async_step_group_sections()
+        return self.async_show_form(
+            step_id="group_sun_details",
+            data_schema=build_group_schema(
+                GROUP_SECTION_TIME,
+                existing,
+                system_defaults(),
+                allowed_keys=allowed,
+            ),
+            description_placeholders=self._group_context_placeholders(),
         )
 
     async def async_step_group_shading(self, user_input=None) -> FlowResult:

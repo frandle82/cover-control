@@ -14,7 +14,6 @@ from homeassistant.const import (
 from homeassistant.util import dt as dt_util
 
 from ..const import (
-    BRIGHTNESS_SUN_OPERATOR_AND,
     CONF_ADDITIONAL_CONDITION_CLOSE,
     CONF_ADDITIONAL_CONDITION_GLOBAL,
     CONF_ADDITIONAL_CONDITION_OPEN,
@@ -40,9 +39,9 @@ from ..const import (
     CONF_BRIGHTNESS_HYSTERESIS,
     CONF_BRIGHTNESS_OPEN_ABOVE,
     CONF_BRIGHTNESS_SENSOR,
-    CONF_BRIGHTNESS_SUN_OPERATOR,
     CONF_BRIGHTNESS_TIME_DURATION,
     CONF_CLOSE_POSITION,
+    CONF_CLOSE_MODE,
     CONF_FINAL_CLOSE_TIME,
     CONF_INTERMEDIATE_CLOSE_ENABLED,
     CONF_INTERMEDIATE_CLOSE_POSITION,
@@ -53,6 +52,7 @@ from ..const import (
     CONF_LOCKOUT_TILT_SHADING_END,
     CONF_LOCKOUT_TILT_SHADING_START,
     CONF_OPEN_POSITION,
+    CONF_OPEN_MODE,
     CONF_NO_GO_TIME_MINUTES,
     CONF_OPEN_TILT_POSITION,
     CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
@@ -82,15 +82,9 @@ from ..const import (
     CONF_SUN_AZIMUTH_END,
     CONF_SUN_AZIMUTH_START,
     CONF_SUN_ELEVATION_CLOSE,
-    CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
-    CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
     CONF_SUN_ELEVATION_MAX,
     CONF_SUN_ELEVATION_MIN,
-    CONF_SUN_ELEVATION_MODE,
     CONF_SUN_ELEVATION_OPEN,
-    CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
-    CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
-    CONF_SUN_TIME_DURATION,
     CONF_VENTILATE_POSITION,
     CONF_VENTILATION_ALLOW_HIGHER_POSITION,
     CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT,
@@ -100,26 +94,34 @@ from ..const import (
     DEFAULT_BRIGHTNESS_CLOSE,
     DEFAULT_BRIGHTNESS_HYSTERESIS,
     DEFAULT_BRIGHTNESS_OPEN,
-    DEFAULT_BRIGHTNESS_SUN_OPERATOR,
     DEFAULT_BRIGHTNESS_TIME_DURATION,
+    DEFAULT_CLOSE_MODE,
     DEFAULT_CLOSE_POSITION,
     DEFAULT_FINAL_CLOSE_TIME,
     DEFAULT_INTERMEDIATE_CLOSE_POSITION,
+    DEFAULT_OPEN_MODE,
     DEFAULT_OPEN_POSITION,
     DEFAULT_OPEN_TILT_POSITION,
     DEFAULT_SHADING_TIMING_SETTINGS,
     DEFAULT_SUN_ELEVATION_CLOSE,
-    DEFAULT_SUN_ELEVATION_MODE,
     DEFAULT_SUN_ELEVATION_OPEN,
-    DEFAULT_SUN_TIME_DURATION,
     DEFAULT_VENTILATE_POSITION,
+    MODE_BRIGHTNESS,
+    MODE_ELEVATION,
+    MODE_TIME,
 )
 from .common import (
     _LOGGER,
     _coerce_float,
     _parse_time,
     TRIGGER_RESIDENT_OFF,
+    TRIGGER_GOLDEN_HOUR_CLOSE_REACHED,
+    TRIGGER_GOLDEN_HOUR_OPEN_REACHED,
+    TRIGGER_SCHEDULED_CLOSE,
     TRIGGER_SCHEDULED_FINAL_CLOSE,
+    TRIGGER_SCHEDULED_OPEN,
+    TRIGGER_SUNRISE_REACHED,
+    TRIGGER_SUNSET_REACHED,
 )
 
 
@@ -444,7 +446,7 @@ class EvaluationMixin:
             self._refresh_next_events(now)
             return
 
-        auto_time_enabled = self._auto_enabled(CONF_AUTO_TIME)
+        auto_time_enabled = True
         calendar_open_window, calendar_close_window = (
             await self._calendar_windows(now) if auto_time_enabled else (None, None)
         )
@@ -474,25 +476,13 @@ class EvaluationMixin:
         is_time_down_late = self._is_time_down_late(now) or self._calendar_after_end(
             calendar_close_window, now
         )
-        if auto_time_enabled and (is_opening_phase or is_closing_phase):
-            self._decision_controls.add("time")
-        if self._auto_enabled(CONF_AUTO_SUN):
-            open_threshold = self._dynamic_sun_threshold("open")
-            close_threshold = self._dynamic_sun_threshold("close")
-            if (
-                is_opening_phase
-                and sun_elevation is not None
-                and open_threshold is not None
-                and sun_elevation > open_threshold
-            ) or (
-                is_closing_phase
-                and sun_elevation is not None
-                and close_threshold is not None
-                and sun_elevation < close_threshold
-            ):
-                self._decision_controls.add("sun")
-        if self._auto_enabled(CONF_AUTO_BRIGHTNESS) and brightness is not None:
-            self._decision_controls.add("brightness")
+        open_mode = self._control_mode("open")
+        close_mode = self._control_mode("close")
+        for mode in {open_mode, close_mode}:
+            if self._mode_enabled(mode):
+                self._decision_controls.add(
+                    "brightness" if mode == MODE_BRIGHTNESS else "time" if mode == MODE_TIME else "sun"
+                )
         if auto_ventilate and ventilation_contact_active:
             self._decision_controls.add("ventilation")
         if resident_sleeping:
@@ -513,9 +503,7 @@ class EvaluationMixin:
             and shading_tilt_condition
         ):
             self._decision_controls.add("shading")
-        has_environment_control = self._auto_enabled(
-            CONF_AUTO_BRIGHTNESS
-        ) or self._auto_enabled(CONF_AUTO_SUN)
+        has_environment_control = open_mode != MODE_TIME or close_mode != MODE_TIME
 
         environment_allows_opening = self._environment_allows_opening(
             sun_elevation, brightness
@@ -563,35 +551,19 @@ class EvaluationMixin:
                 regular_close_event = (now, "scheduled_final_close", close_target)
             elif (
                 close_due
-                and self._auto_enabled(CONF_AUTO_SUN)
-                and self._sun_allows_close(sun_elevation)
+                and self._mode_enabled(close_mode)
+                and environment_allows_closing
             ):
+                reason = (
+                    "scheduled_close"
+                    if close_mode == MODE_TIME
+                    else "brightness_close"
+                    if close_mode == MODE_BRIGHTNESS
+                    else "sun_close"
+                )
                 regular_close_event = (
                     now,
-                    "scheduled_intermediate_close" if uses_intermediate else "sun_close",
-                    close_target,
-                )
-
-            elif (
-                close_due
-                and self._auto_enabled(CONF_AUTO_BRIGHTNESS)
-                and brightness is not None
-                and self._brightness_allows_close(brightness)
-            ):
-                regular_close_event = (
-                    now,
-                    "scheduled_intermediate_close" if uses_intermediate else "brightness_close",
-                    close_target,
-                )
-            elif (
-                self._auto_enabled(CONF_AUTO_TIME)
-                and self._auto_enabled(CONF_AUTO_DOWN)
-                and close_due
-                and not self._manual_schedule_adopted_today("close")
-            ):
-                regular_close_event = (
-                    self._next_close or now,
-                    "scheduled_intermediate_close" if uses_intermediate else "scheduled_close",
+                    "scheduled_intermediate_close" if uses_intermediate else reason,
                     close_target,
                 )
 
@@ -1068,46 +1040,20 @@ class EvaluationMixin:
                     )
                 )
             )
-            if (
-                open_due
-                and self._auto_enabled(CONF_AUTO_SUN)
-                and self._sun_allows_open(sun_elevation)
-            ):
-                open_events.append(
-                    (
-                        now,
-                        "sun_open",
-                        open_target,
-                    )
-                )
-
-            if (
-                open_due
-                and self._auto_enabled(CONF_AUTO_BRIGHTNESS)
-                and brightness is not None
-                and self._brightness_allows_open(brightness)
-            ):
-                open_events.append(
-                    (
-                        now,
-                        "brightness_open",
-                        open_target,
-                    )
-                )
-
-            if (
-                self._auto_enabled(CONF_AUTO_TIME)
-                and self._auto_enabled(CONF_AUTO_UP)
-                and open_due
-                and not open_events
-                and not self._manual_schedule_adopted_today("open")
-            ):
+            if open_due and self._mode_enabled(open_mode) and environment_allows_opening:
                 no_go_remaining = self._opening_no_go_remaining(now)
-                if no_go_remaining <= 0:
+                if open_mode != MODE_TIME or no_go_remaining <= 0:
+                    reason = (
+                        "scheduled_open"
+                        if open_mode == MODE_TIME
+                        else "brightness_open"
+                        if open_mode == MODE_BRIGHTNESS
+                        else "sun_open"
+                    )
                     open_events.append(
                         (
-                            self._next_open or now,
-                            "scheduled_open",
+                            now,
+                            reason,
                             open_target,
                         )
                     )
@@ -1156,82 +1102,21 @@ class EvaluationMixin:
             and recovery_mode in {RECOVERY_OUTAGE, RECOVERY_ALWAYS}
         )
 
-    def _dynamic_sun_threshold(self, kind: str) -> float | None:
-        mode = str(
-            self.config.get(CONF_SUN_ELEVATION_MODE, DEFAULT_SUN_ELEVATION_MODE)
-            or DEFAULT_SUN_ELEVATION_MODE
-        ).lower()
-
-        if kind == "open":
-            fixed_key = CONF_SUN_ELEVATION_OPEN
-            sensor_key = CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR
-            fixed_default = DEFAULT_SUN_ELEVATION_OPEN
-        else:
-            fixed_key = CONF_SUN_ELEVATION_CLOSE
-            sensor_key = CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR
-            fixed_default = DEFAULT_SUN_ELEVATION_CLOSE
-
-        use_key = (
-            CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR
-            if kind == "open"
-            else CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR
-        )
-
-        try:
-            fixed_threshold = float(self.config.get(fixed_key, fixed_default))
-        except (TypeError, ValueError):
-            return None
-
-        if mode == "fixed":
-            return fixed_threshold
-
-        if not bool(self.config.get(use_key, False)):
-            return fixed_threshold
-
-        sensor_state = self._state_for(self.config.get(sensor_key))
-        sensor_value = _coerce_float(sensor_state.state if sensor_state else None)
-        if mode == "dynamic":
-            # Dynamic sensor is optional in config flow. If unavailable or invalid,
-            # fall back to the configured fixed threshold so sun timing still works.
-            return sensor_value if sensor_value is not None else fixed_threshold
-
-        if mode == "hybrid":
-            if sensor_value is None:
-                return fixed_threshold
-            # Hybrid mode uses the fixed value as manual offset.
-            return sensor_value + fixed_threshold
-
-        return fixed_threshold
-
     def _sun_allows_open(self, sun_elevation: float | None) -> bool:
-        if not self._auto_enabled(CONF_AUTO_SUN):
-            return True
         if sun_elevation is None:
             return False
-        threshold = self._dynamic_sun_threshold("open")
-        if threshold is None:
-            return False
-        passed = sun_elevation > threshold
-        return self._condition_held(
-            "sun_open",
-            passed,
-            self._duration_value(CONF_SUN_TIME_DURATION, DEFAULT_SUN_TIME_DURATION),
+        threshold = self._number_value(
+            CONF_SUN_ELEVATION_OPEN, DEFAULT_SUN_ELEVATION_OPEN
         )
+        return sun_elevation >= threshold
 
     def _sun_allows_close(self, sun_elevation: float | None) -> bool:
-        if not self._auto_enabled(CONF_AUTO_SUN):
-            return True
         if sun_elevation is None:
             return False
-        threshold = self._dynamic_sun_threshold("close")
-        if threshold is None:
-            return False
-        passed = sun_elevation < threshold
-        return self._condition_held(
-            "sun_close",
-            passed,
-            self._duration_value(CONF_SUN_TIME_DURATION, DEFAULT_SUN_TIME_DURATION),
+        threshold = self._number_value(
+            CONF_SUN_ELEVATION_CLOSE, DEFAULT_SUN_ELEVATION_CLOSE
         )
+        return sun_elevation <= threshold
 
     def _brightness_allows_open(self, brightness: float | None) -> bool:
         if not self._auto_enabled(CONF_AUTO_BRIGHTNESS) or brightness is None:
@@ -1260,7 +1145,7 @@ class EvaluationMixin:
         hysteresis = self._number_value(
             CONF_BRIGHTNESS_HYSTERESIS, DEFAULT_BRIGHTNESS_HYSTERESIS
         )
-        passed = brightness < threshold - hysteresis
+        passed = brightness <= threshold - hysteresis
         return self._condition_held(
             "brightness_close",
             passed,
@@ -1269,42 +1154,65 @@ class EvaluationMixin:
             ),
         )
 
-    def _brightness_sun_operator_is_and(self) -> bool:
-        return (
-            str(
-                self.config.get(
-                    CONF_BRIGHTNESS_SUN_OPERATOR, DEFAULT_BRIGHTNESS_SUN_OPERATOR
-                )
-                or DEFAULT_BRIGHTNESS_SUN_OPERATOR
-            ).lower()
-            == BRIGHTNESS_SUN_OPERATOR_AND
-        )
-
     def _environment_allows_opening(
         self, sun_elevation: float | None, brightness: float | None
     ) -> bool:
-        use_brightness = self._auto_enabled(CONF_AUTO_BRIGHTNESS)
-        use_sun = self._auto_enabled(CONF_AUTO_SUN)
-        if not use_brightness and not use_sun:
+        mode = self._control_mode("open")
+        if mode == MODE_TIME:
             return True
-        brightness_ok = not use_brightness or self._brightness_allows_open(brightness)
-        sun_ok = not use_sun or self._sun_allows_open(sun_elevation)
-        if use_brightness and use_sun and self._brightness_sun_operator_is_and():
-            return brightness_ok and sun_ok
-        return brightness_ok or sun_ok
+        if self._is_time_up_late(dt_util.utcnow()):
+            return True
+        if mode == MODE_BRIGHTNESS:
+            return self._brightness_allows_open(brightness)
+        if mode == MODE_ELEVATION:
+            return self._sun_allows_open(sun_elevation)
+        return self._scheduled_mode_reached("open")
 
     def _environment_allows_closing(
         self, sun_elevation: float | None, brightness: float | None
     ) -> bool:
-        use_brightness = self._auto_enabled(CONF_AUTO_BRIGHTNESS)
-        use_sun = self._auto_enabled(CONF_AUTO_SUN)
-        if not use_brightness and not use_sun:
-            return False
-        brightness_ok = use_brightness and self._brightness_allows_close(brightness)
-        sun_ok = use_sun and self._sun_allows_close(sun_elevation)
-        if use_brightness and use_sun and self._brightness_sun_operator_is_and():
-            return brightness_ok and sun_ok
-        return brightness_ok or sun_ok
+        mode = self._control_mode("close")
+        if mode == MODE_TIME:
+            return True
+        if self._is_time_down_late(dt_util.utcnow()):
+            return True
+        if mode == MODE_BRIGHTNESS:
+            return self._brightness_allows_close(brightness)
+        if mode == MODE_ELEVATION:
+            return self._sun_allows_close(sun_elevation)
+        return self._scheduled_mode_reached("close")
+
+    def _scheduled_mode_reached(self, kind: str) -> bool:
+        triggers = (
+            {
+                TRIGGER_SCHEDULED_OPEN,
+                TRIGGER_SUNRISE_REACHED,
+                TRIGGER_GOLDEN_HOUR_OPEN_REACHED,
+            }
+            if kind == "open"
+            else {
+                TRIGGER_SCHEDULED_CLOSE,
+                TRIGGER_SUNSET_REACHED,
+                TRIGGER_GOLDEN_HOUR_CLOSE_REACHED,
+            }
+        )
+        if triggers & self._current_evaluation_triggers:
+            return True
+        now = dt_util.utcnow()
+        if kind == "open" and self._is_time_up_late(now):
+            return True
+        if kind == "close" and self._is_time_down_late(now):
+            return True
+        local_now = dt_util.as_local(now)
+        day_start = datetime.combine(
+            local_now.date(), datetime.min.time(), local_now.tzinfo
+        )
+        event = self._next_astro_event(
+            kind,
+            self._control_mode(kind),
+            dt_util.as_utc(day_start) - timedelta(seconds=1),
+        )
+        return bool(event and event <= now)
 
     def _number_value(self, key: str, default: float) -> float:
         value = _coerce_float(self.config.get(key, default))

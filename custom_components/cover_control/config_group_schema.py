@@ -58,8 +58,6 @@ _BOOLEAN_KEYS = frozenset(
         c.CONF_INTERMEDIATE_CLOSE_ENABLED,
         c.CONF_USE_WORKDAY_SENSOR,
         c.CONF_USE_BRIGHTNESS_SENSOR,
-        c.CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
-        c.CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
         c.CONF_AUTO_SHADING,
         c.CONF_USE_SHADING_FORECAST_SENSOR,
         c.CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
@@ -147,7 +145,6 @@ _POSITION_KEYS = frozenset(
 _DURATION_KEYS = frozenset(
     {
         c.CONF_BRIGHTNESS_TIME_DURATION,
-        c.CONF_SUN_TIME_DURATION,
         c.CONF_SHADING_WAITINGTIME_START,
         c.CONF_SHADING_WAITINGTIME_END,
         c.CONF_SHADING_START_MAX_DURATION,
@@ -213,11 +210,8 @@ _MULTI_SELECTS = {
 }
 
 _SELECTS = {
-    c.CONF_SUN_ELEVATION_MODE: (["fixed", "dynamic", "hybrid"], "sun_elevation_mode"),
-    c.CONF_BRIGHTNESS_SUN_OPERATOR: (
-        [c.BRIGHTNESS_SUN_OPERATOR_OR, c.BRIGHTNESS_SUN_OPERATOR_AND],
-        "brightness_sun_operator",
-    ),
+    c.CONF_OPEN_MODE: (list(c.OPEN_MODES), "open_mode"),
+    c.CONF_CLOSE_MODE: (list(c.CLOSE_MODES), "close_mode"),
     c.CONF_SHADING_FORECAST_TYPE: (
         ["daily", "hourly", c.DEFAULT_SHADING_FORECAST_TYPE],
         "forecast_type",
@@ -272,8 +266,8 @@ _GROUP_FIELDS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_AUTO_BRIGHTNESS,
                 c.CONF_USE_WORKDAY_SENSOR,
                 c.CONF_USE_BRIGHTNESS_SENSOR,
-                c.CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
-                c.CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+                c.CONF_OPEN_MODE,
+                c.CONF_CLOSE_MODE,
             ),
         ),
         (
@@ -302,10 +296,10 @@ _GROUP_FIELDS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
         (
             "sun_settings",
             (
-                c.CONF_SUN_ELEVATION_MODE,
+                c.CONF_ASTRO_OPEN_OFFSET,
+                c.CONF_ASTRO_CLOSE_OFFSET,
                 c.CONF_SUN_ELEVATION_OPEN,
                 c.CONF_SUN_ELEVATION_CLOSE,
-                c.CONF_SUN_TIME_DURATION,
             ),
         ),
         (
@@ -315,7 +309,6 @@ _GROUP_FIELDS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_BRIGHTNESS_CLOSE_BELOW,
                 c.CONF_BRIGHTNESS_HYSTERESIS,
                 c.CONF_BRIGHTNESS_TIME_DURATION,
-                c.CONF_BRIGHTNESS_SUN_OPERATOR,
             ),
         ),
         (
@@ -497,12 +490,12 @@ GROUP_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
         "sun": frozenset(
             {
                 c.CONF_AUTO_SUN,
-                c.CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
-                c.CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+                c.CONF_OPEN_MODE,
+                c.CONF_CLOSE_MODE,
+                c.CONF_ASTRO_OPEN_OFFSET,
+                c.CONF_ASTRO_CLOSE_OFFSET,
                 c.CONF_SUN_ELEVATION_OPEN,
                 c.CONF_SUN_ELEVATION_CLOSE,
-                c.CONF_SUN_ELEVATION_MODE,
-                c.CONF_SUN_TIME_DURATION,
             }
         ),
         "brightness": frozenset(
@@ -513,7 +506,6 @@ GROUP_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
                 c.CONF_BRIGHTNESS_CLOSE_BELOW,
                 c.CONF_BRIGHTNESS_HYSTERESIS,
                 c.CONF_BRIGHTNESS_TIME_DURATION,
-                c.CONF_BRIGHTNESS_SUN_OPERATOR,
             }
         ),
     },
@@ -685,6 +677,8 @@ def _build_group_field_metadata() -> dict[str, GroupFieldMetadata]:
         c.CONF_BRIGHTNESS_OPEN_ABOVE,
         c.CONF_BRIGHTNESS_CLOSE_BELOW,
         c.CONF_AUTO_SUN,
+        c.CONF_OPEN_MODE,
+        c.CONF_CLOSE_MODE,
         c.CONF_SUN_ELEVATION_OPEN,
         c.CONF_SUN_ELEVATION_CLOSE,
         c.CONF_AUTO_SHADING,
@@ -826,6 +820,8 @@ def _field_validator(key: str, value: Any, *, stored: bool) -> tuple[Any, Any]:
         return marker(int(value or 0)), _number_selector(0, 20, 1, "%")
     if key in {c.CONF_MANUAL_OVERRIDE_MINUTES, c.CONF_NO_GO_TIME_MINUTES}:
         return marker(int(value or 0)), _number_selector(0, 10080, 1, "min")
+    if key in {c.CONF_ASTRO_OPEN_OFFSET, c.CONF_ASTRO_CLOSE_OFFSET}:
+        return marker(int(value or 0)), _number_selector(-1440, 1440, 1, "min")
     if key in _DURATION_KEYS:
         return marker(float(value or 0)), _number_selector(0, 86400, 1, "s")
     if key in _TEMPERATURE_KEYS:
@@ -864,8 +860,15 @@ def group_fields(section_type: str) -> tuple[tuple[str, tuple[str, ...]], ...]:
 
     groups = _GROUP_FIELDS[section_type]
     grouped = {key for _name, keys in groups for key in keys}
-    missing = GROUP_SECTION_KEYS[section_type] - grouped
-    extra = grouped - GROUP_SECTION_KEYS[section_type]
+    supported = (
+        GROUP_SECTION_KEYS[c.FUNCTION_TIME]
+        | GROUP_SECTION_KEYS[c.FUNCTION_BRIGHTNESS]
+        | GROUP_SECTION_KEYS[c.FUNCTION_SUN]
+        if section_type == c.GROUP_SECTION_TIME
+        else GROUP_SECTION_KEYS[section_type]
+    )
+    missing = supported - grouped
+    extra = grouped - supported
     if missing or extra:
         raise ValueError(
             f"Group schema mismatch for {section_type}: missing={missing}, extra={extra}"

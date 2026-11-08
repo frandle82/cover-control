@@ -26,9 +26,11 @@ from ..const import (
     CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
     CONF_COVERS,
+    CONF_CLOSE_MODE,
     CONF_HEAT_PROTECTION_ENABLED,
     CONF_HEAT_PROTECTION_THRESHOLD,
     CONF_GROUP,
+    CONF_OPEN_MODE,
     CONF_RESIDENT_STATUS,
     CONF_RESIDENT_SENSOR,
     CONF_ROOMS,
@@ -554,6 +556,8 @@ class ControllerManager:
         if resolved is None:
             return {}
         keys = (
+            CONF_OPEN_MODE,
+            CONF_CLOSE_MODE,
             "shading_position",
             "shading_waitingtime_start",
             "shading_waitingtime_end",
