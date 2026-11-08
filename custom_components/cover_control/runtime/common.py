@@ -204,6 +204,7 @@ def _default_cover_status() -> dict:
         "open": {"active": False, "ts": 0},
         "close": {"active": False, "ts": 0},
         "shading": {"active": False, "start_pending": 0, "end_pending": 0, "ts": 0},
+        "heat_protection": {"active": False, "hold": False},
         "ventilation": {
             "partial": False,
             "full": False,
@@ -242,6 +243,15 @@ def _normalize_cover_status(raw: object) -> dict:
         status["shading"]["start_pending"] = int(shading.get("start_pending") or 0)
         status["shading"]["end_pending"] = int(shading.get("end_pending") or 0)
         status["shading"]["ts"] = int(shading.get("ts") or 0)
+
+    heat_protection = raw.get("heat_protection")
+    if isinstance(heat_protection, dict):
+        status["heat_protection"]["active"] = bool(
+            heat_protection.get("active", False)
+        )
+        status["heat_protection"]["hold"] = bool(
+            heat_protection.get("hold", False)
+        )
 
     ventilation = raw.get("ventilation")
     if isinstance(ventilation, dict):

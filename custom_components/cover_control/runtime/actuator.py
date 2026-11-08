@@ -732,7 +732,7 @@ class ActuatorMixin:
             return self._position_value(
                 CONF_OPEN_TILT_POSITION, DEFAULT_OPEN_TILT_POSITION
             )
-        if "close" in reason or reason == "resident_asleep":
+        if "close" in reason or reason in {"resident_asleep", "heat_protection"}:
             return self._position_value(
                 CONF_CLOSE_TILT_POSITION, DEFAULT_CLOSE_TILT_POSITION
             )
@@ -1081,9 +1081,13 @@ class ActuatorMixin:
     ) -> bool:
         if not shading_enabled:
             return False
-        if self._reason not in {"shading", "manual_shading"}:
+        if self._reason not in {"shading", "manual_shading", "heat_protection"}:
             return False
-        shading_target = self._effective_shading_position()
+        shading_target = (
+            self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION)
+            if self._reason == "heat_protection"
+            else self._effective_shading_position()
+        )
         return self._position_matches(shading_target, current_position)
 
     def _ventilation_is_active(self, current_position: float | None) -> bool:

@@ -371,6 +371,8 @@
             "name": "Shading temperature",
             "data": {
               "cold_protection_temperature": "Cold-protection temperature",
+              "heat_protection_enabled": "Heat protection enabled",
+              "heat_protection_threshold": "Heat-protection threshold",
               "shading_independent_temp": "Independent temperature",
               "shading_min_temperatur1": "Minimum temperature 1",
               "shading_min_temperatur2": "Minimum temperature 2",
@@ -382,6 +384,8 @@
             },
             "data_description": {
               "cold_protection_temperature": "Value for Cold-protection temperature in this profile or default.",
+              "heat_protection_enabled": "Close completely when the outside temperature exceeds the heat-protection threshold and all shading conditions are met.",
+              "heat_protection_threshold": "Outside-temperature threshold for complete heat-protection closing.",
               "shading_independent_temp": "Value for Independent temperature in this profile or default.",
               "shading_min_temperatur1": "Value for Minimum temperature 1 in this profile or default.",
               "shading_min_temperatur2": "Value for Minimum temperature 2 in this profile or default.",
@@ -1334,6 +1338,8 @@
             "name": "Shading temperature",
             "data": {
               "cold_protection_temperature": "Cold-protection temperature",
+              "heat_protection_enabled": "Heat protection enabled",
+              "heat_protection_threshold": "Heat-protection threshold",
               "shading_independent_temp": "Independent temperature",
               "shading_min_temperatur1": "Minimum temperature 1",
               "shading_min_temperatur2": "Minimum temperature 2",
@@ -1345,6 +1351,8 @@
             },
             "data_description": {
               "cold_protection_temperature": "Value for Cold-protection temperature in this profile or default.",
+              "heat_protection_enabled": "Close completely when the outside temperature exceeds the heat-protection threshold and all shading conditions are met.",
+              "heat_protection_threshold": "Outside-temperature threshold for complete heat-protection closing.",
               "shading_independent_temp": "Value for Independent temperature in this profile or default.",
               "shading_min_temperatur1": "Value for Minimum temperature 1 in this profile or default.",
               "shading_min_temperatur2": "Value for Minimum temperature 2 in this profile or default.",
@@ -1978,6 +1986,7 @@
           "resident": "Resident control",
           "ventilation": "Ventilation control",
           "shading": "Shading control",
+          "heat_protection": "Heat protection",
           "safety": "Safety control",
           "fire_alarm": "Fire alarm",
           "rain_alarm": "Rain alarm",

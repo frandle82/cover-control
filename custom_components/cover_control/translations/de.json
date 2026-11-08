@@ -371,6 +371,8 @@
             "name": "Beschattungstemperatur",
             "data": {
               "cold_protection_temperature": "Kälteschutztemperatur",
+              "heat_protection_enabled": "Hitzeschutz aktiviert",
+              "heat_protection_threshold": "Hitzeschutzschwelle",
               "shading_independent_temp": "Unabhängige Temperatur",
               "shading_min_temperatur1": "Mindesttemperatur 1",
               "shading_min_temperatur2": "Mindesttemperatur 2",
@@ -382,6 +384,8 @@
             },
             "data_description": {
               "cold_protection_temperature": "Wert für Kälteschutztemperatur in diesem Profil.",
+              "heat_protection_enabled": "Bei überschrittener Außentemperaturschwelle und erfüllten Beschattungsbedingungen vollständig schließen.",
+              "heat_protection_threshold": "Außentemperaturschwelle für das vollständige Schließen zum Hitzeschutz.",
               "shading_independent_temp": "Wert für Unabhängige Temperatur in diesem Profil.",
               "shading_min_temperatur1": "Wert für Mindesttemperatur 1 in diesem Profil.",
               "shading_min_temperatur2": "Wert für Mindesttemperatur 2 in diesem Profil.",
@@ -1334,6 +1338,8 @@
             "name": "Beschattungstemperatur",
             "data": {
               "cold_protection_temperature": "Kälteschutztemperatur",
+              "heat_protection_enabled": "Hitzeschutz aktiviert",
+              "heat_protection_threshold": "Hitzeschutzschwelle",
               "shading_independent_temp": "Unabhängige Temperatur",
               "shading_min_temperatur1": "Mindesttemperatur 1",
               "shading_min_temperatur2": "Mindesttemperatur 2",
@@ -1345,6 +1351,8 @@
             },
             "data_description": {
               "cold_protection_temperature": "Wert für Kälteschutztemperatur in diesem Profil.",
+              "heat_protection_enabled": "Bei überschrittener Außentemperaturschwelle und erfüllten Beschattungsbedingungen vollständig schließen.",
+              "heat_protection_threshold": "Außentemperaturschwelle für das vollständige Schließen zum Hitzeschutz.",
               "shading_independent_temp": "Wert für Unabhängige Temperatur in diesem Profil.",
               "shading_min_temperatur1": "Wert für Mindesttemperatur 1 in diesem Profil.",
               "shading_min_temperatur2": "Wert für Mindesttemperatur 2 in diesem Profil.",
@@ -1978,6 +1986,7 @@
           "resident": "Bewohnersteuerung",
           "ventilation": "Lüftungssteuerung",
           "shading": "Beschattungssteuerung",
+          "heat_protection": "Hitzeschutz",
           "safety": "Sicherheitssteuerung",
           "fire_alarm": "Feueralarm",
           "rain_alarm": "Regenalarm",

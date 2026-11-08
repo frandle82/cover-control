@@ -64,6 +64,7 @@ _BOOLEAN_KEYS = frozenset(
         c.CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
         c.CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
         c.CONF_SHADING_INDEPENDENT_HOLDS_END,
+        c.CONF_HEAT_PROTECTION_ENABLED,
         c.CONF_AUTO_VENTILATE,
         c.CONF_RESIDENT_STATUS,
         c.CONF_RESIDENT_OPEN_ENABLED,
@@ -163,6 +164,7 @@ _TEMPERATURE_KEYS = frozenset(
         c.CONF_SHADING_MIN_TEMPERATURE_2,
         c.CONF_SHADING_FORECAST_TEMP,
         c.CONF_SHADING_INDEPENDENT_TEMP,
+        c.CONF_HEAT_PROTECTION_THRESHOLD,
         c.CONF_TEMPERATURE_THRESHOLD,
         c.CONF_TEMPERATURE_FORECAST_THRESHOLD,
     }
@@ -332,6 +334,8 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_COLD_PROTECTION_THRESHOLD,
                 c.CONF_SHADING_INDEPENDENT_TEMP,
                 c.CONF_SHADING_INDEPENDENT_HOLDS_END,
+                c.CONF_HEAT_PROTECTION_ENABLED,
+                c.CONF_HEAT_PROTECTION_THRESHOLD,
             ),
         ),
         (
@@ -510,6 +514,8 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
                 c.CONF_TEMPERATURE_THRESHOLD,
                 c.CONF_TEMPERATURE_FORECAST_THRESHOLD,
                 c.CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
+                c.CONF_HEAT_PROTECTION_ENABLED,
+                c.CONF_HEAT_PROTECTION_THRESHOLD,
             }
         ),
         "forecast": frozenset(

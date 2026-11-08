@@ -697,6 +697,15 @@ class EvaluationMixin:
                 shading_allowed = shading_allowed and shading_tilt_condition
             if tilt_lock_shading_start and not shading_active:
                 shading_allowed = False
+            heat_active_now, _temperature = self._heat_protection_state()
+            if (
+                shading_active
+                and not heat_active_now
+                and self._reason == "heat_protection"
+            ):
+                self._set_heat_protection_status(False, True)
+                self._reason = "shading"
+                self.persist_status()
             if shading_allowed:
                 if self._shading_pending_active("end"):
                     self._clear_shading_pending("end")
@@ -721,10 +730,24 @@ class EvaluationMixin:
                     if started_ts and now.timestamp() - started_ts > max_duration:
                         self._clear_shading_pending("start")
             if shading_active and shading_allowed:
-                shading_target = self._effective_shading_position()
-                if not self._position_matches(shading_target, current_position):
-                    await self._set_position(shading_target, "shading")
+                shading_target, reason, heat_hold = (
+                    self._active_shading_target_reason(current_position)
+                )
+                heat_active = reason == "heat_protection"
+                changed = self._set_heat_protection_status(heat_active, heat_hold)
+                if shading_target is None:
+                    self._reason = "shading"
+                if changed:
+                    self.persist_status()
+                if shading_target is not None and not self._position_matches(
+                    shading_target, current_position
+                ):
+                    await self._set_position(shading_target, reason)
                     return
+                if self._reason != reason:
+                    self._reason = reason
+                    self.persist_status()
+                    self._publish_state()
                 shading_end_conditions_met = False
             shading_end_warranted = sun_immediate_end or (
                 shading_end_conditions_met and is_shading_allowed_window
@@ -763,9 +786,14 @@ class EvaluationMixin:
                     )
                     if started_ts and now.timestamp() - started_ts > max_end_duration:
                         self._clear_shading_pending("end")
-                        if self._reason in {"shading", "manual_shading"}:
+                        if self._reason in {
+                            "shading",
+                            "manual_shading",
+                            "heat_protection",
+                        }:
                             self._reason = None
                         self._set_status_bucket("shading", False)
+                        self._set_heat_protection_status(False, False)
                         self.persist_status()
                         self._publish_state()
                         return
@@ -792,9 +820,14 @@ class EvaluationMixin:
                         or (tilt_contact_active and tilt_lock_shading_end)
                     )
                 ):
-                    if self._reason in {"shading", "manual_shading"}:
+                    if self._reason in {
+                        "shading",
+                        "manual_shading",
+                        "heat_protection",
+                    }:
                         self._reason = None
                     self._set_status_bucket("shading", False)
+                    self._set_heat_protection_status(False, False)
                     self._clear_shading_pending(persist=False)
                     self.persist_status()
                     self._logbook_entry("Sun shading ended")
@@ -833,9 +866,14 @@ class EvaluationMixin:
                         await self._command_tilt_position(
                             float(open_tilt), reason="shading_end_tilt"
                         )
-                if self._reason in {"shading", "manual_shading"}:
+                if self._reason in {
+                    "shading",
+                    "manual_shading",
+                    "heat_protection",
+                }:
                     self._reason = None
                 self._set_status_bucket("shading", False)
+                self._set_heat_protection_status(False, False)
                 self._clear_shading_pending("end", persist=False)
                 self.persist_status()
                 self._logbook_entry("Sun shading ended")
@@ -861,16 +899,18 @@ class EvaluationMixin:
                     return
                 if self._shading_pending_active("start"):
                     self._clear_shading_pending("start")
-                shading_target = self._effective_shading_position()
+                heat_active, _temperature = self._heat_protection_state()
+                shading_target, reason = self._shading_target_reason()
+                self._set_heat_protection_status(heat_active, heat_active)
                 if (
                     current_position is None
                     or self._position_is_above(current_position, shading_target)
                     or self._position_matches(shading_target, current_position)
                     or self._status_active("open")
                 ):
-                    await self._set_position(shading_target, "shading")
+                    await self._set_position(shading_target, reason)
                 else:
-                    self._reason = "shading"
+                    self._reason = reason
                     self._set_status_bucket("shading", True)
                     self.persist_status()
                     self._publish_state()

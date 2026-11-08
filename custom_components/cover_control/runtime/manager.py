@@ -30,6 +30,8 @@ from ..const import (
     CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
     CONF_COVERS,
+    CONF_HEAT_PROTECTION_ENABLED,
+    CONF_HEAT_PROTECTION_THRESHOLD,
     CONF_PROFILE_FUNCTIONS,
     CONF_PROFILE_SELECTIONS,
     CONF_RESIDENT_STATUS,
@@ -65,6 +67,8 @@ def _controls_for_reason(reason: str) -> set[str]:
         return {reason}
     if "ventilation" in reason:
         return {"ventilation"}
+    if reason == "heat_protection":
+        return {"heat_protection"}
     if "shading" in reason:
         return {"shading"}
     if "resident" in reason:
@@ -157,6 +161,7 @@ class ControllerManager:
             "fire_latched": False,
             "safety_target": None,
             "window_down_sequences": {},
+            "heat_protection_active": False,
         }
         self._shared_listener_unsub = None
         self._shared_entities: set[str] = set()
@@ -294,7 +299,8 @@ class ControllerManager:
             "close"
             if "close" in reason or reason == "resident_asleep"
             else "shading"
-            if "shading" in reason and "end_open" not in reason
+            if ("shading" in reason or reason == "heat_protection")
+            and "end_open" not in reason
             else "open"
         )
         now = dt_util.utcnow()
@@ -373,6 +379,7 @@ class ControllerManager:
                 "fire_latched": False,
                 "safety_target": None,
                 "window_down_sequences": {},
+                "heat_protection_active": False,
             },
         )
         previous = (
@@ -411,6 +418,7 @@ class ControllerManager:
         safety_target: float | None = None
         fire_latched = False
         window_down_sequences: dict[str, dict[str, object]] = {}
+        heat_protection_active = False
         now = dt_util.utcnow()
         for cover, controller in self.controllers.items():
             (
@@ -441,6 +449,10 @@ class ControllerManager:
             sequence = sequence_snapshot() if callable(sequence_snapshot) else {}
             if not isinstance(sequence, dict):
                 sequence = {}
+            heat_snapshot_fn = getattr(controller, "heat_protection_snapshot", None)
+            heat_snapshot = heat_snapshot_fn() if callable(heat_snapshot_fn) else {}
+            if not isinstance(heat_snapshot, dict):
+                heat_snapshot = {}
             covers[cover] = {
                 "reason": reason_value,
                 "current_position": current_position,
@@ -454,9 +466,13 @@ class ControllerManager:
                 "ventilation_active": ventilation_active,
                 **safety,
                 "window_down_sequence": sequence,
+                "heat_protection": heat_snapshot,
             }
             if sequence:
                 window_down_sequences[cover] = sequence
+            heat_protection_active = heat_protection_active or bool(
+                heat_snapshot.get("active")
+            )
             active_safety = active_safety or safety.get("active_safety")
             safety_target = (
                 safety.get("safety_target")
@@ -512,6 +528,7 @@ class ControllerManager:
             "fire_latched": fire_latched,
             "safety_target": safety_target,
             "window_down_sequences": window_down_sequences,
+            "heat_protection_active": heat_protection_active,
         }
 
     def entry_snapshot(self) -> dict[str, object]:
@@ -530,6 +547,8 @@ class ControllerManager:
             "shading_waitingtime_start",
             "shading_waitingtime_end",
             "temperature_threshold",
+            CONF_HEAT_PROTECTION_ENABLED,
+            CONF_HEAT_PROTECTION_THRESHOLD,
             "manual_override_minutes",
         )
         def readable_source(key: str) -> str:

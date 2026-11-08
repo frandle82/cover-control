@@ -234,13 +234,16 @@ class StatusMixin:
             self._set_status_bucket("open", False, ts)
             self._set_status_bucket("close", False, ts)
             self._set_ventilation_status(True, False, ts)
-        elif "shading" in reason:
+        elif "shading" in reason or reason == "heat_protection":
             self._last_action_dates["shading"] = today
             self._set_status_bucket("open", True, ts)
             self._set_status_bucket("close", False, ts)
             self._set_status_bucket("shading", reason != "manual_shading_end", ts)
             self._clear_shading_pending(persist=False)
             self._set_ventilation_status(False, False, ts)
+
+        if reason.startswith("shading_end_"):
+            self._set_heat_protection_status(False, False)
 
         self._status["target"] = position if position is not None else self._target
         self._status["reason"] = self._reason
@@ -255,11 +258,15 @@ class StatusMixin:
             self._logbook_entry(f"Moved to {target_text} · scheduled opening")
         elif reason == "scheduled_close":
             self._logbook_entry(f"Moved to {target_text} · scheduled closing")
-        elif reason in {"shading", "manual_shading"}:
+        elif reason in {"shading", "manual_shading", "heat_protection"}:
             message = (
-                f"Moved to {target_text} · sun shading started"
-                if reason == "shading"
-                else f"Force action · moved to {target_text} for sun shading"
+                f"Moved to {target_text} · heat protection started"
+                if reason == "heat_protection"
+                else (
+                    f"Moved to {target_text} · sun shading started"
+                    if reason == "shading"
+                    else f"Force action · moved to {target_text} for sun shading"
+                )
             )
             self._logbook_entry(message)
         elif reason.startswith("shading_end") or reason == "manual_shading_end":
@@ -290,7 +297,9 @@ class StatusMixin:
             self._set_status_bucket("close", True, ts)
             self._set_status_bucket("shading", False, ts)
             background.update({"open": False, "close": True, "shading": False})
-        elif "shading" in reason and "end_open" not in reason:
+        elif (
+            "shading" in reason or reason == "heat_protection"
+        ) and "end_open" not in reason:
             self._last_action_dates["shading"] = today
             self._set_status_bucket("open", True, ts)
             self._set_status_bucket("close", False, ts)
