@@ -33,5 +33,5 @@ Die Hauptklasse `CoverController` in `controller.py` erbt von diesen Mixins und 
 
 ---
 Verwandte Notizen:
-* [`../domain/priorities-and-lockout.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/priorities-and-lockout.md)
-* [`../domain/shading-and-solar-geometry.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/shading-and-solar-geometry.md)
+* [`../domain/priorities-and-lockout.md`](../domain/priorities-and-lockout.md)
+* [`../domain/shading-and-solar-geometry.md`](../domain/shading-and-solar-geometry.md)

@@ -43,5 +43,5 @@ Es muss strikt zwischen vier Zuständen und Mechanismen unterschieden werden:
 
 ---
 Verwandte Notizen:
-* [`priorities-and-lockout.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/priorities-and-lockout.md)
-* [`../architecture/adr-003-state-hierarchy-configured-enabled-eligible.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/architecture/adr-003-state-hierarchy-configured-enabled-eligible.md)
+* [`priorities-and-lockout.md`](../domain/priorities-and-lockout.md)
+* [`../architecture/adr-003-state-hierarchy-configured-enabled-eligible.md`](../architecture/adr-003-state-hierarchy-configured-enabled-eligible.md)

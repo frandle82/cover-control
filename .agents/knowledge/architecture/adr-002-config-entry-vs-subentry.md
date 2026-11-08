@@ -31,4 +31,4 @@ Das aktuelle Schema v12 verwendet ausschließlich native ConfigEntries:
 
 ---
 Verwandte Notizen:
-* [`../troubleshooting/entity-registry-cleanup.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/troubleshooting/entity-registry-cleanup.md)
+* [`../troubleshooting/entity-registry-cleanup.md`](../troubleshooting/entity-registry-cleanup.md)

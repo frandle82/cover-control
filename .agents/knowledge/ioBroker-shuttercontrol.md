@@ -161,10 +161,10 @@ Die gleichnamigen **per-Rollladen** Felder `heatProtection` und `useXmasLevel` w
 - Schedule-Prognosen sind nach vollständiger Kandidatenauswahl zentral auf `microsecond=0` normalisiert. Unveränderte Eingänge müssen bei wiederholtem Refresh identische Vorhersagen liefern.
 - Die bestätigten saisonalen Sommer- und Weihnachtsregeln sind einschließlich Jahreswechsel, gestuftem Schließen, Safety-Priorität und Diagnose umgesetzt. Weitere Änderungen benötigen den separaten finalen Paritäts- und Reality-Check.
 
-Die vollständige Statuszuordnung und Priorisierung steht in [`../../docs/shuttercontrol-parity.md`](file:///Users/andreasgrundke/Git/cover-control/docs/shuttercontrol-parity.md).
+Die vollständige Statuszuordnung und Priorisierung steht in [`../../docs/shuttercontrol-parity.md`](../../docs/shuttercontrol-parity.md).
 
 ---
 Verwandte Notizen:
-* [`domain/priorities-and-lockout.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/priorities-and-lockout.md)
-* [`domain/shading-and-solar-geometry.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/shading-and-solar-geometry.md)
-* [`domain/manual-override-vs-automation.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/manual-override-vs-automation.md)
+* [`domain/priorities-and-lockout.md`](domain/priorities-and-lockout.md)
+* [`domain/shading-and-solar-geometry.md`](domain/shading-and-solar-geometry.md)
+* [`domain/manual-override-vs-automation.md`](domain/manual-override-vs-automation.md)

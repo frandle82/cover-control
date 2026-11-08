@@ -69,6 +69,6 @@ Im Falle gleichzeitiger Anforderungen gewinnt immer die Funktion mit der höhere
 
 ---
 Verwandte Notizen:
-* [`../architecture/adr-001-mixin-architecture.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/architecture/adr-001-mixin-architecture.md)
-* [`manual-override-vs-automation.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/manual-override-vs-automation.md)
-* [`shading-and-solar-geometry.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/shading-and-solar-geometry.md)
+* [`../architecture/adr-001-mixin-architecture.md`](../architecture/adr-001-mixin-architecture.md)
+* [`manual-override-vs-automation.md`](../domain/manual-override-vs-automation.md)
+* [`shading-and-solar-geometry.md`](../domain/shading-and-solar-geometry.md)

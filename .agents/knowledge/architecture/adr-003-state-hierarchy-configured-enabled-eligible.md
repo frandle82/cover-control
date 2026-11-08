@@ -36,5 +36,5 @@ Wir etablieren ein striktes Dreistufen-Modell:
 
 ---
 Verwandte Notizen:
-* [`../domain/priorities-and-lockout.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/priorities-and-lockout.md)
-* [`../domain/manual-override-vs-automation.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/manual-override-vs-automation.md)
+* [`../domain/priorities-and-lockout.md`](../domain/priorities-and-lockout.md)
+* [`../domain/manual-override-vs-automation.md`](../domain/manual-override-vs-automation.md)

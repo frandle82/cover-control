@@ -66,6 +66,6 @@ Dieser Skill verhindert Implementierungen auf Basis von README, UI-Feldnamen ode
 - Analyse und umfangreiche Neuimplementierung in denselben Arbeitsblock vermischen.
 
 Verwandte Skills:
-* [`../knowledge/SKILL.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/knowledge/SKILL.md)
-* [`../cca-parity/SKILL.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/cca-parity/SKILL.md)
-* [`../diff-audit/SKILL.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/diff-audit/SKILL.md)
+* [`../knowledge/SKILL.md`](../knowledge/SKILL.md)
+* [`../cca-parity/SKILL.md`](../cca-parity/SKILL.md)
+* [`../diff-audit/SKILL.md`](../diff-audit/SKILL.md)

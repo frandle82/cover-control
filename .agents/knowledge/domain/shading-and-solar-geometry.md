@@ -47,5 +47,5 @@ Zusätzlich zur Sonnenposition müssen Umwelt-Sensoren die Notwendigkeit von Bes
 
 ---
 Verwandte Notizen:
-* [`priorities-and-lockout.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/priorities-and-lockout.md)
-* [`../architecture/adr-001-mixin-architecture.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/architecture/adr-001-mixin-architecture.md)
+* [`priorities-and-lockout.md`](../domain/priorities-and-lockout.md)
+* [`../architecture/adr-001-mixin-architecture.md`](../architecture/adr-001-mixin-architecture.md)

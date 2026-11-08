@@ -30,7 +30,7 @@ Dieser Skill verwandelt das Verzeichnis `.agents/knowledge/` in ein vernetztes, 
 **Wann:** Vor Beginn von Anforderungsanalysen (`grill-me`), Konzeptionen, Code-Änderungen oder Bug-Diagnosen.
 
 1. **Index konsultieren:**
-   Lies zuerst [`.agents/knowledge/INDEX.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/INDEX.md), um einen Überblick über vorhandene Themen und ADRs zu erhalten.
+   Lies zuerst [`.agents/knowledge/INDEX.md`](../../knowledge/INDEX.md), um einen Überblick über vorhandene Themen und ADRs zu erhalten.
 2. **Relevante Notizen öffnen:**
    Lies die für deine Aufgabe relevanten Notizen (z. B. bei Beschattungsfragen `domain/shading-and-solar-geometry.md` oder bei Lifecycle-Fragen `troubleshooting/entity-registry-cleanup.md`).
 3. **Erkenntnisse einbinden:**
@@ -76,10 +76,10 @@ Dieser Skill verwandelt das Verzeichnis `.agents/knowledge/` in ein vernetztes, 
 
    ---
    Verwandte Notizen:
-   * [`../domain/<andere-notiz>.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/<andere-notiz>.md)
+   * [`../domain/<andere-notiz>.md`](../../knowledge/domain/<andere-notiz>.md)
    ```
 3. **Im Index verlinken:**
-   Öffne [`.agents/knowledge/INDEX.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/INDEX.md) und trage die neue Notiz mit Kurzbeschreibung in den passenden Abschnitt ein.
+   Öffne [`.agents/knowledge/INDEX.md`](../../knowledge/INDEX.md) und trage die neue Notiz mit Kurzbeschreibung in den passenden Abschnitt ein.
 
 ---
 

@@ -25,5 +25,5 @@ In `custom_components/cover_control/entity.py` bzw. `__init__.py`:
 
 ---
 Verwandte Notizen:
-* [`../architecture/adr-002-config-entry-vs-subentry.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/architecture/adr-002-config-entry-vs-subentry.md)
-* [`../architecture/adr-003-state-hierarchy-configured-enabled-eligible.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/architecture/adr-003-state-hierarchy-configured-enabled-eligible.md)
+* [`../architecture/adr-002-config-entry-vs-subentry.md`](../architecture/adr-002-config-entry-vs-subentry.md)
+* [`../architecture/adr-003-state-hierarchy-configured-enabled-eligible.md`](../architecture/adr-003-state-hierarchy-configured-enabled-eligible.md)

@@ -100,7 +100,7 @@ Jede Entwicklungsaufgabe in `cover-control` folgt verbindlich diesem Phasenmodel
 
 1. **Anforderungsanalyse & Wissensabruf:**
    * Vor Beginn vorhandenes Wissen abrufen (Skill [`knowledge`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/knowledge/SKILL.md)).
-   * Fremde Referenzimplementierungen vor jeder Zuordnung oder Portierung an einem fixierten Commit untersuchen (Skill [`reverse-engineering-anything`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/reverse-engineering-anything/SKILL.md)).
+   * Fremde Referenzimplementierungen vor jeder Zuordnung oder Portierung an einem fixierten Commit untersuchen (Skill [`reverse-engineering-anything`](../skills/reverse-engineering-anything/SKILL.md)).
    * Bei neuen Features oder unklaren Anforderungen: Skill [`grill-me`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/grill-me/SKILL.md) einsetzen.
    * Blueprint-Parität bei portierten Features beachten (Skill [`cca-parity`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/cca-parity/SKILL.md)).
 2. **Architekturkonforme Implementierung:**
