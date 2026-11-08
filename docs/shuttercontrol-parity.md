@@ -35,7 +35,7 @@ Referenz: [`simatec/ioBroker.shuttercontrol@64ccaedc4f413f187e2a6f6d5164c83b5d6a
 | Manuelle Gruppenbuttons | Open/Close/SunProtect/Auto für alle oder Bereiche | Force-Entities und Room-Koordination bilden Aktionen ab | MAPPED | Keine festen Bereichsbuttons gewünscht |
 | Positionsinversion | `heightDown > heightUp` kehrt Vergleiche um | HA standardisiert `0 = geschlossen`, `100 = offen`; `cover_type=awning` passt Bewegungsrichtung an, alle Safety-/Saison-/Lüftungsziele bleiben kanonische HA-Positionen | MAPPED | Keine freie Inversion zweier beliebiger Endwerte; nicht HA-konforme Aktoren benötigen eine Template-/Adapter-Normalisierung |
 | Manuelle Bewegungserkennung | Unerwartete Endposition setzt `Manu_Mode`; eigene Fahrten ausgenommen | Service-Kontext, Ziel/Fahrfenster, Zwischenzustände, persistenter Override und Regressionstests | FULL | – |
-| Manuelle bekannte Zielposition | Nach `shutterStateRound`-Rundung setzt eine exakt erreichte `heightDownSun` `currentAction` und `triggerAction` auf `sunProtect`; dadurch wird erneutes Beschatten unterdrückt und das reguläre Beschattungsende darf später öffnen, sofern `KeepSunProtect` nicht gilt. Andere Zwischenpositionen werden `Manu_Mode`; der Zustand endet durch die normalen Sun-Protection-End-/Resetpfade | Optionale Schedule-Adoption erkennt finale Open-/Close-Ziele; eine unerwartet manuell erreichte Beschattungsposition bleibt bewusst Manual Override | PARTIAL | Echte Paritätslücke: keine toleranzbasierte Adoption einer manuell erreichten Beschattungsposition als aktive Beschattung |
+| Manuelle bekannte Zielposition | Nach `shutterStateRound`-Rundung setzt eine exakt erreichte `heightDownSun` `currentAction` und `triggerAction` auf `sunProtect`; dadurch wird erneutes Beschatten unterdrückt und das reguläre Beschattungsende darf später öffnen, sofern `KeepSunProtect` nicht gilt. Andere Zwischenpositionen werden `Manu_Mode`; der Zustand endet durch die normalen Sun-Protection-End-/Resetpfade | Optionale Schedule-Adoption erkennt finale Open-/Close-Ziele. Eine abgeschlossene manuelle Fahrt auf die effektive normale Beschattungsposition wird innerhalb `position_tolerance` pro Cover als `shading` adoptiert, erzeugt keinen Override oder Doppelbefehl, erscheint als aktive Steuerung und läuft durch Safety, Fensterpriorität und den normalen Shading-End-Pfad; Heat Protection wird nicht adoptiert | FULL | – |
 | Restart-Zustand | Aktions-/Zielzustände persistiert; tägliche Initialisierung | HA `Store`, Status-Hydration, Recovery-Modi, Unload-Save und Recovery-Tests | MAPPED | Referenz-Reset um 02:30 wird bewusst nicht kopiert |
 | Azimutbereich | Fensterrichtung ± Bereich | Start-/Endazimut im Room/Profil-Resolver, Listener, Shading-Runtime und Diagnose | FULL | Referenz-2.1.1-Rohwert-Inkonsistenz nicht übernehmen |
 | Elevationsbereich Beschattung | Mindest-/Maximalhöhe und globales Endfenster | Min/Max-Elevation, sofortiges Ende nach Sonnenposition, Tests | FULL | – |
@@ -93,7 +93,7 @@ Die fünf geforderten Frost-/Christmas-Sequenzen führen deshalb in Cover Contro
 
 ## Release-Entscheidung
 
-Der Reality-Check bestätigt alle `FULL`-Ketten und die dokumentierten `MAPPED`-/`NOT_APPLICABLE`-Architekturentscheidungen. Die manuell erreichte Beschattungsposition bleibt jedoch eine echte `PARTIAL`-Lücke. Für einen Release mit beanspruchter ioBroker-Parität ist der Stand deshalb **NOT READY FOR RELEASE**. In diesem Arbeitsblock wird gemäß Auftrag keine neue Funktion daraus abgeleitet oder implementiert.
+Der Reality-Check bestätigt alle `FULL`-Ketten und die dokumentierten `MAPPED`-/`NOT_APPLICABLE`-Architekturentscheidungen. Nach der toleranzbasierten Adoption manuell erreichter Beschattungspositionen enthält die Matrix weder `PARTIAL` noch `MISSING`; der Stand ist **READY FOR RELEASE**. Ein Release wird dadurch nicht automatisch gestartet.
 
 ## Aktive Referenzfelder versus historische Felder
 
@@ -103,7 +103,7 @@ Zur Runtime unbenutzt sind die globalen Felder `UseAstro`, `UseSunMode`, `driveH
 
 ## Priorisierte Implementierungsreihenfolge
 
-Die bestätigten saisonalen Referenzfunktionen sind umgesetzt. Der finale Reality-Check hat die verbleibenden `MAPPED`-Zeilen bestätigt und die manuelle Beschattungsadoption als einzige echte `PARTIAL`-Lücke isoliert.
+Die bestätigten saisonalen Referenzfunktionen und die manuelle Beschattungsadoption sind umgesetzt. Der finale Reality-Check bestätigt die verbleibenden `MAPPED`-Zeilen als bewusste Architekturzuordnungen.
 
 Schedule-Prognosen sind an der zentralen Berechnungsgrenze auf volle Sekunden normalisiert. Wiederholtes Refreshing mit unveränderten Eingängen liefert dadurch identische `next_open`-/`next_close`-Werte; „Nächste Schließung“ wählt bei gestuftem Schließen das frühere reguläre oder endgültige Ereignis.
 

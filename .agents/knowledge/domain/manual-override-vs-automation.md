@@ -35,6 +35,7 @@ Es muss strikt zwischen vier Zuständen und Mechanismen unterschieden werden:
 
 * **Selbsterkennung:** Wenn Cover Control einen Fahrbefehl (`cover.set_cover_position`) absendet, wird dies im Speicher registriert. Nachfolgende Zwischenzustände (`opening`, `closing`) und das Erreichen der Zielposition dürfen **niemals** als manuelle Bewegung interpretiert werden.
 * **Toleranzgrenzen:** Fahrbefehle werden nur gesendet, wenn die Abweichung zwischen Ist- und Soll-Position größer als die konfigurierte Toleranz (z. B. ±1%) ist.
+* **Beschattungsadoption:** Eine abgeschlossene manuelle Bewegung auf die effektive normale Beschattungsposition innerhalb `position_tolerance` wird vor der Override-Aktivierung als `shading` übernommen. Sie gilt nur für das betroffene Cover; Heat Protection und andere bekannte Ziele werden dadurch nicht adoptiert. Verlässt der Nutzer das Ziel anschließend erneut manuell, endet der Shading-Status und der normale Override wird aktiviert.
 * **Override-Rücksetzung:** Ein aktiver manueller Override wird zurückgesetzt, wenn:
   1. Die konfigurierte Ablaufzeit (Timeout) verstrichen ist.
   2. Der nächste geplante Zeitplan-Trigger (z. B. morgendliches Öffnen) eintritt.

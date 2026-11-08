@@ -27,7 +27,7 @@ Fachliche Regeln für Beschattung, Fahrbefehle und Prioritäten:
 * 📄 [`ioBroker-shuttercontrol.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/ioBroker-shuttercontrol.md) – Fixierte Quellcodeanalyse von ioBroker.shuttercontrol 2.1.2 einschließlich Safety, No-Go-Time, gestuftem und saisonalem Schließen, Heat Protection und Fenster-Lüftungsfahrt.
 * 📄 [`domain/priorities-and-lockout.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/priorities-and-lockout.md) – Die Prioritätenhierarchie mit Safety oberhalb von Lockout, Force und Komfortautomation.
 * 📄 [`domain/shading-and-solar-geometry.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/shading-and-solar-geometry.md) – Sonnenberechnung (Azimut, Elevation), Hysterese und Wetterbewertung.
-* 📄 [`domain/manual-override-vs-automation.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/manual-override-vs-automation.md) – Erkennung manueller Fahrten vs. automatischer Steuerung.
+* 📄 [`domain/manual-override-vs-automation.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/manual-override-vs-automation.md) – Erkennung manueller Fahrten, Override-Abgrenzung und toleranzbasierte Adoption der effektiven Beschattungsposition.
 
 ### 3. Troubleshooting, Fallstricke & Lessons Learned
 Dokumentierte Lösungen für knifflige Bugs und HA-Spezifika:
