@@ -153,6 +153,18 @@ async def test_final_close_respects_window_sequence() -> None:
 
 
 @pytest.mark.asyncio
+async def test_christmas_window_close_uses_existing_window_runtime() -> None:
+    controller = _controller(full_open=True)
+
+    await controller._set_position_local(25, "scheduled_close")
+
+    controller._command_position.assert_awaited_once_with(
+        25.0, reason="scheduled_close"
+    )
+    assert controller.window_down_sequence_snapshot()["initial_target"] == 25.0
+
+
+@pytest.mark.asyncio
 async def test_auto_close_with_tilted_window_closes_then_ventilates() -> None:
     controller = _controller(tilted=True)
 
