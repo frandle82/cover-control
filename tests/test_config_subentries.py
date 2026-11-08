@@ -735,6 +735,10 @@ async def test_loaded_room_next_open_entity_matches_sun_schedule(hass) -> None:
     assert hass.states.get("sensor.living_next_opening").state == (
         snapshot["next_open"][0].isoformat()
     )
+    assert snapshot["next_open"][0].microsecond == 0
+
+    manager.refresh_schedule_snapshot()
+    assert manager.entry_snapshot()["next_open"] == snapshot["next_open"]
 
     assert await hass.config_entries.async_unload(room_entry.entry_id)
     assert await hass.config_entries.async_unload(controller_entry.entry_id)

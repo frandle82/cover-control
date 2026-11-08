@@ -208,7 +208,9 @@ def test_next_sun_event_uses_currently_met_threshold() -> None:
 
     controller._refresh_next_events(now)
 
-    assert controller._next_open == now + timedelta(seconds=30)
+    assert controller._next_open == (now + timedelta(seconds=30)).replace(
+        microsecond=0
+    )
     assert controller._next_open != next_rising
     controller._reschedule_next_event_timers.assert_called_once_with(now)
 
@@ -275,7 +277,7 @@ def test_next_open_fixed_sun_only() -> None:
     now = dt_util.utcnow()
     controller._refresh_next_events(now)
     assert calls[0][0] == 6
-    assert controller._next_open == now + timedelta(hours=2)
+    assert controller._next_open == (now + timedelta(hours=2)).replace(microsecond=0)
 
 
 def test_next_close_fixed_sun_only() -> None:
@@ -292,7 +294,7 @@ def test_next_close_fixed_sun_only() -> None:
     now = dt_util.utcnow()
     controller._refresh_next_events(now)
     assert calls[1][0] == -4
-    assert controller._next_close == now + timedelta(hours=3)
+    assert controller._next_close == (now + timedelta(hours=3)).replace(microsecond=0)
 
 
 def test_next_open_when_sun_threshold_already_reached_inside_window() -> None:
@@ -317,7 +319,7 @@ def test_next_open_when_sun_threshold_already_reached_inside_window() -> None:
     ))
     controller._refresh_next_events(now)
     assert crossing < now
-    assert controller._next_open == now
+    assert controller._next_open == now.replace(microsecond=0)
 
 
 def test_next_open_duration_does_not_slide_on_repeated_refresh() -> None:
@@ -408,7 +410,7 @@ def test_next_close_when_sun_threshold_already_reached_inside_window() -> None:
     ))
     controller._refresh_next_events(now)
     assert crossing < now
-    assert controller._next_close == now
+    assert controller._next_close == now.replace(microsecond=0)
 
 
 def test_time_profile_evaluation_supports_already_met_close_threshold_with_duration() -> None:

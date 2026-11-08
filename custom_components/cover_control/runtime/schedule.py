@@ -689,6 +689,11 @@ class ScheduleMixin:
             if later_close:
                 self._next_close = later_close[0]
 
+        if self._next_open is not None:
+            self._next_open = self._next_open.replace(microsecond=0)
+        if self._next_close is not None:
+            self._next_close = self._next_close.replace(microsecond=0)
+
         self._reschedule_next_event_timers(now)
 
     def _parse_datetime_attr(self, value: datetime | str | None) -> datetime | None:
