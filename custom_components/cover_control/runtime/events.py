@@ -238,9 +238,6 @@ class EventsMixin:
                 ) and not expected_command_move:
                     self._target = current
                     self._manual_movement_pending = True
-                    self._activate_manual_override(
-                        scope_all=True, reason="manual_override"
-                    )
             if getattr(self, "_manual_movement_pending", False) and current is not None:
                 cover_state = self.hass.states.get(self.cover)
                 movement_finished = cover_state is not None and cover_state.state not in {
@@ -250,6 +247,12 @@ class EventsMixin:
                 if movement_finished:
                     action = self._manual_schedule_action_for_position(current)
                     self._manual_movement_pending = False
+                    adopted_shading = self._adopt_manual_shading_position(current)
+                    if not adopted_shading and not self._manual_active:
+                        self._clear_shading_for_manual_override()
+                        self._activate_manual_override(
+                            scope_all=True, reason="manual_override"
+                        )
                     if action is not None:
                         self.hass.async_create_task(
                             self._async_adopt_manual_schedule(action, now)
@@ -353,7 +356,13 @@ class EventsMixin:
         if service != "set_cover_tilt_position":
             self._manual_movement_pending = True
 
-        self._activate_manual_override(scope_all=True, reason="manual_override")
+        shading_adoption_pending = (
+            service != "set_cover_tilt_position"
+            and self._manual_shading_position_matches(position)
+        )
+        if not shading_adoption_pending:
+            self._clear_shading_for_manual_override()
+            self._activate_manual_override(scope_all=True, reason="manual_override")
         self.async_request_evaluate("manual_service")
 
     @callback
@@ -387,6 +396,49 @@ class EventsMixin:
                 CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
             )
         )
+
+    def _manual_shading_position_matches(self, position: float | None) -> bool:
+        """Return whether a manual target is the enabled effective shading target."""
+
+        return self._auto_enabled(CONF_AUTO_SHADING) and self._position_matches(
+            self._effective_shading_position(), position
+        )
+
+    def _adopt_manual_shading_position(self, position: float) -> bool:
+        """Adopt a completed manual move to the effective shading position."""
+
+        if (
+            not self._manual_shading_position_matches(position)
+            or self._active_safety_alarm() is not None
+            or self.fire_latched()
+        ):
+            return False
+        target = self._effective_shading_position()
+        self._target = target
+        self._status["target"] = target
+        self._reason = "shading"
+        self._set_status_bucket("shading", True)
+        self._clear_shading_pending(persist=False)
+        self.persist_status()
+        self._logbook_entry("Manual movement adopted as sun shading")
+        self._fire_event(
+            "manual_shading_adopted",
+            {"trigger": TRIGGER_COVER_POSITION_CHANGED, "reason": "shading"},
+        )
+        self._publish_state()
+        return True
+
+    def _clear_shading_for_manual_override(self) -> None:
+        """End an active shading state before applying a manual override."""
+
+        if self._status_active("shading") or self._reason in {
+            "shading",
+            "manual_shading",
+            "heat_protection",
+        }:
+            self._set_status_bucket("shading", False)
+            self._set_heat_protection_status(False, False)
+            self._clear_shading_pending(persist=False)
 
     def _activate_manual_override(
         self,
