@@ -20,6 +20,10 @@ from custom_components.cover_control.const import (
     CONF_AUTO_SUN,
     CONF_AUTO_TIME,
     CONF_AUTO_UP,
+    CONF_FINAL_CLOSE_TIME,
+    CONF_INTERMEDIATE_CLOSE_ENABLED,
+    CONF_INTERMEDIATE_CLOSE_POSITION,
+    CONF_NO_GO_TIME_MINUTES,
     CONF_BRIGHTNESS_SENSOR,
     CONF_SHADING_BRIGHTNESS_SENSOR,
     CONF_SUN_ELEVATION_CLOSE,
@@ -117,6 +121,7 @@ def test_state_snapshot_is_read_only() -> None:
     controller._manual_active = False
     controller._next_open = dt_util.utcnow() + timedelta(hours=1)
     controller._next_close = dt_util.utcnow() + timedelta(hours=2)
+    controller._next_final_close = controller._next_close - timedelta(minutes=30)
     controller._current_position = Mock(return_value=40)
     controller._auto_enabled = Mock(return_value=True)
     controller._shading_is_active = Mock(return_value=False)
@@ -128,6 +133,7 @@ def test_state_snapshot_is_read_only() -> None:
     second = controller.state_snapshot()
 
     assert first == second
+    assert first[5] == controller._next_final_close
     controller._refresh_next_events.assert_not_called()
     controller._publish_state.assert_not_called()
 
@@ -631,6 +637,81 @@ def test_open_and_close_schedule_use_distinct_triggers() -> None:
         "scheduled_open",
         "scheduled_close",
     ]
+
+
+def test_final_close_timer_uses_distinct_trigger() -> None:
+    controller = object.__new__(CoverController)
+    controller.hass = object()
+    controller.async_request_evaluate = Mock()
+    now = dt_util.utcnow()
+    callback = None
+
+    def _track(_hass, scheduled_callback, _due):
+        nonlocal callback
+        callback = scheduled_callback
+        return Mock()
+
+    with patch(
+        "custom_components.cover_control.runtime.events.async_track_point_in_time",
+        side_effect=_track,
+    ):
+        controller._reschedule_event_timer(
+            None, None, now + timedelta(minutes=1), now, "final_close"
+        )
+
+    assert callback is not None
+    callback(now + timedelta(minutes=1))
+    controller.async_request_evaluate.assert_called_once_with("scheduled_final_close")
+
+
+def test_opening_no_go_uses_cover_last_changed(hass) -> None:
+    controller = object.__new__(CoverController)
+    controller.hass = hass
+    controller.cover = "cover.office"
+    controller.config = {CONF_NO_GO_TIME_MINUTES: 10}
+    hass.states.async_set(controller.cover, "closed", {"current_position": 0})
+    changed_at = hass.states.get(controller.cover).last_changed
+
+    assert controller._opening_no_go_remaining(changed_at + timedelta(minutes=4)) == 360
+    assert controller._opening_no_go_remaining(changed_at + timedelta(minutes=10)) == 0
+
+
+def test_final_close_forecast_uses_existing_schedule_timer() -> None:
+    controller = object.__new__(CoverController)
+    controller.config = {
+        CONF_INTERMEDIATE_CLOSE_ENABLED: True,
+        CONF_FINAL_CLOSE_TIME: "22:00:00",
+    }
+    controller._auto_enabled = Mock(return_value=True)
+    controller._state_for = Mock(return_value=None)
+    controller._sun_entity = Mock(return_value="sun.sun")
+    controller._dynamic_sun_threshold = Mock(return_value=None)
+    controller._is_workday = Mock(return_value=True)
+    controller._is_workday_tomorrow = Mock(return_value=True)
+    controller._last_action_dates = {}
+    controller._condition_since = {}
+    controller._reschedule_next_event_timers = Mock()
+    controller._next_sun_time_for_elevation = Mock(return_value=None)
+    now = datetime(2026, 11, 8, 20, 0, tzinfo=timezone.utc)
+
+    controller._refresh_next_events(now)
+
+    assert controller._next_final_close.date().isoformat() == "2026-11-08"
+    assert controller._next_final_close.timetz().replace(tzinfo=None) == time(22, 0)
+
+
+def test_intermediate_close_never_raises_cover_below_target() -> None:
+    controller = object.__new__(CoverController)
+    controller.config = {
+        CONF_INTERMEDIATE_CLOSE_ENABLED: True,
+        CONF_INTERMEDIATE_CLOSE_POSITION: 50,
+        CONF_FINAL_CLOSE_TIME: "22:00:00",
+    }
+    controller._position_value = lambda key, default: controller.config.get(key, default)
+    now = datetime(2026, 11, 8, 20, 0, tzinfo=timezone.utc)
+
+    assert controller._intermediate_close_target(now, 40, False) == (True, None)
+    assert controller._intermediate_close_target(now, 80, False) == (True, 50)
 
 
 def test_shading_pending_timer_cancels_and_restarts() -> None:
