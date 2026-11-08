@@ -2,7 +2,7 @@
 title: Reverse Engineering ioBroker.shuttercontrol 2.1.2
 type: domain
 status: active
-updated: 2026-11-07
+updated: 2026-11-08
 tags:
   - reverse-engineering
   - parity
@@ -75,6 +75,8 @@ Beschattung ist pro Rollladen aktivierbar. Die Varianten kombinieren:
 
 Startbedingungen verwenden strikte Schwellenvergleiche. Endbedingungen verwenden prozentuale Hysteresen für Temperatur und Helligkeit; optional wartet ein Endtimer. `heatProtection` ersetzt die Beschattungsposition durch die vollständige Schließposition, wenn die Außentemperatur den Heat-Protection-Wert überschreitet. `KeepSunProtect` verhindert das automatische Öffnen beim Ende.
 
+`heatProtection` ist dabei kein unabhängiger Temperaturmodus: Es benötigt eine konfigurierte Außentemperaturquelle und gilt strikt bei `outsideTemp > tempHeatProtection`, ändert aber nur das Ziel einer ohnehin gültigen Sun-Protection-Entscheidung. Die gewählte Variante muss ihre normalen Innen-/Außentemperatur-, Helligkeits-, Azimut- und Elevationsbedingungen weiterhin erfüllen. Sinkt die Außentemperatur wieder, bleibt eine weiterhin gültige normale Beschattung ohne Gegenfahrt aktiv; ihr reguläres Ende einschließlich `KeepSunProtect` entscheidet über die Rückkehr.
+
 Bei geschlossenem Rollladen kann `OpenInSunProtect` vorgemerkt werden, damit ein späteres automatisches Öffnen direkt auf die Beschattungsposition fährt. Eine manuelle Zwischenposition setzt `Manu_Mode`; manuelles Fahren auf bekannte Zielpositionen hält die zugehörige Automatik dagegen aktiv.
 
 ## Fenster, Aussperrschutz und Wiederherstellung
@@ -146,6 +148,7 @@ Die gleichnamigen **per-Rollladen** Felder `heatProtection` und `useXmasLevel` w
 - Safety ist als eigene Profilfunktion umgesetzt: globale Quellen, Profil-Enabled/Zielwerte, Room-Teilnahme, Listener, eindeutige Trigger, Runtime-Priorität, Diagnose und Tests bilden die vollständige Kette.
 - Safety wird vor Force, Manual, Kontakten und Komfortautomation ausgewertet. Der Fire-Latch liegt ausschließlich im persistenten Laufzeitstatus, nicht im Profil.
 - Der 2.1.0-Fensterablauf ist umgesetzt: reguläre automatische Schließfahrten fahren bei offenem oder gekipptem Fenster zuerst das Schließziel an, warten die konfigurierte `drive_time`, lesen den Kontakt erneut und fahren erst danach die aktuelle Lockout-/Lüftungsposition an. Die Sequenz ist pro Cover und wird durch Safety, Force, Manual, Unload oder Reconfigure abgebrochen.
+- Heat Protection ist als Teil der bestehenden Shading-Kette umgesetzt: Profilaktivierung und Außentemperaturschwelle verwenden die vorhandene Outdoor-Quelle, alle normalen Shading-Gates bleiben erforderlich, das Ziel wird auf `close_position` gesetzt und Safety bleibt dominant. Diagnose und persistierter Hold unterscheiden aktive Heat Protection von normaler Beschattung ohne Positions-Churn.
 - Die Runtime-Trigger sind fachlich eindeutig; neue Safety-Trigger müssen dieselbe Trennung von `trigger` (Evaluationsursache) und `reason` (Fahrentscheidung) beibehalten.
 - Saisonale Funktionen, Zwischenposition/spätes Komplettschließen und exaktes No-Go-Verhalten fehlen.
 

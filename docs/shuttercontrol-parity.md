@@ -1,6 +1,6 @@
 # ioBroker.shuttercontrol parity
 
-Stand: 2026-11-07
+Stand: 2026-11-08
 Referenz: [`simatec/ioBroker.shuttercontrol@64ccaedc4f413f187e2a6f6d5164c83b5d6aa848`](https://github.com/simatec/ioBroker.shuttercontrol/tree/64ccaedc4f413f187e2a6f6d5164c83b5d6aa848) (`master`, Version 2.1.2)
 
 ## Statusdefinitionen
@@ -41,7 +41,7 @@ Referenz: [`simatec/ioBroker.shuttercontrol@64ccaedc4f413f187e2a6f6d5164c83b5d6a
 | Elevationsbereich Beschattung | Mindest-/Maximalhöhe und globales Endfenster | Min/Max-Elevation, sofortiges Ende nach Sonnenposition, Tests | FULL | – |
 | Beschattungshelligkeit | Startwert, prozentuale Endhysterese | Start/Ende plus absolute Hysterese und frei kombinierbare Bedingungen | MAPPED | Hysterese-Einheit unterscheidet sich bewusst |
 | Innen-/Außentemperatur | Varianten mit Innen, Außen oder beiden Sensoren | Zwei Temperaturbedingungen, globale/Room-Sources, Hysterese und Condition-Matrix | FULL | – |
-| Heat Protection | Über Außentemperatur auf vollständige Schließposition statt Beschattungsposition | Temperatur kann Beschattung auslösen, aber Ziel bleibt Beschattungsposition | MISSING | Einfache Heat-Protection-Schwelle plus Close-Ziel fehlt |
+| Heat Protection | Strikt oberhalb der Außentemperaturschwelle innerhalb gültiger Sun Protection auf vollständige Schließposition statt Beschattungsposition | Zwei Shading-Profilwerte, vorhandene Outdoor-Quelle, normale Condition-Matrix, `close_position`, persistierter No-Churn-Hold, konkrete Diagnose, Safety-/Propagation-/Runtime-Tests | FULL | Bestehende absolute Shading-Hysteresen ersetzen bewusst die prozentuale Referenzhysterese der normalen Endbedingungen |
 | Beschattungs-Startverzögerung | Indirekt durch Sensor-/Fahrverarbeitung | Eigener Start-Wait mit Managed Timer, Cancel/Restart und Tests | FULL | – |
 | Beschattungs-Endverzögerung | Per Rollladen, bei erneutem Licht abgebrochen | End-Wait mit kontinuierlicher Bedingung, Cancel/Restart und Tests | FULL | – |
 | Beschattungs-Rückkehr | Öffnen, Zustand halten oder Fensterziel beachten | Status-Hintergrund, Shading-End-Optionen, Ventilation und Logbook | FULL | – |
@@ -72,8 +72,7 @@ Zur Runtime unbenutzt sind die globalen Felder `UseAstro`, `UseSunMode`, `driveH
 
 ## Priorisierte Implementierungsreihenfolge
 
-1. Heat Protection als einfache Schwelle mit Schließziel ergänzen.
-2. Zwischenposition plus spätes Komplettschließen und exakte No-Go-Time ergänzen.
-3. Sommer- und Weihnachtsperiode minimal in vorhandene Profile/Rooms integrieren.
+1. Zwischenposition plus spätes Komplettschließen und exakte No-Go-Time ergänzen.
+2. Sommer- und Weihnachtsperiode minimal in vorhandene Profile/Rooms integrieren.
 
 Nicht geplant sind feste Living/Sleep/Children-Profile, separate Urlaubs-/Ferien-/Feiertagsarchitektur oder eine technische Portierung des JavaScript-Modulaufbaus.
