@@ -123,6 +123,7 @@ _POSITION_KEYS = frozenset(
         c.CONF_OPEN_POSITION,
         c.CONF_CLOSE_POSITION,
         c.CONF_INTERMEDIATE_CLOSE_POSITION,
+        c.CONF_CHRISTMAS_POSITION,
         c.CONF_VENTILATE_POSITION,
         c.CONF_LOCKOUT_POSITION,
         c.CONF_SHADING_POSITION,
@@ -247,7 +248,16 @@ _SELECTS = {
     ),
 }
 
-_TEXT_KEYS = frozenset({c.CONF_CALENDAR_OPEN_TITLE, c.CONF_CALENDAR_CLOSE_TITLE})
+_TEXT_KEYS = frozenset(
+    {
+        c.CONF_CALENDAR_OPEN_TITLE,
+        c.CONF_CALENDAR_CLOSE_TITLE,
+        c.CONF_SUMMER_START,
+        c.CONF_SUMMER_END,
+        c.CONF_CHRISTMAS_START,
+        c.CONF_CHRISTMAS_END,
+    }
+)
 
 _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
     c.PROFILE_TYPE_TIME: (
@@ -283,6 +293,10 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_TIME_DOWN_EARLY_NON_WORKDAY,
                 c.CONF_TIME_DOWN_LATE_NON_WORKDAY,
                 c.CONF_FINAL_CLOSE_TIME,
+                c.CONF_SUMMER_START,
+                c.CONF_SUMMER_END,
+                c.CONF_CHRISTMAS_START,
+                c.CONF_CHRISTMAS_END,
             ),
         ),
         (
@@ -470,6 +484,10 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
                 c.CONF_TIME_DOWN_LATE_NON_WORKDAY,
                 c.CONF_INTERMEDIATE_CLOSE_ENABLED,
                 c.CONF_FINAL_CLOSE_TIME,
+                c.CONF_SUMMER_START,
+                c.CONF_SUMMER_END,
+                c.CONF_CHRISTMAS_START,
+                c.CONF_CHRISTMAS_END,
             }
         ),
         "workday": frozenset({c.CONF_USE_WORKDAY_SENSOR}),

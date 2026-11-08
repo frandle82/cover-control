@@ -68,7 +68,13 @@ def _controls_for_reason(reason: str) -> set[str]:
         return {"sun"}
     if reason.startswith("force_"):
         return {reason}
-    if reason in {"manual_override", "window_lockout", "force_pause", "no_go_time"}:
+    if reason in {
+        "manual_override",
+        "window_lockout",
+        "force_pause",
+        "no_go_time",
+        "summer_period",
+    }:
         return {reason}
     if "ventilation" in reason:
         return {"ventilation"}
@@ -88,7 +94,12 @@ def _controls_for_reason(reason: str) -> set[str]:
 
 
 def _blocking_controls_for_reason(reason: str) -> set[str]:
-    if reason in {"manual_override", "window_lockout", "force_pause"}:
+    if reason in {
+        "manual_override",
+        "window_lockout",
+        "force_pause",
+        "summer_period",
+    }:
         return {reason}
     if reason.startswith("additional_condition"):
         return {"additional_condition"}

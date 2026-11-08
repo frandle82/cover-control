@@ -29,11 +29,18 @@ from ..const import (
     CONF_CONTACT_STATUS_DELAY,
     CONF_CONTACT_TRIGGER_DELAY,
     CONF_CLOSE_POSITION,
+    CONF_CHRISTMAS_END,
+    CONF_CHRISTMAS_POSITION,
+    CONF_CHRISTMAS_POSITION_ENABLED,
+    CONF_CHRISTMAS_START,
     CONF_FINAL_CLOSE_TIME,
     CONF_INTERMEDIATE_CLOSE_ENABLED,
     CONF_MANUAL_SCHEDULE_ADOPTION,
     CONF_OPEN_POSITION,
     CONF_RESIDENT_SENSOR,
+    CONF_SUMMER_END,
+    CONF_SUMMER_SKIP_CLOSE_ENABLED,
+    CONF_SUMMER_START,
     CONF_SUN_ELEVATION_MODE,
     CONF_SUN_TIME_DURATION,
     CONF_TIME_DOWN_EARLY_NON_WORKDAY,
@@ -49,10 +56,15 @@ from ..const import (
     CONF_WORKDAY_TOMORROW_SENSOR,
     DEFAULT_CONTACT_SETTINGS,
     DEFAULT_CLOSE_POSITION,
+    DEFAULT_CHRISTMAS_END,
+    DEFAULT_CHRISTMAS_POSITION,
+    DEFAULT_CHRISTMAS_START,
     DEFAULT_FINAL_CLOSE_TIME,
     DEFAULT_OPEN_POSITION,
     DEFAULT_SUN_ELEVATION_MODE,
     DEFAULT_SUN_TIME_DURATION,
+    DEFAULT_SUMMER_END,
+    DEFAULT_SUMMER_START,
     DEFAULT_TIME_SETTINGS,
 )
 from .common import (
@@ -63,6 +75,56 @@ from .common import (
 
 
 class ScheduleMixin:
+    @staticmethod
+    def _is_date_in_recurring_range(
+        now: datetime, start_value: object, end_value: object
+    ) -> bool:
+        """Return whether local month/day is inside an inclusive annual range."""
+
+        def _month_day(value: object) -> tuple[int, int] | None:
+            parts = str(value or "").strip().split(".")
+            if len(parts) < 2:
+                return None
+            try:
+                day, month = int(parts[0]), int(parts[1])
+                datetime(2000, month, day)
+            except (TypeError, ValueError):
+                return None
+            return month, day
+
+        start = _month_day(start_value)
+        end = _month_day(end_value)
+        if start is None or end is None:
+            return False
+        current = (dt_util.as_local(now).month, dt_util.as_local(now).day)
+        return (
+            start <= current <= end
+            if start <= end
+            else current >= start or current <= end
+        )
+
+    def _summer_close_suppressed(self, now: datetime) -> bool:
+        return bool(self.config.get(CONF_SUMMER_SKIP_CLOSE_ENABLED, False)) and (
+            self._is_date_in_recurring_range(
+                now,
+                self.config.get(CONF_SUMMER_START, DEFAULT_SUMMER_START),
+                self.config.get(CONF_SUMMER_END, DEFAULT_SUMMER_END),
+            )
+        )
+
+    def _christmas_close_position(self, now: datetime) -> float | None:
+        if not self.config.get(CONF_CHRISTMAS_POSITION_ENABLED, False):
+            return None
+        if not self._is_date_in_recurring_range(
+            now,
+            self.config.get(CONF_CHRISTMAS_START, DEFAULT_CHRISTMAS_START),
+            self.config.get(CONF_CHRISTMAS_END, DEFAULT_CHRISTMAS_END),
+        ):
+            return None
+        return self._position_value(
+            CONF_CHRISTMAS_POSITION, DEFAULT_CHRISTMAS_POSITION
+        )
+
     def _manual_schedule_adopted_today(self, action: str) -> bool:
         """Return whether adoption should suppress today's scheduled action."""
 
