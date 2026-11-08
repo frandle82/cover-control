@@ -9,11 +9,11 @@ automation actions outside the integration.
 
 | Area | Status | Mapping / note |
 | --- | --- | --- |
-| Sun fixed elevation | FULL | Fixed thresholds and duration are evaluated by the room runtime. |
-| Sun dynamic elevation | FULL | Configured open/close sensors, use switches, fallback to fixed. |
-| Sun hybrid elevation | FULL | Dynamic value plus the fixed threshold as offset. |
-| Configurable sun source | MAPPED | Global `sun_sensor`, default `sun.sun`; room source overrides are supported. |
-| Dynamic sun room sources | MAPPED | Dynamic open/close sources are resolvable per room. |
+| Sun fixed elevation | FULL | Explicit opening/closing modes use fixed group thresholds and HA `sun.sun` elevation. |
+| Sun dynamic elevation | NOT_APPLICABLE | Removed from the target model; legacy values migrate deterministically to fixed elevation. |
+| Sun hybrid elevation | NOT_APPLICABLE | Removed from the target model; legacy values migrate deterministically to fixed elevation. |
+| Configurable sun source | NOT_APPLICABLE | Cover Control uses the HA location and canonical `sun.sun`; no redundant source selector is exposed. |
+| Dynamic sun room sources | NOT_APPLICABLE | Dynamic elevation sources are outside the simplified shuttercontrol-style model. |
 | Force controls | FULL | Room UI, resolver, listeners, explicit priority, shared safety gates and imperative compatibility path. |
 | Force pause | FULL | Entity pause blocks dispatch and release requests fresh evaluation, including delayed movements. |
 | Restart/outage catch-up | FULL | Explicit startup/runtime-outage state with `never`, `outage` and `always` recovery modes; dependencies unavailable during startup remain in startup until the initial dependency set becomes usable. |

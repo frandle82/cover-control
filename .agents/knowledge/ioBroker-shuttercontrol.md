@@ -120,7 +120,7 @@ Die Funktionen sind im aktuellen Quellcode aktiv und daher nicht historisch:
 
 Cover Control mappt die wiederkehrenden Grenzen in der gewählten Gruppe; Teilnahme und physische Weihnachtsposition bleiben Room-Eigentum. Eine gemeinsame Datumsfunktion wertet lokale HA-Zeit ohne persistiertes Kalenderjahr aus. Sommer blockiert nur normale Komfort-Schließentscheidungen und meldet `summer_period`; Safety, Force, Frost, Ventilation und Lockout bleiben aktiv. Weihnachten modifiziert das gemeinsame Schließziel und läuft anschließend durch den bestehenden Fenster-/Ventilations- und Aktorpfad. Abweichend von der Referenz bleiben Safety und Frost auch gegenüber Christmas dominant.
 
-Golden Hour und Astro-Offsets sind nur fachlich gemappt: Die Referenz plant täglich konkrete SunCalc-Zeitpunkte (`goldenHourEnd`/`goldenHour`) und verschiebt sie um Minuten. Cover Control reagiert stattdessen auf fixe, dynamische oder hybride Elevationsschwellen innerhalb von Early-/Late-Fenstern. Das löst denselben Nutzerfall, garantiert aber insbesondere über Sommer und Winter weder denselben Zeitpunkt noch einen konstanten Minutenversatz.
+Cover Control bildet die Astro-Modi jetzt direkt ab: Sunrise/Sunset sind echte Astral-Ereignisse; Golden Hour verwendet morgens das Ende (`goldenHourEnd`-Semantik) und abends den Beginn (`goldenHour`-Semantik). `astro_open_offset_minutes` gilt für Sunrise und morgendliche Golden Hour, `astro_close_offset_minutes` für Sunset und abendliche Golden Hour. Alle Ereignisse werden durch Early/Late begrenzt. Elevation besitzt nur feste Gruppen-Schwellen; Dynamic/Hybrid, deren Sensoren, Sun-Duration, frei wählbarer Sun-Sensor und Brightness/Sun-Operator gehören nicht zum Zielmodell.
 
 ## Restart, manuelle Eingriffe und Edge Cases
 
@@ -159,6 +159,7 @@ Die gleichnamigen **per-Rollladen** Felder `heatProtection` und `useXmasLevel` w
 - Die Runtime-Trigger sind fachlich eindeutig; neue Safety-Trigger müssen dieselbe Trennung von `trigger` (Evaluationsursache) und `reason` (Fahrentscheidung) beibehalten.
 - No-Go-Time ist als Gruppenwert umgesetzt und verwendet ohne parallele Historie `State.last_changed`. Die gestufte Schließung verwendet Gruppenzeiten, eine Room-Zwischenposition und den vorhandenen Schedule-/Movement-Pfad; Schlussfahrten respektieren Safety, Frost und die Fenstersequenz.
 - Schedule-Prognosen sind nach vollständiger Kandidatenauswahl zentral auf `microsecond=0` normalisiert. Unveränderte Eingänge müssen bei wiederholtem Refresh identische Vorhersagen liefern.
+- Jede Gruppe besitzt genau einen Öffnungs- und einen Schließmodus. Öffnen erlaubt `time`, `sunrise`, `golden_hour`, `elevation`, `brightness`; Schließen erlaubt `time`, `sunset`, `golden_hour`, `elevation`, `brightness`.
 - Die bestätigten saisonalen Sommer- und Weihnachtsregeln sind einschließlich Jahreswechsel, gestuftem Schließen, Safety-Priorität und Diagnose umgesetzt. Weitere Änderungen benötigen den separaten finalen Paritäts- und Reality-Check.
 
 Die vollständige Statuszuordnung und Priorisierung steht in [`../../docs/shuttercontrol-parity.md`](../../docs/shuttercontrol-parity.md).

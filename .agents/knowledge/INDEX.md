@@ -33,7 +33,7 @@ Fachliche Regeln für Beschattung, Fahrbefehle und Prioritäten:
 Dokumentierte Lösungen für knifflige Bugs und HA-Spezifika:
 * 📄 [`troubleshooting/entity-registry-cleanup.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/troubleshooting/entity-registry-cleanup.md) – Lifecycle-Bereinigung verwaister Entitäten bei Raumänderungen.
 * 📄 [`troubleshooting/home-assistant-async-guidelines.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/troubleshooting/home-assistant-async-guidelines.md) – Vermeidung blockierender I/O im Event-Loop und sauberes Unload.
-* 📄 [`troubleshooting/stable-sun-events-and-active-controls.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/troubleshooting/stable-sun-events-and-active-controls.md) – Stabile Sun-Duration-Ereignisse und getrennte Erfassung aktiver Entscheidungs-Controls.
+* 📄 [`troubleshooting/stable-sun-events-and-active-controls.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/troubleshooting/stable-sun-events-and-active-controls.md) – Deterministische Astro-Ereignisse und getrennte Erfassung aktiver Entscheidungs-Controls.
 
 ---
 

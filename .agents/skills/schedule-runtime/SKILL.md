@@ -30,16 +30,14 @@ Die Zeit- und Sonnenlogik ist in `custom_components/cover_control/runtime/schedu
 
 ---
 
-## 2. Modi für Sonnenereignisse: Fixed, Dynamic & Hybrid Sun
+## 2. Explizite Öffnungs- und Schließmodi
 
-| Modus | Verhalten | Logik |
-|---|---|---|
-| **Fixed** | Feste Uhrzeit | Rollladen fährt strikt zu der konfigurierten Uhrzeit (z. B. 07:00 Uhr öffnen, 21:00 Uhr schließen). |
-| **Dynamic Sun** | Reiner Sonnenstand | Rollladen folgt exakt dem Sonnenaufgang/-untergang (inklusive Offset). |
-| **Hybrid Sun** | Sonnenstand gekoppelt an Zeitfenster | Rollladen folgt der Sonne, wird aber durch `Time Early` und `Time Late` begrenzt: $$\text{target\_time} = \max(\text{time\_early}, \min(\text{sun\_event} + \text{offset}, \text{time\_late}))$$ |
-
-### `sun_time_duration`
-* Berechnet die dynamische Dauer zwischen relevanten Sonnenereignissen (z. B. Dauer des Tageslichts) und dient als Basis für Dämmerungsverzögerungen.
+* Öffnen: `time`, `sunrise`, `golden_hour`, `elevation`, `brightness`.
+* Schließen: `time`, `sunset`, `golden_hour`, `elevation`, `brightness`.
+* Sunrise/Sunset verwenden echte Astral-Ereignisse; Golden Hour verwendet morgens das Ende und abends den Beginn der Astral Golden Hour.
+* `astro_open_offset_minutes` gilt für Sunrise und morgendliche Golden Hour, `astro_close_offset_minutes` für Sunset und abendliche Golden Hour.
+* Elevation besitzt nur feste numerische Schwellen. Dynamic-/Hybrid-Sensoren und `sun_time_duration` sind nicht Teil des aktiven Modells.
+* Early/Late begrenzen jeden Modus. Brightness besitzt keine astronomisch vorhersagbare Uhrzeit; `next_open`/`next_close` zeigt deshalb die nächste Fenstergrenze, bis ein Sensorereignis auslöst.
 
 ---
 
@@ -74,6 +72,6 @@ class _TimeGroupProbe(ScheduleMixin):
 
 ```sh
 # Schedule- und Zeittests fokussiert ausführen:
-.venv/bin/pytest -q tests/test_runtime_schedule.py --asyncio-mode=auto
+.venv/bin/pytest -q tests/test_astro_modes.py --asyncio-mode=auto
 .venv/bin/pytest -q tests/test_blueprint_parity.py -k sun --asyncio-mode=auto
 ```

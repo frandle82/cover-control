@@ -33,7 +33,7 @@ Verwende bei der Bearbeitung von Aufgaben die spezialisierten Skills unter `.age
 | | [`cca-parity`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/cca-parity/SKILL.md) | Blueprint-Parität; Kriterien für vollständige funktionale Integration (FULL-Kette). |
 | **2. Architektur & Runtime-Entwicklung** | [`cover-control`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/cover-control/SKILL.md) | Domänenübersicht und Mixin-Aufteilung (`runtime/`). |
 | | [`profile-model`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/profile-model/SKILL.md) | Drei feste Gruppen im Controller, Raum-Zuordnung, Resolver und Live-Propagation. |
-| | [`schedule-runtime`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/schedule-runtime/SKILL.md) | Zeitpläne, Early/Late, Workday, Fixed/Dynamic/Hybrid Sun, `_TimeGroupProbe`. |
+| | [`schedule-runtime`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/schedule-runtime/SKILL.md) | Explizite Öffnungs-/Schließmodi, Early/Late, Workday, Astro-Ereignisse und `_TimeGroupProbe`. |
 | | [`runtime-lifecycle`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/runtime-lifecycle/SKILL.md) | Datenfluss Controller → Hub → Room Manager → Controller → Snapshot → Entity. |
 | | [`home-assistant`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/home-assistant/SKILL.md) | Async-Richtlinien, Non-blocking Callbacks, Event-Loop und Lifecycle-Management. |
 | | [`config-flow`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/config-flow/SKILL.md) | Reconfigure Flows, Standalone Room Entries (`ENTRY_TYPE_ROOM`), UI-Schemas. |

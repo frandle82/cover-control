@@ -40,6 +40,8 @@ Controller-Imports bleiben stabil über `controller.py`. Logik nicht ohne klaren
 ### Strikte Grenzen der Verantwortlichkeit:
 * **GLOBAL:** Besitzt geteilte HA-Datenquellen (Arbeitstage, Kalender, Helligkeit, Außentemperatur, Wetter/Vorhersage, globale Bedingungen).
 * **GROUP:** Besitzt Automationsverhalten und Schwellenwerte. Gruppen besitzen niemals raumeigene Entitäten oder Positionen.
+  * Öffnen verwendet genau einen Modus aus `time`, `sunrise`, `golden_hour`, `elevation`, `brightness`; Schließen genau einen aus `time`, `sunset`, `golden_hour`, `elevation`, `brightness`.
+  * Dynamic-/Hybrid-Elevation ist kein aktives Feature und wird nur als Legacy-Migrationsinput erkannt.
 * **ROOM:** Besitzt Hardware, Cover-Entitäten, physische Positionen, Fenstersensoren, Geometrie, Raumschalter und eine Gruppenzuordnung.
 * **SWITCH:** Steuert, ob eine konfigurierte Raumfunktion zur Laufzeit aktiv (enabled) ist.
 * **RUNTIME:** Entscheidet, ob eine aktive Funktion unter den aktuellen Bedingungen ausführungsberechtigt (eligible) ist.
