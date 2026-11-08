@@ -17,6 +17,31 @@ LEGACY_PROFILE_FUNCTIONS = "profile_functions"
 LEGACY_PROFILE_SETTINGS = "settings"
 LEGACY_PROFILE_NAME = "name"
 LEGACY_PROFILE_TYPES = ("time", "shading", "behavior")
+LEGACY_SUN_MODE = "sun_elevation_mode"
+LEGACY_DYNAMIC_SUN_KEYS = {
+    "sun_elevation_dynamic_open_sensor",
+    "sun_elevation_dynamic_close_sensor",
+    "use_sun_elevation_dynamic_open_sensor",
+    "use_sun_elevation_dynamic_close_sensor",
+    "sun_elevation_open_offset",
+    "sun_elevation_close_offset",
+    "sun_time_duration",
+    "brightness_sun_operator",
+}
+
+
+def migrate_sun_settings(settings: Mapping[str, Any]) -> tuple[dict[str, Any], bool]:
+    """Convert legacy sun coupling to explicit shuttercontrol-style modes."""
+
+    result = deepcopy(dict(settings))
+    legacy_mode = str(result.pop(LEGACY_SUN_MODE, "") or "").lower()
+    warned = legacy_mode in {"dynamic", "hybrid"}
+    if legacy_mode:
+        result[CONF_OPEN_MODE] = MODE_ELEVATION  # noqa: F405
+        result[CONF_CLOSE_MODE] = MODE_ELEVATION  # noqa: F405
+    for key in LEGACY_DYNAMIC_SUN_KEYS:
+        result.pop(key, None)
+    return result, warned
 
 
 def is_native_parent_entry(data: Mapping[str, Any]) -> bool:
@@ -61,8 +86,17 @@ def migrate_profile_model(model: Mapping[str, Any]) -> tuple[dict[str, Any], lis
 
     if CONF_GROUPS in model:  # noqa: F405
         canonical = ConfigGroupModel(model).data
+        warnings: list[str] = []
+        for group in GROUPS:  # noqa: F405
+            canonical[CONF_GROUPS][group], warned = migrate_sun_settings(  # noqa: F405
+                canonical[CONF_GROUPS][group]
+            )
+            if warned:
+                warnings.append(
+                    f"{group}: dynamic sun elevation was replaced by fixed elevation"
+                )
         canonical[CONF_CONFIG_VERSION] = CONFIG_MODEL_VERSION  # noqa: F405
-        return canonical, []
+        return canonical, warnings
     result = deepcopy(dict(model))
     profiles = result.pop(LEGACY_PROFILES, {})
     rooms = result.setdefault(CONF_ROOMS, {})  # noqa: F405
@@ -116,7 +150,13 @@ def migrate_profile_model(model: Mapping[str, Any]) -> tuple[dict[str, Any], lis
             )
         if candidates:
             selected_id = candidates[0][1]
-            groups[group] = _legacy_settings(flat_profiles[selected_id])
+            groups[group], warned = migrate_sun_settings(
+                _legacy_settings(flat_profiles[selected_id])
+            )
+            if warned:
+                warnings.append(
+                    f"{group}: dynamic sun elevation was replaced by fixed elevation"
+                )
             if len(candidates) > 1:
                 warnings.append(
                     f"{group}: selected legacy profile {selected_id}; ignored "
@@ -147,6 +187,7 @@ def normalize_legacy_config(
         for key, value in flat.items()
         if key in group_keys and key not in GROUP_BLOCKED_KEYS
     }
+    group_settings, _warned = migrate_sun_settings(group_settings)
     room_settings = {
         key: deepcopy(value)
         for key, value in flat.items()
