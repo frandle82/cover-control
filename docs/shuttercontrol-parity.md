@@ -29,8 +29,8 @@ Referenz: [`simatec/ioBroker.shuttercontrol@64ccaedc4f413f187e2a6f6d5164c83b5d6a
 | Helligkeit öffnen/schließen | Separate Schwellen und früheste Zeiten | Profil-Schwellen, Hysterese, Dauer, Listener, Runtime, Status und Tests | FULL | – |
 | Versetztes Fahren | Bereichs-/Astro-Verzögerung zwischen Rollläden | Fester plus zufälliger Fahrdelay pro Raum; Aktor prüft Gates nach Delay erneut | FULL | – |
 | Spätes Schließen | Ausgewählte Rollläden später vollständig schließen | Down-Late-Zeit und normale Profil-/Room-Auswahl | MAPPED | Referenz besitzt separaten `LateDown`-Schalter je Rollladen |
-| Zwischenposition, später komplett schließen | Erst `betweenPositionLevel`, später `LateAllDownTime` vollständig schließen | Keine entsprechende zweistufige Abendfahrt | MISSING | Profiloption plus Runtime-Zustand und Restart-Test nötig |
-| No-Go-Time / letzte Bewegung | Öffnen wartet nach einer jüngsten Schließfahrt | Manual Override und „nur einmal täglich“ sind ähnlich, aber nicht zeitgleich | PARTIAL | Exakte letzte-Fahrt-Sperre mit persistiertem Zeitstempel fehlt |
+| Zwischenposition, später komplett schließen | Normale Abfahrt fährt bei aktiviertem `betweenPosition` zuerst `betweenPositionLevel`; `betweenPositionTime` löst für Covers im Zustand `middle` die vollständige Fahrt auf `heightDown` aus. `LateAllDown`/`LateDown` ist davon unabhängig | Time-Profil aktiviert die Zwischenfahrt und besitzt `final_close_time`; die Room-Position `intermediate_close_position` bleibt physisch raumeigen. Der vorhandene Scheduler verwendet getrennte Reasons/Trigger, die Schlussfahrt läuft durch Safety-, Frost- und Fenstersequenz, und „Nächste Schließung“ zeigt das tatsächlich frühere Ereignis | FULL | Covers unterhalb der Zwischenposition werden bewusst nicht wieder geöffnet; sicherere Cover-Control-Invariante gegenüber der Referenz |
+| No-Go-Time / letzte Bewegung | `noGoTime` wird ausschließlich in den zeitgesteuerten `shutterUpLiving/Sleep/Children`-Callbacks geprüft. Maßgeblich ist pro Cover `state.lc`, also jede manuelle oder automatische echte Zustandsänderung; `0` deaktiviert, es gibt keinen Retry-Timer | Behavior-Profil `no_go_time_minutes`; die Runtime verwendet pro Cover Home Assistants `State.last_changed`, blockiert nur `scheduled_open`, setzt keinen Manual Override und meldet `blocked_by=no_go_time`. Safety und Force laufen vorher und bleiben unbeeinflusst | FULL | Sunrise/Golden Hour/Helligkeit werden entsprechend dem Referenzcode nicht gesperrt |
 | Getrenntes Auto-Up/Auto-Down | Richtung je Rollladen schaltbar | Room-Schalter/Entities für Auto-Up und Auto-Down, Feature-State-Tests | FULL | – |
 | Manuelle Gruppenbuttons | Open/Close/SunProtect/Auto für alle oder Bereiche | Force-Entities und Room-Koordination bilden Aktionen ab | MAPPED | Keine festen Bereichsbuttons gewünscht |
 | Positionsinversion | `heightDown > heightUp` kehrt Vergleiche um | HA standardisiert Positionen; `cover_type=awning` passt Richtungslogik an | MAPPED | Keine freie Inversion zweier beliebiger Endwerte |
@@ -72,7 +72,8 @@ Zur Runtime unbenutzt sind die globalen Felder `UseAstro`, `UseSunMode`, `driveH
 
 ## Priorisierte Implementierungsreihenfolge
 
-1. Zwischenposition plus spätes Komplettschließen und exakte No-Go-Time ergänzen.
-2. Sommer- und Weihnachtsperiode minimal in vorhandene Profile/Rooms integrieren.
+1. Sommer- und Weihnachtsperiode minimal in vorhandene Profile/Rooms integrieren.
+
+Schedule-Prognosen sind an der zentralen Berechnungsgrenze auf volle Sekunden normalisiert. Wiederholtes Refreshing mit unveränderten Eingängen liefert dadurch identische `next_open`-/`next_close`-Werte; „Nächste Schließung“ wählt bei gestuftem Schließen das frühere reguläre oder endgültige Ereignis.
 
 Nicht geplant sind feste Living/Sleep/Children-Profile, separate Urlaubs-/Ferien-/Feiertagsarchitektur oder eine technische Portierung des JavaScript-Modulaufbaus.

@@ -47,7 +47,7 @@ Wichtige Aktionszustände sind `up`, `down`, `middle`, `Xmas`, `sunProtect`, `Op
 - Ein täglicher Job um 02:30 Uhr berechnet Zeitpunkte neu und initialisiert Aktionszustände.
 - Sonnenposition wird alle fünf Minuten berechnet; Änderungen von Azimut/Elevation lösen Beschattung beziehungsweise Elevations-Schließen aus.
 - Öffnen/Schließen, Sunrise/Sunset, Golden Hour, spätes und vollständiges Schließen verwenden benannte `node-schedule`-Jobs.
-- Fahrten werden pro Rollladen verzögert. `noGoTime` wartet nach einem Schließen vor einem Öffnen.
+- Fahrten werden pro Rollladen verzögert. `noGoTime` wird nur in den zeitgesteuerten Bereichs-Öffnungen geprüft: `state.lc` muss mindestens `noGoTime` Minuten zurückliegen. Damit zählen alle echten manuellen und automatischen Zustandsänderungen pro Cover; `0` deaktiviert die Sperre. Sunrise/Sunset, Golden Hour und Helligkeit verwenden die Prüfung nicht, und ein abgelehnter Callback erhält keinen Retry-Timer.
 - Fensteränderungen besitzen getrennte Auf-/Zu-Verzögerungen; das neue `windowLevel` wartet zusätzlich die konfigurierte Fahrzeit zwischen vollständigem Schließen und Lüftungsposition.
 - Beschattungsende kann je Rollladen verzögert werden. Wird die Startbedingung wieder gültig, wird der Endtimer abgebrochen.
 
@@ -60,7 +60,7 @@ Cover Control setzt diese Invariante in der gesamten Evaluation-Kette um: Shared
 - Arbeits-/Nichtarbeitstag unterscheiden früheste und späteste Öffnungszeit sowie Schließzeit. Referenzseitige Urlaubs-, Feiertags- und Schulferienquellen beeinflussen nur diese Tagesklassifikation.
 - Pro Bereich wird zwischen reiner Zeit, Sunrise/Sunset und Golden Hour gewählt. Astro-Offsets werden global auf Auf-/Untergang beziehungsweise Golden-Hour-Beginn/-Ende addiert.
 - Pro Rollladen kann Schließen über Zeit, Sunset, Golden Hour, Elevation oder Helligkeit erfolgen. Öffnen unterstützt Zeit, Sunrise, Golden Hour oder Helligkeit.
-- `LateAllDown` schließt ausgewählte Rollläden zu einer festen späten Zeit. `betweenPosition` fährt zunächst eine Zwischenposition und `shutterDownComplete` später vollständig zu.
+- `betweenPosition` ersetzt vor `betweenPositionTime` das normale Schließziel durch das per-Cover `betweenPositionLevel`; `shutterDownComplete` fährt zu diesem Zeitpunkt nur Covers mit `currentAction == "middle"` vollständig auf `heightDown`. `LateAllDown`/`LateDown` ist ein davon unabhängiger Mechanismus für ausgewählte, verspätet zu schließende Covers.
 - Der Helligkeitssensor besitzt getrennte Auf-/Ab-Schwellen und früheste Ausführungszeiten.
 - Jede automatische Fahrt respektiert Aktivierung, Fensterfreigabe, Alarmstatus, Frostschutz und aktuelle/letzte Aktionszustände.
 
@@ -150,7 +150,9 @@ Die gleichnamigen **per-Rollladen** Felder `heatProtection` und `useXmasLevel` w
 - Der 2.1.0-Fensterablauf ist umgesetzt: reguläre automatische Schließfahrten fahren bei offenem oder gekipptem Fenster zuerst das Schließziel an, warten die konfigurierte `drive_time`, lesen den Kontakt erneut und fahren erst danach die aktuelle Lockout-/Lüftungsposition an. Die Sequenz ist pro Cover und wird durch Safety, Force, Manual, Unload oder Reconfigure abgebrochen.
 - Heat Protection ist als Teil der bestehenden Shading-Kette umgesetzt: Profilaktivierung und Außentemperaturschwelle verwenden die vorhandene Outdoor-Quelle, alle normalen Shading-Gates bleiben erforderlich, das Ziel wird auf `close_position` gesetzt und Safety bleibt dominant. Diagnose und persistierter Hold unterscheiden aktive Heat Protection von normaler Beschattung ohne Positions-Churn.
 - Die Runtime-Trigger sind fachlich eindeutig; neue Safety-Trigger müssen dieselbe Trennung von `trigger` (Evaluationsursache) und `reason` (Fahrentscheidung) beibehalten.
-- Saisonale Funktionen, Zwischenposition/spätes Komplettschließen und exaktes No-Go-Verhalten fehlen.
+- No-Go-Time ist als Behavior-Profilwert umgesetzt und verwendet ohne parallele Historie `State.last_changed`. Die gestufte Schließung verwendet ein Time-Profil, eine Room-Zwischenposition und den vorhandenen Schedule-/Movement-Pfad; Schlussfahrten respektieren Safety, Frost und die Fenstersequenz.
+- Schedule-Prognosen sind nach vollständiger Kandidatenauswahl zentral auf `microsecond=0` normalisiert. Unveränderte Eingänge müssen bei wiederholtem Refresh identische Vorhersagen liefern.
+- Von den bestätigten aktiven Referenzlücken fehlen noch die saisonalen Sommer- und Weihnachtsregeln.
 
 Die vollständige Statuszuordnung und Priorisierung steht in [`../../docs/shuttercontrol-parity.md`](file:///Users/andreasgrundke/Git/cover-control/docs/shuttercontrol-parity.md).
 
