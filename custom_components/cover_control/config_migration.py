@@ -72,6 +72,8 @@ LEGACY_CCA_KEYS = {
     "lockout_tilt_shading_end",
 }
 LEGACY_KEEP_SUN_PROTECTION = "prevent_opening_after_shading_end"
+LEGACY_TILT_STAGE_KEYS = tuple(f"shading_tilt_position_{index}" for index in range(4))
+LEGACY_TILT_STAGE_DEFAULTS = (0, 20, 37, 50)
 LEGACY_RUNTIME_OPTION_KEYS = {
     "force_open_entity",
     "force_close_entity",
@@ -89,6 +91,13 @@ LEGACY_RUNTIME_OPTION_KEYS = {
     "manual_override_reset_mode",
     "manual_override_reset_time",
     "manual_schedule_adoption",
+    "cover_tilt_wait_mode",
+    "cover_tilt_wait_timeout",
+    "tilt_position_tolerance",
+    "shading_tilt_elevation_1",
+    "shading_tilt_elevation_2",
+    "shading_tilt_elevation_3",
+    *LEGACY_TILT_STAGE_KEYS,
 }
 
 
@@ -109,6 +118,22 @@ def cleanup_runtime_options(settings: Mapping[str, Any]) -> tuple[dict[str, Any]
         warnings.add("manual override reset time was removed")
     elif reset_mode == "none":
         result[CONF_MANUAL_OVERRIDE_MINUTES] = 0  # noqa: F405
+    stage_values = tuple(
+        result.get(key, default)
+        for key, default in zip(
+            LEGACY_TILT_STAGE_KEYS,
+            LEGACY_TILT_STAGE_DEFAULTS,
+            strict=True,
+        )
+    )
+    if any(
+        str(value) != str(default) and str(value) != f"{default}.0"
+        for value, default in zip(
+            stage_values, LEGACY_TILT_STAGE_DEFAULTS, strict=True
+        )
+    ):
+        result.setdefault(CONF_SHADING_TILT_POSITION, stage_values[2])
+        warnings.add("custom multistage tilt shading was collapsed")
     for key in LEGACY_RUNTIME_OPTION_KEYS:
         result.pop(key, None)
     return result, warnings

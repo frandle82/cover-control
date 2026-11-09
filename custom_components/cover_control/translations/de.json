@@ -144,21 +144,13 @@
               "open_tilt_position": "Lamellenposition beim Öffnen",
               "close_tilt_position": "Lamellenposition beim Schließen",
               "shading_tilt_position": "Lamellenposition bei Beschattung",
-              "ventilate_tilt_position": "Lamellenposition bei Lüftung",
-              "shading_tilt_position_0": "Beschattungs-Lamellenstufe 0",
-              "shading_tilt_position_1": "Beschattungs-Lamellenstufe 1",
-              "shading_tilt_position_2": "Beschattungs-Lamellenstufe 2",
-              "shading_tilt_position_3": "Beschattungs-Lamellenstufe 3"
+              "ventilate_tilt_position": "Lamellenposition bei Lüftung"
             },
             "data_description": {
               "open_tilt_position": "Lamellenposition beim Öffnen dieses Raums festlegen.",
               "close_tilt_position": "Lamellenposition beim Schließen dieses Raums festlegen.",
               "shading_tilt_position": "Lamellenposition bei Beschattung dieses Raums festlegen.",
-              "ventilate_tilt_position": "Lamellenposition bei Lüftung dieses Raums festlegen.",
-              "shading_tilt_position_0": "Beschattungs-Lamellenstufe 0 dieses Raums festlegen.",
-              "shading_tilt_position_1": "Beschattungs-Lamellenstufe 1 dieses Raums festlegen.",
-              "shading_tilt_position_2": "Beschattungs-Lamellenstufe 2 dieses Raums festlegen.",
-              "shading_tilt_position_3": "Beschattungs-Lamellenstufe 3 dieses Raums festlegen."
+              "ventilate_tilt_position": "Lamellenposition bei Lüftung dieses Raums festlegen."
             }
           }
         }
@@ -240,17 +232,12 @@
           "covers": "Cover",
           "cover_type": "Cover-Typ",
           "drive_time": "Fahrzeit",
-          "cover_tilt_wait_mode": "Lamellen-Wartemodus",
-          "cover_tilt_wait_timeout": "Lamellen-Wartezeit",
-          "position_tolerance": "Positionstoleranz",
-          "tilt_position_tolerance": "Kipp-Positionstoleranz"
+          "position_tolerance": "Positionstoleranz"
         },
         "data_description": {
           "covers": "Alle Cover, die zu diesem Raum gehören und gemeinsam von Cover Control gesteuert werden.",
           "cover_type": "Physischer Cover-Typ für Bewegungs- und Positionsverhalten.",
           "drive_time": "Ungefähre vollständige Fahrzeit für Cover ohne zuverlässige Positionsrückmeldung.",
-          "cover_tilt_wait_mode": "Wie Lamellenbefehle mit der Coverbewegung gekoppelt werden.",
-          "cover_tilt_wait_timeout": "Maximale Wartezeit für den gewählten Lamellen-Wartemodus.",
           "position_tolerance": "Positionsabweichung, die toleriert wird, bevor ein weiterer Befehl gesendet wird."
         }
       },
@@ -657,19 +644,6 @@
               "no_go_time_minutes": "Minuten nach einer Cover-Zustandsänderung, in denen zeitgesteuertes Öffnen blockiert ist.",
               "manual_control_enabled": "Manuelle Bewegungen pausieren die normale Automatik."
             }
-          },
-          "tilt_wait": {
-            "name": "Zusätzliches Verhalten",
-            "data": {
-              "cover_tilt_wait_mode": "Lamellen-Wartemodus",
-              "cover_tilt_wait_timeout": "Lamellen-Timeout",
-              "enable_logbook_cover": "Cover-Aktionen protokollieren"
-            },
-            "data_description": {
-              "cover_tilt_wait_mode": "Wert für Lamellen-Wartemodus in dieser Gruppe.",
-              "cover_tilt_wait_timeout": "Wert für Lamellen-Timeout in dieser Gruppe.",
-              "enable_logbook_cover": "Wert für Cover-Aktionen protokollieren in dieser Gruppe."
-            }
           }
         }
       },
@@ -858,19 +832,6 @@
             "data_description": {
               "shading_waitingtime_end": "Endbedingung muss so lange bestehen bleiben.",
               "keep_sun_protection": "Nach Ende des Sonnenschutzes nicht automatisch öffnen."
-            }
-          },
-          "shading_tilt": {
-            "name": "Lamellen",
-            "data": {
-              "shading_tilt_elevation_1": "Lamellenhöhe 1",
-              "shading_tilt_elevation_2": "Lamellenhöhe 2",
-              "shading_tilt_elevation_3": "Lamellenhöhe 3"
-            },
-            "data_description": {
-              "shading_tilt_elevation_1": "Bestehende Lamellenlogik.",
-              "shading_tilt_elevation_2": "Bestehende Lamellenlogik.",
-              "shading_tilt_elevation_3": "Bestehende Lamellenlogik."
             }
           },
           "cold_protection": {
@@ -1032,21 +993,13 @@
               "open_tilt_position": "Lamellenposition beim Öffnen",
               "close_tilt_position": "Lamellenposition beim Schließen",
               "shading_tilt_position": "Lamellenposition bei Beschattung",
-              "ventilate_tilt_position": "Lamellenposition bei Lüftung",
-              "shading_tilt_position_0": "Beschattungs-Lamellenstufe 0",
-              "shading_tilt_position_1": "Beschattungs-Lamellenstufe 1",
-              "shading_tilt_position_2": "Beschattungs-Lamellenstufe 2",
-              "shading_tilt_position_3": "Beschattungs-Lamellenstufe 3"
+              "ventilate_tilt_position": "Lamellenposition bei Lüftung"
             },
             "data_description": {
               "open_tilt_position": "Lamellenposition beim Öffnen dieses Raums festlegen.",
               "close_tilt_position": "Lamellenposition beim Schließen dieses Raums festlegen.",
               "shading_tilt_position": "Lamellenposition bei Beschattung dieses Raums festlegen.",
-              "ventilate_tilt_position": "Lamellenposition bei Lüftung dieses Raums festlegen.",
-              "shading_tilt_position_0": "Beschattungs-Lamellenstufe 0 dieses Raums festlegen.",
-              "shading_tilt_position_1": "Beschattungs-Lamellenstufe 1 dieses Raums festlegen.",
-              "shading_tilt_position_2": "Beschattungs-Lamellenstufe 2 dieses Raums festlegen.",
-              "shading_tilt_position_3": "Beschattungs-Lamellenstufe 3 dieses Raums festlegen."
+              "ventilate_tilt_position": "Lamellenposition bei Lüftung dieses Raums festlegen."
             }
           }
         }
@@ -1128,17 +1081,12 @@
           "covers": "Cover",
           "cover_type": "Cover-Typ",
           "drive_time": "Fahrzeit",
-          "cover_tilt_wait_mode": "Lamellen-Wartemodus",
-          "cover_tilt_wait_timeout": "Lamellen-Wartezeit",
-          "position_tolerance": "Positionstoleranz",
-          "tilt_position_tolerance": "Kipp-Positionstoleranz"
+          "position_tolerance": "Positionstoleranz"
         },
         "data_description": {
           "covers": "Alle Cover, die zu diesem Raum gehören und gemeinsam von Cover Control gesteuert werden.",
           "cover_type": "Physischer Cover-Typ für Bewegungs- und Positionsverhalten.",
           "drive_time": "Ungefähre vollständige Fahrzeit für Cover ohne zuverlässige Positionsrückmeldung.",
-          "cover_tilt_wait_mode": "Wie Lamellenbefehle mit der Coverbewegung gekoppelt werden.",
-          "cover_tilt_wait_timeout": "Maximale Wartezeit für den gewählten Lamellen-Wartemodus.",
           "position_tolerance": "Positionsabweichung, die toleriert wird, bevor ein weiterer Befehl gesendet wird."
         }
       },
@@ -1545,19 +1493,6 @@
               "no_go_time_minutes": "Minuten nach einer Cover-Zustandsänderung, in denen zeitgesteuertes Öffnen blockiert ist.",
               "manual_control_enabled": "Manuelle Bewegungen pausieren die normale Automatik."
             }
-          },
-          "tilt_wait": {
-            "name": "Zusätzliches Verhalten",
-            "data": {
-              "cover_tilt_wait_mode": "Lamellen-Wartemodus",
-              "cover_tilt_wait_timeout": "Lamellen-Timeout",
-              "enable_logbook_cover": "Cover-Aktionen protokollieren"
-            },
-            "data_description": {
-              "cover_tilt_wait_mode": "Wert für Lamellen-Wartemodus in dieser Gruppe.",
-              "cover_tilt_wait_timeout": "Wert für Lamellen-Timeout in dieser Gruppe.",
-              "enable_logbook_cover": "Wert für Cover-Aktionen protokollieren in dieser Gruppe."
-            }
           }
         }
       },
@@ -1748,19 +1683,6 @@
               "keep_sun_protection": "Nach Ende des Sonnenschutzes nicht automatisch öffnen."
             }
           },
-          "shading_tilt": {
-            "name": "Lamellen",
-            "data": {
-              "shading_tilt_elevation_1": "Lamellenhöhe 1",
-              "shading_tilt_elevation_2": "Lamellenhöhe 2",
-              "shading_tilt_elevation_3": "Lamellenhöhe 3"
-            },
-            "data_description": {
-              "shading_tilt_elevation_1": "Bestehende Lamellenlogik.",
-              "shading_tilt_elevation_2": "Bestehende Lamellenlogik.",
-              "shading_tilt_elevation_3": "Bestehende Lamellenlogik."
-            }
-          },
           "cold_protection": {
             "name": "Kälteschutz",
             "data": {
@@ -1786,13 +1708,6 @@
     }
   },
   "selector": {
-    "cover_tilt_wait_mode": {
-      "options": {
-        "fixed_delay": "Feste Verzögerung",
-        "wait_idle": "Auf Stillstand warten",
-        "tilt_before_position": "Lamelle vor Position"
-      }
-    },
     "cover_type": {
       "options": {
         "blind": "Jalousie / Rollladen",
@@ -1873,6 +1788,10 @@
     "manual_override_reset_time_migration": {
       "title": "Tägliche Manual-Override-Rücksetzzeit entfernt",
       "description": "Die feste tägliche Reset-Uhrzeit für Manual Override wurde entfernt. Der Override bleibt jetzt bis zum manuellen Reset aktiv."
+    },
+    "tilt_shading_migration": {
+      "title": "Lamellenbeschattung vereinfacht",
+      "description": "Benutzerdefinierte höhenabhängige Lamellenstufen wurden durch die einzelne Beschattungs-Lamellenposition des Raums ersetzt. Prüfe den betroffenen Raum."
     }
   },
   "entity": {

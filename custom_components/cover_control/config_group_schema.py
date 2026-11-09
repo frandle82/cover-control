@@ -74,10 +74,6 @@ _POSITION_KEYS = frozenset(
         c.CONF_CLOSE_TILT_POSITION,
         c.CONF_VENTILATE_TILT_POSITION,
         c.CONF_SHADING_TILT_POSITION,
-        c.CONF_SHADING_TILT_POSITION_0,
-        c.CONF_SHADING_TILT_POSITION_1,
-        c.CONF_SHADING_TILT_POSITION_2,
-        c.CONF_SHADING_TILT_POSITION_3,
         c.CONF_FIRE_ALARM_TARGET,
         c.CONF_RAIN_ALARM_TARGET,
         c.CONF_WIND_ALARM_2_TARGET,
@@ -90,7 +86,6 @@ _DURATION_KEYS = frozenset(
     {
         c.CONF_BRIGHTNESS_TIME_DURATION,
         c.CONF_SHADING_WAITINGTIME_END,
-        c.CONF_COVER_TILT_WAIT_TIMEOUT,
         c.CONF_CONTACT_TRIGGER_DELAY,
         c.CONF_CONTACT_STATUS_DELAY,
         c.CONF_VENTILATION_DELAY_AFTER_CLOSE,
@@ -122,9 +117,6 @@ _ELEVATION_KEYS = frozenset(
         c.CONF_SUN_ELEVATION_CLOSE,
         c.CONF_SUN_ELEVATION_MIN,
         c.CONF_SUN_ELEVATION_MAX,
-        c.CONF_SHADING_TILT_ELEVATION_1,
-        c.CONF_SHADING_TILT_ELEVATION_2,
-        c.CONF_SHADING_TILT_ELEVATION_3,
     }
 )
 
@@ -151,14 +143,6 @@ _SELECTS = {
     c.CONF_OPEN_MODE: (list(c.OPEN_MODES), "open_mode"),
     c.CONF_CLOSE_MODE: (list(c.CLOSE_MODES), "close_mode"),
     c.CONF_SHADING_MODE: (list(c.SHADING_MODES), "shading_mode"),
-    c.CONF_COVER_TILT_WAIT_MODE: (
-        [
-            c.COVER_TILT_WAIT_FIXED_DELAY,
-            c.COVER_TILT_WAIT_IDLE,
-            c.COVER_TILT_WAIT_BEFORE_POSITION,
-        ],
-        "cover_tilt_wait_mode",
-    ),
     c.CONF_COVER_TYPE: (
         [c.CONF_COVER_TYPE_BLIND, c.CONF_COVER_TYPE_AWNING],
         "cover_type",
@@ -279,14 +263,6 @@ _GROUP_FIELDS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
             "shading_waits",
             (
                 c.CONF_SHADING_WAITINGTIME_END,
-            ),
-        ),
-        (
-            "shading_tilt",
-            (
-                c.CONF_SHADING_TILT_ELEVATION_1,
-                c.CONF_SHADING_TILT_ELEVATION_2,
-                c.CONF_SHADING_TILT_ELEVATION_3,
             ),
         ),
         (
@@ -428,13 +404,6 @@ GROUP_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
                 c.CONF_SHADING_WAITINGTIME_END,
             }
         ),
-        "tilt": frozenset(
-            {
-                c.CONF_SHADING_TILT_ELEVATION_1,
-                c.CONF_SHADING_TILT_ELEVATION_2,
-                c.CONF_SHADING_TILT_ELEVATION_3,
-            }
-        ),
     },
     c.GROUP_SECTION_BEHAVIOR: {
         "manual_override": frozenset(
@@ -546,7 +515,7 @@ def _build_group_field_metadata() -> dict[str, GroupFieldMetadata]:
         return "number"
 
     def unit(key: str) -> str | None:
-        if key in _POSITION_KEYS or key in {c.CONF_POSITION_TOLERANCE, c.CONF_TILT_POSITION_TOLERANCE}:
+        if key in _POSITION_KEYS or key == c.CONF_POSITION_TOLERANCE:
             return "%"
         if key in _DURATION_KEYS:
             return "s"
@@ -649,7 +618,7 @@ def _field_validator(key: str, value: Any, *, stored: bool) -> tuple[Any, Any]:
         return marker(_time_default(value)), selector.TimeSelector()
     if key in _POSITION_KEYS:
         return marker(int(value or 0)), _number_selector(0, 100, 1, "%")
-    if key in {c.CONF_POSITION_TOLERANCE, c.CONF_TILT_POSITION_TOLERANCE}:
+    if key == c.CONF_POSITION_TOLERANCE:
         return marker(int(value or 0)), _number_selector(0, 20, 1, "%")
     if key in {c.CONF_MANUAL_OVERRIDE_MINUTES, c.CONF_NO_GO_TIME_MINUTES}:
         return marker(int(value or 0)), _number_selector(0, 10080, 1, "min")

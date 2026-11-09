@@ -33,8 +33,6 @@ from ..const import (
     CONF_CALENDAR_ENTITY,
     CONF_CLOSE_POSITION,
     CONF_CLOSE_TILT_POSITION,
-    CONF_COVER_TILT_WAIT_MODE,
-    CONF_COVER_TILT_WAIT_TIMEOUT,
     CONF_DRIVE_TIME,
     CONF_ENABLE_LOGBOOK_COVER,
     CONF_LOCKOUT_POSITION,
@@ -42,7 +40,6 @@ from ..const import (
     CONF_OPEN_POSITION,
     CONF_OPEN_TILT_POSITION,
     CONF_POSITION_TOLERANCE,
-    CONF_TILT_POSITION_TOLERANCE,
     CONF_TEMPERATURE_SENSOR_INDOOR,
     CONF_TEMPERATURE_SENSOR_OUTDOOR,
     CONF_DRIVE_DELAY_FIXED,
@@ -52,14 +49,7 @@ from ..const import (
     CONF_SHADING_POSITION,
     CONF_SHADING_POSITION_ALT,
     CONF_SHADING_POSITION_ALT_ENTITY,
-    CONF_SHADING_TILT_ELEVATION_1,
-    CONF_SHADING_TILT_ELEVATION_2,
-    CONF_SHADING_TILT_ELEVATION_3,
     CONF_SHADING_TILT_POSITION,
-    CONF_SHADING_TILT_POSITION_0,
-    CONF_SHADING_TILT_POSITION_1,
-    CONF_SHADING_TILT_POSITION_2,
-    CONF_SHADING_TILT_POSITION_3,
     CONF_VENTILATE_POSITION,
     CONF_VENTILATE_TILT_POSITION,
     CONF_WINDOW_SENSOR_FULL,
@@ -68,26 +58,16 @@ from ..const import (
     CONF_WORKDAY_TOMORROW_SENSOR,
     FUNCTION_SAFETY,
     SAFETY_ALARMS,
-    COVER_TILT_WAIT_BEFORE_POSITION,
-    COVER_TILT_WAIT_IDLE,
     DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_CLOSE_TILT_POSITION,
     DEFAULT_CLOSE_POSITION,
-    DEFAULT_COVER_TILT_WAIT_MODE,
-    DEFAULT_COVER_TILT_WAIT_TIMEOUT,
     DEFAULT_DRIVE_TIME,
     DEFAULT_MASTER_FLAGS,
     DEFAULT_OPEN_POSITION,
     DEFAULT_OPEN_TILT_POSITION,
     DEFAULT_SHADING_POSITION,
-    DEFAULT_SHADING_TILT_ELEVATION_1,
-    DEFAULT_SHADING_TILT_ELEVATION_2,
-    DEFAULT_SHADING_TILT_ELEVATION_3,
     DEFAULT_SHADING_TILT_POSITION,
-    DEFAULT_SHADING_TILT_POSITION_0,
-    DEFAULT_SHADING_TILT_POSITION_1,
-    DEFAULT_SHADING_TILT_POSITION_2,
-    DEFAULT_SHADING_TILT_POSITION_3,
+    DEFAULT_TILT_TOLERANCE,
     DEFAULT_TOLERANCE,
     DEFAULT_DRIVE_DELAY_FIXED,
     DEFAULT_VENTILATE_POSITION,
@@ -95,6 +75,7 @@ from ..const import (
     DOMAIN,
     EVENT_COVER_CONTROL,
     SIGNAL_STATE_UPDATED,
+    TILT_WAIT_TIMEOUT,
 )
 from .common import (
     _LOGGER,
@@ -323,9 +304,7 @@ class ActuatorMixin:
                 current_tilt = _coerce_float(
                     state and state.attributes.get("current_tilt_position")
                 )
-                tilt_tolerance = self._position_value(
-                    CONF_TILT_POSITION_TOLERANCE, DEFAULT_TOLERANCE
-                )
+                tilt_tolerance = DEFAULT_TILT_TOLERANCE
                 if current_tilt is None or abs(current_tilt - tilt_position) > tilt_tolerance:
                     await self._command_tilt_position(float(tilt_position), reason=reason)
             if self._reason is None:
@@ -357,16 +336,6 @@ class ActuatorMixin:
             if current_after_delay is not None and abs(current_after_delay - target) <= tolerance:
                 self.async_request_evaluate("target_reached_during_delay")
                 return
-        if (
-            tilt_position is not None
-            and str(
-                self.config.get(CONF_COVER_TILT_WAIT_MODE, DEFAULT_COVER_TILT_WAIT_MODE)
-                or DEFAULT_COVER_TILT_WAIT_MODE
-            ).lower()
-            == COVER_TILT_WAIT_BEFORE_POSITION
-            and current is not None
-        ):
-            await self._align_tilt_before_position(current, target, reason)
         await self._command_position(target, reason=reason)
         if tilt_position is not None:
             await self._send_tilt_after_position(float(tilt_position), reason=reason)
@@ -490,59 +459,21 @@ class ActuatorMixin:
         except (TypeError, ValueError):
             return None
 
-    async def _align_tilt_before_position(
-        self, current: float, target: float, reason: str
-    ) -> None:
-        """Align slats with the travel direction for tilt-restoring motors."""
-
-        state = self.hass.states.get(self.cover)
-        if state is None or state.attributes.get("current_tilt_position") is None:
-            return
-        if current >= 99.5:
-            ctx = Context()
-            self._last_command_context_id = ctx.id
-            self._last_command_at = dt_util.utcnow()
-            await self.hass.services.async_call(
-                "cover",
-                "close_cover",
-                {"entity_id": self.cover},
-                blocking=True,
-                context=ctx,
-            )
-            await self._async_wait_for_state_change(
-                lambda: (
-                    (state := self.hass.states.get(self.cover)) is not None
-                    and state.state != "open"
-                ),
-                1,
-            )
-            return
-        preliminary_tilt = 0.0 if target < current else 100.0
-        await self._command_tilt_position(
-            preliminary_tilt, reason=f"{reason}_tilt_alignment"
-        )
-
     async def _send_tilt_after_position(
         self, tilt_position: float, *, reason: str | None = None
     ) -> None:
-        wait_mode = str(
-            self.config.get(CONF_COVER_TILT_WAIT_MODE, DEFAULT_COVER_TILT_WAIT_MODE)
-            or DEFAULT_COVER_TILT_WAIT_MODE
-        ).lower()
-        if wait_mode in {
-            COVER_TILT_WAIT_IDLE,
-            COVER_TILT_WAIT_BEFORE_POSITION,
-        }:
-            timeout = self._duration_value(
-                CONF_COVER_TILT_WAIT_TIMEOUT, DEFAULT_COVER_TILT_WAIT_TIMEOUT
-            )
-            await self._async_wait_for_state_change(
-                lambda: (
-                    (state := self.hass.states.get(self.cover)) is not None
-                    and state.state in ("open", "closed")
-                ),
-                timeout,
-            )
+        state = self.hass.states.get(self.cover)
+        cover_entity_feature = await _async_cover_entity_feature(self.hass)
+        supported = (state.attributes.get("supported_features") if state else 0) or 0
+        if not bool(int(supported) & cover_entity_feature.SET_TILT_POSITION):
+            return
+        await self._async_wait_for_state_change(
+            lambda: (
+                (state := self.hass.states.get(self.cover)) is not None
+                and state.state in ("open", "closed")
+            ),
+            TILT_WAIT_TIMEOUT,
+        )
         await self._command_tilt_position(tilt_position, reason=reason)
 
     def _tilt_position_value(self, reason: str | None) -> float | None:
@@ -570,42 +501,10 @@ class ActuatorMixin:
             and "end_open" not in reason
             and "end_close" not in reason
         ):
-            return self._shading_tilt_for_elevation()
+            return self._position_value(
+                CONF_SHADING_TILT_POSITION, DEFAULT_SHADING_TILT_POSITION
+            )
         return None
-
-    def _shading_tilt_for_elevation(self) -> float | None:
-        sun_state = self.hass.states.get(self._sun_entity())
-        elevation = _coerce_float(sun_state and sun_state.attributes.get("elevation"))
-        el1 = self._number_value(
-            CONF_SHADING_TILT_ELEVATION_1, DEFAULT_SHADING_TILT_ELEVATION_1
-        )
-        el2 = self._number_value(
-            CONF_SHADING_TILT_ELEVATION_2, DEFAULT_SHADING_TILT_ELEVATION_2
-        )
-        el3 = self._number_value(
-            CONF_SHADING_TILT_ELEVATION_3, DEFAULT_SHADING_TILT_ELEVATION_3
-        )
-        pos0 = self._number_value(
-            CONF_SHADING_TILT_POSITION_0, DEFAULT_SHADING_TILT_POSITION_0
-        )
-        pos1 = self._number_value(
-            CONF_SHADING_TILT_POSITION_1, DEFAULT_SHADING_TILT_POSITION_1
-        )
-        pos2 = self._number_value(
-            CONF_SHADING_TILT_POSITION_2, DEFAULT_SHADING_TILT_POSITION_2
-        )
-        pos3 = self._number_value(
-            CONF_SHADING_TILT_POSITION_3, DEFAULT_SHADING_TILT_POSITION_3
-        )
-        if elevation is None:
-            return pos0
-        if elevation >= el3:
-            return pos3
-        if elevation >= el2:
-            return pos2
-        if elevation >= el1:
-            return pos1
-        return pos0
 
     def _full_open_sensors(self) -> list[str]:
         mapping = self.config.get(CONF_WINDOW_SENSOR_FULL) or {}
@@ -965,6 +864,12 @@ class ActuatorMixin:
         cover_entity_feature = await _async_cover_entity_feature(self.hass)
         supported = (state.attributes.get("supported_features")) or 0
         if not bool(int(supported) & cover_entity_feature.SET_TILT_POSITION):
+            return
+        current_tilt = _coerce_float(state.attributes.get("current_tilt_position"))
+        if (
+            current_tilt is not None
+            and abs(current_tilt - tilt_position) <= DEFAULT_TILT_TOLERANCE
+        ):
             return
 
         ctx = Context()

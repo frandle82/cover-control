@@ -8,6 +8,7 @@ from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
+from homeassistant.components.cover import CoverEntityFeature
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult, section
 from homeassistant.helpers import selector
@@ -44,8 +45,6 @@ from .const import (
     CONF_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_CONTROLLER_ENTRY_ID,
     CONF_COVERS,
-    CONF_COVER_TILT_WAIT_MODE,
-    CONF_COVER_TILT_WAIT_TIMEOUT,
     CONF_COVER_TYPE,
     CONF_COVER_TYPE_AWNING,
     CONF_COVER_TYPE_BLIND,
@@ -88,14 +87,7 @@ from .const import (
     CONF_SHADING_POSITION,
     CONF_SHADING_POSITION_ALT,
     CONF_SHADING_POSITION_ALT_ENTITY,
-    CONF_SHADING_TILT_ELEVATION_1,
-    CONF_SHADING_TILT_ELEVATION_2,
-    CONF_SHADING_TILT_ELEVATION_3,
     CONF_SHADING_TILT_POSITION,
-    CONF_SHADING_TILT_POSITION_0,
-    CONF_SHADING_TILT_POSITION_1,
-    CONF_SHADING_TILT_POSITION_2,
-    CONF_SHADING_TILT_POSITION_3,
     CONF_SHADING_WAITINGTIME_END,
     CONF_SOURCE_OVERRIDES,
     CONF_SUMMER_SKIP_CLOSE_ENABLED,
@@ -111,7 +103,6 @@ from .const import (
     CONF_TEMPERATURE_SENSOR_INDOOR,
     CONF_TEMPERATURE_SENSOR_OUTDOOR,
     CONF_TEMPERATURE_THRESHOLD,
-    CONF_TILT_POSITION_TOLERANCE,
     CONF_USE_BRIGHTNESS_SENSOR,
     CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_USE_RESIDENT_SENSOR,
@@ -124,15 +115,10 @@ from .const import (
     CONF_WINDOW_SENSOR_TILT,
     CONF_WORKDAY_SENSOR,
     CONF_WORKDAY_TOMORROW_SENSOR,
-    COVER_TILT_WAIT_BEFORE_POSITION,
-    COVER_TILT_WAIT_FIXED_DELAY,
-    COVER_TILT_WAIT_IDLE,
     DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_BEHAVIOR_SETTINGS,
     DEFAULT_BUTTON_SETTINGS,
     DEFAULT_CONTACT_SETTINGS,
-    DEFAULT_COVER_TILT_WAIT_MODE,
-    DEFAULT_COVER_TILT_WAIT_TIMEOUT,
     DEFAULT_DRIVE_TIME,
     DEFAULT_GROUP,
     DEFAULT_MASTER_FLAGS,
@@ -141,10 +127,6 @@ from .const import (
     DEFAULT_SAFETY_PARTICIPATION,
     DEFAULT_SAFETY_SETTINGS,
     DEFAULT_SHADING_SETTINGS,
-    DEFAULT_SHADING_TILT_POSITION_0,
-    DEFAULT_SHADING_TILT_POSITION_1,
-    DEFAULT_SHADING_TILT_POSITION_2,
-    DEFAULT_SHADING_TILT_POSITION_3,
     DEFAULT_SHADING_TIMING_SETTINGS,
     DEFAULT_ASTRO_CLOSE_OFFSET,
     DEFAULT_ASTRO_OPEN_OFFSET,
@@ -295,24 +277,11 @@ POSITION_FIELD_LIMITS = {
     CONF_SHADING_POSITION: 100,
     CONF_SHADING_POSITION_ALT: 100,
     CONF_POSITION_TOLERANCE: 20,
-    CONF_TILT_POSITION_TOLERANCE: 20,
     CONF_OPEN_TILT_POSITION: 100,
     CONF_CLOSE_TILT_POSITION: 100,
     CONF_VENTILATE_TILT_POSITION: 100,
     CONF_SHADING_TILT_POSITION: 100,
-    CONF_SHADING_TILT_POSITION_0: 100,
-    CONF_SHADING_TILT_POSITION_1: 100,
-    CONF_SHADING_TILT_POSITION_2: 100,
-    CONF_SHADING_TILT_POSITION_3: 100,
 }
-
-_EXTRA_POSITION_DEFAULTS: dict[str, int] = {
-    CONF_SHADING_TILT_POSITION_0: DEFAULT_SHADING_TILT_POSITION_0,
-    CONF_SHADING_TILT_POSITION_1: DEFAULT_SHADING_TILT_POSITION_1,
-    CONF_SHADING_TILT_POSITION_2: DEFAULT_SHADING_TILT_POSITION_2,
-    CONF_SHADING_TILT_POSITION_3: DEFAULT_SHADING_TILT_POSITION_3,
-}
-
 
 def _position_number_selector(
     key: str = CONF_OPEN_POSITION,
@@ -335,7 +304,7 @@ def _normalize_position_value(key: str, value: Any) -> int | None:
     try:
         parsed = int(float(str(value).replace(",", ".")))
     except (TypeError, ValueError):
-        fallback = DEFAULT_POSITION_SETTINGS.get(key, _EXTRA_POSITION_DEFAULTS.get(key, 0))
+        fallback = DEFAULT_POSITION_SETTINGS.get(key, 0)
         if key in optional_positions and fallback is None:
             return None
         parsed = int(fallback)
@@ -343,7 +312,7 @@ def _normalize_position_value(key: str, value: Any) -> int | None:
 
 
 def _position_default(config: dict[str, Any], key: str) -> int | None:
-    fallback = DEFAULT_POSITION_SETTINGS.get(key, _EXTRA_POSITION_DEFAULTS.get(key, 0))
+    fallback = DEFAULT_POSITION_SETTINGS.get(key, 0)
     return _normalize_position_value(key, config.get(key, fallback))
 
 
@@ -446,7 +415,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
 class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the config flow."""
 
-    VERSION = 18
+    VERSION = 19
 
     @staticmethod
     @callback
@@ -1045,9 +1014,6 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         allowed = {
             CONF_SHADING_WAITINGTIME_END,
             CONF_KEEP_SUN_PROTECTION,
-            CONF_SHADING_TILT_ELEVATION_1,
-            CONF_SHADING_TILT_ELEVATION_2,
-            CONF_SHADING_TILT_ELEVATION_3,
         }
         if mode in {
             SHADING_MODE_INSIDE_OUTSIDE,
@@ -1521,10 +1487,6 @@ class RoomFlowMixin:
         if user_input is not None:
             settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
             settings.update(_normalize_position_fields(dict(user_input)))
-            if CONF_TILT_POSITION_TOLERANCE in user_input:
-                settings[CONF_TILT_POSITION_TOLERANCE] = float(
-                    user_input[CONF_TILT_POSITION_TOLERANCE]
-                )
             settings[CONF_COVERS] = list(user_input[CONF_COVERS])
             data[CONF_ROOM_SETTINGS] = settings
             return await self._save_room(data)
@@ -1565,38 +1527,10 @@ class RoomFlowMixin:
                             mode=selector.NumberSelectorMode.BOX,
                         )
                     ),
-                    vol.Optional(
-                        CONF_COVER_TILT_WAIT_MODE,
-                        default=settings.get(
-                            CONF_COVER_TILT_WAIT_MODE,
-                            DEFAULT_COVER_TILT_WAIT_MODE,
-                        ),
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=[
-                                COVER_TILT_WAIT_FIXED_DELAY,
-                                COVER_TILT_WAIT_IDLE,
-                                COVER_TILT_WAIT_BEFORE_POSITION,
-                            ],
-                            mode=selector.SelectSelectorMode.DROPDOWN,
-                            translation_key="cover_tilt_wait_mode",
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_COVER_TILT_WAIT_TIMEOUT,
-                        default=settings.get(
-                            CONF_COVER_TILT_WAIT_TIMEOUT,
-                            DEFAULT_COVER_TILT_WAIT_TIMEOUT,
-                        ),
-                    ): vol.Coerce(int),
                     vol.Required(
                         CONF_POSITION_TOLERANCE,
                         default=_position_default(dict(settings), CONF_POSITION_TOLERANCE),
                     ): _position_number_selector(CONF_POSITION_TOLERANCE),
-                    vol.Optional(
-                        CONF_TILT_POSITION_TOLERANCE,
-                        default=_position_default(dict(settings), CONF_TILT_POSITION_TOLERANCE),
-                    ): _position_number_selector(CONF_TILT_POSITION_TOLERANCE),
                 }
             ),
             description_placeholders=self._room_context_placeholders(),
@@ -1628,10 +1562,6 @@ class RoomFlowMixin:
                 CONF_CLOSE_TILT_POSITION,
                 CONF_SHADING_TILT_POSITION,
                 CONF_VENTILATE_TILT_POSITION,
-                CONF_SHADING_TILT_POSITION_0,
-                CONF_SHADING_TILT_POSITION_1,
-                CONF_SHADING_TILT_POSITION_2,
-                CONF_SHADING_TILT_POSITION_3,
             }
             normalized = _normalize_position_fields(
                 {key: value for key, value in submitted.items() if key in keys}
@@ -1645,6 +1575,14 @@ class RoomFlowMixin:
             data[CONF_ROOM_SETTINGS] = settings
             return await self._save_room(data)
 
+        supports_tilt = any(
+            (state := self.hass.states.get(entity_id)) is not None
+            and bool(
+                int(state.attributes.get("supported_features", 0))
+                & int(CoverEntityFeature.SET_TILT_POSITION)
+            )
+            for entity_id in settings.get(CONF_COVERS, [])
+        )
         return self.async_show_form(
             step_id="positions",
             data_schema=vol.Schema(
@@ -1704,7 +1642,7 @@ class RoomFlowMixin:
                         ),
                         {"collapsed": False},
                     ),
-                    vol.Optional("tilt_positions"): section(
+                    **({vol.Optional("tilt_positions"): section(
                         vol.Schema(
                             {
                                 vol.Required(
@@ -1723,25 +1661,9 @@ class RoomFlowMixin:
                                     CONF_VENTILATE_TILT_POSITION,
                                     default=_position_default(settings, CONF_VENTILATE_TILT_POSITION),
                                 ): _position_number_selector(),
-                                vol.Required(
-                                    CONF_SHADING_TILT_POSITION_0,
-                                    default=_position_default(settings, CONF_SHADING_TILT_POSITION_0),
-                                ): _position_number_selector(),
-                                vol.Required(
-                                    CONF_SHADING_TILT_POSITION_1,
-                                    default=_position_default(settings, CONF_SHADING_TILT_POSITION_1),
-                                ): _position_number_selector(),
-                                vol.Required(
-                                    CONF_SHADING_TILT_POSITION_2,
-                                    default=_position_default(settings, CONF_SHADING_TILT_POSITION_2),
-                                ): _position_number_selector(),
-                                vol.Required(
-                                    CONF_SHADING_TILT_POSITION_3,
-                                    default=_position_default(settings, CONF_SHADING_TILT_POSITION_3),
-                                ): _position_number_selector(),
                             }
                         ),
-                    ),
+                    )} if supports_tilt else {}),
                 }
             ),
             description_placeholders=self._room_context_placeholders(),
