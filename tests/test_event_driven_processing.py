@@ -126,6 +126,37 @@ def test_state_snapshot_is_read_only() -> None:
     controller._publish_state.assert_not_called()
 
 
+@pytest.mark.parametrize("own_context", [True, False])
+def test_tilt_service_manual_override_depends_on_command_context(own_context) -> None:
+    controller = object.__new__(CoverController)
+    controller.cover = "cover.test"
+    controller._ignore_service_call_until = None
+    controller._last_command_context_id = "own-command"
+    controller._current_position = Mock(return_value=50)
+    controller._status = {}
+    controller._manual_detection_enabled = Mock(return_value=True)
+    controller._clear_shading_for_manual_override = Mock()
+    controller._activate_manual_override = Mock()
+    controller.async_request_evaluate = Mock()
+    event = SimpleNamespace(
+        context=SimpleNamespace(id="own-command" if own_context else "external"),
+        data={
+            "domain": "cover",
+            "service": "set_cover_tilt_position",
+            "service_data": {"entity_id": "cover.test", "tilt_position": 40},
+        },
+    )
+
+    controller._handle_service_call(event)
+
+    if own_context:
+        controller._activate_manual_override.assert_not_called()
+    else:
+        controller._activate_manual_override.assert_called_once_with(
+            reason="manual_override"
+        )
+
+
 def test_scheduled_event_timer_is_single_and_rescheduled() -> None:
     """A changed event replaces its predecessor and fires one evaluation."""
 

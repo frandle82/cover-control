@@ -3,7 +3,7 @@ import pytest
 from homeassistant.helpers import issue_registry as ir
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.cover_control import async_migrate_entry
-from custom_components.cover_control.config_migration import migrate_profile_model
+from custom_components.cover_control.config_migration import cleanup_runtime_options, migrate_profile_model
 from custom_components.cover_control.const import *  # noqa: F403
 
 def _legacy(name: str, rooms: dict, settings: dict | None = None, extra_profiles: dict | None = None):
@@ -138,7 +138,7 @@ def test_removed_runtime_options_are_deleted_from_all_layers() -> None:
     model, warnings = migrate_profile_model(source)
     serialized = str(model)
 
-    assert model[CONF_CONFIG_VERSION] == 13
+    assert model[CONF_CONFIG_VERSION] == 14
     assert "force_" not in serialized
     assert "position_source" not in serialized
     assert "custom_position_sensor" not in serialized
@@ -225,6 +225,40 @@ async def test_removed_runtime_options_create_repair_warnings(hass) -> None:
     assert (DOMAIN, "manual_override_reset_time_migration") in issues
     assert "custom_position_sensor" not in str(room.data)
 
+def test_legacy_tilt_options_collapse_to_single_shading_target() -> None:
+    settings, warnings = cleanup_runtime_options(
+        {
+            "cover_tilt_wait_mode": "tilt_before_position",
+            "cover_tilt_wait_timeout": 12,
+            "tilt_position_tolerance": 7,
+            "shading_tilt_position_0": 15,
+            "shading_tilt_position_1": 25,
+            "shading_tilt_position_2": 35,
+            "shading_tilt_position_3": 45,
+            "shading_tilt_elevation_1": 10,
+            "shading_tilt_elevation_2": 20,
+            "shading_tilt_elevation_3": 30,
+        }
+    )
+
+    assert settings == {CONF_SHADING_TILT_POSITION: 35}
+    assert warnings == {"custom multistage tilt shading was collapsed"}
+
+
+def test_default_legacy_tilt_options_are_removed_without_warning() -> None:
+    settings, warnings = cleanup_runtime_options(
+        {
+            "shading_tilt_position_0": 0,
+            "shading_tilt_position_1": 20,
+            "shading_tilt_position_2": 37,
+            "shading_tilt_position_3": 50,
+        }
+    )
+
+    assert settings == {}
+    assert not warnings
+
+
 def test_migration_removes_legacy_assignment_fields() -> None:
     model, _ = migrate_profile_model(_legacy("Living", {"room": ("Room", "selected", {})}))
     room = model[CONF_ROOMS]["room"]
@@ -249,7 +283,7 @@ async def test_entry_migration_updates_controller_and_rooms(hass) -> None:
     controller.add_to_hass(hass)
     room.add_to_hass(hass)
     assert await async_migrate_entry(hass, controller)
-    assert controller.version == room.version == 18
+    assert controller.version == room.version == 19
     assert set(controller.data[CONF_GROUPS]) == set(GROUPS)
     assert room.data[CONF_GROUP] == GROUP_SLEEP
     assert "profile_id" not in room.data
@@ -391,7 +425,7 @@ async def test_migration_warns_for_removed_dynamic_mode(hass) -> None:
     )
     controller.add_to_hass(hass)
     assert await async_migrate_entry(hass, controller)
-    assert controller.version == 18
+    assert controller.version == 19
     assert (DOMAIN, "sun_mode_migration") in ir.async_get(hass).issues
 
 
@@ -415,7 +449,7 @@ async def test_complex_shading_rules_create_repair_warning(hass) -> None:
     )
     controller.add_to_hass(hass)
     assert await async_migrate_entry(hass, controller)
-    assert controller.version == 18
+    assert controller.version == 19
     assert (DOMAIN, "shading_mode_migration") in ir.async_get(hass).issues
 
 
@@ -469,7 +503,7 @@ async def test_removed_cca_behavior_creates_single_repair_warning(hass) -> None:
 
     assert await async_migrate_entry(hass, controller)
 
-    assert controller.version == 18
+    assert controller.version == 19
     assert (DOMAIN, "cca_cleanup_migration") in ir.async_get(hass).issues
 
 
@@ -488,6 +522,6 @@ async def test_room_cleanup_creates_same_single_repair_warning(hass) -> None:
 
     assert await async_migrate_entry(hass, room)
 
-    assert room.version == 18
+    assert room.version == 19
     assert "lockout_tilt_shading_start" not in room.data[CONF_ROOM_SETTINGS]
     assert (DOMAIN, "cca_cleanup_migration") in ir.async_get(hass).issues

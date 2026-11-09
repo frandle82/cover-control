@@ -3,15 +3,17 @@ import json
 from pathlib import Path
 import pytest
 from homeassistant import config_entries
+from homeassistant.components.cover import CoverEntityFeature
 from homeassistant.data_entry_flow import FlowResultType
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.cover_control.config_flow import CoverControlFlow
 from custom_components.cover_control.const import (
-    CONF_CONTROLLER_ENTRY_ID, CONF_ENTRY_TYPE, CONF_GLOBAL, CONF_GROUP,
+    CONF_CONTROLLER_ENTRY_ID, CONF_COVERS, CONF_ENTRY_TYPE, CONF_GLOBAL, CONF_GROUP,
     CONF_GROUPS, CONF_NAME, CONF_ROOM, CONF_ROOM_ID, CONF_ROOM_SETTINGS,
     CONF_CLOSE_MODE, CONF_OPEN_MODE, CONF_SUN_ELEVATION_OPEN,
     CONF_SHADING_DIRECTION, CONF_SHADING_INSIDE_TEMPERATURE_THRESHOLD,
     CONF_KEEP_SUN_PROTECTION,
+    CONF_OPEN_TILT_POSITION,
     CONF_MANUAL_CONTROL, CONF_MANUAL_OVERRIDE_MINUTES,
     CONF_SHADING_MODE, CONF_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD,
     CONF_ASTRO_CLOSE_OFFSET, DOMAIN, ENTRY_TYPE_CONTROLLER, ENTRY_TYPE_ROOM,
@@ -61,6 +63,45 @@ async def test_room_group_selector(hass) -> None:
     assert result["step_id"] == "group_assignment"
     field = next(iter(result["data_schema"].schema))
     assert field.schema == CONF_GROUP
+
+
+@pytest.mark.parametrize("supports_tilt", [False, True])
+async def test_room_positions_follow_cover_tilt_capability(hass, supports_tilt) -> None:
+    controller = _controller(hass)
+    features = int(CoverEntityFeature.SET_TILT_POSITION) if supports_tilt else 0
+    hass.states.async_set("cover.room", "open", {"supported_features": features})
+    room = MockConfigEntry(
+        domain=DOMAIN,
+        version=19,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_ROOM,
+            CONF_CONTROLLER_ENTRY_ID: controller.entry_id,
+            CONF_ROOM_ID: "room",
+            CONF_NAME: "Room",
+            CONF_GROUP: GROUP_LIVING,
+            CONF_ROOM_SETTINGS: {CONF_COVERS: ["cover.room"]},
+        },
+    )
+    room.add_to_hass(hass)
+
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_RECONFIGURE, "entry_id": room.entry_id},
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "positions"}
+    )
+
+    sections = {
+        field.schema: schema for field, schema in result["data_schema"].schema.items()
+    }
+    assert ("tilt_positions" in sections) is supports_tilt
+    if supports_tilt:
+        tilt_fields = {
+            field.schema for field in sections["tilt_positions"].schema.schema
+        }
+        assert CONF_OPEN_TILT_POSITION in tilt_fields
+        assert not any(field.startswith("shading_tilt_position_") for field in tilt_fields)
 
 def test_supported_subentry_types_remains_empty() -> None:
     assert CoverControlFlow.async_get_supported_subentry_types(None) == {}

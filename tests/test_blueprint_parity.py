@@ -93,30 +93,6 @@ def test_full_ventilation_status_uses_lockout_position() -> None:
     assert not controller._ventilation_is_active(100)
 
 
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("current", "target", "expected_tilt"), [(50, 20, 0), (50, 80, 100)]
-)
-async def test_tilt_before_position_aligns_with_travel(
-    current: float, target: float, expected_tilt: float
-) -> None:
-    """Slats align in the cover's travel direction before positioning."""
-
-    cover_state = SimpleNamespace(
-        state="open",
-        attributes={"current_tilt_position": 50},
-    )
-    controller = _controller({}, {"cover.test": cover_state})
-    controller.cover = "cover.test"
-    controller._command_tilt_position = AsyncMock()
-
-    await controller._align_tilt_before_position(current, target, "shading")
-
-    controller._command_tilt_position.assert_awaited_once_with(
-        float(expected_tilt), reason="shading_tilt_alignment"
-    )
-
-
 def test_startup_position_sync_preserves_persisted_target() -> None:
     """Entity startup state must not overwrite the target loaded from storage."""
 
