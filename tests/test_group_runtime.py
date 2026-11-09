@@ -10,6 +10,7 @@ from custom_components.cover_control.const import (
     CONF_ENTRY_TYPE, CONF_GLOBAL, CONF_CONTROLLER_ENTRY_ID, CONF_ROOM_ID,
     CONF_NAME, CONF_COVERS, CONF_OPEN_POSITION, CONF_CLOSE_POSITION,
     CONF_SOURCE_OVERRIDES, DOMAIN, ENTRY_TYPE_CONTROLLER, ENTRY_TYPE_ROOM, GROUPS,
+    CONF_SHADING_MODE, CONF_RESIDENT_SENSOR,
 )
 from custom_components.cover_control.runtime.manager import ControllerManager
 from custom_components.cover_control.hub import CoverControlHub, GroupEvaluation
@@ -76,6 +77,28 @@ def test_group_switch_clears_old_group_timer() -> None:
     hub._reschedule_group_timers()
     unsubscribe.assert_called_once_with()
     assert hub._group_timer_unsubs == {}
+
+
+def test_room_manager_snapshot_without_controllers() -> None:
+    manager = object.__new__(ControllerManager)
+    manager.controllers = {}
+    manager.hass = SimpleNamespace(states=SimpleNamespace(get=Mock(return_value=None)))
+    manager._resolved_config = SimpleNamespace(
+        configured_functions=(),
+        get=lambda key, default=None: {
+            CONF_RESIDENT_SENSOR: "binary_sensor.resident",
+            CONF_SHADING_MODE: "inside",
+        }.get(key, default),
+    )
+
+    manager._rebuild_entry_snapshot()
+
+    snapshot = manager.entry_snapshot()
+    assert snapshot["covers"] == {}
+    assert snapshot["shading_mode"] == "inside"
+    assert snapshot["resident_status"] == "off"
+    assert snapshot["next_open"] is None
+    assert snapshot["next_close"] is None
 
 async def test_controller_and_room_load_with_fixed_groups(hass) -> None:
     async_mock_service(hass, "cover", "set_cover_position")
