@@ -3,7 +3,6 @@
 from __future__ import annotations
 
 import asyncio
-import random
 from datetime import (
     datetime,
     timedelta,
@@ -36,24 +35,17 @@ from ..const import (
     CONF_CLOSE_TILT_POSITION,
     CONF_COVER_TILT_WAIT_MODE,
     CONF_COVER_TILT_WAIT_TIMEOUT,
-    CONF_CUSTOM_POSITION_SENSOR,
     CONF_DRIVE_TIME,
     CONF_ENABLE_LOGBOOK_COVER,
     CONF_LOCKOUT_POSITION,
     CONF_MASTER_ENABLED,
     CONF_OPEN_POSITION,
     CONF_OPEN_TILT_POSITION,
-    CONF_POSITION_SOURCE,
-    CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
-    CONF_POSITION_SOURCE_CUSTOM_SENSOR,
-    CONF_POSITION_SOURCE_POSITION_ATTR,
     CONF_POSITION_TOLERANCE,
     CONF_TILT_POSITION_TOLERANCE,
     CONF_TEMPERATURE_SENSOR_INDOOR,
     CONF_TEMPERATURE_SENSOR_OUTDOOR,
     CONF_DRIVE_DELAY_FIXED,
-    CONF_DRIVE_DELAY_RANDOM,
-    CONF_FORCE_PAUSE_ENTITY,
     CONF_RESIDENT_SENSOR,
     CONF_RESIDENT_STATUS,
     CONF_SHADING_BRIGHTNESS_SENSOR,
@@ -98,7 +90,6 @@ from ..const import (
     DEFAULT_SHADING_TILT_POSITION_3,
     DEFAULT_TOLERANCE,
     DEFAULT_DRIVE_DELAY_FIXED,
-    DEFAULT_DRIVE_DELAY_RANDOM,
     DEFAULT_VENTILATE_POSITION,
     DEFAULT_VENTILATE_TILT_POSITION,
     DOMAIN,
@@ -349,24 +340,8 @@ class ActuatorMixin:
         if delay > 0:
             await asyncio.sleep(delay)
             safety_move = reason in SAFETY_REASONS
-            if not safety_move and self._entity_active(CONF_FORCE_PAUSE_ENTITY):
-                self.async_request_evaluate("force_pause_during_delay")
-                return
             if not safety_move and (self._manual_active or not self._master_enabled()):
                 self.async_request_evaluate("movement_gate_changed_during_delay")
-                return
-            force_reasons = {
-                "force_open": "force_open_entity",
-                "force_close": "force_close_entity",
-                "force_ventilate": "force_ventilate_entity",
-                "force_shading": "force_shading_entity",
-            }
-            if not safety_move and any(
-                self._entity_active(key)
-                for key in force_reasons.values()
-                if key != force_reasons.get(reason)
-            ):
-                self.async_request_evaluate("force_changed_during_delay")
                 return
             if (
                 not safety_move
@@ -498,46 +473,20 @@ class ActuatorMixin:
         return dict(self._window_down_sequence or {})
 
     def _drive_delay_seconds(self) -> float:
-        """Return the combined pre-drive delay for a real movement."""
+        """Return the deterministic pre-drive delay for a real movement."""
 
         fixed = max(0.0, float(self.config.get(CONF_DRIVE_DELAY_FIXED, DEFAULT_DRIVE_DELAY_FIXED) or 0))
-        random_max = max(0.0, float(self.config.get(CONF_DRIVE_DELAY_RANDOM, DEFAULT_DRIVE_DELAY_RANDOM) or 0))
-        return fixed + random.uniform(0.0, random_max)
+        return fixed
 
     def _current_position(self) -> float | None:
         state = self.hass.states.get(self.cover)
         if not state:
             return None
 
-        source = str(
-            self.config.get(
-                CONF_POSITION_SOURCE, CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR
-            )
-            or CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR
-        )
-        if source == CONF_POSITION_SOURCE_CUSTOM_SENSOR:
-            return _float_state(self.hass, self.config.get(CONF_CUSTOM_POSITION_SENSOR))
-
         try:
-            if (
-                source == CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR
-                and "current_position" in state.attributes
-            ):
-                return float(state.attributes["current_position"])
-            if (
-                source == CONF_POSITION_SOURCE_POSITION_ATTR
-                and "position" in state.attributes
-            ):
-                return float(state.attributes["position"])
             if "current_position" in state.attributes:
                 return float(state.attributes["current_position"])
-            if "position" in state.attributes:
-                return float(state.attributes["position"])
-            if state.state == "open" or state.state == "opening":
-                return 100.0
-            if state.state == "closed" or state.state == "closing":
-                return 0.0
-            return float(state.state)
+            return None
         except (TypeError, ValueError):
             return None
 
@@ -721,8 +670,6 @@ class ActuatorMixin:
             for _alarm, entity_key, enabled_key, _target, room_key, _default in SAFETY_ALARMS:
                 if self.config.get(enabled_key) and self.config.get(room_key):
                     keys.append(entity_key)
-        if self.config.get(CONF_POSITION_SOURCE) == CONF_POSITION_SOURCE_CUSTOM_SENSOR:
-            keys.append(CONF_CUSTOM_POSITION_SENSOR)
 
         for key in keys:
             entity_id = self.config.get(key)
@@ -741,30 +688,12 @@ class ActuatorMixin:
             )
             if isinstance(entity_id, str) and entity_id
         )
-        entities.update(
-            entity_id
-            for entity_id in (
-                self.config.get(key)
-                for key in (
-                    "force_open_entity",
-                    "force_close_entity",
-                    "force_ventilate_entity",
-                    "force_shading_entity",
-                    "force_pause_entity",
-                )
-            )
-            if isinstance(entity_id, str) and entity_id
-        )
         return entities
 
     def _local_decision_entities(self) -> set[str]:
         """Return inputs whose state is specific to this cover."""
 
         entities = set(self._contact_entities())
-        if self.config.get(CONF_POSITION_SOURCE) == CONF_POSITION_SOURCE_CUSTOM_SENSOR:
-            custom_sensor = self.config.get(CONF_CUSTOM_POSITION_SENSOR)
-            if isinstance(custom_sensor, str) and custom_sensor:
-                entities.add(custom_sensor)
         return entities
 
     def _shared_decision_entities(self) -> set[str]:
@@ -842,11 +771,6 @@ class ActuatorMixin:
 
         for key in (
             *self._auto_entity_map.values(),
-            "force_open_entity",
-            "force_close_entity",
-            "force_ventilate_entity",
-            "force_shading_entity",
-            "force_pause_entity",
         ):
             if self.config.get(key) == entity_id:
                 triggers.add(f"{key}_changed")
@@ -1076,10 +1000,6 @@ class ActuatorMixin:
             return current is not None and abs(current - target) <= tolerance
 
         entities = [self.cover]
-        if self.config.get(CONF_POSITION_SOURCE) == CONF_POSITION_SOURCE_CUSTOM_SENSOR:
-            custom_sensor = self.config.get(CONF_CUSTOM_POSITION_SENSOR)
-            if isinstance(custom_sensor, str) and custom_sensor:
-                entities.append(custom_sensor)
         await self._async_wait_for_state_change(_target_reached, timeout, entities)
 
     async def _async_wait_for_state_change(
