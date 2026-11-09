@@ -108,7 +108,6 @@ class CoverController(
         self._last_command_context_id: str | None = None
         self._manual_movement_pending = False
         self._logbook_dedupe: set[str] = set()
-        self._shading_forecast_cache: dict[str, object] | None = None
         self._reason: str | None = None
         self._decision_controls: set[str] = set()
         self._active_safety: str | None = None

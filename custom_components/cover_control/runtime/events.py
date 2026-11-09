@@ -35,7 +35,6 @@ from ..const import (
     CONF_POSITION_TOLERANCE,
     CONF_RESIDENT_SENSOR,
     CONF_SHADING_WAITINGTIME_END,
-    CONF_SHADING_WAITINGTIME_START,
     CONF_VENTILATE_POSITION,
     CONF_VENTILATION_START_NO_DELAY,
     DEFAULT_CLOSE_POSITION,
@@ -62,7 +61,6 @@ from .common import (
     TRIGGER_SCHEDULED_FINAL_CLOSE,
     TRIGGER_SCHEDULED_OPEN,
     TRIGGER_SHADING_END_TIMER,
-    TRIGGER_SHADING_START_TIMER,
     TRIGGER_WINDOW_CLOSED,
     TRIGGER_WINDOW_OPEN,
     TRIGGER_WINDOW_TILTED,
@@ -108,15 +106,11 @@ class EventsMixin:
     def update_config(self, new_config: ConfigType) -> None:
         self._cancel_window_down_sequence()
         old_config = self.config
-        pending_started: dict[str, datetime] = {}
-        for kind, due_at in getattr(self, "_shading_pending", {}).items():
-            key = (
-                CONF_SHADING_WAITINGTIME_START
-                if kind == "start"
-                else CONF_SHADING_WAITINGTIME_END
-            )
-            old_wait = max(0.0, float(old_config.get(key, 0) or 0))
-            pending_started[kind] = due_at - timedelta(seconds=old_wait)
+        due_at = getattr(self, "_shading_pending", {}).get("end")
+        old_wait = max(
+            0.0, float(old_config.get(CONF_SHADING_WAITINGTIME_END, 0) or 0)
+        )
+        pending_started = due_at - timedelta(seconds=old_wait) if due_at else None
         self.config = new_config
         self._resubscribe_local_decision_entities()
         self._clear_runtime_condition_timers()
@@ -127,16 +121,14 @@ class EventsMixin:
         if self._last_position is None:
             self._last_position = self._current_position()
         now = dt_util.utcnow()
-        for kind, started_at in pending_started.items():
-            key = (
-                CONF_SHADING_WAITINGTIME_START
-                if kind == "start"
-                else CONF_SHADING_WAITINGTIME_END
+        if pending_started is not None:
+            new_wait = max(
+                0.0,
+                float(new_config.get(CONF_SHADING_WAITINGTIME_END, 0) or 0),
             )
-            new_wait = max(0.0, float(new_config.get(key, 0) or 0))
-            due_at = started_at + timedelta(seconds=new_wait)
+            due_at = pending_started + timedelta(seconds=new_wait)
             if new_wait > 0 and due_at > now:
-                self._set_shading_pending(kind, due_at, False)
+                self._set_shading_pending("end", due_at, False)
         self._refresh_next_events(now)
         self._schedule_manual_expiry()
         self.persist_status()
@@ -732,11 +724,7 @@ class EventsMixin:
         @callback
         def _handle_shading_timer(_now: datetime) -> None:
             self._shading_timer_unsubs.pop(kind, None)
-            self.async_request_evaluate(
-                TRIGGER_SHADING_START_TIMER
-                if kind == "start"
-                else TRIGGER_SHADING_END_TIMER
-            )
+            self.async_request_evaluate(TRIGGER_SHADING_END_TIMER)
 
         self._shading_timer_unsubs[kind] = async_track_point_in_time(
             self.hass, _handle_shading_timer, due_at

@@ -33,7 +33,6 @@ TRIGGER_GOLDEN_HOUR_CLOSE_REACHED = "golden_hour_close_reached"
 TRIGGER_SHADING_END_CHANGED = "shading_end_condition_changed"
 TRIGGER_SHADING_END_TIMER = "shading_end_timer"
 TRIGGER_SHADING_START_CHANGED = "shading_start_condition_changed"
-TRIGGER_SHADING_START_TIMER = "shading_start_timer"
 TRIGGER_SUN_CHANGED = "sun_elevation_changed"
 TRIGGER_SUN_CLOSE_TIMER = "sun_close_duration_elapsed"
 TRIGGER_SUN_OPEN_TIMER = "sun_open_duration_elapsed"
@@ -118,7 +117,6 @@ _TRIGGER_PRIORITY = {
     TRIGGER_GOLDEN_HOUR_CLOSE_REACHED: 2,
     TRIGGER_SCHEDULED_CLOSE: 2,
     TRIGGER_SCHEDULED_FINAL_CLOSE: 2,
-    TRIGGER_SHADING_START_TIMER: 4,
     TRIGGER_SHADING_END_TIMER: 4,
     "startup": 2,
     "config_updated": 3,

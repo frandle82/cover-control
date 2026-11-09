@@ -16,38 +16,6 @@ from homeassistant.util import dt as dt_util
 from . import const as c
 from .config_resolver import GROUP_SECTION_KEYS
 
-_SHADING_CONDITIONS = [
-    c.SHADING_CONDITION_AZIMUTH,
-    c.SHADING_CONDITION_ELEVATION,
-    c.SHADING_CONDITION_BRIGHTNESS,
-    c.SHADING_CONDITION_TEMP_1,
-    c.SHADING_CONDITION_TEMP_2,
-    c.SHADING_CONDITION_FORECAST_TEMP,
-    c.SHADING_CONDITION_FORECAST_WEATHER,
-]
-_SHADING_CONFIGS = [
-    c.SHADING_CONFIG_TEMP_INDEPENDENT,
-    c.SHADING_CONFIG_COMPARE_FORECAST_SENSOR2,
-]
-_WEATHER_CONDITIONS = [
-    "clear-night",
-    "clear",
-    "cloudy",
-    "fog",
-    "hail",
-    "lightning",
-    "lightning-rainy",
-    "partlycloudy",
-    "pouring",
-    "rainy",
-    "snowy",
-    "snowy-rainy",
-    "sunny",
-    "windy",
-    "windy-variant",
-    "exceptional",
-]
-
 _BOOLEAN_KEYS = frozenset(
     {
         c.CONF_AUTO_UP,
@@ -59,10 +27,7 @@ _BOOLEAN_KEYS = frozenset(
         c.CONF_USE_WORKDAY_SENSOR,
         c.CONF_USE_BRIGHTNESS_SENSOR,
         c.CONF_AUTO_SHADING,
-        c.CONF_USE_SHADING_FORECAST_SENSOR,
         c.CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
-        c.CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
-        c.CONF_SHADING_INDEPENDENT_HOLDS_END,
         c.CONF_HEAT_PROTECTION_ENABLED,
         c.CONF_AUTO_VENTILATE,
         c.CONF_RESIDENT_STATUS,
@@ -145,10 +110,7 @@ _POSITION_KEYS = frozenset(
 _DURATION_KEYS = frozenset(
     {
         c.CONF_BRIGHTNESS_TIME_DURATION,
-        c.CONF_SHADING_WAITINGTIME_START,
         c.CONF_SHADING_WAITINGTIME_END,
-        c.CONF_SHADING_START_MAX_DURATION,
-        c.CONF_SHADING_END_MAX_DURATION,
         c.CONF_COVER_TILT_WAIT_TIMEOUT,
         c.CONF_CONTACT_TRIGGER_DELAY,
         c.CONF_CONTACT_STATUS_DELAY,
@@ -161,10 +123,8 @@ _DURATION_KEYS = frozenset(
 _TEMPERATURE_KEYS = frozenset(
     {
         c.CONF_COLD_PROTECTION_THRESHOLD,
-        c.CONF_SHADING_MIN_TEMPERATURE_1,
-        c.CONF_SHADING_MIN_TEMPERATURE_2,
-        c.CONF_SHADING_FORECAST_TEMP,
-        c.CONF_SHADING_INDEPENDENT_TEMP,
+        c.CONF_SHADING_INSIDE_TEMPERATURE_THRESHOLD,
+        c.CONF_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD,
         c.CONF_HEAT_PROTECTION_THRESHOLD,
         c.CONF_TEMPERATURE_THRESHOLD,
         c.CONF_TEMPERATURE_FORECAST_THRESHOLD,
@@ -173,9 +133,8 @@ _TEMPERATURE_KEYS = frozenset(
 
 _TEMPERATURE_HYSTERESIS_KEYS = frozenset(
     {
-        c.CONF_SHADING_TEMPERATURE_HYSTERESIS_1,
-        c.CONF_SHADING_TEMPERATURE_HYSTERESIS_2,
-        c.CONF_SHADING_FORECAST_TEMP_HYSTERESIS,
+        c.CONF_SHADING_INSIDE_TEMPERATURE_HYSTERESIS,
+        c.CONF_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS,
     }
 )
 
@@ -183,6 +142,8 @@ _ELEVATION_KEYS = frozenset(
     {
         c.CONF_SUN_ELEVATION_OPEN,
         c.CONF_SUN_ELEVATION_CLOSE,
+        c.CONF_SUN_ELEVATION_MIN,
+        c.CONF_SUN_ELEVATION_MAX,
         c.CONF_SHADING_TILT_ELEVATION_1,
         c.CONF_SHADING_TILT_ELEVATION_2,
         c.CONF_SHADING_TILT_ELEVATION_3,
@@ -194,28 +155,24 @@ _BRIGHTNESS_KEYS = frozenset(
         c.CONF_BRIGHTNESS_OPEN_ABOVE,
         c.CONF_BRIGHTNESS_CLOSE_BELOW,
         c.CONF_BRIGHTNESS_HYSTERESIS,
-        c.CONF_SHADING_BRIGHTNESS_START,
-        c.CONF_SHADING_BRIGHTNESS_END,
-        c.CONF_SHADING_BRIGHTNESS_HYSTERESIS,
+        c.CONF_SHADING_BRIGHTNESS_THRESHOLD,
     }
 )
 
-_MULTI_SELECTS = {
-    c.CONF_SHADING_CONDITIONS_START_AND: (_SHADING_CONDITIONS, "shading_condition"),
-    c.CONF_SHADING_CONDITIONS_START_OR: (_SHADING_CONDITIONS, "shading_condition"),
-    c.CONF_SHADING_CONDITIONS_END_AND: (_SHADING_CONDITIONS, "shading_condition"),
-    c.CONF_SHADING_CONDITIONS_END_OR: (_SHADING_CONDITIONS, "shading_condition"),
-    c.CONF_SHADING_CONFIG: (_SHADING_CONFIGS, "shading_config"),
-    c.CONF_SHADING_WEATHER_CONDITIONS: (_WEATHER_CONDITIONS, "weather_condition"),
-}
+_SHADING_PERCENT_KEYS = frozenset(
+    {
+        c.CONF_SHADING_BRIGHTNESS_HYSTERESIS,
+        c.CONF_SHADING_INSIDE_TEMPERATURE_HYSTERESIS,
+        c.CONF_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS,
+    }
+)
+
+_MULTI_SELECTS = {}
 
 _SELECTS = {
     c.CONF_OPEN_MODE: (list(c.OPEN_MODES), "open_mode"),
     c.CONF_CLOSE_MODE: (list(c.CLOSE_MODES), "close_mode"),
-    c.CONF_SHADING_FORECAST_TYPE: (
-        ["daily", "hourly", c.DEFAULT_SHADING_FORECAST_TYPE],
-        "forecast_type",
-    ),
+    c.CONF_SHADING_MODE: (list(c.SHADING_MODES), "shading_mode"),
     c.CONF_MANUAL_OVERRIDE_RESET_MODE: (
         [
             c.MANUAL_OVERRIDE_RESET_NONE,
@@ -318,67 +275,60 @@ _GROUP_FIELDS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
     ),
     c.GROUP_SECTION_SHADING: (
         (
-            "shading_targets",
+            "shading_mode",
             (
                 c.CONF_AUTO_SHADING,
+                c.CONF_SHADING_MODE,
+            ),
+        ),
+        (
+            "shading_direction",
+            (
+                c.CONF_SHADING_DIRECTION,
+                c.CONF_SHADING_DIRECTION_RANGE,
+                c.CONF_SUN_ELEVATION_MIN,
+                c.CONF_SUN_ELEVATION_MAX,
+            ),
+        ),
+        (
+            "shading_temperature",
+            (
+                c.CONF_SHADING_INSIDE_TEMPERATURE_THRESHOLD,
+                c.CONF_SHADING_INSIDE_TEMPERATURE_HYSTERESIS,
+                c.CONF_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD,
+                c.CONF_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS,
+                c.CONF_HEAT_PROTECTION_ENABLED,
+                c.CONF_HEAT_PROTECTION_THRESHOLD,
+            ),
+        ),
+        (
+            "shading_brightness",
+            (
+                c.CONF_SHADING_BRIGHTNESS_THRESHOLD,
+                c.CONF_SHADING_BRIGHTNESS_HYSTERESIS,
+            ),
+        ),
+        (
+            "shading_waits",
+            (
+                c.CONF_SHADING_WAITINGTIME_END,
+            ),
+        ),
+        (
+            "shading_tilt",
+            (
                 c.CONF_SHADING_TILT_ELEVATION_1,
                 c.CONF_SHADING_TILT_ELEVATION_2,
                 c.CONF_SHADING_TILT_ELEVATION_3,
             ),
         ),
         (
-            "shading_brightness",
+            "cold_protection",
             (
-                c.CONF_SHADING_BRIGHTNESS_START,
-                c.CONF_SHADING_BRIGHTNESS_END,
-                c.CONF_SHADING_BRIGHTNESS_HYSTERESIS,
-            ),
-        ),
-        (
-            "shading_temperature",
-            (
-                c.CONF_SHADING_MIN_TEMPERATURE_1,
-                c.CONF_SHADING_TEMPERATURE_HYSTERESIS_1,
-                c.CONF_SHADING_MIN_TEMPERATURE_2,
-                c.CONF_SHADING_TEMPERATURE_HYSTERESIS_2,
+                c.CONF_COLD_PROTECTION_THRESHOLD,
                 c.CONF_TEMPERATURE_THRESHOLD,
                 c.CONF_TEMPERATURE_FORECAST_THRESHOLD,
-                c.CONF_COLD_PROTECTION_THRESHOLD,
-                c.CONF_SHADING_INDEPENDENT_TEMP,
-                c.CONF_SHADING_INDEPENDENT_HOLDS_END,
-                c.CONF_HEAT_PROTECTION_ENABLED,
-                c.CONF_HEAT_PROTECTION_THRESHOLD,
-            ),
-        ),
-        (
-            "shading_forecast",
-            (
-                c.CONF_USE_SHADING_FORECAST_SENSOR,
                 c.CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
-                c.CONF_SHADING_FORECAST_TYPE,
-                c.CONF_SHADING_FORECAST_TEMP,
-                c.CONF_SHADING_FORECAST_TEMP_HYSTERESIS,
-                c.CONF_SHADING_WEATHER_CONDITIONS,
-                c.CONF_SHADING_CONFIG,
-            ),
-        ),
-        (
-            "shading_conditions",
-            (
-                c.CONF_SHADING_CONDITIONS_START_AND,
-                c.CONF_SHADING_CONDITIONS_START_OR,
-                c.CONF_SHADING_CONDITIONS_END_AND,
-                c.CONF_SHADING_CONDITIONS_END_OR,
-            ),
-        ),
-        (
-            "shading_waits",
-            (
-                c.CONF_SHADING_WAITINGTIME_START,
-                c.CONF_SHADING_WAITINGTIME_END,
-                c.CONF_SHADING_START_MAX_DURATION,
-                c.CONF_SHADING_END_MAX_DURATION,
-                c.CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
             ),
         ),
     ),
@@ -510,58 +460,34 @@ GROUP_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
         ),
     },
     c.GROUP_SECTION_SHADING: {
-        "positioning": frozenset(
+        "positioning": frozenset({c.CONF_AUTO_SHADING, c.CONF_SHADING_MODE}),
+        "direction": frozenset(
             {
-                c.CONF_AUTO_SHADING,
+                c.CONF_SHADING_DIRECTION,
+                c.CONF_SHADING_DIRECTION_RANGE,
+                c.CONF_SUN_ELEVATION_MIN,
+                c.CONF_SUN_ELEVATION_MAX,
             }
         ),
         "brightness": frozenset(
             {
-                c.CONF_SHADING_BRIGHTNESS_START,
-                c.CONF_SHADING_BRIGHTNESS_END,
+                c.CONF_SHADING_BRIGHTNESS_THRESHOLD,
                 c.CONF_SHADING_BRIGHTNESS_HYSTERESIS,
             }
         ),
         "temperature": frozenset(
             {
-                c.CONF_SHADING_MIN_TEMPERATURE_1,
-                c.CONF_SHADING_TEMPERATURE_HYSTERESIS_1,
-                c.CONF_SHADING_MIN_TEMPERATURE_2,
-                c.CONF_SHADING_TEMPERATURE_HYSTERESIS_2,
-                c.CONF_COLD_PROTECTION_THRESHOLD,
-                c.CONF_TEMPERATURE_THRESHOLD,
-                c.CONF_TEMPERATURE_FORECAST_THRESHOLD,
-                c.CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
+                c.CONF_SHADING_INSIDE_TEMPERATURE_THRESHOLD,
+                c.CONF_SHADING_INSIDE_TEMPERATURE_HYSTERESIS,
+                c.CONF_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD,
+                c.CONF_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS,
                 c.CONF_HEAT_PROTECTION_ENABLED,
                 c.CONF_HEAT_PROTECTION_THRESHOLD,
             }
         ),
-        "forecast": frozenset(
-            {
-                c.CONF_USE_SHADING_FORECAST_SENSOR,
-                c.CONF_SHADING_FORECAST_TYPE,
-                c.CONF_SHADING_FORECAST_TEMP,
-                c.CONF_SHADING_FORECAST_TEMP_HYSTERESIS,
-            }
-        ),
-        "weather": frozenset(
-            {c.CONF_SHADING_WEATHER_CONDITIONS, c.CONF_SHADING_CONFIG}
-        ),
-        "conditions": frozenset(
-            {
-                c.CONF_SHADING_CONDITIONS_START_AND,
-                c.CONF_SHADING_CONDITIONS_START_OR,
-                c.CONF_SHADING_CONDITIONS_END_AND,
-                c.CONF_SHADING_CONDITIONS_END_OR,
-            }
-        ),
         "waiting": frozenset(
             {
-                c.CONF_SHADING_WAITINGTIME_START,
                 c.CONF_SHADING_WAITINGTIME_END,
-                c.CONF_SHADING_START_MAX_DURATION,
-                c.CONF_SHADING_END_MAX_DURATION,
-                c.CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
             }
         ),
         "tilt": frozenset(
@@ -569,12 +495,6 @@ GROUP_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
                 c.CONF_SHADING_TILT_ELEVATION_1,
                 c.CONF_SHADING_TILT_ELEVATION_2,
                 c.CONF_SHADING_TILT_ELEVATION_3,
-            }
-        ),
-        "independent_temperature": frozenset(
-            {
-                c.CONF_SHADING_INDEPENDENT_TEMP,
-                c.CONF_SHADING_INDEPENDENT_HOLDS_END,
             }
         ),
     },
@@ -724,9 +644,14 @@ def _build_group_field_metadata() -> dict[str, GroupFieldMetadata]:
             return "s"
         if key == c.CONF_MANUAL_OVERRIDE_MINUTES:
             return "min"
-        if key in _TEMPERATURE_KEYS or key in _TEMPERATURE_HYSTERESIS_KEYS:
+        if key in _TEMPERATURE_KEYS:
             return "°C"
-        if key in _ELEVATION_KEYS:
+        if key in _SHADING_PERCENT_KEYS:
+            return "%"
+        if key in _ELEVATION_KEYS or key in {
+            c.CONF_SHADING_DIRECTION,
+            c.CONF_SHADING_DIRECTION_RANGE,
+        }:
             return "°"
         if key in _BRIGHTNESS_KEYS:
             return "lx"
@@ -826,8 +751,12 @@ def _field_validator(key: str, value: Any, *, stored: bool) -> tuple[Any, Any]:
         return marker(float(value or 0)), _number_selector(0, 86400, 1, "s")
     if key in _TEMPERATURE_KEYS:
         return marker(float(value or 0)), _number_selector(-50, 100, 0.1, "°C")
-    if key in _TEMPERATURE_HYSTERESIS_KEYS:
-        return marker(float(value or 0)), _number_selector(0, 20, 0.1, "°C")
+    if key in _SHADING_PERCENT_KEYS:
+        return marker(float(value or 0)), _number_selector(0, 100, 0.1, "%")
+    if key == c.CONF_SHADING_DIRECTION:
+        return marker(float(value or 0)), _number_selector(0, 359, 1, "°")
+    if key == c.CONF_SHADING_DIRECTION_RANGE:
+        return marker(float(value or 0)), _number_selector(0, 180, 1, "°")
     if key in _ELEVATION_KEYS:
         return marker(float(value or 0)), _number_selector(-90, 90, 0.1, "°")
     if key in _BRIGHTNESS_KEYS:

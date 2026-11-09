@@ -71,8 +71,6 @@
           "frost_alarm_entity": "Frostalarm-Entity",
           "rain_alarm_entity": "Regenalarm-Entity",
           "shading_brightness_sensor": "Globale Beschattungshelligkeit",
-          "shading_forecast_sensor": "Wetter-/Forecast-Quelle",
-          "shading_forecast_temp_sensor": "Forecast-Temperatursensor",
           "temperature_sensor_outdoor": "Außentemperatursensor",
           "wind_alarm_1_entity": "Windalarm-1-Entity",
           "wind_alarm_2_entity": "Windalarm-2-Entity",
@@ -88,8 +86,6 @@
           "frost_alarm_entity": "Gemeinsame binäre Entity, die den Frostschutz aktiviert.",
           "rain_alarm_entity": "Gemeinsame binäre Entity, die den Regenschutz aktiviert.",
           "shading_brightness_sensor": "Gemeinsamer Helligkeitssensor für Beschattungsentscheidungen.",
-          "shading_forecast_sensor": "Gemeinsame Wetter-Entity für Forecast- und Wetterbedingungsregeln der Beschattung.",
-          "shading_forecast_temp_sensor": "Gemeinsamer Sensor für Forecast-Temperaturwerte der Beschattung.",
           "temperature_sensor_outdoor": "Gemeinsamer Außentemperatursensor für Beschattungs- und Schutzregeln.",
           "wind_alarm_1_entity": "Gemeinsame binäre Entity, die Windalarmstufe 1 aktiviert.",
           "wind_alarm_2_entity": "Gemeinsame binäre Entity, die Windalarmstufe 2 aktiviert.",
@@ -184,14 +180,8 @@
       "geometry": {
         "title": "Raum – Geometrie",
         "description": "Beschreibe die physische Ausrichtung der Fenster dieses Raums. Diese Werte werden zusammen mit Sonnenstand und Gruppe ausgewertet.",
-        "data": {
-          "shading_azimuth_start": "Azimut von",
-          "shading_azimuth_end": "Azimut bis"
-        },
-        "data_description": {
-          "shading_azimuth_start": "Beginn des horizontalen Sonnenbereichs, in dem dieses Fenster direkt beschienen wird.",
-          "shading_azimuth_end": "Ende des horizontalen Sonnenbereichs."
-        }
+        "data": {},
+        "data_description": {}
       },
       "controls": {
         "title": "Raum – Bedienelemente",
@@ -225,16 +215,12 @@
           "brightness_sensor": "Helligkeitsquelle",
           "cold_protection_forecast_sensor": "Forecast-Quelle für Kälteschutz",
           "shading_brightness_sensor": "Beschattungshelligkeit",
-          "shading_forecast_sensor": "Wetter-/Forecast-Quelle",
-          "shading_forecast_temp_sensor": "Forecast-Temperaturquelle",
           "temperature_sensor_outdoor": "Außentemperaturquelle"
         },
         "data_description": {
           "brightness_sensor": "Raumlokale Quelle, die die globale Quelle für helligkeitsquelle nur in diesem Raum überschreibt.",
           "cold_protection_forecast_sensor": "Raumlokale Quelle, die die globale Quelle für forecast-quelle für kälteschutz nur in diesem Raum überschreibt.",
           "shading_brightness_sensor": "Raumlokale Quelle, die die globale Quelle für beschattungshelligkeit nur in diesem Raum überschreibt.",
-          "shading_forecast_sensor": "Raumlokale Quelle, die die globale Quelle für wetter-/forecast-quelle nur in diesem Raum überschreibt.",
-          "shading_forecast_temp_sensor": "Raumlokale Quelle, die die globale Quelle für forecast-temperaturquelle nur in diesem Raum überschreibt.",
           "temperature_sensor_outdoor": "Raumlokale Quelle, die die globale Quelle für außentemperaturquelle nur in diesem Raum überschreibt."
         }
       },
@@ -606,131 +592,16 @@
         }
       },
       "group_shading": {
-        "title": "Gruppe – beschattung",
-        "description": "Einstellungen für {group_name} bearbeiten. Verwendet von: {group_usage}",
+        "title": "Gruppe – Sonnenschutz",
+        "description": "Sonnenschutzart für {group_name} wählen. Verwendet von: {group_usage}",
         "sections": {
-          "shading_targets": {
-            "name": "Beschattungssteuerung",
+          "shading_mode": {
+            "name": "Art des Sonnenschutzes",
             "data": {
-              "auto_shading_enabled": "Beschattung aktiv",
-              "shading_position": "Beschattungsposition",
-              "shading_position_alt": "Alternative Beschattungsposition",
-              "shading_tilt_elevation_1": "Lamellenhöhe 1",
-              "shading_tilt_elevation_2": "Lamellenhöhe 2",
-              "shading_tilt_elevation_3": "Lamellenhöhe 3",
-              "shading_tilt_position": "Beschattungslamelle",
-              "shading_tilt_position_0": "Beschattungslamelle 0",
-              "shading_tilt_position_1": "Beschattungslamelle 1",
-              "shading_tilt_position_2": "Beschattungslamelle 2",
-              "shading_tilt_position_3": "Beschattungslamelle 3"
+              "shading_mode": "Art des Sonnenschutzes"
             },
             "data_description": {
-              "auto_shading_enabled": "Wert für Beschattung aktiv in dieser Gruppe.",
-              "shading_position": "Wert für Beschattungsposition in dieser Gruppe.",
-              "shading_position_alt": "Wert für Alternative Beschattungsposition in dieser Gruppe.",
-              "shading_tilt_elevation_1": "Wert für Lamellenhöhe 1 in dieser Gruppe.",
-              "shading_tilt_elevation_2": "Wert für Lamellenhöhe 2 in dieser Gruppe.",
-              "shading_tilt_elevation_3": "Wert für Lamellenhöhe 3 in dieser Gruppe.",
-              "shading_tilt_position": "Wert für Beschattungslamelle in dieser Gruppe.",
-              "shading_tilt_position_0": "Wert für Beschattungslamelle 0 in dieser Gruppe.",
-              "shading_tilt_position_1": "Wert für Beschattungslamelle 1 in dieser Gruppe.",
-              "shading_tilt_position_2": "Wert für Beschattungslamelle 2 in dieser Gruppe.",
-              "shading_tilt_position_3": "Wert für Beschattungslamelle 3 in dieser Gruppe."
-            }
-          },
-          "shading_brightness": {
-            "name": "Beschattungshelligkeit",
-            "data": {
-              "shading_brightness_end": "Endhelligkeit der Beschattung",
-              "shading_brightness_start": "Starthelligkeit der Beschattung",
-              "shading_sun_brightness_hysteresis": "Beschattungs-Helligkeitshysterese"
-            },
-            "data_description": {
-              "shading_brightness_end": "Wert für Endhelligkeit der Beschattung in dieser Gruppe.",
-              "shading_brightness_start": "Wert für Starthelligkeit der Beschattung in dieser Gruppe.",
-              "shading_sun_brightness_hysteresis": "Wert für Beschattungs-Helligkeitshysterese in dieser Gruppe."
-            }
-          },
-          "shading_temperature": {
-            "name": "Beschattungstemperatur",
-            "data": {
-              "cold_protection_temperature": "Kälteschutztemperatur",
-              "heat_protection_enabled": "Hitzeschutz aktiviert",
-              "heat_protection_threshold": "Hitzeschutzschwelle",
-              "shading_independent_temp": "Unabhängige Temperatur",
-              "shading_min_temperatur1": "Mindesttemperatur 1",
-              "shading_min_temperatur2": "Mindesttemperatur 2",
-              "shading_temperature_hysteresis1": "Temperaturhysterese 1",
-              "shading_temperature_hysteresis2": "Temperaturhysterese 2",
-              "temperature_forecast_threshold": "Vorhersagetemperaturschwelle",
-              "temperature_threshold": "Temperaturschwelle",
-              "shading_independent_holds_end": "Unabhängige Temperatur hält Beschattung"
-            },
-            "data_description": {
-              "cold_protection_temperature": "Wert für Kälteschutztemperatur in dieser Gruppe.",
-              "heat_protection_enabled": "Bei überschrittener Außentemperaturschwelle und erfüllten Beschattungsbedingungen vollständig schließen.",
-              "heat_protection_threshold": "Außentemperaturschwelle für das vollständige Schließen zum Hitzeschutz.",
-              "shading_independent_temp": "Wert für Unabhängige Temperatur in dieser Gruppe.",
-              "shading_min_temperatur1": "Wert für Mindesttemperatur 1 in dieser Gruppe.",
-              "shading_min_temperatur2": "Wert für Mindesttemperatur 2 in dieser Gruppe.",
-              "shading_temperature_hysteresis1": "Wert für Temperaturhysterese 1 in dieser Gruppe.",
-              "shading_temperature_hysteresis2": "Wert für Temperaturhysterese 2 in dieser Gruppe.",
-              "temperature_forecast_threshold": "Wert für Vorhersagetemperaturschwelle in dieser Gruppe.",
-              "temperature_threshold": "Wert für Temperaturschwelle in dieser Gruppe.",
-              "shading_independent_holds_end": "Wert für Unabhängige Temperatur hält Beschattung in dieser Gruppe."
-            }
-          },
-          "shading_forecast": {
-            "name": "Beschattungs-Forecast",
-            "data": {
-              "shading_config": "Erweiterte Beschattungsregeln",
-              "shading_forecast_temp": "Vorhersagetemperatur",
-              "shading_forecast_temp_hysteresis": "Vorhersagetemperatur-Hysterese",
-              "shading_forecast_type": "Vorhersagetyp",
-              "shading_weather_conditions": "Erlaubte Wetterbedingungen",
-              "use_cold_protection_forecast_sensor": "Kälteschutzvorhersage verwenden",
-              "use_shading_forecast_sensor": "Beschattungsvorhersage verwenden"
-            },
-            "data_description": {
-              "shading_config": "Wert für Erweiterte Beschattungsregeln in dieser Gruppe.",
-              "shading_forecast_temp": "Wert für Vorhersagetemperatur in dieser Gruppe.",
-              "shading_forecast_temp_hysteresis": "Wert für Vorhersagetemperatur-Hysterese in dieser Gruppe.",
-              "shading_forecast_type": "Wert für Vorhersagetyp in dieser Gruppe.",
-              "shading_weather_conditions": "Wert für Erlaubte Wetterbedingungen in dieser Gruppe.",
-              "use_cold_protection_forecast_sensor": "Wert für Kälteschutzvorhersage verwenden in dieser Gruppe.",
-              "use_shading_forecast_sensor": "Wert für Beschattungsvorhersage verwenden in dieser Gruppe."
-            }
-          },
-          "shading_conditions": {
-            "name": "Beschattungsbedingungen",
-            "data": {
-              "shading_conditions_end_and": "Endbedingungen — alle",
-              "shading_conditions_end_or": "Endbedingungen — beliebige",
-              "shading_conditions_start_and": "Startbedingungen — alle",
-              "shading_conditions_start_or": "Startbedingungen — beliebige"
-            },
-            "data_description": {
-              "shading_conditions_end_and": "Wert für Endbedingungen — alle in dieser Gruppe.",
-              "shading_conditions_end_or": "Wert für Endbedingungen — beliebige in dieser Gruppe.",
-              "shading_conditions_start_and": "Wert für Startbedingungen — alle in dieser Gruppe.",
-              "shading_conditions_start_or": "Wert für Startbedingungen — beliebige in dieser Gruppe."
-            }
-          },
-          "shading_waits": {
-            "name": "Beschattungswartezeiten",
-            "data": {
-              "shading_end_immediate_by_sun_position": "Sofortiges Beschattungsende nach Sonne",
-              "shading_end_max_duration": "Maximale Endwartezeit",
-              "shading_start_max_duration": "Maximale Startwartezeit",
-              "shading_waitingtime_end": "Endwartezeit der Beschattung",
-              "shading_waitingtime_start": "Startwartezeit der Beschattung"
-            },
-            "data_description": {
-              "shading_end_immediate_by_sun_position": "Wert für Sofortiges Beschattungsende nach Sonne in dieser Gruppe.",
-              "shading_end_max_duration": "Wert für Maximale Endwartezeit in dieser Gruppe.",
-              "shading_start_max_duration": "Wert für Maximale Startwartezeit in dieser Gruppe.",
-              "shading_waitingtime_end": "Wert für Endwartezeit der Beschattung in dieser Gruppe.",
-              "shading_waitingtime_start": "Wert für Startwartezeit der Beschattung in dieser Gruppe."
+              "shading_mode": "Feste Shuttercontrol-Sonnenschutzart."
             }
           }
         }
@@ -989,6 +860,94 @@
               "sun_elevation_open": "Wert für Sonnenhöhe zum Öffnen in dieser Gruppe.",
               "astro_open_offset_minutes": "Astro-Offset Öffnen (Minuten)",
               "astro_close_offset_minutes": "Astro-Offset Schließen (Minuten)"
+            }
+          }
+        }
+      },
+      "group_shading_details": {
+        "title": "Gruppe – Sonnenschutzdetails",
+        "description": "Nur relevante Werte bearbeiten. Verwendet von: {group_usage}",
+        "sections": {
+          "shading_direction": {
+            "name": "Himmelsrichtung",
+            "data": {
+              "shading_direction": "Ausrichtung Fenster",
+              "shading_direction_range": "Bereich (+/−)",
+              "shading_elevation_min": "Minimale Sonnenhöhe",
+              "shading_elevation_max": "Sonnenhöhe zum Beenden"
+            },
+            "data_description": {
+              "shading_direction": "Himmelsrichtung der Fensterfläche in Grad.",
+              "shading_direction_range": "Zulässige Abweichung in beide Richtungen.",
+              "shading_elevation_min": "Sonnenschutz beginnt erst oberhalb dieser Sonnenhöhe.",
+              "shading_elevation_max": "Sonnenschutz endet oberhalb dieser Sonnenhöhe."
+            }
+          },
+          "shading_temperature": {
+            "name": "Temperaturen",
+            "data": {
+              "shading_inside_temperature_threshold": "Innentemperaturgrenze",
+              "shading_inside_temperature_hysteresis": "Innentemperatur-Hysterese",
+              "shading_outside_temperature_threshold": "Außentemperaturgrenze",
+              "shading_outside_temperature_hysteresis": "Außentemperatur-Hysterese",
+              "heat_protection_enabled": "Hitzeschutz aktiviert",
+              "heat_protection_threshold": "Hitzeschutzschwelle"
+            },
+            "data_description": {
+              "shading_inside_temperature_threshold": "Strikte Startgrenze der vorhandenen Innenquelle.",
+              "shading_inside_temperature_hysteresis": "Prozentuale Endhysterese.",
+              "shading_outside_temperature_threshold": "Strikte Startgrenze der vorhandenen Außenquelle.",
+              "shading_outside_temperature_hysteresis": "Prozentuale Endhysterese.",
+              "heat_protection_enabled": "Bei gültigem Sonnenschutz oberhalb der Schwelle vollständig schließen.",
+              "heat_protection_threshold": "Außentemperaturgrenze für vollständiges Schließen."
+            }
+          },
+          "shading_brightness": {
+            "name": "Optionale Helligkeit",
+            "data": {
+              "shading_brightness_threshold": "Helligkeitsgrenze",
+              "shading_sun_brightness_hysteresis": "Helligkeits-Hysterese"
+            },
+            "data_description": {
+              "shading_brightness_threshold": "Nur mit konfigurierter Sonnenschutz-Helligkeitsquelle.",
+              "shading_sun_brightness_hysteresis": "Prozentuale Endhysterese."
+            }
+          },
+          "shading_waits": {
+            "name": "Wartezeiten",
+            "data": {
+              "shading_waitingtime_end": "Endwartezeit"
+            },
+            "data_description": {
+              "shading_waitingtime_end": "Endbedingung muss so lange bestehen bleiben."
+            }
+          },
+          "shading_tilt": {
+            "name": "Lamellen",
+            "data": {
+              "shading_tilt_elevation_1": "Lamellenhöhe 1",
+              "shading_tilt_elevation_2": "Lamellenhöhe 2",
+              "shading_tilt_elevation_3": "Lamellenhöhe 3"
+            },
+            "data_description": {
+              "shading_tilt_elevation_1": "Bestehende Lamellenlogik.",
+              "shading_tilt_elevation_2": "Bestehende Lamellenlogik.",
+              "shading_tilt_elevation_3": "Bestehende Lamellenlogik."
+            }
+          },
+          "cold_protection": {
+            "name": "Kälteschutz",
+            "data": {
+              "cold_protection_temperature": "Kälteschutztemperatur",
+              "temperature_threshold": "Temperaturschwelle",
+              "temperature_forecast_threshold": "Vorhersagetemperaturschwelle",
+              "use_cold_protection_forecast_sensor": "Kälteschutzvorhersage verwenden"
+            },
+            "data_description": {
+              "cold_protection_temperature": "Bestehende Kälteschutzoption.",
+              "temperature_threshold": "Bestehende Temperaturoption.",
+              "temperature_forecast_threshold": "Bestehende Kälteschutzvorhersage.",
+              "use_cold_protection_forecast_sensor": "Bestehende Kälteschutzvorhersage verwenden."
             }
           }
         }
@@ -1062,8 +1021,6 @@
           "frost_alarm_entity": "Frostalarm-Entity",
           "rain_alarm_entity": "Regenalarm-Entity",
           "shading_brightness_sensor": "Globale Beschattungshelligkeit",
-          "shading_forecast_sensor": "Wetter-/Forecast-Quelle",
-          "shading_forecast_temp_sensor": "Forecast-Temperatursensor",
           "temperature_sensor_outdoor": "Außentemperatursensor",
           "wind_alarm_1_entity": "Windalarm-1-Entity",
           "wind_alarm_2_entity": "Windalarm-2-Entity",
@@ -1079,8 +1036,6 @@
           "frost_alarm_entity": "Gemeinsame binäre Entity, die den Frostschutz aktiviert.",
           "rain_alarm_entity": "Gemeinsame binäre Entity, die den Regenschutz aktiviert.",
           "shading_brightness_sensor": "Gemeinsamer Helligkeitssensor für Beschattungsentscheidungen.",
-          "shading_forecast_sensor": "Gemeinsame Wetter-Entity für Forecast- und Wetterbedingungsregeln der Beschattung.",
-          "shading_forecast_temp_sensor": "Gemeinsamer Sensor für Forecast-Temperaturwerte der Beschattung.",
           "temperature_sensor_outdoor": "Gemeinsamer Außentemperatursensor für Beschattungs- und Schutzregeln.",
           "wind_alarm_1_entity": "Gemeinsame binäre Entity, die Windalarmstufe 1 aktiviert.",
           "wind_alarm_2_entity": "Gemeinsame binäre Entity, die Windalarmstufe 2 aktiviert.",
@@ -1175,14 +1130,8 @@
       "geometry": {
         "title": "Raum – Geometrie",
         "description": "Beschreibe die physische Ausrichtung der Fenster dieses Raums. Diese Werte werden zusammen mit Sonnenstand und Gruppe ausgewertet.",
-        "data": {
-          "shading_azimuth_start": "Azimut von",
-          "shading_azimuth_end": "Azimut bis"
-        },
-        "data_description": {
-          "shading_azimuth_start": "Beginn des horizontalen Sonnenbereichs, in dem dieses Fenster direkt beschienen wird.",
-          "shading_azimuth_end": "Ende des horizontalen Sonnenbereichs."
-        }
+        "data": {},
+        "data_description": {}
       },
       "controls": {
         "title": "Raum – Bedienelemente",
@@ -1216,16 +1165,12 @@
           "brightness_sensor": "Helligkeitsquelle",
           "cold_protection_forecast_sensor": "Forecast-Quelle für Kälteschutz",
           "shading_brightness_sensor": "Beschattungshelligkeit",
-          "shading_forecast_sensor": "Wetter-/Forecast-Quelle",
-          "shading_forecast_temp_sensor": "Forecast-Temperaturquelle",
           "temperature_sensor_outdoor": "Außentemperaturquelle"
         },
         "data_description": {
           "brightness_sensor": "Raumlokale Quelle, die die globale Quelle für helligkeitsquelle nur in diesem Raum überschreibt.",
           "cold_protection_forecast_sensor": "Raumlokale Quelle, die die globale Quelle für forecast-quelle für kälteschutz nur in diesem Raum überschreibt.",
           "shading_brightness_sensor": "Raumlokale Quelle, die die globale Quelle für beschattungshelligkeit nur in diesem Raum überschreibt.",
-          "shading_forecast_sensor": "Raumlokale Quelle, die die globale Quelle für wetter-/forecast-quelle nur in diesem Raum überschreibt.",
-          "shading_forecast_temp_sensor": "Raumlokale Quelle, die die globale Quelle für forecast-temperaturquelle nur in diesem Raum überschreibt.",
           "temperature_sensor_outdoor": "Raumlokale Quelle, die die globale Quelle für außentemperaturquelle nur in diesem Raum überschreibt."
         }
       },
@@ -1597,131 +1542,16 @@
         }
       },
       "group_shading": {
-        "title": "Gruppe – beschattung",
-        "description": "Einstellungen für {group_name} bearbeiten. Verwendet von: {group_usage}",
+        "title": "Gruppe – Sonnenschutz",
+        "description": "Sonnenschutzart für {group_name} wählen. Verwendet von: {group_usage}",
         "sections": {
-          "shading_targets": {
-            "name": "Beschattungssteuerung",
+          "shading_mode": {
+            "name": "Art des Sonnenschutzes",
             "data": {
-              "auto_shading_enabled": "Beschattung aktiv",
-              "shading_position": "Beschattungsposition",
-              "shading_position_alt": "Alternative Beschattungsposition",
-              "shading_tilt_elevation_1": "Lamellenhöhe 1",
-              "shading_tilt_elevation_2": "Lamellenhöhe 2",
-              "shading_tilt_elevation_3": "Lamellenhöhe 3",
-              "shading_tilt_position": "Beschattungslamelle",
-              "shading_tilt_position_0": "Beschattungslamelle 0",
-              "shading_tilt_position_1": "Beschattungslamelle 1",
-              "shading_tilt_position_2": "Beschattungslamelle 2",
-              "shading_tilt_position_3": "Beschattungslamelle 3"
+              "shading_mode": "Art des Sonnenschutzes"
             },
             "data_description": {
-              "auto_shading_enabled": "Wert für Beschattung aktiv in dieser Gruppe.",
-              "shading_position": "Wert für Beschattungsposition in dieser Gruppe.",
-              "shading_position_alt": "Wert für Alternative Beschattungsposition in dieser Gruppe.",
-              "shading_tilt_elevation_1": "Wert für Lamellenhöhe 1 in dieser Gruppe.",
-              "shading_tilt_elevation_2": "Wert für Lamellenhöhe 2 in dieser Gruppe.",
-              "shading_tilt_elevation_3": "Wert für Lamellenhöhe 3 in dieser Gruppe.",
-              "shading_tilt_position": "Wert für Beschattungslamelle in dieser Gruppe.",
-              "shading_tilt_position_0": "Wert für Beschattungslamelle 0 in dieser Gruppe.",
-              "shading_tilt_position_1": "Wert für Beschattungslamelle 1 in dieser Gruppe.",
-              "shading_tilt_position_2": "Wert für Beschattungslamelle 2 in dieser Gruppe.",
-              "shading_tilt_position_3": "Wert für Beschattungslamelle 3 in dieser Gruppe."
-            }
-          },
-          "shading_brightness": {
-            "name": "Beschattungshelligkeit",
-            "data": {
-              "shading_brightness_end": "Endhelligkeit der Beschattung",
-              "shading_brightness_start": "Starthelligkeit der Beschattung",
-              "shading_sun_brightness_hysteresis": "Beschattungs-Helligkeitshysterese"
-            },
-            "data_description": {
-              "shading_brightness_end": "Wert für Endhelligkeit der Beschattung in dieser Gruppe.",
-              "shading_brightness_start": "Wert für Starthelligkeit der Beschattung in dieser Gruppe.",
-              "shading_sun_brightness_hysteresis": "Wert für Beschattungs-Helligkeitshysterese in dieser Gruppe."
-            }
-          },
-          "shading_temperature": {
-            "name": "Beschattungstemperatur",
-            "data": {
-              "cold_protection_temperature": "Kälteschutztemperatur",
-              "heat_protection_enabled": "Hitzeschutz aktiviert",
-              "heat_protection_threshold": "Hitzeschutzschwelle",
-              "shading_independent_temp": "Unabhängige Temperatur",
-              "shading_min_temperatur1": "Mindesttemperatur 1",
-              "shading_min_temperatur2": "Mindesttemperatur 2",
-              "shading_temperature_hysteresis1": "Temperaturhysterese 1",
-              "shading_temperature_hysteresis2": "Temperaturhysterese 2",
-              "temperature_forecast_threshold": "Vorhersagetemperaturschwelle",
-              "temperature_threshold": "Temperaturschwelle",
-              "shading_independent_holds_end": "Unabhängige Temperatur hält Beschattung"
-            },
-            "data_description": {
-              "cold_protection_temperature": "Wert für Kälteschutztemperatur in dieser Gruppe.",
-              "heat_protection_enabled": "Bei überschrittener Außentemperaturschwelle und erfüllten Beschattungsbedingungen vollständig schließen.",
-              "heat_protection_threshold": "Außentemperaturschwelle für das vollständige Schließen zum Hitzeschutz.",
-              "shading_independent_temp": "Wert für Unabhängige Temperatur in dieser Gruppe.",
-              "shading_min_temperatur1": "Wert für Mindesttemperatur 1 in dieser Gruppe.",
-              "shading_min_temperatur2": "Wert für Mindesttemperatur 2 in dieser Gruppe.",
-              "shading_temperature_hysteresis1": "Wert für Temperaturhysterese 1 in dieser Gruppe.",
-              "shading_temperature_hysteresis2": "Wert für Temperaturhysterese 2 in dieser Gruppe.",
-              "temperature_forecast_threshold": "Wert für Vorhersagetemperaturschwelle in dieser Gruppe.",
-              "temperature_threshold": "Wert für Temperaturschwelle in dieser Gruppe.",
-              "shading_independent_holds_end": "Wert für Unabhängige Temperatur hält Beschattung in dieser Gruppe."
-            }
-          },
-          "shading_forecast": {
-            "name": "Beschattungs-Forecast",
-            "data": {
-              "shading_config": "Erweiterte Beschattungsregeln",
-              "shading_forecast_temp": "Vorhersagetemperatur",
-              "shading_forecast_temp_hysteresis": "Vorhersagetemperatur-Hysterese",
-              "shading_forecast_type": "Vorhersagetyp",
-              "shading_weather_conditions": "Erlaubte Wetterbedingungen",
-              "use_cold_protection_forecast_sensor": "Kälteschutzvorhersage verwenden",
-              "use_shading_forecast_sensor": "Beschattungsvorhersage verwenden"
-            },
-            "data_description": {
-              "shading_config": "Wert für Erweiterte Beschattungsregeln in dieser Gruppe.",
-              "shading_forecast_temp": "Wert für Vorhersagetemperatur in dieser Gruppe.",
-              "shading_forecast_temp_hysteresis": "Wert für Vorhersagetemperatur-Hysterese in dieser Gruppe.",
-              "shading_forecast_type": "Wert für Vorhersagetyp in dieser Gruppe.",
-              "shading_weather_conditions": "Wert für Erlaubte Wetterbedingungen in dieser Gruppe.",
-              "use_cold_protection_forecast_sensor": "Wert für Kälteschutzvorhersage verwenden in dieser Gruppe.",
-              "use_shading_forecast_sensor": "Wert für Beschattungsvorhersage verwenden in dieser Gruppe."
-            }
-          },
-          "shading_conditions": {
-            "name": "Beschattungsbedingungen",
-            "data": {
-              "shading_conditions_end_and": "Endbedingungen — alle",
-              "shading_conditions_end_or": "Endbedingungen — beliebige",
-              "shading_conditions_start_and": "Startbedingungen — alle",
-              "shading_conditions_start_or": "Startbedingungen — beliebige"
-            },
-            "data_description": {
-              "shading_conditions_end_and": "Wert für Endbedingungen — alle in dieser Gruppe.",
-              "shading_conditions_end_or": "Wert für Endbedingungen — beliebige in dieser Gruppe.",
-              "shading_conditions_start_and": "Wert für Startbedingungen — alle in dieser Gruppe.",
-              "shading_conditions_start_or": "Wert für Startbedingungen — beliebige in dieser Gruppe."
-            }
-          },
-          "shading_waits": {
-            "name": "Beschattungswartezeiten",
-            "data": {
-              "shading_end_immediate_by_sun_position": "Sofortiges Beschattungsende nach Sonne",
-              "shading_end_max_duration": "Maximale Endwartezeit",
-              "shading_start_max_duration": "Maximale Startwartezeit",
-              "shading_waitingtime_end": "Endwartezeit der Beschattung",
-              "shading_waitingtime_start": "Startwartezeit der Beschattung"
-            },
-            "data_description": {
-              "shading_end_immediate_by_sun_position": "Wert für Sofortiges Beschattungsende nach Sonne in dieser Gruppe.",
-              "shading_end_max_duration": "Wert für Maximale Endwartezeit in dieser Gruppe.",
-              "shading_start_max_duration": "Wert für Maximale Startwartezeit in dieser Gruppe.",
-              "shading_waitingtime_end": "Wert für Endwartezeit der Beschattung in dieser Gruppe.",
-              "shading_waitingtime_start": "Wert für Startwartezeit der Beschattung in dieser Gruppe."
+              "shading_mode": "Feste Shuttercontrol-Sonnenschutzart."
             }
           }
         }
@@ -1983,6 +1813,94 @@
             }
           }
         }
+      },
+      "group_shading_details": {
+        "title": "Gruppe – Sonnenschutzdetails",
+        "description": "Nur relevante Werte bearbeiten. Verwendet von: {group_usage}",
+        "sections": {
+          "shading_direction": {
+            "name": "Himmelsrichtung",
+            "data": {
+              "shading_direction": "Ausrichtung Fenster",
+              "shading_direction_range": "Bereich (+/−)",
+              "shading_elevation_min": "Minimale Sonnenhöhe",
+              "shading_elevation_max": "Sonnenhöhe zum Beenden"
+            },
+            "data_description": {
+              "shading_direction": "Himmelsrichtung der Fensterfläche in Grad.",
+              "shading_direction_range": "Zulässige Abweichung in beide Richtungen.",
+              "shading_elevation_min": "Sonnenschutz beginnt erst oberhalb dieser Sonnenhöhe.",
+              "shading_elevation_max": "Sonnenschutz endet oberhalb dieser Sonnenhöhe."
+            }
+          },
+          "shading_temperature": {
+            "name": "Temperaturen",
+            "data": {
+              "shading_inside_temperature_threshold": "Innentemperaturgrenze",
+              "shading_inside_temperature_hysteresis": "Innentemperatur-Hysterese",
+              "shading_outside_temperature_threshold": "Außentemperaturgrenze",
+              "shading_outside_temperature_hysteresis": "Außentemperatur-Hysterese",
+              "heat_protection_enabled": "Hitzeschutz aktiviert",
+              "heat_protection_threshold": "Hitzeschutzschwelle"
+            },
+            "data_description": {
+              "shading_inside_temperature_threshold": "Strikte Startgrenze der vorhandenen Innenquelle.",
+              "shading_inside_temperature_hysteresis": "Prozentuale Endhysterese.",
+              "shading_outside_temperature_threshold": "Strikte Startgrenze der vorhandenen Außenquelle.",
+              "shading_outside_temperature_hysteresis": "Prozentuale Endhysterese.",
+              "heat_protection_enabled": "Bei gültigem Sonnenschutz oberhalb der Schwelle vollständig schließen.",
+              "heat_protection_threshold": "Außentemperaturgrenze für vollständiges Schließen."
+            }
+          },
+          "shading_brightness": {
+            "name": "Optionale Helligkeit",
+            "data": {
+              "shading_brightness_threshold": "Helligkeitsgrenze",
+              "shading_sun_brightness_hysteresis": "Helligkeits-Hysterese"
+            },
+            "data_description": {
+              "shading_brightness_threshold": "Nur mit konfigurierter Sonnenschutz-Helligkeitsquelle.",
+              "shading_sun_brightness_hysteresis": "Prozentuale Endhysterese."
+            }
+          },
+          "shading_waits": {
+            "name": "Wartezeiten",
+            "data": {
+              "shading_waitingtime_end": "Endwartezeit"
+            },
+            "data_description": {
+              "shading_waitingtime_end": "Endbedingung muss so lange bestehen bleiben."
+            }
+          },
+          "shading_tilt": {
+            "name": "Lamellen",
+            "data": {
+              "shading_tilt_elevation_1": "Lamellenhöhe 1",
+              "shading_tilt_elevation_2": "Lamellenhöhe 2",
+              "shading_tilt_elevation_3": "Lamellenhöhe 3"
+            },
+            "data_description": {
+              "shading_tilt_elevation_1": "Bestehende Lamellenlogik.",
+              "shading_tilt_elevation_2": "Bestehende Lamellenlogik.",
+              "shading_tilt_elevation_3": "Bestehende Lamellenlogik."
+            }
+          },
+          "cold_protection": {
+            "name": "Kälteschutz",
+            "data": {
+              "cold_protection_temperature": "Kälteschutztemperatur",
+              "temperature_threshold": "Temperaturschwelle",
+              "temperature_forecast_threshold": "Vorhersagetemperaturschwelle",
+              "use_cold_protection_forecast_sensor": "Kälteschutzvorhersage verwenden"
+            },
+            "data_description": {
+              "cold_protection_temperature": "Bestehende Kälteschutzoption.",
+              "temperature_threshold": "Bestehende Temperaturoption.",
+              "temperature_forecast_threshold": "Bestehende Kälteschutzvorhersage.",
+              "use_cold_protection_forecast_sensor": "Bestehende Kälteschutzvorhersage verwenden."
+            }
+          }
+        }
       }
     },
     "abort": {
@@ -1992,35 +1910,11 @@
     }
   },
   "selector": {
-    "shading_condition": {
-      "options": {
-        "cond_azimuth": "Sonnenazimut",
-        "cond_elevation": "Sonnenhöhe",
-        "cond_brightness": "Helligkeit",
-        "cond_temp1": "Temperatur 1",
-        "cond_temp2": "Temperatur 2",
-        "cond_forecast_temp": "Vorhersagetemperatur",
-        "cond_forecast_weather": "Wettervorhersage"
-      }
-    },
-    "shading_config": {
-      "options": {
-        "shading_temp_comparison_independent": "Unabhängiger Temperaturstart",
-        "shading_compare_forecast_with_sensor2": "Vorhersage mit Temperatur 2 vergleichen"
-      }
-    },
     "position_source": {
       "options": {
         "current_position_attr": "Attribut current_position",
         "position_attr": "Attribut position",
         "custom_sensor": "Eigener Positionssensor"
-      }
-    },
-    "forecast_type": {
-      "options": {
-        "daily": "Tagesvorhersage",
-        "hourly": "Stundenvorhersage",
-        "weather_attributes": "Aktuelle Wetterattribute"
       }
     },
     "manual_override_reset_mode": {
@@ -2041,26 +1935,6 @@
       "options": {
         "blind": "Jalousie / Rollladen",
         "awning": "Markise / Sonnenschutz"
-      }
-    },
-    "weather_condition": {
-      "options": {
-        "clear-night": "Klare Nacht",
-        "clear": "Klar",
-        "cloudy": "Bewölkt",
-        "fog": "Nebel",
-        "hail": "Hagel",
-        "lightning": "Gewitter",
-        "lightning-rainy": "Gewitter und Regen",
-        "partlycloudy": "Teilweise bewölkt",
-        "pouring": "Starkregen",
-        "rainy": "Regnerisch",
-        "snowy": "Schnee",
-        "snowy-rainy": "Schnee und Regen",
-        "sunny": "Sonnig",
-        "windy": "Windig",
-        "windy-variant": "Windig und bewölkt",
-        "exceptional": "Außergewöhnlich"
       }
     },
     "group": {
@@ -2087,6 +1961,17 @@
         "elevation": "Sonnenhöhe",
         "brightness": "Helligkeit"
       }
+    },
+    "shading_mode": {
+      "options": {
+        "off": "Aus",
+        "inside_outside": "Innen- & Außentemperatur / Helligkeit",
+        "direction": "Himmelsrichtung",
+        "inside_outside_direction": "Innen-/Außentemperatur/Helligkeit + Himmelsrichtung",
+        "outside_direction": "Außentemperatur/Helligkeit + Himmelsrichtung",
+        "outside": "Außentemperatur/Helligkeit",
+        "inside": "Innentemperatur"
+      }
     }
   },
   "config_subentries": {},
@@ -2106,6 +1991,10 @@
     "sun_mode_migration": {
       "title": "Sonnenkonfiguration migriert",
       "description": "Dynamische Sonnenhöhe wurde entfernt. Die betroffene Gruppe verwendet jetzt eine feste Sonnenhöhe. {details}"
+    },
+    "shading_mode_migration": {
+      "title": "Sonnenschutzkonfiguration vereinfacht",
+      "description": "Die frei kombinierte Sonnenschutzlogik wurde auf eine feste Sonnenschutzart reduziert. Forecast- und OR-Bedingungen werden nicht mehr unterstützt. Bitte Sonnenschutz prüfen: {details}"
     }
   },
   "entity": {

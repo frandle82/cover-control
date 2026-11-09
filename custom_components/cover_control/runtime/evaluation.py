@@ -73,17 +73,9 @@ from ..const import (
     RECOVERY_ALWAYS,
     RECOVERY_NEVER,
     RECOVERY_OUTAGE,
-    CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
-    CONF_SHADING_END_MAX_DURATION,
     CONF_SHADING_OVER_VENTILATION,
-    CONF_SHADING_START_MAX_DURATION,
     CONF_SHADING_WAITINGTIME_END,
-    CONF_SHADING_WAITINGTIME_START,
-    CONF_SUN_AZIMUTH_END,
-    CONF_SUN_AZIMUTH_START,
     CONF_SUN_ELEVATION_CLOSE,
-    CONF_SUN_ELEVATION_MAX,
-    CONF_SUN_ELEVATION_MIN,
     CONF_SUN_ELEVATION_OPEN,
     CONF_VENTILATE_POSITION,
     CONF_VENTILATION_ALLOW_HIGHER_POSITION,
@@ -408,7 +400,9 @@ class EvaluationMixin:
         resident_blocks_ventilation = (
             resident_sleeping and not resident_allow_ventilation
         )
-        resident_blocks_shading = resident_sleeping and not resident_allow_shading
+        resident_blocks_shading = self._resident_blocks_shading(
+            resident_sleeping, resident_allow_shading
+        )
 
         auto_ventilate = (not self._is_awning()) and self._auto_enabled(
             CONF_AUTO_VENTILATE
@@ -607,12 +601,11 @@ class EvaluationMixin:
             and not resident_blocks_shading
             and not tilt_lock_shading_start
         ):
-            await self._async_update_shading_forecast()
-            shading_conditions_met, shading_temp_independent = (
+            shading_conditions_met, _unused = (
                 self._shading_start_conditions(sun_azimuth, sun_elevation, brightness)
             )
             shading_over_ventilation_active = (
-                (shading_conditions_met or shading_temp_independent)
+                shading_conditions_met
                 and shading_condition
                 and shading_tilt_condition
                 and is_shading_allowed_window
@@ -715,39 +708,14 @@ class EvaluationMixin:
                 "shading",
                 "manual_shading",
             }
-            await self._async_update_shading_forecast()
-            shading_conditions_met, shading_temp_independent = (
+            shading_conditions_met, _unused = (
                 self._shading_start_conditions(sun_azimuth, sun_elevation, brightness)
             )
             shading_end_conditions_met = self._shading_end_conditions(
                 sun_azimuth, sun_elevation, brightness
             )
-            sun_immediate_end = False
-            if bool(
-                self.config.get(CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION, False)
-            ) and sun_azimuth is not None and sun_elevation is not None:
-                az_start = self._number_value(CONF_SUN_AZIMUTH_START, 0)
-                az_end = self._number_value(CONF_SUN_AZIMUTH_END, 360)
-                el_min = self._number_value(CONF_SUN_ELEVATION_MIN, 0)
-                el_max = self._number_value(CONF_SUN_ELEVATION_MAX, 90)
-                sun_immediate_end = not (
-                    az_start <= sun_azimuth <= az_end
-                    and el_min <= sun_elevation <= el_max
-                )
-            independent_holds_end = (
-                shading_active
-                and shading_temp_independent
-                and self._shading_conditions_allow_active_state(
-                    False, True, True, sun_immediate_end
-                )
-            )
             shading_allowed = (
-                self._shading_conditions_allow_active_state(
-                    shading_conditions_met,
-                    shading_temp_independent,
-                    shading_active,
-                    sun_immediate_end,
-                )
+                shading_conditions_met
                 and shading_condition
                 and is_shading_allowed_window
             )
@@ -767,26 +735,6 @@ class EvaluationMixin:
             if shading_allowed:
                 if self._shading_pending_active("end"):
                     self._clear_shading_pending("end")
-            elif self._shading_pending_active("start") and self._shading_pending_due(
-                "start", now
-            ):
-                max_duration = self._duration_value(
-                    CONF_SHADING_START_MAX_DURATION,
-                    DEFAULT_SHADING_TIMING_SETTINGS[CONF_SHADING_START_MAX_DURATION],
-                )
-                if max_duration <= 0:
-                    self._clear_shading_pending("start")
-                else:
-                    pending_at = self._shading_pending_at("start")
-                    waiting = self._duration_value(
-                        CONF_SHADING_WAITINGTIME_START,
-                        DEFAULT_SHADING_TIMING_SETTINGS[CONF_SHADING_WAITINGTIME_START],
-                    )
-                    started_ts = max(
-                        0, pending_at.timestamp() - waiting if pending_at else 0
-                    )
-                    if started_ts and now.timestamp() - started_ts > max_duration:
-                        self._clear_shading_pending("start")
             if shading_active and shading_allowed:
                 shading_target, reason, heat_hold = (
                     self._active_shading_target_reason(current_position)
@@ -807,18 +755,17 @@ class EvaluationMixin:
                     self.persist_status()
                     self._publish_state()
                 shading_end_conditions_met = False
-            shading_end_warranted = sun_immediate_end or (
+            shading_end_warranted = (
                 shading_end_conditions_met and is_shading_allowed_window
             )
             shading_end_condition_valid = (
                 shading_end_warranted
                 and shading_end_condition
-                and not independent_holds_end
             )
             if shading_active and not shading_end_condition_valid:
                 self._shading_end_wait_complete(now, False, 0)
             if shading_active and shading_end_warranted:
-                if not shading_end_condition or independent_holds_end:
+                if not shading_end_condition:
                     self._publish_state()
                     return
                 if self._config_bool(
@@ -833,30 +780,6 @@ class EvaluationMixin:
                     CONF_SHADING_WAITINGTIME_END,
                     DEFAULT_SHADING_TIMING_SETTINGS[CONF_SHADING_WAITINGTIME_END],
                 )
-                max_end_duration = self._duration_value(
-                    CONF_SHADING_END_MAX_DURATION,
-                    DEFAULT_SHADING_TIMING_SETTINGS[CONF_SHADING_END_MAX_DURATION],
-                )
-                if self._shading_pending_active("end") and max_end_duration > 0:
-                    pending_at = self._shading_pending_at("end")
-                    started_ts = max(
-                        0, pending_at.timestamp() - waiting_end if pending_at else 0
-                    )
-                    if started_ts and now.timestamp() - started_ts > max_end_duration:
-                        self._clear_shading_pending("end")
-                        if self._reason in {
-                            "shading",
-                            "manual_shading",
-                            "heat_protection",
-                        }:
-                            self._reason = None
-                        self._set_status_bucket("shading", False)
-                        self._set_heat_protection_status(False, False)
-                        self.persist_status()
-                        self._publish_state()
-                        return
-                if sun_immediate_end:
-                    waiting_end = 20
                 if not self._shading_end_wait_complete(
                     now, shading_end_condition_valid, waiting_end
                 ):
@@ -944,19 +867,6 @@ class EvaluationMixin:
                     "shading", CONF_PREVENT_SHADING_MULTIPLE_TIMES
                 )
             ):
-                waiting_start = self._duration_value(
-                    CONF_SHADING_WAITINGTIME_START,
-                    DEFAULT_SHADING_TIMING_SETTINGS[CONF_SHADING_WAITINGTIME_START],
-                )
-                if waiting_start > 0 and not self._shading_pending_due("start", now):
-                    if not self._shading_pending_active("start"):
-                        self._set_shading_pending(
-                            "start", now + timedelta(seconds=waiting_start), False
-                        )
-                    self._publish_state()
-                    return
-                if self._shading_pending_active("start"):
-                    self._clear_shading_pending("start")
                 heat_active, _temperature = self._heat_protection_state()
                 shading_target, reason = self._shading_target_reason()
                 self._set_heat_protection_status(heat_active, heat_active)
@@ -1217,6 +1127,10 @@ class EvaluationMixin:
     def _number_value(self, key: str, default: float) -> float:
         value = _coerce_float(self.config.get(key, default))
         return default if value is None else value
+
+    @staticmethod
+    def _resident_blocks_shading(sleeping: bool, allow_shading: bool) -> bool:
+        return sleeping and not allow_shading
 
     def _duration_value(self, key: str, default: int) -> int:
         value = _coerce_float(self.config.get(key, default))

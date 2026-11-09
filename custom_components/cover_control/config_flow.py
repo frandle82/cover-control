@@ -61,6 +61,8 @@ from .const import (
     CONF_FORCE_OPEN_ENTITY,
     CONF_FORCE_PAUSE_ENTITY,
     CONF_FORCE_SHADING_ENTITY,
+    CONF_HEAT_PROTECTION_ENABLED,
+    CONF_HEAT_PROTECTION_THRESHOLD,
     CONF_FORCE_VENTILATE_ENTITY,
     CONF_GLOBAL,
     CONF_GLOBAL_DEFAULTS,
@@ -85,23 +87,32 @@ from .const import (
     CONF_ROOM_ID,
     CONF_ROOM_SETTINGS,
     CONF_SHADING_BRIGHTNESS_SENSOR,
-    CONF_SHADING_FORECAST_SENSOR,
-    CONF_SHADING_FORECAST_TEMP_SENSOR,
+    CONF_SHADING_BRIGHTNESS_HYSTERESIS,
+    CONF_SHADING_BRIGHTNESS_THRESHOLD,
+    CONF_SHADING_DIRECTION,
+    CONF_SHADING_DIRECTION_RANGE,
+    CONF_SHADING_INSIDE_TEMPERATURE_HYSTERESIS,
+    CONF_SHADING_INSIDE_TEMPERATURE_THRESHOLD,
+    CONF_SHADING_MODE,
+    CONF_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS,
+    CONF_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD,
     CONF_SHADING_POSITION,
     CONF_SHADING_POSITION_ALT,
     CONF_SHADING_POSITION_ALT_ENTITY,
-    CONF_SHADING_TEMPERATURE_SENSOR_1,
-    CONF_SHADING_TEMPERATURE_SENSOR_2,
+    CONF_SHADING_TILT_ELEVATION_1,
+    CONF_SHADING_TILT_ELEVATION_2,
+    CONF_SHADING_TILT_ELEVATION_3,
     CONF_SHADING_TILT_POSITION,
     CONF_SHADING_TILT_POSITION_0,
     CONF_SHADING_TILT_POSITION_1,
     CONF_SHADING_TILT_POSITION_2,
     CONF_SHADING_TILT_POSITION_3,
+    CONF_SHADING_WAITINGTIME_END,
     CONF_SOURCE_OVERRIDES,
     CONF_SUMMER_SKIP_CLOSE_ENABLED,
-    CONF_SUN_AZIMUTH_END,
-    CONF_SUN_AZIMUTH_START,
     CONF_SUN_ELEVATION_CLOSE,
+    CONF_SUN_ELEVATION_MAX,
+    CONF_SUN_ELEVATION_MIN,
     CONF_SUN_ELEVATION_OPEN,
     CONF_ASTRO_CLOSE_OFFSET,
     CONF_ASTRO_OPEN_OFFSET,
@@ -115,7 +126,6 @@ from .const import (
     CONF_USE_BRIGHTNESS_SENSOR,
     CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
     CONF_USE_RESIDENT_SENSOR,
-    CONF_USE_SHADING_FORECAST_SENSOR,
     CONF_USE_TEMPERATURE_SENSOR_INDOOR,
     CONF_USE_TEMPERATURE_SENSOR_OUTDOOR,
     CONF_USE_WORKDAY_SENSOR,
@@ -142,9 +152,7 @@ from .const import (
     DEFAULT_POSITION_SETTINGS,
     DEFAULT_SAFETY_PARTICIPATION,
     DEFAULT_SAFETY_SETTINGS,
-    DEFAULT_SHADING_AZIMUTH_END,
-    DEFAULT_SHADING_AZIMUTH_START,
-    DEFAULT_SHADING_CONDITION_SETTINGS,
+    DEFAULT_SHADING_SETTINGS,
     DEFAULT_SHADING_TILT_POSITION_0,
     DEFAULT_SHADING_TILT_POSITION_1,
     DEFAULT_SHADING_TILT_POSITION_2,
@@ -174,15 +182,13 @@ from .const import (
     MODE_SUNSET,
     MODE_TIME,
     SAFETY_ALARMS,
-    SHADING_CONDITION_AZIMUTH,
-    SHADING_CONDITION_BRIGHTNESS,
-    SHADING_CONDITION_ELEVATION,
-    SHADING_CONDITION_FORECAST_TEMP,
-    SHADING_CONDITION_FORECAST_WEATHER,
-    SHADING_CONDITION_TEMP_1,
-    SHADING_CONDITION_TEMP_2,
-    SHADING_CONFIG_COMPARE_FORECAST_SENSOR2,
-    SHADING_CONFIG_TEMP_INDEPENDENT,
+    SHADING_MODE_DIRECTION,
+    SHADING_MODE_INSIDE,
+    SHADING_MODE_INSIDE_OUTSIDE,
+    SHADING_MODE_INSIDE_OUTSIDE_DIRECTION,
+    SHADING_MODE_OFF,
+    SHADING_MODE_OUTSIDE,
+    SHADING_MODE_OUTSIDE_DIRECTION,
 )
 
 
@@ -201,7 +207,7 @@ def _with_config_defaults(config: dict) -> dict:
         **DEFAULT_SAFETY_SETTINGS,
         **DEFAULT_SAFETY_PARTICIPATION,
         **DEFAULT_SHADING_TIMING_SETTINGS,
-        **{key: list(value) if isinstance(value, list) else value for key, value in DEFAULT_SHADING_CONDITION_SETTINGS.items()},
+        **{key: list(value) if isinstance(value, list) else value for key, value in DEFAULT_SHADING_SETTINGS.items()},
         CONF_OPEN_MODE: DEFAULT_OPEN_MODE,
         CONF_CLOSE_MODE: DEFAULT_CLOSE_MODE,
         CONF_ASTRO_OPEN_OFFSET: DEFAULT_ASTRO_OPEN_OFFSET,
@@ -252,11 +258,7 @@ CLEARABLE_ENTITY_SELECTOR_KEYS = {
     CONF_SHADING_BRIGHTNESS_SENSOR,
     CONF_TEMPERATURE_SENSOR_INDOOR,
     CONF_TEMPERATURE_SENSOR_OUTDOOR,
-    CONF_SHADING_TEMPERATURE_SENSOR_1,
-    CONF_SHADING_TEMPERATURE_SENSOR_2,
     CONF_COLD_PROTECTION_FORECAST_SENSOR,
-    CONF_SHADING_FORECAST_SENSOR,
-    CONF_SHADING_FORECAST_TEMP_SENSOR,
     CONF_CUSTOM_POSITION_SENSOR,
 }
 
@@ -267,7 +269,6 @@ ENTITY_TOGGLE_MAP: dict[str, str] = {
     CONF_USE_TEMPERATURE_SENSOR_INDOOR: CONF_TEMPERATURE_SENSOR_INDOOR,
     CONF_USE_TEMPERATURE_SENSOR_OUTDOOR: CONF_TEMPERATURE_SENSOR_OUTDOOR,
     CONF_USE_COLD_PROTECTION_FORECAST_SENSOR: CONF_COLD_PROTECTION_FORECAST_SENSOR,
-    CONF_USE_SHADING_FORECAST_SENSOR: CONF_SHADING_FORECAST_SENSOR,
 }
 
 
@@ -297,28 +298,6 @@ def _time_default(value, fallback: str | None = None):
         if parsed:
             return parsed
     return vol.UNDEFINED
-
-
-SHADING_CONDITION_OPTIONS = [
-    {"value": SHADING_CONDITION_AZIMUTH, "label": "cond_azimuth"},
-    {"value": SHADING_CONDITION_ELEVATION, "label": "cond_elevation"},
-    {"value": SHADING_CONDITION_BRIGHTNESS, "label": "cond_brightness"},
-    {"value": SHADING_CONDITION_TEMP_1, "label": "cond_temp1"},
-    {"value": SHADING_CONDITION_TEMP_2, "label": "cond_temp2"},
-    {"value": SHADING_CONDITION_FORECAST_TEMP, "label": "cond_forecast_temp"},
-    {"value": SHADING_CONDITION_FORECAST_WEATHER, "label": "cond_forecast_weather"},
-]
-
-SHADING_CONFIG_OPTIONS = [
-    {
-        "value": SHADING_CONFIG_TEMP_INDEPENDENT,
-        "label": "shading_temp_comparison_independent",
-    },
-    {
-        "value": SHADING_CONFIG_COMPARE_FORECAST_SENSOR2,
-        "label": "shading_compare_forecast_with_sensor2",
-    },
-]
 
 
 POSITION_FIELD_LIMITS = {
@@ -482,7 +461,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
 class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the config flow."""
 
-    VERSION = 14
+    VERSION = 15
 
     @staticmethod
     @callback
@@ -1026,9 +1005,154 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
 
     async def async_step_group_shading(self, user_input=None) -> FlowResult:
-        return await self._async_group_section_step(
-            GROUP_SECTION_SHADING, "group_shading", user_input,
-            capabilities=tuple(GROUP_CAPABILITY_KEYS[GROUP_SECTION_SHADING]),
+        group = getattr(self, "_editing_group", None)
+        if group not in GROUPS:
+            return await self.async_step_controller_reconfigure()
+        model = self._model()
+        existing = dict(model.data[CONF_GROUPS][group])
+        allowed = {CONF_SHADING_MODE}
+        if user_input is not None:
+            selected = extract_sparse_settings(
+                flatten_section_input(user_input),
+                GROUP_SECTION_SHADING,
+                {key: value for key, value in existing.items() if key in allowed},
+                allowed_keys=allowed,
+            )
+            mode = str(selected.get(CONF_SHADING_MODE, SHADING_MODE_OFF))
+            self._selected_shading_mode = mode
+            model.data[CONF_GROUPS][group] = {
+                **existing,
+                **selected,
+                CONF_AUTO_SHADING: mode != SHADING_MODE_OFF,
+            }
+            if mode == SHADING_MODE_OFF:
+                for key in (
+                    CONF_SHADING_DIRECTION,
+                    CONF_SHADING_DIRECTION_RANGE,
+                    CONF_SUN_ELEVATION_MIN,
+                    CONF_SUN_ELEVATION_MAX,
+                    CONF_SHADING_INSIDE_TEMPERATURE_THRESHOLD,
+                    CONF_SHADING_INSIDE_TEMPERATURE_HYSTERESIS,
+                    CONF_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD,
+                    CONF_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS,
+                    CONF_SHADING_BRIGHTNESS_THRESHOLD,
+                    CONF_SHADING_BRIGHTNESS_HYSTERESIS,
+                    CONF_HEAT_PROTECTION_ENABLED,
+                    CONF_HEAT_PROTECTION_THRESHOLD,
+                ):
+                    model.data[CONF_GROUPS][group].pop(key, None)
+            self._save_parent_model(model)
+            return await self.async_step_group_shading_details()
+        return self.async_show_form(
+            step_id="group_shading",
+            data_schema=build_group_schema(
+                GROUP_SECTION_SHADING,
+                existing,
+                system_defaults(),
+                allowed_keys=allowed,
+            ),
+            description_placeholders=self._group_context_placeholders(),
+        )
+
+    async def async_step_group_shading_details(self, user_input=None) -> FlowResult:
+        group = getattr(self, "_editing_group", None)
+        if group not in GROUPS:
+            return await self.async_step_controller_reconfigure()
+        model = self._model()
+        existing = dict(model.data[CONF_GROUPS][group])
+        mode = str(
+            getattr(
+                self,
+                "_selected_shading_mode",
+                existing.get(CONF_SHADING_MODE, SHADING_MODE_OFF),
+            )
+        )
+        allowed = {
+            CONF_SHADING_WAITINGTIME_END,
+            CONF_SHADING_TILT_ELEVATION_1,
+            CONF_SHADING_TILT_ELEVATION_2,
+            CONF_SHADING_TILT_ELEVATION_3,
+        }
+        if mode in {
+            SHADING_MODE_INSIDE_OUTSIDE,
+            SHADING_MODE_INSIDE_OUTSIDE_DIRECTION,
+            SHADING_MODE_INSIDE,
+        }:
+            allowed.update(
+                {
+                    CONF_SHADING_INSIDE_TEMPERATURE_THRESHOLD,
+                    CONF_SHADING_INSIDE_TEMPERATURE_HYSTERESIS,
+                }
+            )
+        if mode in {
+            SHADING_MODE_INSIDE_OUTSIDE,
+            SHADING_MODE_INSIDE_OUTSIDE_DIRECTION,
+            SHADING_MODE_OUTSIDE_DIRECTION,
+            SHADING_MODE_OUTSIDE,
+        }:
+            allowed.update(
+                {
+                    CONF_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD,
+                    CONF_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS,
+                    CONF_SHADING_BRIGHTNESS_THRESHOLD,
+                    CONF_SHADING_BRIGHTNESS_HYSTERESIS,
+                    CONF_HEAT_PROTECTION_ENABLED,
+                    CONF_HEAT_PROTECTION_THRESHOLD,
+                }
+            )
+        if mode in {
+            SHADING_MODE_DIRECTION,
+            SHADING_MODE_INSIDE_OUTSIDE_DIRECTION,
+            SHADING_MODE_OUTSIDE_DIRECTION,
+        }:
+            allowed.update(
+                {
+                    CONF_SHADING_DIRECTION,
+                    CONF_SHADING_DIRECTION_RANGE,
+                    CONF_SUN_ELEVATION_MIN,
+                    CONF_SUN_ELEVATION_MAX,
+                }
+            )
+        if mode == SHADING_MODE_OFF:
+            return await self.async_step_group_sections()
+        if user_input is not None:
+            selected = extract_sparse_settings(
+                flatten_section_input(user_input),
+                GROUP_SECTION_SHADING,
+                {key: value for key, value in existing.items() if key in allowed},
+                allowed_keys=allowed,
+            )
+            mode_fields = {
+                CONF_SHADING_DIRECTION,
+                CONF_SHADING_DIRECTION_RANGE,
+                CONF_SUN_ELEVATION_MIN,
+                CONF_SUN_ELEVATION_MAX,
+                CONF_SHADING_INSIDE_TEMPERATURE_THRESHOLD,
+                CONF_SHADING_INSIDE_TEMPERATURE_HYSTERESIS,
+                CONF_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD,
+                CONF_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS,
+                CONF_SHADING_BRIGHTNESS_THRESHOLD,
+                CONF_SHADING_BRIGHTNESS_HYSTERESIS,
+                CONF_HEAT_PROTECTION_ENABLED,
+                CONF_HEAT_PROTECTION_THRESHOLD,
+            }
+            retained = {
+                key: value
+                for key, value in existing.items()
+                if key not in mode_fields or key in allowed
+            }
+            model.data[CONF_GROUPS][group] = {**retained, **selected}
+            self._save_parent_model(model)
+            return await self.async_step_group_sections()
+        return self.async_show_form(
+            step_id="group_shading_details",
+            data_schema=build_group_schema(
+                GROUP_SECTION_SHADING,
+                existing,
+                system_defaults(),
+                allowed_keys=allowed,
+            ),
+            description_placeholders=self._group_context_placeholders(),
         )
 
     async def async_step_group_ventilation(self, user_input=None) -> FlowResult:
@@ -1182,7 +1306,6 @@ class RoomFlowMixin:
                 "positions",
                 "contacts",
                 "room_sensors",
-                "geometry",
                 "group_assignment",
                 "safety",
                 "source_overrides",
@@ -1375,34 +1498,7 @@ class RoomFlowMixin:
         )
 
     async def async_step_geometry(self, user_input=None) -> FlowResult:
-        data = self._room_data()
-        settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
-        keys = (CONF_SUN_AZIMUTH_START, CONF_SUN_AZIMUTH_END)
-        if user_input is not None:
-            for key in keys:
-                settings[key] = user_input[key]
-            data[CONF_ROOM_SETTINGS] = settings
-            return await self._save_room(data)
-        return self.async_show_form(
-            step_id="geometry",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        CONF_SUN_AZIMUTH_START,
-                        default=settings.get(
-                            CONF_SUN_AZIMUTH_START, DEFAULT_SHADING_AZIMUTH_START
-                        ),
-                    ): vol.Coerce(float),
-                    vol.Required(
-                        CONF_SUN_AZIMUTH_END,
-                        default=settings.get(
-                            CONF_SUN_AZIMUTH_END, DEFAULT_SHADING_AZIMUTH_END
-                        ),
-                    ): vol.Coerce(float),
-                }
-            ),
-            description_placeholders=self._room_context_placeholders(),
-        )
+        return await self.async_step_room_reconfigure()
 
     async def async_step_diagnostics(self, user_input=None) -> FlowResult:
         entry = self._room_entry()

@@ -35,6 +35,7 @@ from ..const import (
     CONF_RESIDENT_SENSOR,
     CONF_ROOMS,
     CONF_ROOM_OVERRIDES,
+    CONF_SHADING_MODE,
     DOMAIN,
     SIGNAL_ENTRY_STATE_UPDATED,
 )
@@ -513,6 +514,12 @@ class ControllerManager:
             else None
         )
         resident_state = self.hass.states.get(resident_entity) if resident_entity else None
+        first_status = getattr(first_controller, "_status", {})
+        shading_conditions = (
+            first_status.get("shading_conditions", {})
+            if isinstance(first_status, dict)
+            else {}
+        )
         self._entry_snapshot = {
             "covers": covers,
             "next_open": min(open_candidates) if open_candidates else None,
@@ -542,6 +549,8 @@ class ControllerManager:
             "safety_target": safety_target,
             "window_down_sequences": window_down_sequences,
             "heat_protection_active": heat_protection_active,
+            "shading_mode": first_controller.config.get(CONF_SHADING_MODE),
+            "shading_conditions": dict(shading_conditions),
         }
 
     def entry_snapshot(self) -> dict[str, object]:
@@ -558,8 +567,8 @@ class ControllerManager:
         keys = (
             CONF_OPEN_MODE,
             CONF_CLOSE_MODE,
+            CONF_SHADING_MODE,
             "shading_position",
-            "shading_waitingtime_start",
             "shading_waitingtime_end",
             "temperature_threshold",
             CONF_HEAT_PROTECTION_ENABLED,

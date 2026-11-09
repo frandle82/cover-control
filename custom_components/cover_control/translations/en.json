@@ -71,8 +71,6 @@
           "frost_alarm_entity": "Frost alarm entity",
           "rain_alarm_entity": "Rain alarm entity",
           "shading_brightness_sensor": "Global shading brightness sensor",
-          "shading_forecast_sensor": "Weather forecast source",
-          "shading_forecast_temp_sensor": "Forecast temperature sensor",
           "temperature_sensor_outdoor": "Outdoor temperature sensor",
           "wind_alarm_1_entity": "Wind alarm 1 entity",
           "wind_alarm_2_entity": "Wind alarm 2 entity",
@@ -88,8 +86,6 @@
           "frost_alarm_entity": "Shared binary entity that activates frost protection.",
           "rain_alarm_entity": "Shared binary entity that activates rain protection.",
           "shading_brightness_sensor": "Shared illuminance sensor used for sun shading decisions.",
-          "shading_forecast_sensor": "Shared weather entity used for forecast and weather-condition based shading.",
-          "shading_forecast_temp_sensor": "Shared sensor that provides forecast temperature values for shading.",
           "temperature_sensor_outdoor": "Shared outdoor temperature sensor for shading and protection rules.",
           "wind_alarm_1_entity": "Shared binary entity that activates wind alarm level 1.",
           "wind_alarm_2_entity": "Shared binary entity that activates wind alarm level 2.",
@@ -184,14 +180,8 @@
       "geometry": {
         "title": "Room - Geometry",
         "description": "Describe the physical orientation of this room's windows. These values are evaluated together with sun position and the assigned shading group.",
-        "data": {
-          "shading_azimuth_start": "Azimuth from",
-          "shading_azimuth_end": "Azimuth to"
-        },
-        "data_description": {
-          "shading_azimuth_start": "Start of the horizontal sun range in which this window receives direct sun.",
-          "shading_azimuth_end": "End of the horizontal sun range."
-        }
+        "data": {},
+        "data_description": {}
       },
       "controls": {
         "title": "Room - Controls",
@@ -225,16 +215,12 @@
           "brightness_sensor": "Brightness source",
           "cold_protection_forecast_sensor": "Cold protection forecast source",
           "shading_brightness_sensor": "Shading brightness source",
-          "shading_forecast_sensor": "Weather forecast source",
-          "shading_forecast_temp_sensor": "Forecast temperature source",
           "temperature_sensor_outdoor": "Outdoor temperature source"
         },
         "data_description": {
           "brightness_sensor": "Room-local source that overrides the global brightness source only for this room.",
           "cold_protection_forecast_sensor": "Room-local source that overrides the global cold protection forecast source only for this room.",
           "shading_brightness_sensor": "Room-local source that overrides the global shading brightness source only for this room.",
-          "shading_forecast_sensor": "Room-local source that overrides the global weather forecast source only for this room.",
-          "shading_forecast_temp_sensor": "Room-local source that overrides the global forecast temperature source only for this room.",
           "temperature_sensor_outdoor": "Room-local source that overrides the global outdoor temperature source only for this room."
         }
       },
@@ -606,131 +592,16 @@
         }
       },
       "group_shading": {
-        "title": "Group - e shading",
-        "description": "Edit settings for {group_name}. Used by: {group_usage}",
+        "title": "Group – shading",
+        "description": "Select the shading mode for {group_name}. Used by: {group_usage}",
         "sections": {
-          "shading_targets": {
-            "name": "Shading control",
+          "shading_mode": {
+            "name": "Shading mode",
             "data": {
-              "auto_shading_enabled": "Shading enabled",
-              "shading_position": "Shading position",
-              "shading_position_alt": "Alternate shading position",
-              "shading_tilt_elevation_1": "Tilt elevation 1",
-              "shading_tilt_elevation_2": "Tilt elevation 2",
-              "shading_tilt_elevation_3": "Tilt elevation 3",
-              "shading_tilt_position": "Shading tilt position",
-              "shading_tilt_position_0": "Shading tilt position 0",
-              "shading_tilt_position_1": "Shading tilt position 1",
-              "shading_tilt_position_2": "Shading tilt position 2",
-              "shading_tilt_position_3": "Shading tilt position 3"
+              "shading_mode": "Shading mode"
             },
             "data_description": {
-              "auto_shading_enabled": "Value for Shading enabled in this group or default.",
-              "shading_position": "Value for Shading position in this group or default.",
-              "shading_position_alt": "Value for Alternate shading position in this group or default.",
-              "shading_tilt_elevation_1": "Value for Tilt elevation 1 in this group or default.",
-              "shading_tilt_elevation_2": "Value for Tilt elevation 2 in this group or default.",
-              "shading_tilt_elevation_3": "Value for Tilt elevation 3 in this group or default.",
-              "shading_tilt_position": "Value for Shading tilt position in this group or default.",
-              "shading_tilt_position_0": "Value for Shading tilt position 0 in this group or default.",
-              "shading_tilt_position_1": "Value for Shading tilt position 1 in this group or default.",
-              "shading_tilt_position_2": "Value for Shading tilt position 2 in this group or default.",
-              "shading_tilt_position_3": "Value for Shading tilt position 3 in this group or default."
-            }
-          },
-          "shading_brightness": {
-            "name": "Shading brightness",
-            "data": {
-              "shading_brightness_end": "Shading end brightness",
-              "shading_brightness_start": "Shading start brightness",
-              "shading_sun_brightness_hysteresis": "Shading brightness hysteresis"
-            },
-            "data_description": {
-              "shading_brightness_end": "Value for Shading end brightness in this group or default.",
-              "shading_brightness_start": "Value for Shading start brightness in this group or default.",
-              "shading_sun_brightness_hysteresis": "Value for Shading brightness hysteresis in this group or default."
-            }
-          },
-          "shading_temperature": {
-            "name": "Shading temperature",
-            "data": {
-              "cold_protection_temperature": "Cold-protection temperature",
-              "heat_protection_enabled": "Heat protection enabled",
-              "heat_protection_threshold": "Heat-protection threshold",
-              "shading_independent_temp": "Independent temperature",
-              "shading_min_temperatur1": "Minimum temperature 1",
-              "shading_min_temperatur2": "Minimum temperature 2",
-              "shading_temperature_hysteresis1": "Temperature hysteresis 1",
-              "shading_temperature_hysteresis2": "Temperature hysteresis 2",
-              "temperature_forecast_threshold": "Forecast temperature threshold",
-              "temperature_threshold": "Temperature threshold",
-              "shading_independent_holds_end": "Independent temperature holds shading"
-            },
-            "data_description": {
-              "cold_protection_temperature": "Value for Cold-protection temperature in this group or default.",
-              "heat_protection_enabled": "Close completely when the outside temperature exceeds the heat-protection threshold and all shading conditions are met.",
-              "heat_protection_threshold": "Outside-temperature threshold for complete heat-protection closing.",
-              "shading_independent_temp": "Value for Independent temperature in this group or default.",
-              "shading_min_temperatur1": "Value for Minimum temperature 1 in this group or default.",
-              "shading_min_temperatur2": "Value for Minimum temperature 2 in this group or default.",
-              "shading_temperature_hysteresis1": "Value for Temperature hysteresis 1 in this group or default.",
-              "shading_temperature_hysteresis2": "Value for Temperature hysteresis 2 in this group or default.",
-              "temperature_forecast_threshold": "Value for Forecast temperature threshold in this group or default.",
-              "temperature_threshold": "Value for Temperature threshold in this group or default.",
-              "shading_independent_holds_end": "Value for Independent temperature holds shading in this group or default."
-            }
-          },
-          "shading_forecast": {
-            "name": "Shading forecast",
-            "data": {
-              "shading_config": "Advanced shading rules",
-              "shading_forecast_temp": "Forecast temperature",
-              "shading_forecast_temp_hysteresis": "Forecast temperature hysteresis",
-              "shading_forecast_type": "Forecast type",
-              "shading_weather_conditions": "Allowed weather conditions",
-              "use_cold_protection_forecast_sensor": "Use cold-protection forecast",
-              "use_shading_forecast_sensor": "Use shading forecast"
-            },
-            "data_description": {
-              "shading_config": "Value for Advanced shading rules in this group or default.",
-              "shading_forecast_temp": "Value for Forecast temperature in this group or default.",
-              "shading_forecast_temp_hysteresis": "Value for Forecast temperature hysteresis in this group or default.",
-              "shading_forecast_type": "Value for Forecast type in this group or default.",
-              "shading_weather_conditions": "Value for Allowed weather conditions in this group or default.",
-              "use_cold_protection_forecast_sensor": "Value for Use cold-protection forecast in this group or default.",
-              "use_shading_forecast_sensor": "Value for Use shading forecast in this group or default."
-            }
-          },
-          "shading_conditions": {
-            "name": "Shading conditions",
-            "data": {
-              "shading_conditions_end_and": "End conditions — all",
-              "shading_conditions_end_or": "End conditions — any",
-              "shading_conditions_start_and": "Start conditions — all",
-              "shading_conditions_start_or": "Start conditions — any"
-            },
-            "data_description": {
-              "shading_conditions_end_and": "Value for End conditions — all in this group or default.",
-              "shading_conditions_end_or": "Value for End conditions — any in this group or default.",
-              "shading_conditions_start_and": "Value for Start conditions — all in this group or default.",
-              "shading_conditions_start_or": "Value for Start conditions — any in this group or default."
-            }
-          },
-          "shading_waits": {
-            "name": "Shading waits",
-            "data": {
-              "shading_end_immediate_by_sun_position": "Immediate shading end by sun",
-              "shading_end_max_duration": "Maximum end wait",
-              "shading_start_max_duration": "Maximum start wait",
-              "shading_waitingtime_end": "Shading end wait",
-              "shading_waitingtime_start": "Shading start wait"
-            },
-            "data_description": {
-              "shading_end_immediate_by_sun_position": "Value for Immediate shading end by sun in this group or default.",
-              "shading_end_max_duration": "Value for Maximum end wait in this group or default.",
-              "shading_start_max_duration": "Value for Maximum start wait in this group or default.",
-              "shading_waitingtime_end": "Value for Shading end wait in this group or default.",
-              "shading_waitingtime_start": "Value for Shading start wait in this group or default."
+              "shading_mode": "Fixed shuttercontrol-style shading mode."
             }
           }
         }
@@ -989,6 +860,94 @@
               "sun_elevation_open": "Value for Opening sun elevation in this group or default.",
               "astro_open_offset_minutes": "Opening astro offset (minutes)",
               "astro_close_offset_minutes": "Closing astro offset (minutes)"
+            }
+          }
+        }
+      },
+      "group_shading_details": {
+        "title": "Group – shading details",
+        "description": "Edit only relevant values. Used by: {group_usage}",
+        "sections": {
+          "shading_direction": {
+            "name": "Direction",
+            "data": {
+              "shading_direction": "Window direction",
+              "shading_direction_range": "Direction range (+/−)",
+              "shading_elevation_min": "Minimum sun elevation",
+              "shading_elevation_max": "Shading end elevation"
+            },
+            "data_description": {
+              "shading_direction": "Compass direction of the window surface in degrees.",
+              "shading_direction_range": "Allowed deviation on both sides.",
+              "shading_elevation_min": "Shading can start only above this elevation.",
+              "shading_elevation_max": "Shading ends above this elevation."
+            }
+          },
+          "shading_temperature": {
+            "name": "Temperatures",
+            "data": {
+              "shading_inside_temperature_threshold": "Inside temperature threshold",
+              "shading_inside_temperature_hysteresis": "Inside temperature hysteresis",
+              "shading_outside_temperature_threshold": "Outside temperature threshold",
+              "shading_outside_temperature_hysteresis": "Outside temperature hysteresis",
+              "heat_protection_enabled": "Heat protection enabled",
+              "heat_protection_threshold": "Heat-protection threshold"
+            },
+            "data_description": {
+              "shading_inside_temperature_threshold": "Strict start threshold for the existing inside source.",
+              "shading_inside_temperature_hysteresis": "Percentage end hysteresis.",
+              "shading_outside_temperature_threshold": "Strict start threshold for the existing outside source.",
+              "shading_outside_temperature_hysteresis": "Percentage end hysteresis.",
+              "heat_protection_enabled": "Close completely above the threshold while shading is valid.",
+              "heat_protection_threshold": "Outside threshold for complete closing."
+            }
+          },
+          "shading_brightness": {
+            "name": "Optional brightness",
+            "data": {
+              "shading_brightness_threshold": "Brightness threshold",
+              "shading_sun_brightness_hysteresis": "Brightness hysteresis"
+            },
+            "data_description": {
+              "shading_brightness_threshold": "Only with a configured shading brightness source.",
+              "shading_sun_brightness_hysteresis": "Percentage end hysteresis."
+            }
+          },
+          "shading_waits": {
+            "name": "Waits",
+            "data": {
+              "shading_waitingtime_end": "End wait"
+            },
+            "data_description": {
+              "shading_waitingtime_end": "An end condition must remain invalid for this duration."
+            }
+          },
+          "shading_tilt": {
+            "name": "Tilt",
+            "data": {
+              "shading_tilt_elevation_1": "Tilt elevation 1",
+              "shading_tilt_elevation_2": "Tilt elevation 2",
+              "shading_tilt_elevation_3": "Tilt elevation 3"
+            },
+            "data_description": {
+              "shading_tilt_elevation_1": "Existing tilt behavior.",
+              "shading_tilt_elevation_2": "Existing tilt behavior.",
+              "shading_tilt_elevation_3": "Existing tilt behavior."
+            }
+          },
+          "cold_protection": {
+            "name": "Cold protection",
+            "data": {
+              "cold_protection_temperature": "Cold-protection temperature",
+              "temperature_threshold": "Temperature threshold",
+              "temperature_forecast_threshold": "Forecast temperature threshold",
+              "use_cold_protection_forecast_sensor": "Use cold-protection forecast"
+            },
+            "data_description": {
+              "cold_protection_temperature": "Existing cold-protection option.",
+              "temperature_threshold": "Existing temperature option.",
+              "temperature_forecast_threshold": "Existing cold-protection forecast.",
+              "use_cold_protection_forecast_sensor": "Use the existing cold-protection forecast."
             }
           }
         }
@@ -1062,8 +1021,6 @@
           "frost_alarm_entity": "Frost alarm entity",
           "rain_alarm_entity": "Rain alarm entity",
           "shading_brightness_sensor": "Global shading brightness sensor",
-          "shading_forecast_sensor": "Weather forecast source",
-          "shading_forecast_temp_sensor": "Forecast temperature sensor",
           "temperature_sensor_outdoor": "Outdoor temperature sensor",
           "wind_alarm_1_entity": "Wind alarm 1 entity",
           "wind_alarm_2_entity": "Wind alarm 2 entity",
@@ -1079,8 +1036,6 @@
           "frost_alarm_entity": "Shared binary entity that activates frost protection.",
           "rain_alarm_entity": "Shared binary entity that activates rain protection.",
           "shading_brightness_sensor": "Shared illuminance sensor used for sun shading decisions.",
-          "shading_forecast_sensor": "Shared weather entity used for forecast and weather-condition based shading.",
-          "shading_forecast_temp_sensor": "Shared sensor that provides forecast temperature values for shading.",
           "temperature_sensor_outdoor": "Shared outdoor temperature sensor for shading and protection rules.",
           "wind_alarm_1_entity": "Shared binary entity that activates wind alarm level 1.",
           "wind_alarm_2_entity": "Shared binary entity that activates wind alarm level 2.",
@@ -1175,14 +1130,8 @@
       "geometry": {
         "title": "Room - Geometry",
         "description": "Describe the physical orientation of this room's windows. These values are evaluated together with sun position and the assigned shading group.",
-        "data": {
-          "shading_azimuth_start": "Azimuth from",
-          "shading_azimuth_end": "Azimuth to"
-        },
-        "data_description": {
-          "shading_azimuth_start": "Start of the horizontal sun range in which this window receives direct sun.",
-          "shading_azimuth_end": "End of the horizontal sun range."
-        }
+        "data": {},
+        "data_description": {}
       },
       "controls": {
         "title": "Room - Controls",
@@ -1216,16 +1165,12 @@
           "brightness_sensor": "Brightness source",
           "cold_protection_forecast_sensor": "Cold protection forecast source",
           "shading_brightness_sensor": "Shading brightness source",
-          "shading_forecast_sensor": "Weather forecast source",
-          "shading_forecast_temp_sensor": "Forecast temperature source",
           "temperature_sensor_outdoor": "Outdoor temperature source"
         },
         "data_description": {
           "brightness_sensor": "Room-local source that overrides the global brightness source only for this room.",
           "cold_protection_forecast_sensor": "Room-local source that overrides the global cold protection forecast source only for this room.",
           "shading_brightness_sensor": "Room-local source that overrides the global shading brightness source only for this room.",
-          "shading_forecast_sensor": "Room-local source that overrides the global weather forecast source only for this room.",
-          "shading_forecast_temp_sensor": "Room-local source that overrides the global forecast temperature source only for this room.",
           "temperature_sensor_outdoor": "Room-local source that overrides the global outdoor temperature source only for this room."
         }
       },
@@ -1597,131 +1542,16 @@
         }
       },
       "group_shading": {
-        "title": "Group - e shading",
-        "description": "Edit settings for {group_name}. Used by: {group_usage}",
+        "title": "Group – shading",
+        "description": "Select the shading mode for {group_name}. Used by: {group_usage}",
         "sections": {
-          "shading_targets": {
-            "name": "Shading control",
+          "shading_mode": {
+            "name": "Shading mode",
             "data": {
-              "auto_shading_enabled": "Shading enabled",
-              "shading_position": "Shading position",
-              "shading_position_alt": "Alternate shading position",
-              "shading_tilt_elevation_1": "Tilt elevation 1",
-              "shading_tilt_elevation_2": "Tilt elevation 2",
-              "shading_tilt_elevation_3": "Tilt elevation 3",
-              "shading_tilt_position": "Shading tilt position",
-              "shading_tilt_position_0": "Shading tilt position 0",
-              "shading_tilt_position_1": "Shading tilt position 1",
-              "shading_tilt_position_2": "Shading tilt position 2",
-              "shading_tilt_position_3": "Shading tilt position 3"
+              "shading_mode": "Shading mode"
             },
             "data_description": {
-              "auto_shading_enabled": "Value for Shading enabled in this group or default.",
-              "shading_position": "Value for Shading position in this group or default.",
-              "shading_position_alt": "Value for Alternate shading position in this group or default.",
-              "shading_tilt_elevation_1": "Value for Tilt elevation 1 in this group or default.",
-              "shading_tilt_elevation_2": "Value for Tilt elevation 2 in this group or default.",
-              "shading_tilt_elevation_3": "Value for Tilt elevation 3 in this group or default.",
-              "shading_tilt_position": "Value for Shading tilt position in this group or default.",
-              "shading_tilt_position_0": "Value for Shading tilt position 0 in this group or default.",
-              "shading_tilt_position_1": "Value for Shading tilt position 1 in this group or default.",
-              "shading_tilt_position_2": "Value for Shading tilt position 2 in this group or default.",
-              "shading_tilt_position_3": "Value for Shading tilt position 3 in this group or default."
-            }
-          },
-          "shading_brightness": {
-            "name": "Shading brightness",
-            "data": {
-              "shading_brightness_end": "Shading end brightness",
-              "shading_brightness_start": "Shading start brightness",
-              "shading_sun_brightness_hysteresis": "Shading brightness hysteresis"
-            },
-            "data_description": {
-              "shading_brightness_end": "Value for Shading end brightness in this group or default.",
-              "shading_brightness_start": "Value for Shading start brightness in this group or default.",
-              "shading_sun_brightness_hysteresis": "Value for Shading brightness hysteresis in this group or default."
-            }
-          },
-          "shading_temperature": {
-            "name": "Shading temperature",
-            "data": {
-              "cold_protection_temperature": "Cold-protection temperature",
-              "heat_protection_enabled": "Heat protection enabled",
-              "heat_protection_threshold": "Heat-protection threshold",
-              "shading_independent_temp": "Independent temperature",
-              "shading_min_temperatur1": "Minimum temperature 1",
-              "shading_min_temperatur2": "Minimum temperature 2",
-              "shading_temperature_hysteresis1": "Temperature hysteresis 1",
-              "shading_temperature_hysteresis2": "Temperature hysteresis 2",
-              "temperature_forecast_threshold": "Forecast temperature threshold",
-              "temperature_threshold": "Temperature threshold",
-              "shading_independent_holds_end": "Independent temperature holds shading"
-            },
-            "data_description": {
-              "cold_protection_temperature": "Value for Cold-protection temperature in this group or default.",
-              "heat_protection_enabled": "Close completely when the outside temperature exceeds the heat-protection threshold and all shading conditions are met.",
-              "heat_protection_threshold": "Outside-temperature threshold for complete heat-protection closing.",
-              "shading_independent_temp": "Value for Independent temperature in this group or default.",
-              "shading_min_temperatur1": "Value for Minimum temperature 1 in this group or default.",
-              "shading_min_temperatur2": "Value for Minimum temperature 2 in this group or default.",
-              "shading_temperature_hysteresis1": "Value for Temperature hysteresis 1 in this group or default.",
-              "shading_temperature_hysteresis2": "Value for Temperature hysteresis 2 in this group or default.",
-              "temperature_forecast_threshold": "Value for Forecast temperature threshold in this group or default.",
-              "temperature_threshold": "Value for Temperature threshold in this group or default.",
-              "shading_independent_holds_end": "Value for Independent temperature holds shading in this group or default."
-            }
-          },
-          "shading_forecast": {
-            "name": "Shading forecast",
-            "data": {
-              "shading_config": "Advanced shading rules",
-              "shading_forecast_temp": "Forecast temperature",
-              "shading_forecast_temp_hysteresis": "Forecast temperature hysteresis",
-              "shading_forecast_type": "Forecast type",
-              "shading_weather_conditions": "Allowed weather conditions",
-              "use_cold_protection_forecast_sensor": "Use cold-protection forecast",
-              "use_shading_forecast_sensor": "Use shading forecast"
-            },
-            "data_description": {
-              "shading_config": "Value for Advanced shading rules in this group or default.",
-              "shading_forecast_temp": "Value for Forecast temperature in this group or default.",
-              "shading_forecast_temp_hysteresis": "Value for Forecast temperature hysteresis in this group or default.",
-              "shading_forecast_type": "Value for Forecast type in this group or default.",
-              "shading_weather_conditions": "Value for Allowed weather conditions in this group or default.",
-              "use_cold_protection_forecast_sensor": "Value for Use cold-protection forecast in this group or default.",
-              "use_shading_forecast_sensor": "Value for Use shading forecast in this group or default."
-            }
-          },
-          "shading_conditions": {
-            "name": "Shading conditions",
-            "data": {
-              "shading_conditions_end_and": "End conditions — all",
-              "shading_conditions_end_or": "End conditions — any",
-              "shading_conditions_start_and": "Start conditions — all",
-              "shading_conditions_start_or": "Start conditions — any"
-            },
-            "data_description": {
-              "shading_conditions_end_and": "Value for End conditions — all in this group or default.",
-              "shading_conditions_end_or": "Value for End conditions — any in this group or default.",
-              "shading_conditions_start_and": "Value for Start conditions — all in this group or default.",
-              "shading_conditions_start_or": "Value for Start conditions — any in this group or default."
-            }
-          },
-          "shading_waits": {
-            "name": "Shading waits",
-            "data": {
-              "shading_end_immediate_by_sun_position": "Immediate shading end by sun",
-              "shading_end_max_duration": "Maximum end wait",
-              "shading_start_max_duration": "Maximum start wait",
-              "shading_waitingtime_end": "Shading end wait",
-              "shading_waitingtime_start": "Shading start wait"
-            },
-            "data_description": {
-              "shading_end_immediate_by_sun_position": "Value for Immediate shading end by sun in this group or default.",
-              "shading_end_max_duration": "Value for Maximum end wait in this group or default.",
-              "shading_start_max_duration": "Value for Maximum start wait in this group or default.",
-              "shading_waitingtime_end": "Value for Shading end wait in this group or default.",
-              "shading_waitingtime_start": "Value for Shading start wait in this group or default."
+              "shading_mode": "Fixed shuttercontrol-style shading mode."
             }
           }
         }
@@ -1983,6 +1813,94 @@
             }
           }
         }
+      },
+      "group_shading_details": {
+        "title": "Group – shading details",
+        "description": "Edit only relevant values. Used by: {group_usage}",
+        "sections": {
+          "shading_direction": {
+            "name": "Direction",
+            "data": {
+              "shading_direction": "Window direction",
+              "shading_direction_range": "Direction range (+/−)",
+              "shading_elevation_min": "Minimum sun elevation",
+              "shading_elevation_max": "Shading end elevation"
+            },
+            "data_description": {
+              "shading_direction": "Compass direction of the window surface in degrees.",
+              "shading_direction_range": "Allowed deviation on both sides.",
+              "shading_elevation_min": "Shading can start only above this elevation.",
+              "shading_elevation_max": "Shading ends above this elevation."
+            }
+          },
+          "shading_temperature": {
+            "name": "Temperatures",
+            "data": {
+              "shading_inside_temperature_threshold": "Inside temperature threshold",
+              "shading_inside_temperature_hysteresis": "Inside temperature hysteresis",
+              "shading_outside_temperature_threshold": "Outside temperature threshold",
+              "shading_outside_temperature_hysteresis": "Outside temperature hysteresis",
+              "heat_protection_enabled": "Heat protection enabled",
+              "heat_protection_threshold": "Heat-protection threshold"
+            },
+            "data_description": {
+              "shading_inside_temperature_threshold": "Strict start threshold for the existing inside source.",
+              "shading_inside_temperature_hysteresis": "Percentage end hysteresis.",
+              "shading_outside_temperature_threshold": "Strict start threshold for the existing outside source.",
+              "shading_outside_temperature_hysteresis": "Percentage end hysteresis.",
+              "heat_protection_enabled": "Close completely above the threshold while shading is valid.",
+              "heat_protection_threshold": "Outside threshold for complete closing."
+            }
+          },
+          "shading_brightness": {
+            "name": "Optional brightness",
+            "data": {
+              "shading_brightness_threshold": "Brightness threshold",
+              "shading_sun_brightness_hysteresis": "Brightness hysteresis"
+            },
+            "data_description": {
+              "shading_brightness_threshold": "Only with a configured shading brightness source.",
+              "shading_sun_brightness_hysteresis": "Percentage end hysteresis."
+            }
+          },
+          "shading_waits": {
+            "name": "Waits",
+            "data": {
+              "shading_waitingtime_end": "End wait"
+            },
+            "data_description": {
+              "shading_waitingtime_end": "An end condition must remain invalid for this duration."
+            }
+          },
+          "shading_tilt": {
+            "name": "Tilt",
+            "data": {
+              "shading_tilt_elevation_1": "Tilt elevation 1",
+              "shading_tilt_elevation_2": "Tilt elevation 2",
+              "shading_tilt_elevation_3": "Tilt elevation 3"
+            },
+            "data_description": {
+              "shading_tilt_elevation_1": "Existing tilt behavior.",
+              "shading_tilt_elevation_2": "Existing tilt behavior.",
+              "shading_tilt_elevation_3": "Existing tilt behavior."
+            }
+          },
+          "cold_protection": {
+            "name": "Cold protection",
+            "data": {
+              "cold_protection_temperature": "Cold-protection temperature",
+              "temperature_threshold": "Temperature threshold",
+              "temperature_forecast_threshold": "Forecast temperature threshold",
+              "use_cold_protection_forecast_sensor": "Use cold-protection forecast"
+            },
+            "data_description": {
+              "cold_protection_temperature": "Existing cold-protection option.",
+              "temperature_threshold": "Existing temperature option.",
+              "temperature_forecast_threshold": "Existing cold-protection forecast.",
+              "use_cold_protection_forecast_sensor": "Use the existing cold-protection forecast."
+            }
+          }
+        }
       }
     },
     "abort": {
@@ -1992,35 +1910,11 @@
     }
   },
   "selector": {
-    "shading_condition": {
-      "options": {
-        "cond_azimuth": "Sun azimuth",
-        "cond_elevation": "Sun elevation",
-        "cond_brightness": "Brightness",
-        "cond_temp1": "Temperature 1",
-        "cond_temp2": "Temperature 2",
-        "cond_forecast_temp": "Forecast temperature",
-        "cond_forecast_weather": "Forecast weather"
-      }
-    },
-    "shading_config": {
-      "options": {
-        "shading_temp_comparison_independent": "Independent temperature start",
-        "shading_compare_forecast_with_sensor2": "Compare forecast with temperature 2"
-      }
-    },
     "position_source": {
       "options": {
         "current_position_attr": "current_position attribute",
         "position_attr": "position attribute",
         "custom_sensor": "Custom position sensor"
-      }
-    },
-    "forecast_type": {
-      "options": {
-        "daily": "Daily forecast",
-        "hourly": "Hourly forecast",
-        "weather_attributes": "Current weather attributes"
       }
     },
     "manual_override_reset_mode": {
@@ -2041,26 +1935,6 @@
       "options": {
         "blind": "Blind / roller shutter",
         "awning": "Awning / sunshade"
-      }
-    },
-    "weather_condition": {
-      "options": {
-        "clear-night": "Clear night",
-        "clear": "Clear",
-        "cloudy": "Cloudy",
-        "fog": "Fog",
-        "hail": "Hail",
-        "lightning": "Lightning",
-        "lightning-rainy": "Lightning and rain",
-        "partlycloudy": "Partly cloudy",
-        "pouring": "Pouring rain",
-        "rainy": "Rainy",
-        "snowy": "Snowy",
-        "snowy-rainy": "Snow and rain",
-        "sunny": "Sunny",
-        "windy": "Windy",
-        "windy-variant": "Windy and cloudy",
-        "exceptional": "Exceptional"
       }
     },
     "group": {
@@ -2087,6 +1961,17 @@
         "elevation": "Sun elevation",
         "brightness": "Brightness"
       }
+    },
+    "shading_mode": {
+      "options": {
+        "off": "Off",
+        "inside_outside": "Inside & outside temperature / brightness",
+        "direction": "Direction",
+        "inside_outside_direction": "Inside/outside temperature/brightness + direction",
+        "outside_direction": "Outside temperature/brightness + direction",
+        "outside": "Outside temperature/brightness",
+        "inside": "Inside temperature"
+      }
     }
   },
   "config_subentries": {},
@@ -2106,6 +1991,10 @@
     "sun_mode_migration": {
       "title": "Sun configuration migrated",
       "description": "Dynamic sun elevation was removed. The affected group now uses fixed sun elevation. {details}"
+    },
+    "shading_mode_migration": {
+      "title": "Shading configuration simplified",
+      "description": "The freely composed shading logic was reduced to a fixed mode. Forecast and OR conditions are no longer supported. Check shading: {details}"
     }
   },
   "entity": {
