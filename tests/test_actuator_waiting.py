@@ -130,3 +130,37 @@ async def test_duplicate_tilt_command_is_suppressed() -> None:
         await controller._command_tilt_position(35.5, reason="shading_start")
 
     controller.hass.services.async_call.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_raffstore_reality_targets_sequence_and_safety() -> None:
+    state = SimpleNamespace(attributes={"supported_features": 128})
+    controller = object.__new__(CoverController)
+    controller.config = {
+        CONF_OPEN_TILT_POSITION: 90,
+        CONF_CLOSE_TILT_POSITION: 10,
+        CONF_SHADING_TILT_POSITION: 35,
+        CONF_VENTILATE_TILT_POSITION: 55,
+    }
+    controller.cover = "cover.test"
+    controller.hass = SimpleNamespace(
+        states=SimpleNamespace(get=lambda _entity_id: state)
+    )
+    controller._async_wait_for_state_change = AsyncMock(return_value=True)
+    controller._command_tilt_position = AsyncMock()
+
+    assert controller._tilt_position_value("scheduled_open") == 90
+    assert controller._tilt_position_value("shading_start") == 35
+    assert controller._tilt_position_value("ventilation") == 55
+    assert controller._tilt_position_value("fire_alarm") is None
+
+    with patch(
+        "custom_components.cover_control.runtime.actuator._async_cover_entity_feature",
+        AsyncMock(return_value=SimpleNamespace(SET_TILT_POSITION=128)),
+    ):
+        await controller._send_tilt_after_position(35, reason="shading_start")
+
+    controller._async_wait_for_state_change.assert_awaited_once()
+    controller._command_tilt_position.assert_awaited_once_with(
+        35, reason="shading_start"
+    )
