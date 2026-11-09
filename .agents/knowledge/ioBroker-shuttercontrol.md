@@ -102,6 +102,8 @@ Schließt das Fenster während der ersten Fahrt, bleibt der Rollladen geschlosse
 
 Cover Control verwendet dafür ein festes Zielmodell ohne CCA-Sonderschalter: vollständig offen → Lockout-Position, gekippt → Lüftungsposition, geschlossen → gespeicherten Hintergrund neu auswerten. Fenster-/Aussperrschutz gewinnt vor Komfort-Beschattung. Die frühere Option `prevent_opening_after_shading_end` ist verlustfrei als `keep_sun_protection` benannt und bildet ausschließlich `KeepSunProtect` ab. Generische Additional Conditions sowie CCA-spezifische `prevent_*`, Ventilation- und Lockout/Tilt-Overrides gehören nicht mehr zum Zielumfang. Resident und Recalibrate bleiben bewusste Cover-Control-Erweiterungen.
 
+Weitere feste Zielinvarianten: Es gibt keine externen Force-Entities. Die Istposition stammt ausschließlich aus dem standardisierten HA-Cover-Attribut `current_position`; fehlt es, gilt die Position als nicht verfügbar. Catch-up erfolgt nur nach einem echten Runtime-Ausfall, nicht nach ConfigEntry-Reloads. Die Fahrstaffelung ist mit `drive_delay_fixed` deterministisch und besitzt keinen Zufallsanteil.
+
 ## Safety-Alarme und Prioritätsabweichung
 
 Jeder Alarm besitzt eine globale Entity und Zielposition sowie eine Aktivierung pro Rollladen.

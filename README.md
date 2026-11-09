@@ -106,7 +106,7 @@ Schedule Adoption und Manual Override sind getrennte Mechanismen: Die Adoption m
 ### Diagnose und Logbuch
 
 - `cover_control_event`, Statussensoren und Python-Logging bleiben unabhängig voneinander verfügbar.
-- Mit `enable_logbook_cover` können wichtige Fahrten, Beschattungs- und Lüftungswechsel, Manual Overrides, Schedule Adoption und Force-Aktionen direkt am betroffenen Cover protokolliert werden.
+- Mit `enable_logbook_cover` können wichtige Fahrten, Beschattungs- und Lüftungswechsel, Manual Overrides und Schedule Adoption direkt am betroffenen Cover protokolliert werden.
 - Wiederholte identische Blockierungsentscheidungen werden zur Laufzeit dedupliziert; ist das Home-Assistant-Logbuch nicht verfügbar, läuft die Steuerung unverändert weiter.
 
 ### Verhaltens- und Sicherheitsregeln

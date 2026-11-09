@@ -23,17 +23,15 @@ Im Falle gleichzeitiger Anforderungen gewinnt immer die Funktion mit der höhere
 ```
 [1. Safety (Fire > Rain > Wind 2 > Wind 1 > Frost)]
        ↓
-[2. Lockout (Aussperrschutz)]
+[2. Manual Override (Benutzereingriff)]
        ↓
-[3. Force (Erzwingung)]
+[3. Window / Ventilation / Lockout]
        ↓
-[4. Manual Override (Benutzereingriff)]
+[4. Shading / Heat Protection]
        ↓
-[5. Ventilation (Lüftung bei gekipptem/geöffnetem Fenster)]
+[5. Resident]
        ↓
-[6. Shading (Sonnenschutz / Beschattung)]
-       ↓
-[7. Resident / Time / Sun / Brightness]
+[6. Time / Astro / Brightness]
 ```
 
 ---
@@ -42,34 +40,29 @@ Im Falle gleichzeitiger Anforderungen gewinnt immer die Funktion mit der höhere
 
 ### 1. Safety (Höchste Priorität)
 * **Zweck:** Feuer-, Regen-, Wind- und Frostschutz mit deterministischer Alarmrangfolge.
-* **Verhalten:** Übersteuert Lockout, Force, manuelle und normale Automationszustände. Fire bleibt nach Sensorende persistent verriegelt, bis ein bewusster Reset bei inaktivem Sensor erfolgt.
+* **Verhalten:** Übersteuert Lockout, manuelle und normale Automationszustände. Fire bleibt nach Sensorende persistent verriegelt, bis ein bewusster Reset bei inaktivem Sensor erfolgt.
 
-### 2. Lockout
-* **Zweck:** Verhindert das Aussperren von Personen (z. B. auf Balkon/Terrasse) bei geöffneter Tür.
-* **Verhalten:** Wenn der Türkontakt offen ist und Aussperrschutz konfiguriert ist, darf der Behang unter keinen Umständen unter die Lockout-Position fahren. Alle Schließbefehle werden blockiert oder auf die Lockout-Position limitiert.
-
-### 3. Force Actions
-* **Zweck:** Bewusst erzwungene Benutzer- oder externe Aktionen außerhalb des Safety-Alarmmodells.
-* **Verhalten:** Übersteuert normale Automationszustände, aber keinen aktiven Safety-Zustand.
-
-### 4. Manual Override
+### 2. Manual Override
 * **Zweck:** Respektiert den Willen des Bewohners, der manuell per Taster oder HA-UI gefahren hat.
 * **Verhalten:** Blockiert automatische Fahrten für die konfigurierte Override-Dauer oder bis zum nächsten Zeitplan-Ereignis.
 
-### 5. Ventilation
+### 3. Window / Ventilation / Lockout
+* **Zweck:** Verhindert das Aussperren von Personen (z. B. auf Balkon/Terrasse) bei geöffneter Tür.
+* **Verhalten:** Wenn der Türkontakt offen ist und Aussperrschutz konfiguriert ist, darf der Behang unter keinen Umständen unter die Lockout-Position fahren. Alle Schließbefehle werden blockiert oder auf die Lockout-Position limitiert.
+
 * **Zweck:** Ermöglicht Luftzirkulation bei gekipptem Fenster.
 * **Verhalten:** Ein vollständig offener Kontakt verwendet fest die Lockout-Position, ein gekippter Kontakt die Lüftungsposition. Beim Wechsel `open → tilted` wird die Lüftungsposition angefahren. Nach dem Schließen wertet die Runtime den gespeicherten Hintergrund erneut aus.
 
-### 6. Shading
+### 4. Shading / Heat Protection
 * **Zweck:** Überhitzungsschutz bei direkter Sonneneinstrahlung.
 * **Verhalten:** Fährt auf die Beschattungsposition, sofern Sonnengeometrie, Innen-/Außentemperatur und Helligkeit die Schwellen überschreiten.
 
-### 7. Resident / Time / Sun / Brightness (Grundautomation)
+### 5–6. Resident und Grundautomation
 * **Zweck:** Reguläres Öffnen am Morgen und Schließen am Abend basierend auf Zeit, Helligkeit oder Sonnenuntergang.
 
 ## Vereinfachtes Verhaltensmodell
 
-Cover Control besitzt keine generischen Additional Conditions und keine CCA-spezifischen `prevent_*`, Ventilation- oder Lockout/Tilt-Override-Schalter. Fenster-, Lüftungs- und Beschattungskonflikte werden ausschließlich durch die feste Priorität gelöst. Identische effektive Ziele werden im Aktorpfad anhand Positionstoleranz und laufendem Ziel dedupliziert. Resident und Recalibrate bleiben bewusst zusätzliche Cover-Control-Funktionen.
+Cover Control besitzt keine externen Force-Entities, generischen Additional Conditions oder CCA-spezifischen `prevent_*`, Ventilation- oder Lockout/Tilt-Override-Schalter. Fenster-, Lüftungs- und Beschattungskonflikte werden ausschließlich durch die feste Priorität gelöst. Identische effektive Ziele werden im Aktorpfad anhand Positionstoleranz und laufendem Ziel dedupliziert. Resident und Recalibrate bleiben bewusst zusätzliche Cover-Control-Funktionen.
 
 ---
 Verwandte Notizen:

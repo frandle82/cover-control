@@ -56,11 +56,11 @@ Das bloße Kopieren einer mathematischen Formel oder Bedingung in ein Mixin ohne
 
 ### 5. Runtime-Logik (`runtime/`)
 * Logik gehört in das jeweilige Mixin (`schedule.py`, `shading.py`, `evaluation.py`, `actuator.py`).
-* Strikte Einhaltung der Prioritätenhierarchie (Lockout > Force > Manual Override > Ventilation > Shading > Resident).
+* Strikte Einhaltung der Prioritätenhierarchie (Safety > Manual Override > Window/Ventilation/Lockout > Shading/Heat Protection > Resident > Grundautomation).
 
 ### 6. Bewegung, Toleranz & Lamelle (`runtime/actuator.py`)
 * Prüfung auf Positionstoleranz (`CONF_POSITION_TOLERANCE`): Kein Fahrbefehl, wenn der Rollladen bereits am Ziel steht.
-* Lamellenkippung (Tilt) bei Jalousien mitberücksichtigen (`CONF_DRIVE_DELAY_FIXED`, `CONF_DRIVE_DELAY_RANDOM`).
+* Lamellenkippung (Tilt) bei Jalousien mitberücksichtigen; Fahrstaffelung ist ausschließlich `CONF_DRIVE_DELAY_FIXED`.
 * Zwischenzustände (`opening`, `closing`) dürfen nicht als manuelle Bedienung gewertet werden.
 
 ### 7. Deterministische Regressionstests (`tests/test_blueprint_parity.py`)

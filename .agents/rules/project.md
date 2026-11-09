@@ -74,14 +74,13 @@ Ein Schalterzustand ändert niemals die Konfiguration oder Gruppenzuordnung.
 ## 4. Fahrbefehle, Beschattung & Manuelle Steuerung
 
 * **Fahrbefehle (`actuator.py`):** Sämtliche automatischen Fahrbefehle laufen über den Controller und `actuator.py`.
-* **Prioritätenhierarchie:** Lockout > Force > Manual Override > Ventilation > Shading > Resident.
+* **Prioritätenhierarchie:** Safety > Manual Override > Window / Ventilation / Lockout > Shading / Heat Protection > Resident > Time / Astro / Brightness.
 * **Toleranz:** Keine doppelten Fahrbefehle senden, wenn sich die Position bereits innerhalb der konfigurierten Toleranz befindet.
 * **Fensterpriorität:** Offen fährt auf die Lockout-Position, gekippt auf die Lüftungsposition; beide Zustände gehen Komfort-Beschattung vor. Nach dem Schließen wird der gespeicherte Hintergrund wieder ausgewertet.
 * **Manuelle Steuerung:** Strikt trennen zwischen:
   1. Manueller Bewegungserkennung (`manual movement detection`)
   2. Manuellem Override-Zustand (`manual override state`)
   3. Geplanter Aktionshistorie (`scheduled action history`)
-  4. Erzwingungsaktionen (`force actions`)
 * Durch Cover Control initiierte Fahrten (auch Zwischenzustände wie `opening`/`closing`) dürfen niemals als manuelle Bedienung gewertet werden.
 * **Beschattungsregeln:** Ausschließlich feste Shuttercontrol-Modi; keine frei kombinierbaren AND-/OR- oder Forecast-Bedingungen. Direction ist Mittelpunkt ± Bereich, Endgrenzen nutzen prozentuale Hysterese. Zielposition/Aktorpfad bleiben in `evaluation.py`/`actuator.py`.
 

@@ -16,9 +16,9 @@ Präzise Unterscheidung zwischen Positionsänderungen, die von `cover-control` s
 
 ---
 
-## 1. Die vier Konzepte
+## 1. Die drei Konzepte
 
-Es muss strikt zwischen vier Zuständen und Mechanismen unterschieden werden:
+Es muss strikt zwischen drei Zuständen und Mechanismen unterschieden werden:
 
 1. **Manuelle Bewegungserkennung (`manual movement detection`):**
    * Erkennt, wenn sich ein Behang bewegt hat, ohne dass Cover Control im selben Zeitfenster einen Fahrbefehl abgesetzt hat.
@@ -26,8 +26,6 @@ Es muss strikt zwischen vier Zuständen und Mechanismen unterschieden werden:
    * Der Zustand, in dem ein Raum als "manuell übersteuert" markiert ist und automatische Fahrten blockiert werden.
 3. **Geplante Aktionshistorie (`scheduled action history`):**
    * Zeitstempel und Zielpositionen kürzlich von Cover Control versendeter Befehle.
-4. **Erzwingungsaktionen (`force actions`):**
-   * Aktionen von übergeordneter Priorität (z. B. Windalarm), die auch den manuellen Override aufheben oder überstimmen können.
 
 ---
 

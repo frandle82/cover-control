@@ -147,7 +147,7 @@ Ein Schalterzustand ändert niemals die Konfiguration oder Gruppenzuordnung.
 
 ### Fahrbefehle (`actuator.py`)
 * Sämtliche automatischen Fahrbefehle laufen über den Controller und `actuator.py`.
-* Prioritätenhierarchie wahren: Lockout > Force > Manual Override > Ventilation > Shading > Resident.
+* Prioritätenhierarchie wahren: Safety > Manual Override > Window / Ventilation / Lockout > Shading / Heat Protection > Resident > Time / Astro / Brightness.
 * Offene Fenster verwenden die Lockout-Position, gekippte Fenster die Lüftungsposition. Fenster-/Aussperrschutz hat fest Vorrang vor Komfort-Beschattung; identische Zielbefehle werden intern immer dedupliziert.
 * Keine doppelten Fahrbefehle senden, wenn sich die Position bereits innerhalb der konfigurierten Toleranz befindet.
 * Zwischenzustände (`opening`, `closing`) nicht als manuelle Bewegung werten, wenn Cover Control die Fahrt ausgelöst hat.
@@ -163,7 +163,6 @@ Ein Schalterzustand ändert niemals die Konfiguration oder Gruppenzuordnung.
   1. Manueller Bewegungserkennung (`manual movement detection`)
   2. Manuellem Override-Zustand (`manual override state`)
   3. Geplanter Aktionshistorie (`scheduled action history`)
-  4. Erzwingungsaktionen (`force actions`)
 * Durch Cover Control initiierte Fahrten dürfen niemals nachträglich als manuelle Bedienung gewertet werden.
 
 ---

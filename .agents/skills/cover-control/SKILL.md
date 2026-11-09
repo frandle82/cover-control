@@ -44,15 +44,14 @@ Die Fassade `runtime/controller.py` bündelt diese Mixins. Logik gehört niemals
 ## 3. Prioritätenhierarchie bei Fahrbefehlen
 
 Bei konkurrierenden Bedingungen gewinnt ausnahmslos die höhere Priorität:
-1. **Lockout (Aussperrschutz):** Tür offen = Schließen blockieren.
-2. **Force (Erzwingung / Notfall):** Manuell oder sensorbasiert (Wind, Rauch, Frost).
-3. **Manual Override (Manuelle Übersteuerung):** Eingriff des Bewohners blockiert automatische Fahrten.
-4. **Ventilation (Lüftung):** Fenster gekippt/geöffnet.
-5. **Shading (Beschattung):** Überhitzungsschutz bei Sonneneinstrahlung.
-6. **Resident (Anwesenheit / Nachtmodus):** Schlafsensor / Resident-Modus.
-7. **Schedule & Sun (Grundautomation):** Reguläre zeit- oder sonnenbasierte Fahrten.
+1. **Safety:** Feuer, Regen, Wind und Frost.
+2. **Manual Override:** Eingriff des Bewohners blockiert automatische Fahrten.
+3. **Window / Ventilation / Lockout:** Fensterzustand bestimmt das sichere Ziel.
+4. **Shading / Heat Protection:** Sonnenschutz und Überhitzungsschutz.
+5. **Resident:** Anwesenheit und Nachtmodus.
+6. **Time / Astro / Brightness:** Reguläre Grundautomation.
 
-Fenster- und Lüftungsentscheidungen sind fest: offen verwendet die Lockout-Position, gekippt die Lüftungsposition, und beide haben Vorrang vor Beschattung. Generische Additional Conditions sowie CCA-spezifische `prevent_*`, Ventilation- und Lockout/Tilt-Overrides werden nicht angeboten. Resident und Recalibrate bleiben bewusste Cover-Control-Erweiterungen.
+Fenster- und Lüftungsentscheidungen sind fest: offen verwendet die Lockout-Position, gekippt die Lüftungsposition, und beide haben Vorrang vor Beschattung. Externe Force-Entities werden nicht angeboten. Die Position stammt ausschließlich aus `current_position` des HA-Cover-Entity; ohne Attribut gilt sie als nicht verfügbar. Recovery erfolgt fest nur nach echten Laufzeitausfällen, und die Fahrstaffelung verwendet ausschließlich `drive_delay_fixed`. Resident und Recalibrate bleiben bewusste Cover-Control-Erweiterungen.
 
 ---
 

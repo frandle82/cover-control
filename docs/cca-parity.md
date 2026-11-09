@@ -14,10 +14,8 @@ automation actions outside the integration.
 | Sun hybrid elevation | NOT_APPLICABLE | Removed from the target model; legacy values migrate deterministically to fixed elevation. |
 | Configurable sun source | NOT_APPLICABLE | Cover Control uses the HA location and canonical `sun.sun`; no redundant source selector is exposed. |
 | Dynamic sun room sources | NOT_APPLICABLE | Dynamic elevation sources are outside the simplified shuttercontrol-style model. |
-| Force controls | FULL | Room UI, resolver, listeners, explicit priority, shared safety gates and imperative compatibility path. |
-| Force pause | FULL | Entity pause blocks dispatch and release requests fresh evaluation, including delayed movements. |
 | Restart/outage catch-up | FULL | Explicit startup/runtime-outage state with `never`, `outage` and `always` recovery modes; dependencies unavailable during startup remain in startup until the initial dependency set becomes usable. |
-| Fixed/random drive delay | FULL | Central combined pre-drive delay with post-wait live-gate, force and target rechecks. |
+| Fixed drive delay | FULL | Deterministic pre-drive delay with post-wait live-gate and target rechecks. |
 | Manual override | MAPPED | Native override state and clear/re-evaluate behavior. |
 | Tilt reposition | FULL | Native tilt-before-position mode is available. |
 | Tilt tolerance | FULL | Separate configurable tilt tolerance is persisted, resolved and used for tilt no-op decisions. |
