@@ -64,12 +64,9 @@ def _controls_for_reason(reason: str) -> set[str]:
         return {"time"}
     if reason in {"sun_open", "sun_close"}:
         return {"sun"}
-    if reason.startswith("force_"):
-        return {reason}
     if reason in {
         "manual_override",
         "window_lockout",
-        "force_pause",
         "no_go_time",
         "summer_period",
     }:
@@ -95,7 +92,6 @@ def _blocking_controls_for_reason(reason: str) -> set[str]:
     if reason in {
         "manual_override",
         "window_lockout",
-        "force_pause",
         "summer_period",
     }:
         return {reason}
@@ -866,27 +862,6 @@ class ControllerManager:
 
         for controller in self.controllers.values():
             await controller.recalibrate(full_open)
-
-    async def force_action(self, cover: str, action: str) -> bool:
-        controller = self.controllers.get(cover)
-        if not controller:
-            return False
-
-        if action in {"open", "close"}:
-            await controller.force_move(action)
-            return True
-        if action in {"ventilate_start", "ventilate_stop"}:
-            await controller.force_ventilation(
-                "start" if action == "ventilate_start" else "stop"
-            )
-            return True
-        if action in {"shading_activate", "shading_deactivate"}:
-            await controller.force_shading(
-                "activate" if action == "shading_activate" else "deactivate"
-            )
-            return True
-
-        return False
 
     def state_snapshot(
         self,

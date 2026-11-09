@@ -19,7 +19,6 @@ from homeassistant.util import dt as dt_util
 from ..const import (
     CONF_AUTO_SHADING,
     CONF_CLOSE_POSITION,
-    CONF_CUSTOM_POSITION_SENSOR,
     CONF_DRIVE_TIME,
     CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
     CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
@@ -29,9 +28,6 @@ from ..const import (
     CONF_MANUAL_OVERRIDE_RESET_MODE,
     CONF_MANUAL_OVERRIDE_RESET_TIME,
     CONF_OPEN_POSITION,
-    CONF_POSITION_SOURCE,
-    CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
-    CONF_POSITION_SOURCE_CUSTOM_SENSOR,
     CONF_POSITION_TOLERANCE,
     CONF_RESIDENT_SENSOR,
     CONF_SHADING_WAITINGTIME_END,
@@ -274,18 +270,7 @@ class EventsMixin:
         return TRIGGER_WINDOW_CLOSED
 
     def _is_position_state_event(self, entity_id: str | None) -> bool:
-        if entity_id == self.cover:
-            return True
-        source = str(
-            self.config.get(
-                CONF_POSITION_SOURCE, CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR
-            )
-            or CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR
-        )
-        return (
-            source == CONF_POSITION_SOURCE_CUSTOM_SENSOR
-            and entity_id == self.config.get(CONF_CUSTOM_POSITION_SENSOR)
-        )
+        return entity_id == self.cover
 
     @callback
     def _handle_service_call(self, event) -> None:
@@ -532,35 +517,6 @@ class EventsMixin:
                 self._pre_ventilation_position
             )
             self.persist_status()
-
-    def _remember_force_background(self) -> None:
-        section = self._status.setdefault("force", {})
-        if not section.get("active"):
-            self._remember_status_background("force")
-        section["active"] = True
-        section["ts"] = _ts_now()
-        self.persist_status()
-
-    def _clear_force_background(self) -> None:
-        section = self._status.setdefault("force", {})
-        section["active"] = False
-        section["restore_position"] = None
-        section["background"] = {"open": False, "close": False, "shading": False}
-        section["ts"] = _ts_now()
-
-    def _force_return_target(
-        self, *, allow_open: bool = True, allow_shading: bool = True
-    ) -> tuple[float | None, str]:
-        section = self._status.get("force", {})
-        fallback = None
-        if isinstance(section, dict):
-            fallback = _coerce_float(section.get("restore_position"))
-        return self._background_return_target(
-            self._background_for("force"),
-            fallback=fallback,
-            allow_open=allow_open,
-            allow_shading=allow_shading,
-        )
 
     def publish_state(self) -> None:
         """Expose the current state via dispatcher for newly added entities."""
@@ -857,115 +813,6 @@ class EventsMixin:
             ) = manual_state
             self._refresh_next_events(dt_util.utcnow())
             self._publish_state()
-
-    async def force_move(self, action: str) -> None:
-        if action == "open":
-            target = self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)
-            reason = "force_open"
-        elif action == "close":
-            target = self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION)
-            reason = "force_close"
-        else:
-            return
-        if target is None:
-            return
-        self._remember_force_background()
-        await self._command_position(float(target), reason=reason)
-        tilt_position = self._tilt_position_value(reason)
-        if tilt_position is not None:
-            await self._send_tilt_after_position(float(tilt_position), reason=reason)
-        self._target = float(target)
-        self._reason = reason
-        self._record_action_status(reason, float(target))
-        self._refresh_next_events(dt_util.utcnow())
-        self._publish_state()
-
-    async def force_ventilation(self, action: str) -> None:
-        if action == "start":
-            self._remember_force_background()
-            self._remember_pre_ventilation_position()
-            target = self._position_value(
-                CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION
-            )
-            if target is None:
-                return
-            await self._command_position(float(target), reason="force_ventilate")
-            tilt_position = self._tilt_position_value("force_ventilate")
-            if tilt_position is not None:
-                await self._send_tilt_after_position(
-                    float(tilt_position), reason="force_ventilate"
-                )
-            self._target = float(target)
-            self._reason = "force_ventilate"
-            self._set_ventilation_status(True, False)
-            self.persist_status()
-            self._logbook_entry(
-                f"Force action · ventilation started at {float(target):g}%"
-            )
-        elif action == "stop":
-            target, reason = self._force_return_target()
-            if target is None:
-                target = self._pre_ventilation_position
-                reason = "ventilation_stop"
-            if target is None:
-                target = self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)
-            if target is None:
-                return
-            await self._command_position(float(target), reason=reason)
-            tilt_position = self._tilt_position_value(reason)
-            if tilt_position is not None:
-                await self._send_tilt_after_position(
-                    float(tilt_position), reason=reason
-                )
-            self._target = float(target)
-            self._reason = reason
-            self._pre_ventilation_position = None
-            self._set_ventilation_status(False, False)
-            self._record_action_status(reason, float(target))
-            self._logbook_entry("Force action · ventilation stopped")
-            self._clear_force_background()
-            self.persist_status()
-        else:
-            return
-        self._refresh_next_events(dt_util.utcnow())
-        self._publish_state()
-
-    async def force_shading(self, action: str) -> None:
-        if action == "activate":
-            self._remember_force_background()
-            target = self._effective_shading_position()
-            if target is None:
-                return
-            await self._command_position(float(target), reason="force_shading")
-            tilt_position = self._tilt_position_value("force_shading")
-            if tilt_position is not None:
-                await self._send_tilt_after_position(
-                    float(tilt_position), reason="force_shading"
-                )
-            self._target = float(target)
-            self._reason = "force_shading"
-            self._record_action_status("force_shading", float(target))
-        elif action == "deactivate":
-            target, reason = self._force_return_target()
-            if target is None:
-                target = self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)
-                reason = "manual_shading_end"
-            if target is None:
-                return
-            await self._command_position(float(target), reason=reason)
-            tilt_position = self._tilt_position_value(reason)
-            if tilt_position is not None:
-                await self._send_tilt_after_position(
-                    float(tilt_position), reason=reason
-                )
-            self._target = float(target)
-            self._reason = reason
-            self._record_action_status(reason, float(target))
-            self._clear_force_background()
-        else:
-            return
-        self._refresh_next_events(dt_util.utcnow())
-        self._publish_state()
 
     def _expire_manual_override(self, now: datetime) -> None:
         if self._manual_until and now >= self._manual_until:

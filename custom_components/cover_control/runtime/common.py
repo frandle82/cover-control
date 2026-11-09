@@ -232,12 +232,6 @@ def _default_cover_status() -> dict:
             "background": {"open": False, "close": False, "shading": False},
             "ts": 0,
         },
-        "force": {
-            "active": False,
-            "restore_position": None,
-            "background": {"open": False, "close": False, "shading": False},
-            "ts": 0,
-        },
         "safety": {"fire_latched": False, "ts": 0},
         "manual": {"active": False, "scope_all": False, "until": None, "ts": 0},
         "reason": None,
@@ -285,18 +279,6 @@ def _normalize_cover_status(raw: object) -> dict:
             for key in ("open", "close", "shading"):
                 status["ventilation"]["background"][key] = bool(background.get(key))
         status["ventilation"]["ts"] = int(ventilation.get("ts") or 0)
-
-    force = raw.get("force")
-    if isinstance(force, dict):
-        status["force"]["active"] = bool(force.get("active", False))
-        status["force"]["restore_position"] = _coerce_float(
-            force.get("restore_position")
-        )
-        background = force.get("background")
-        if isinstance(background, dict):
-            for key in ("open", "close", "shading"):
-                status["force"]["background"][key] = bool(background.get(key))
-        status["force"]["ts"] = int(force.get("ts") or 0)
 
     safety = raw.get("safety")
     if isinstance(safety, dict):

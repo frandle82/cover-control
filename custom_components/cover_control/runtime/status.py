@@ -269,7 +269,7 @@ class StatusMixin:
                 else (
                     f"Moved to {target_text} · sun shading started"
                     if reason == "shading"
-                    else f"Force action · moved to {target_text} for sun shading"
+                    else f"Moved to {target_text} · sun shading started manually"
                 )
             )
             self._logbook_entry(message)
@@ -283,9 +283,6 @@ class StatusMixin:
             self._logbook_entry(f"Moved to {target_text} · ventilation started")
         elif reason.startswith("ventilation_end") or reason == "ventilation_stop":
             self._logbook_entry("Ventilation ended")
-        elif reason.startswith("force_"):
-            self._logbook_entry(f"Force action · moved to {target_text}")
-
     def _record_group_background(self, reason: str) -> None:
         """Update the shared room target without interrupting local ventilation."""
 

@@ -21,11 +21,6 @@ from ..const import (
     CONF_AUTO_TIME,
     CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
-    CONF_FORCE_CLOSE_ENTITY,
-    CONF_FORCE_OPEN_ENTITY,
-    CONF_FORCE_PAUSE_ENTITY,
-    CONF_FORCE_SHADING_ENTITY,
-    CONF_FORCE_VENTILATE_ENTITY,
     CONF_BRIGHTNESS_CLOSE_BELOW,
     CONF_BRIGHTNESS_HYSTERESIS,
     CONF_BRIGHTNESS_OPEN_ABOVE,
@@ -49,10 +44,6 @@ from ..const import (
     CONF_RESIDENT_CLOSE_ENABLED,
     CONF_RESIDENT_OPEN_ENABLED,
     CONF_RESIDENT_STATUS,
-    CONF_RECOVERY_MODE,
-    RECOVERY_ALWAYS,
-    RECOVERY_NEVER,
-    RECOVERY_OUTAGE,
     CONF_SHADING_WAITINGTIME_END,
     CONF_SUN_ELEVATION_CLOSE,
     CONF_SUN_ELEVATION_OPEN,
@@ -216,13 +207,6 @@ class EvaluationMixin:
             self._publish_state()
             return
 
-        if self._entity_active(CONF_FORCE_PAUSE_ENTITY):
-            self._cancel_window_down_sequence()
-            self._reason = "force_pause"
-            self._refresh_next_events(now)
-            self._publish_state()
-            return
-
         unavailable_dependencies = self._unavailable_decision_entities()
         if unavailable_dependencies:
             self._cancel_window_down_sequence()
@@ -331,20 +315,6 @@ class EvaluationMixin:
         )
         tilt_contact_active = auto_ventilate and self._tilt_contact_active(now)
         ventilation_contact_active = full_contact_active or tilt_contact_active
-        forced = (
-            (CONF_FORCE_OPEN_ENTITY, self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION), "force_open"),
-            (CONF_FORCE_VENTILATE_ENTITY, self._position_value(CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION), "force_ventilate"),
-            (CONF_FORCE_SHADING_ENTITY, self._effective_shading_position(), "force_shading"),
-            (CONF_FORCE_CLOSE_ENTITY, self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION), "force_close"),
-        )
-        for entity_key, target, reason in forced:
-            if not self._entity_active(entity_key):
-                continue
-            if reason == "force_close" and full_contact_active:
-                continue
-            await self._set_position(target, reason)
-            return
-
         if await self._evaluate_window_down_sequence(trigger):
             self._refresh_next_events(now)
             return
@@ -803,13 +773,11 @@ class EvaluationMixin:
     def _recovery_should_catch_up(self, dependencies_recovered: bool) -> bool:
         """Decide recovery from runtime state, never from the trigger name."""
 
-        recovery_mode = str(self.config.get(CONF_RECOVERY_MODE, RECOVERY_NEVER))
         if not self._startup_complete:
-            return recovery_mode == RECOVERY_ALWAYS
+            return False
         return bool(
             dependencies_recovered
             and self._runtime_outage_active
-            and recovery_mode in {RECOVERY_OUTAGE, RECOVERY_ALWAYS}
         )
 
     def _sun_allows_open(self, sun_elevation: float | None) -> bool:
