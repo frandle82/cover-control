@@ -44,7 +44,7 @@ Im Falle gleichzeitiger Anforderungen gewinnt immer die Funktion mit der höhere
 
 ### 2. Manual Override
 * **Zweck:** Respektiert den Willen des Bewohners, der manuell per Taster oder HA-UI gefahren hat.
-* **Verhalten:** Blockiert automatische Fahrten für die konfigurierte Override-Dauer oder bis zum nächsten Zeitplan-Ereignis.
+* **Verhalten:** Blockiert einheitlich alle normalen Automatikfahrten. Eine Dauer von `0` bleibt bis zum Clear-Button aktiv; positive Werte laufen nach der konfigurierten Minutenzahl ab.
 
 ### 3. Window / Ventilation / Lockout
 * **Zweck:** Verhindert das Aussperren von Personen (z. B. auf Balkon/Terrasse) bei geöffneter Tür.

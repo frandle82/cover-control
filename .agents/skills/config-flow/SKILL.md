@@ -11,6 +11,7 @@ description: Config-, Reconfigure- und Options-Flow-Regeln für feste Gruppen un
 - Ein Room speichert `CONF_GROUP` (Default `living`) sowie Hardware, Positionen, Kontakte, lokale Quellen, Safety-Teilnahme und Controls.
 - Gruppenwerte liegen ausschließlich in `controller.data[CONF_GROUPS]`.
 - Shared Schemas liegen in `config_group_schema.py`, Modellnormalisierung in `config_groups.py`, Auflösung in `config_resolver.py`.
+- Manual Override besitzt im Gruppenverhalten nur `manual_control_enabled` und `manual_override_minutes`; `0` Minuten bedeutet Ablauf nur über den Clear-Button.
 - `strings.json`, `translations/en.json` und `translations/de.json` strukturell synchron halten.
 
 Tests: `.venv/bin/pytest -q tests/test_group_config_flow.py --asyncio-mode=auto`.

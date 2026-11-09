@@ -148,6 +148,7 @@ Ein Schalterzustand ändert niemals die Konfiguration oder Gruppenzuordnung.
 ### Fahrbefehle (`actuator.py`)
 * Sämtliche automatischen Fahrbefehle laufen über den Controller und `actuator.py`.
 * Prioritätenhierarchie wahren: Safety > Manual Override > Window / Ventilation / Lockout > Shading / Heat Protection > Resident > Time / Astro / Brightness.
+* Manual Override ist eine einheitliche Automatikpause ohne Einzelblockaden oder Resetmodus. Dauer `0` bleibt bis zum Clear-Button aktiv; Safety bleibt dominant.
 * Offene Fenster verwenden die Lockout-Position, gekippte Fenster die Lüftungsposition. Fenster-/Aussperrschutz hat fest Vorrang vor Komfort-Beschattung; identische Zielbefehle werden intern immer dedupliziert.
 * Keine doppelten Fahrbefehle senden, wenn sich die Position bereits innerhalb der konfigurierten Toleranz befindet.
 * Zwischenzustände (`opening`, `closing`) nicht als manuelle Bewegung werten, wenn Cover Control die Fahrt ausgelöst hat.

@@ -27,7 +27,7 @@ Fachliche Regeln für Beschattung, Fahrbefehle und Prioritäten:
 * 📄 [`ioBroker-shuttercontrol.md`](ioBroker-shuttercontrol.md) – Fixierte Quellcodeanalyse von ioBroker.shuttercontrol 2.1.2 einschließlich reduzierter Runtime-Invarianten, Safety, No-Go-Time, gestuftem und saisonalem Schließen, Heat Protection und Fenster-Lüftungsfahrt.
 * 📄 [`domain/priorities-and-lockout.md`](domain/priorities-and-lockout.md) – Feste Prioritäten mit Safety und Window/Lockout vor Komfortautomation; keine generischen CCA-Overrides.
 * 📄 [`domain/shading-and-solar-geometry.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/shading-and-solar-geometry.md) – Feste Shuttercontrol-Sonnenschutzmodi, Direction-Geometrie und prozentuale Endhysterese.
-* 📄 [`domain/manual-override-vs-automation.md`](domain/manual-override-vs-automation.md) – Erkennung manueller Fahrten, Override-Abgrenzung und toleranzbasierte Adoption der effektiven Beschattungsposition.
+* 📄 [`domain/manual-override-vs-automation.md`](domain/manual-override-vs-automation.md) – Einheitliche Automatikpause, Restart-/Ablaufsemantik und toleranzbasierte Adoption der effektiven Beschattungsposition.
 
 ### 3. Troubleshooting, Fallstricke & Lessons Learned
 Dokumentierte Lösungen für knifflige Bugs und HA-Spezifika:

@@ -75,6 +75,7 @@ Ein Schalterzustand ändert niemals die Konfiguration oder Gruppenzuordnung.
 
 * **Fahrbefehle (`actuator.py`):** Sämtliche automatischen Fahrbefehle laufen über den Controller und `actuator.py`.
 * **Prioritätenhierarchie:** Safety > Manual Override > Window / Ventilation / Lockout > Shading / Heat Protection > Resident > Time / Astro / Brightness.
+* **Manual Override:** Ein einzelner Automatik-Pausenzustand ohne Einzelblockaden oder Resetmodus. `0` Minuten bleibt bis zum Clear-Button aktiv; Safety bleibt dominant. Eine manuell erreichte normale Beschattungsposition wird innerhalb der Toleranz weiterhin als Shading adoptiert.
 * **Toleranz:** Keine doppelten Fahrbefehle senden, wenn sich die Position bereits innerhalb der konfigurierten Toleranz befindet.
 * **Fensterpriorität:** Offen fährt auf die Lockout-Position, gekippt auf die Lüftungsposition; beide Zustände gehen Komfort-Beschattung vor. Nach dem Schließen wird der gespeicherte Hintergrund wieder ausgewertet.
 * **Manuelle Steuerung:** Strikt trennen zwischen:

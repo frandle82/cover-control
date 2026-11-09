@@ -53,6 +53,8 @@ Bei konkurrierenden Bedingungen gewinnt ausnahmslos die höhere Priorität:
 
 Fenster- und Lüftungsentscheidungen sind fest: offen verwendet die Lockout-Position, gekippt die Lüftungsposition, und beide haben Vorrang vor Beschattung. Externe Force-Entities werden nicht angeboten. Die Position stammt ausschließlich aus `current_position` des HA-Cover-Entity; ohne Attribut gilt sie als nicht verfügbar. Recovery erfolgt fest nur nach echten Laufzeitausfällen, und die Fahrstaffelung verwendet ausschließlich `drive_delay_fixed`. Resident und Recalibrate bleiben bewusste Cover-Control-Erweiterungen.
 
+Manual Override ist ein einzelner Automatik-Pausenzustand. Er besitzt nur Aktivierung und Dauer, blockiert keine Aktion selektiv und bleibt bei Dauer `0` bis zum Clear-Button aktiv. Safety wird davor ausgewertet. Die manuelle Shading-Adoption bleibt davon getrennt.
+
 ---
 
 ## 4. Testausführung
