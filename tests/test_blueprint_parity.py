@@ -12,7 +12,6 @@ from homeassistant.util import dt as dt_util
 
 from custom_components.cover_control.config_flow import _normalize_position_value
 from custom_components.cover_control.const import (
-    CONF_ADDITIONAL_CONDITION_OPEN,
     CONF_AUTO_DOWN,
     CONF_AUTO_SHADING,
     CONF_AUTO_TIME,
@@ -434,88 +433,6 @@ def test_completed_startup_recovery_uses_runtime_outage_mode() -> None:
     assert controller._recovery_should_catch_up(True)
     controller._runtime_outage_active = False
     assert not controller._recovery_should_catch_up(True)
-
-@pytest.mark.asyncio
-async def test_additional_condition_uses_current_condition_api() -> None:
-    """Condition checkers use async_check and are unloaded after evaluation."""
-
-    condition_config = {
-        "condition": "state",
-        "entity_id": "binary_sensor.test",
-        "state": "on",
-    }
-    controller = _controller(
-        {CONF_ADDITIONAL_CONDITION_OPEN: condition_config},
-        {},
-    )
-    checker = Mock()
-    checker.async_check.return_value = True
-
-    with (
-        patch(
-            "homeassistant.helpers.condition.async_validate_condition_config",
-            new=AsyncMock(return_value=condition_config),
-        ) as validate,
-        patch(
-            "homeassistant.helpers.condition.async_from_config",
-            new=AsyncMock(return_value=checker),
-        ) as create,
-    ):
-        assert await controller._condition_allows(CONF_ADDITIONAL_CONDITION_OPEN)
-
-    validate.assert_awaited_once_with(controller.hass, condition_config)
-    create.assert_awaited_once_with(controller.hass, condition_config)
-    checker.async_check.assert_called_once_with()
-    checker.async_unload.assert_called_once_with()
-    checker.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_additional_condition_keeps_legacy_condition_compatibility() -> None:
-    """The HACS minimum version can still use callable condition checkers."""
-
-    condition_config = {"condition": "state"}
-    controller = _controller(
-        {CONF_ADDITIONAL_CONDITION_OPEN: condition_config},
-        {},
-    )
-    legacy_checker = Mock(spec=())
-    legacy_checker.return_value = True
-
-    with (
-        patch(
-            "homeassistant.helpers.condition.async_validate_condition_config",
-            new=AsyncMock(return_value=condition_config),
-        ),
-        patch(
-            "homeassistant.helpers.condition.async_from_config",
-            new=AsyncMock(return_value=legacy_checker),
-        ),
-    ):
-        assert await controller._condition_allows(CONF_ADDITIONAL_CONDITION_OPEN)
-
-    legacy_checker.assert_called_once_with(controller.hass)
-
-
-@pytest.mark.asyncio
-async def test_additional_condition_runs_on_home_assistant_2026_8(hass) -> None:
-    """An actual Home Assistant condition checker can be evaluated."""
-
-    condition_config = {
-        "condition": "state",
-        "entity_id": "binary_sensor.test",
-        "state": "on",
-    }
-    controller = object.__new__(CoverController)
-    controller.hass = hass
-    controller.config = {CONF_ADDITIONAL_CONDITION_OPEN: condition_config}
-    hass.states.async_set("binary_sensor.test", "on")
-
-    assert await controller._condition_allows(CONF_ADDITIONAL_CONDITION_OPEN)
-
-    hass.states.async_set("binary_sensor.test", "off")
-    assert not await controller._condition_allows(CONF_ADDITIONAL_CONDITION_OPEN)
-
 
 def _shading_wait_controller() -> CoverController:
     controller = _controller({}, {})

@@ -51,6 +51,58 @@ def test_migration_preserves_resident_settings() -> None:
     model, _ = migrate_profile_model(_legacy("Children", {"room": ("Room", "selected", {})}, {CONF_RESIDENT_STATUS: True}))
     assert model[CONF_GROUPS][GROUP_CHILDREN][CONF_RESIDENT_STATUS] is True
 
+
+def test_recalibrate_remains_available_after_cca_cleanup() -> None:
+    local = {
+        CONF_ENABLE_RECALIBRATE_BUTTON: True,
+        "lockout_tilt_close": True,
+    }
+    model, _ = migrate_profile_model(
+        _legacy("Living", {"room": ("Room", "selected", local)})
+    )
+    settings = model[CONF_ROOMS]["room"][CONF_ROOM_SETTINGS]
+    assert settings[CONF_ENABLE_RECALIBRATE_BUTTON] is True
+    assert "lockout_tilt_close" not in settings
+
+
+def test_keep_sun_protection_migrates_from_legacy_setting() -> None:
+    source = _fixed_groups_with_sun("fixed")
+    source[CONF_GROUPS][GROUP_LIVING]["prevent_opening_after_shading_end"] = True
+
+    model, _ = migrate_profile_model(source)
+
+    living = model[CONF_GROUPS][GROUP_LIVING]
+    assert living[CONF_KEEP_SUN_PROTECTION] is True
+    assert "prevent_opening_after_shading_end" not in living
+
+
+def test_removed_cca_settings_are_deleted_from_all_layers() -> None:
+    source = _fixed_groups_with_sun("fixed")
+    source[CONF_GLOBAL] = {
+        CONF_GLOBAL_SOURCES: {"additional_condition_global": {"condition": "state"}},
+        CONF_GLOBAL_DEFAULTS: {},
+    }
+    source[CONF_GROUPS][GROUP_LIVING]["ventilation_use_after_shading"] = True
+    source[CONF_ROOMS] = {
+        "room": {
+            CONF_GROUP: GROUP_LIVING,
+            CONF_ROOM_SETTINGS: {"lockout_tilt_close": True},
+            CONF_ROOM_OVERRIDES: {
+                "cover.test": {"ventilation_start_no_delay": True}
+            },
+        }
+    }
+
+    model, warnings = migrate_profile_model(source)
+
+    assert "additional_condition_global" not in model[CONF_GLOBAL][CONF_GLOBAL_SOURCES]
+    assert "ventilation_use_after_shading" not in model[CONF_GROUPS][GROUP_LIVING]
+    assert "lockout_tilt_close" not in model[CONF_ROOMS]["room"][CONF_ROOM_SETTINGS]
+    assert "ventilation_start_no_delay" not in (
+        model[CONF_ROOMS]["room"][CONF_ROOM_OVERRIDES]["cover.test"]
+    )
+    assert warnings == ["CCA behavior overrides were removed"]
+
 def test_migration_removes_legacy_assignment_fields() -> None:
     model, _ = migrate_profile_model(_legacy("Living", {"room": ("Room", "selected", {})}))
     room = model[CONF_ROOMS]["room"]
@@ -75,7 +127,7 @@ async def test_entry_migration_updates_controller_and_rooms(hass) -> None:
     controller.add_to_hass(hass)
     room.add_to_hass(hass)
     assert await async_migrate_entry(hass, controller)
-    assert controller.version == room.version == 15
+    assert controller.version == room.version == 16
     assert set(controller.data[CONF_GROUPS]) == set(GROUPS)
     assert room.data[CONF_GROUP] == GROUP_SLEEP
     assert "profile_id" not in room.data
@@ -217,7 +269,7 @@ async def test_migration_warns_for_removed_dynamic_mode(hass) -> None:
     )
     controller.add_to_hass(hass)
     assert await async_migrate_entry(hass, controller)
-    assert controller.version == 15
+    assert controller.version == 16
     assert (DOMAIN, "sun_mode_migration") in ir.async_get(hass).issues
 
 
@@ -241,7 +293,7 @@ async def test_complex_shading_rules_create_repair_warning(hass) -> None:
     )
     controller.add_to_hass(hass)
     assert await async_migrate_entry(hass, controller)
-    assert controller.version == 15
+    assert controller.version == 16
     assert (DOMAIN, "shading_mode_migration") in ir.async_get(hass).issues
 
 
@@ -276,3 +328,44 @@ async def test_room_direction_migrates_to_assigned_group(hass) -> None:
     assert group[CONF_SHADING_DIRECTION] == 350
     assert group[CONF_SHADING_DIRECTION_RANGE] == 30
     assert "shading_azimuth_start" not in room.data[CONF_ROOM_SETTINGS]
+
+
+async def test_removed_cca_behavior_creates_single_repair_warning(hass) -> None:
+    data = _fixed_groups_with_sun("fixed")
+    data[CONF_GROUPS][GROUP_LIVING]["shading_over_ventilation"] = True
+    data[CONF_GROUPS][GROUP_SLEEP]["prevent_opening_multiple_times"] = True
+    controller = MockConfigEntry(
+        domain=DOMAIN,
+        version=15,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
+            CONF_GLOBAL: {CONF_GLOBAL_SOURCES: {}, CONF_GLOBAL_DEFAULTS: {}},
+            **data,
+        },
+    )
+    controller.add_to_hass(hass)
+
+    assert await async_migrate_entry(hass, controller)
+
+    assert controller.version == 16
+    assert (DOMAIN, "cca_cleanup_migration") in ir.async_get(hass).issues
+
+
+async def test_room_cleanup_creates_same_single_repair_warning(hass) -> None:
+    room = MockConfigEntry(
+        domain=DOMAIN,
+        version=15,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_ROOM,
+            CONF_ROOM_ID: "room",
+            CONF_GROUP: GROUP_LIVING,
+            CONF_ROOM_SETTINGS: {"lockout_tilt_shading_start": True},
+        },
+    )
+    room.add_to_hass(hass)
+
+    assert await async_migrate_entry(hass, room)
+
+    assert room.version == 16
+    assert "lockout_tilt_shading_start" not in room.data[CONF_ROOM_SETTINGS]
+    assert (DOMAIN, "cca_cleanup_migration") in ir.async_get(hass).issues

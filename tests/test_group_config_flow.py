@@ -11,6 +11,7 @@ from custom_components.cover_control.const import (
     CONF_GROUPS, CONF_NAME, CONF_ROOM, CONF_ROOM_ID, CONF_ROOM_SETTINGS,
     CONF_CLOSE_MODE, CONF_OPEN_MODE, CONF_SUN_ELEVATION_OPEN,
     CONF_SHADING_DIRECTION, CONF_SHADING_INSIDE_TEMPERATURE_THRESHOLD,
+    CONF_KEEP_SUN_PROTECTION,
     CONF_SHADING_MODE, CONF_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD,
     CONF_ASTRO_CLOSE_OFFSET, DOMAIN, ENTRY_TYPE_CONTROLLER, ENTRY_TYPE_ROOM,
     GROUPS, GROUP_LIVING, MODE_ELEVATION, MODE_GOLDEN_HOUR,
@@ -20,7 +21,7 @@ from custom_components.cover_control.const import (
 )
 
 def _controller(hass):
-    entry = MockConfigEntry(domain=DOMAIN, version=15, unique_id=DOMAIN, data={
+    entry = MockConfigEntry(domain=DOMAIN, version=16, unique_id=DOMAIN, data={
         CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
         CONF_GLOBAL: {"sources": {}, "defaults": {}},
         CONF_GROUPS: {group: {} for group in GROUPS},
@@ -48,7 +49,7 @@ async def test_edit_each_fixed_group_and_back(hass) -> None:
 
 async def test_room_group_selector(hass) -> None:
     controller = _controller(hass)
-    room = MockConfigEntry(domain=DOMAIN, version=15, data={
+    room = MockConfigEntry(domain=DOMAIN, version=16, data={
         CONF_ENTRY_TYPE: ENTRY_TYPE_ROOM, CONF_CONTROLLER_ENTRY_ID: controller.entry_id,
         CONF_ROOM_ID: "room", CONF_NAME: "Room", CONF_GROUP: GROUP_LIVING,
         CONF_ROOM_SETTINGS: {CONF_ROOM: "living"},
@@ -70,9 +71,16 @@ def test_translation_structure_is_synchronized() -> None:
         Path("custom_components/cover_control/translations/de.json"),
     ]
     documents = [json.loads(path.read_text()) for path in paths]
-    for section in ("config", "options"):
-        assert all(set(doc[section]["step"]) == set(documents[0][section]["step"]) for doc in documents)
-    assert all(set(doc["selector"]) == set(documents[0]["selector"]) for doc in documents)
+    def paths(value, prefix=()):
+        if isinstance(value, dict):
+            return {
+                item
+                for key, child in value.items()
+                for item in paths(child, prefix + (key,))
+            }
+        return {prefix}
+
+    assert all(paths(doc) == paths(documents[0]) for doc in documents)
     assert "profile_action" not in documents[0]["selector"]
 
 
@@ -145,3 +153,29 @@ async def test_group_shading_only_shows_fields_for_selected_mode(
     }
     assert present in fields
     assert absent not in fields
+    assert CONF_KEEP_SUN_PROTECTION in fields
+
+
+async def test_group_ventilation_hides_removed_cca_options(hass) -> None:
+    entry = _controller(hass)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_RECONFIGURE, "entry_id": entry.entry_id},
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "group_living"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "group_ventilation"}
+    )
+    fields = {
+        field.schema
+        for section_field, schema in result["data_schema"].schema.items()
+        for field in schema.schema.schema
+    }
+    assert fields == {
+        "auto_ventilate_enabled",
+        "contact_status_delay",
+        "contact_trigger_delay",
+        "ventilation_delay_after_close",
+    }

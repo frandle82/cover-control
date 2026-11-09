@@ -5,6 +5,8 @@ from types import SimpleNamespace
 import pytest
 
 from custom_components.cover_control.const import (
+    CONF_KEEP_SUN_PROTECTION,
+    CONF_OPEN_POSITION,
     CONF_SHADING_BRIGHTNESS_HYSTERESIS,
     CONF_SHADING_BRIGHTNESS_SENSOR,
     CONF_SHADING_BRIGHTNESS_THRESHOLD,
@@ -172,3 +174,18 @@ def test_resident_allows_or_blocks_shading(
     sleeping: bool, allow_shading: bool, blocked: bool
 ) -> None:
     assert CoverController._resident_blocks_shading(sleeping, allow_shading) is blocked
+
+
+def test_keep_sun_protection_preserves_existing_behavior() -> None:
+    controller = _controller(SHADING_MODE_DIRECTION)
+    controller.config[CONF_OPEN_POSITION] = 100
+    controller.config[CONF_KEEP_SUN_PROTECTION] = True
+
+    assert controller._shading_end_open_target() is None
+    controller.config[CONF_KEEP_SUN_PROTECTION] = False
+    assert controller._shading_end_open_target() == 100
+
+
+def test_resident_behavior_unchanged_after_cca_cleanup() -> None:
+    assert CoverController._resident_blocks_shading(True, False)
+    assert not CoverController._resident_blocks_shading(True, True)

@@ -81,7 +81,7 @@ def test_runtime_control_states_are_valid_sensor_options() -> None:
         "idle", "time", "sun", "brightness", "calendar", "resident",
         "ventilation", "shading", "heat_protection", "manual_override", "force_open",
         "force_close", "force_ventilate", "force_shading", "force_pause",
-        "window_lockout", "additional_condition", "recovery", "multiple",
+        "window_lockout", "recovery", "multiple",
     } <= CONTROL_STATE_OPTION_SET
 
 
