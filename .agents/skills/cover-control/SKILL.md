@@ -34,7 +34,7 @@ Die Geschäftslogik ist strikt in die Controller-Mixins aufgeteilt:
 * `evaluation.py`: Berechnung der Zielposition, Bedingungsauswertung (`configured`, `enabled`, `eligible`).
 * `events.py`: Home Assistant Event- und State-Subscriptions.
 * `schedule.py`: Zeitpläne, Arbeitstage, Astral-/Sonnen- und Kalenderevents.
-* `shading.py`: Sonnengeometrie (Azimut, Elevation), Wetter- und Temperaturbedingungen.
+* `shading.py`: Sieben feste Shuttercontrol-Sonnenschutzmodi, Direction-Geometrie, Temperatur und optionale Helligkeit; keine freie Regelengine oder Forecast-Beschattung.
 * `status.py`: Sensoren für nächste Fahrtermine, Diagnosedaten und Steuerungsgründe.
 
 Die Fassade `runtime/controller.py` bündelt diese Mixins. Logik gehört niemals direkt in die Fassade.

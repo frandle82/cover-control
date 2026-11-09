@@ -19,7 +19,7 @@ Logik gehört in das zuständige Mixin, nicht in die Controller-Fassade:
 * `evaluation.py`: Berechnung der Zielposition und Auswertung der Bedingungen.
 * `events.py`: Home Assistant State-Listener und Event-Subscriptions.
 * `schedule.py`: Zeitpläne, Arbeitstag-Sensoren und Kalender-Ereignisse.
-* `shading.py`: Sonnengeometrie (Azimut/Elevation), Wetterbedingungen und Beschattungsregeln.
+* `shading.py`: Feste Sonnenschutzmodi, Sonnengeometrie, Temperatur- und optionale Helligkeitsbedingungen.
 * `status.py`: Zustände der Steuerungsentitäten, Diagnosesensoren und Statusgründe.
 
 Controller-Imports bleiben stabil über `controller.py`. Logik nicht ohne klaren architektonischen Grund zwischen Mixins verschieben.
@@ -61,8 +61,9 @@ Ein Schalterzustand ändert niemals die Konfiguration oder Gruppenzuordnung.
 
 ## 3. UI-Struktur & Lokalisierung
 
-* **Raum-UI:** General, Group, Cover & Hardware, Positions, Window contacts, Room sensors, Geometry, Local data sources, Controls, Diagnostics.
+* **Raum-UI:** General, Group, Cover & Hardware, Positions, Window contacts, Room sensors, Local data sources, Controls, Diagnostics.
 * **Gruppen-UI:** Time, Brightness, Sun, Shading, Ventilation, Resident, Safety, Manual behavior.
+* Shading-Direction und -Schwellen gehören zur Gruppe; die physische `shading_position` bleibt Room-Eigentum.
 * Ein Raum wählt genau eine feste Gruppe; einzelne Gruppenfunktionen werden nicht selektiert.
 * Klare Trennung im UI: `Room name` (Konfigurationsobjekt) vs. `Home Assistant area` (zugeordnete physische HA-Area).
 * Übersetzungen immer synchron halten: `strings.json`, `translations/en.json`, `translations/de.json`.
@@ -80,7 +81,7 @@ Ein Schalterzustand ändert niemals die Konfiguration oder Gruppenzuordnung.
   3. Geplanter Aktionshistorie (`scheduled action history`)
   4. Erzwingungsaktionen (`force actions`)
 * Durch Cover Control initiierte Fahrten (auch Zwischenzustände wie `opening`/`closing`) dürfen niemals als manuelle Bedienung gewertet werden.
-* **Beschattungsregeln:** Sonnengeometrie in `shading.py`, Zielposition/Auswertung in `evaluation.py`. Hysterese und Wartezeiten zustandsbehaftet führen und zurücksetzen, sobald die Bedingung ungültig wird. Sofort-Ende- und Sicherheitslogik wahren.
+* **Beschattungsregeln:** Ausschließlich feste Shuttercontrol-Modi; keine frei kombinierbaren AND-/OR- oder Forecast-Bedingungen. Direction ist Mittelpunkt ± Bereich, Endgrenzen nutzen prozentuale Hysterese. Zielposition/Aktorpfad bleiben in `evaluation.py`/`actuator.py`.
 
 ---
 

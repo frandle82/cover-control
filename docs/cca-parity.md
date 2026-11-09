@@ -21,7 +21,7 @@ automation actions outside the integration.
 | Manual override | MAPPED | Native override state and clear/re-evaluate behavior. |
 | Tilt reposition | FULL | Native tilt-before-position mode is available. |
 | Tilt tolerance | FULL | Separate configurable tilt tolerance is persisted, resolved and used for tilt no-op decisions. |
-| Shading custom sensor | MAPPED | Additional shading conditions and configured sources cover the same use case. |
+| Shading mode selection | FULL | Seven fixed shuttercontrol-style modes cover UI, persistence, sources, listeners, runtime, diagnostics, migration and regression tests. |
 | Before/After Actions | MAPPED | `Aktive Steuerung` plus external HA automations. |
 | CCA status helper | NOT_APPLICABLE | Runtime status is native Cover Control state and entities. |
 

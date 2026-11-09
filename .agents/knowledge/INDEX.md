@@ -1,7 +1,7 @@
 ---
 title: Map of Content (MOC) – Cover Control Knowledge Base
 type: index
-updated: 2026-11-08
+updated: 2026-11-09
 tags:
   - moc
   - index
@@ -26,7 +26,7 @@ Grundsatzentscheidungen zur Struktur, Datenhaltung und Integration:
 Fachliche Regeln für Beschattung, Fahrbefehle und Prioritäten:
 * 📄 [`ioBroker-shuttercontrol.md`](ioBroker-shuttercontrol.md) – Fixierte Quellcodeanalyse von ioBroker.shuttercontrol 2.1.2 einschließlich Safety, No-Go-Time, gestuftem und saisonalem Schließen, Heat Protection und Fenster-Lüftungsfahrt.
 * 📄 [`domain/priorities-and-lockout.md`](domain/priorities-and-lockout.md) – Die Prioritätenhierarchie mit Safety oberhalb von Lockout, Force und Komfortautomation.
-* 📄 [`domain/shading-and-solar-geometry.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/shading-and-solar-geometry.md) – Sonnenberechnung (Azimut, Elevation), Hysterese und Wetterbewertung.
+* 📄 [`domain/shading-and-solar-geometry.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/shading-and-solar-geometry.md) – Feste Shuttercontrol-Sonnenschutzmodi, Direction-Geometrie und prozentuale Endhysterese.
 * 📄 [`domain/manual-override-vs-automation.md`](domain/manual-override-vs-automation.md) – Erkennung manueller Fahrten, Override-Abgrenzung und toleranzbasierte Adoption der effektiven Beschattungsposition.
 
 ### 3. Troubleshooting, Fallstricke & Lessons Learned

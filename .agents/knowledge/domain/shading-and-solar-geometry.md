@@ -16,34 +16,35 @@ Berechnung des Sonnenstands relativ zur Fensterausrichtung in `custom_components
 
 ---
 
-## 1. Geometrische Bedingungen
+## 1. Feste Modi
 
-Damit die Beschattung aktiviert wird, muss die Sonne in das Fenster scheinen:
+Unterstützt werden ausschließlich `off`, `inside_outside`, `direction`, `inside_outside_direction`, `outside_direction`, `outside` und `inside`. Die erforderlichen Bedingungen sind je Modus fest per AND verknüpft. Eine freie Start-/End-Regelengine und Forecast-Beschattung existieren nicht.
+
+## 2. Geometrische Bedingungen
 
 1. **Azimut-Bereich:**
-   * Der Sonnen-Azimut muss innerhalb des konfigurierten Fensterausschnitts liegen:
-     $$\text{azimuth\_min} \le \text{sun\_azimuth} \le \text{azimuth\_max}$$
+   * Gespeichert werden Fensterausrichtung und ± Bereich. Die kürzeste Winkeldistanz entscheidet, einschließlich 0°-Übergang.
 2. **Elevations-Bereich:**
    * Die Sonnen-Elevation muss über der Mindestelevation (über Nachbargebäuden/Horizont) und unter der Höchstelevation (über Fenstersturz) liegen:
      $$\text{elevation\_min} \le \text{sun\_elevation} \le \text{elevation\_max}$$
 
 ---
 
-## 2. Umgebungsbedingungen (Schwellenwerte)
+## 3. Umgebungsbedingungen
 
 Zusätzlich zur Sonnenposition müssen Umwelt-Sensoren die Notwendigkeit von Beschattung bestätigen:
 * **Helligkeit/Strahlung:** Lux-Wert über Schwellenwert.
 * **Außentemperatur:** Über Mindestwert (verhindert Beschattung im tiefen Winter, wenn solare Gewinne erwünscht sind).
 * **Raumtemperatur:** Innenraum über Komforttemperatur.
-* **Wetterkonditionen:** Kein dichter Regen oder Bewölkung (falls Wetter-Entität angebunden).
+* **Helligkeit:** In temperaturbasierten Modi nur dann zusätzliche AND-Bedingung, wenn `shading_brightness_sensor` gesetzt ist.
 
 ---
 
-## 3. Hysterese & Wartezeiten
+## 4. Hysterese & Wartezeiten
 
-* **Einschaltverzögerung (`delay_in`):** Bedingung muss ununterbrochen für z. B. 5 Minuten erfüllt sein, um Klappern bei vorbeiziehenden Wolken zu vermeiden.
-* **Ausschaltverzögerung (`delay_out`):** Bedingung muss ununterbrochen für z. B. 15 Minuten unterschritten sein, bevor der Behang wieder öffnet.
-* **Sofort-Ende:** Fällt die Sonne aus dem geometrischen Azimut-/Elevationsfenster, endet die Beschattung ohne Verzögerung (Sicherheit/Plausibilität).
+* **Ausschaltverzögerung:** Eine ungültige erforderliche Bedingung muss für die konfigurierte Referenz-Endwartezeit bestehen bleiben.
+* Temperatur und Helligkeit starten strikt oberhalb der Schwelle. Während aktiver Beschattung gilt als Endgrenze `threshold × (1 − hysteresis / 100)`.
+* Sobald eine erforderliche Modusbedingung nicht mehr gilt, beginnt die Referenz-Endwartezeit. Separate Maximum- oder Immediate-End-Sonderoptionen existieren nicht.
 
 ---
 Verwandte Notizen:

@@ -82,7 +82,7 @@ Logik gehört in das jeweilige Mixin, nicht in die Controller-Fassade:
 * `evaluation.py`: Berechnung der Zielposition und Auswertung der Bedingungen.
 * `events.py`: Home Assistant State-Listener und Event-Subscriptions.
 * `schedule.py`: Zeitpläne, Arbeitstag-Sensoren und Kalender-Ereignisse.
-* `shading.py`: Sonnengeometrie (Azimut/Elevation), Wetterbedingungen und Beschattungsregeln.
+* `shading.py`: Feste Sonnenschutzmodi, Sonnengeometrie, Temperatur- und optionale Helligkeitsbedingungen.
 * `status.py`: Zustände der Steuerungsentitäten, Diagnosesensoren und Statusgründe.
 
 Controller-Imports bleiben stabil über `controller.py`. Keine Logik ohne klaren Grund zwischen Mixins verschieben.
@@ -108,7 +108,7 @@ Controller-Imports bleiben stabil über `controller.py`. Keine Logik ohne klaren
 Strikte Grenzen der Verantwortlichkeit:
 * **GLOBAL:** Besitzt geteilte Home Assistant Datenquellen (Arbeitstage, Kalender, Helligkeit, Außentemperatur, Wetter/Vorhersage, globale Bedingungen) im zentralen Controller-Entry.
 * **GROUP:** Genau `living`, `sleep` und `children` besitzen Automationsverhalten und Schwellenwerte ausschließlich im Controller-Entry unter `controller.data[CONF_GROUPS]`. Gruppen besitzen niemals raumeigene Entitäten oder Positionen.
-* **ROOM:** Ist ein eigenständiger `ConfigEntry` (`ENTRY_TYPE_ROOM`), kein Subentry (`async_get_supported_subentry_types() == {}`). Besitzt Hardware, Cover-Entitäten, physische Positionen, Fenstersensoren, Geometrie, Raumschalter und genau eine Gruppenzuordnung (`CONF_GROUP`).
+* **ROOM:** Ist ein eigenständiger `ConfigEntry` (`ENTRY_TYPE_ROOM`), kein Subentry (`async_get_supported_subentry_types() == {}`). Besitzt Hardware, Cover-Entitäten, physische Positionen, Fenstersensoren, Raumschalter und genau eine Gruppenzuordnung (`CONF_GROUP`).
 * **SWITCH:** Steuert, ob eine konfigurierte Raumfunktion zur Laufzeit aktiv (enabled) ist.
 * **RUNTIME:** Entscheidet, ob eine aktive Funktion unter den aktuellen Bedingungen ausführungsberechtigt (eligible) ist.
 
@@ -124,8 +124,9 @@ Ein Schalterzustand ändert niemals die Konfiguration oder Gruppenzuordnung.
 * Automationsverhalten ohne eigenständigen Laufzeitschalter: `behavior`.
 
 ### UI-Struktur für Räume & Gruppen
-* **Raum-UI:** General, Group, Cover & Hardware, Positions, Window contacts, Room sensors, Geometry, Local data sources, Controls, Diagnostics.
+* **Raum-UI:** General, Group, Cover & Hardware, Positions, Window contacts, Room sensors, Local data sources, Controls, Diagnostics.
 * **Gruppen-UI:** Time, Brightness, Sun, Shading, Ventilation, Resident, Safety, Manual behavior.
+* Shading-Direction und -Schwellen gehören zur Gruppe; die physische `shading_position` bleibt Room-Eigentum.
 * Ein Raum wählt genau eine feste Gruppe; einzelne Gruppenfunktionen werden nicht selektiert.
 * Klare Trennung im UI: `Room name` (Konfigurationsobjekt) vs. `Home Assistant area` (zugeordnete physische HA-Area).
 
@@ -152,8 +153,8 @@ Ein Schalterzustand ändert niemals die Konfiguration oder Gruppenzuordnung.
 ### Beschattungsregeln (`shading.py` & `evaluation.py`)
 * Sonnengeometrie und beschattungsspezifische Sensorik gehören nach `shading.py`.
 * Zielpositionsberechnung und Endauswertung gehören nach `evaluation.py`.
-* Hysterese und Wartezeiten zustandsbehaftet führen und zurücksetzen, sobald die Bedingung ungültig wird.
-* Sofort-Ende- und Sicherheitslogik bei Beschattung strikt wahren.
+* Cover Control verwendet ausschließlich die festen Shuttercontrol-Sonnenschutzmodi; frei kombinierbare Start-/End-AND-/OR-Regeln und Forecast-Bedingungen sind nicht unterstützt.
+* Temperatur- und Helligkeits-Endgrenzen verwenden prozentuale Hysterese; die Referenz-Endwartezeit bleibt zustandsbehaftet.
 
 ### Manuelle Steuerung
 * Strikt trennen zwischen:
