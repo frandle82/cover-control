@@ -12,6 +12,7 @@ from custom_components.cover_control.const import (
     CONF_CLOSE_MODE, CONF_OPEN_MODE, CONF_SUN_ELEVATION_OPEN,
     CONF_SHADING_DIRECTION, CONF_SHADING_INSIDE_TEMPERATURE_THRESHOLD,
     CONF_KEEP_SUN_PROTECTION,
+    CONF_MANUAL_CONTROL, CONF_MANUAL_OVERRIDE_MINUTES,
     CONF_SHADING_MODE, CONF_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD,
     CONF_ASTRO_CLOSE_OFFSET, DOMAIN, ENTRY_TYPE_CONTROLLER, ENTRY_TYPE_ROOM,
     GROUPS, GROUP_LIVING, MODE_ELEVATION, MODE_GOLDEN_HOUR,
@@ -178,4 +179,34 @@ async def test_group_ventilation_hides_removed_cca_options(hass) -> None:
         "contact_status_delay",
         "contact_trigger_delay",
         "ventilation_delay_after_close",
+    }
+
+
+async def test_group_behavior_exposes_simple_manual_override(hass) -> None:
+    entry = _controller(hass)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_RECONFIGURE, "entry_id": entry.entry_id},
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "group_living"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "group_behavior"}
+    )
+    fields = {
+        field.schema
+        for _section_field, schema in result["data_schema"].schema.items()
+        for field in schema.schema.schema
+    }
+
+    assert {CONF_MANUAL_CONTROL, CONF_MANUAL_OVERRIDE_MINUTES} <= fields
+    assert not fields & {
+        "manual_override_block_open",
+        "manual_override_block_close",
+        "manual_override_block_ventilate",
+        "manual_override_block_shading",
+        "manual_override_reset_mode",
+        "manual_override_reset_time",
+        "manual_schedule_adoption",
     }

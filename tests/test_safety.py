@@ -297,6 +297,15 @@ async def test_safety_blocks_shading_action() -> None:
     await _assert_safety_blocks_normal_action("shading")
 
 
+@pytest.mark.asyncio
+async def test_manual_override_does_not_block_safety() -> None:
+    controller = _controller({"binary_sensor.rain": "on"})
+    controller._manual_active = True
+
+    assert await controller._evaluate_safety()
+    controller._set_position.assert_awaited_once_with(100, "rain_alarm")
+
+
 def _safety_model(target: int = 100) -> dict:
     settings = {}
     for _alarm, _entity, enabled, target_key, _room, default in SAFETY_ALARMS:

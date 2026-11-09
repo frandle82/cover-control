@@ -21,9 +21,9 @@ from custom_components.cover_control.const import (
     CONF_DRIVE_DELAY_FIXED,
     CONF_ENABLE_LOGBOOK_COVER,
     CONF_LOCKOUT_POSITION,
+    CONF_MANUAL_OVERRIDE_MINUTES,
     CONF_OPEN_POSITION,
-    CONF_MANUAL_SCHEDULE_ADOPTION,
-    CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
+    CONF_MANUAL_CONTROL,
     CONF_POSITION_TOLERANCE,
     CONF_SHADING_POSITION,
     CONF_SHADING_POSITION_ALT,
@@ -207,7 +207,7 @@ def _manual_shading_controller(
         {
             CONF_MASTER_ENABLED: True,
             CONF_AUTO_SHADING: True,
-            CONF_MANUAL_OVERRIDE_BLOCK_SHADING: True,
+            CONF_MANUAL_CONTROL: True,
             CONF_SHADING_POSITION: 30,
             CONF_POSITION_TOLERANCE: 2,
         },
@@ -217,7 +217,6 @@ def _manual_shading_controller(
     controller._status = {}
     controller._manual_until = None
     controller._manual_active = False
-    controller._manual_scope_all = False
     controller._manual_expire_unsub = None
     controller._manual_movement_pending = False
     controller._last_position = position
@@ -283,7 +282,7 @@ def test_manual_move_outside_shading_tolerance_sets_override() -> None:
     _manual_position_event(controller, cover_state)
 
     controller._activate_manual_override.assert_called_once_with(
-        scope_all=True, reason="manual_override"
+        reason="manual_override"
     )
     assert not controller._status_active("shading")
 
@@ -329,9 +328,31 @@ def test_second_manual_move_after_adoption_sets_override() -> None:
     _manual_position_event(controller, cover_state)
 
     controller._activate_manual_override.assert_called_once_with(
-        scope_all=True, reason="manual_override"
+        reason="manual_override"
     )
     assert not controller._status_active("shading")
+
+
+def test_reality_manual_override_blocks_then_expires() -> None:
+    controller, cover_state = _manual_shading_controller()
+    controller.config[CONF_MANUAL_OVERRIDE_MINUTES] = 1
+    controller._activate_manual_override = (
+        CoverController._activate_manual_override.__get__(controller)
+    )
+    controller._schedule_manual_expiry = Mock()
+    controller._refresh_next_events = Mock()
+
+    cover_state.attributes["current_position"] = 60
+    _manual_position_event(controller, cover_state)
+
+    assert controller._manual_active
+    assert controller._reason == "manual_override"
+    assert controller._manual_blocks_action("close")
+
+    controller._handle_manual_expiry(None)
+
+    assert not controller._manual_active
+    controller.async_request_evaluate.assert_called_with("manual_expired")
 
 
 def test_manual_shading_adoption_is_per_cover() -> None:
@@ -354,7 +375,7 @@ def test_safety_overrides_manual_shading_adoption() -> None:
     _manual_position_event(controller, cover_state)
 
     controller._activate_manual_override.assert_called_once_with(
-        scope_all=True, reason="manual_override"
+        reason="manual_override"
     )
     assert not controller._status_active("shading")
 
@@ -365,11 +386,10 @@ def test_clearing_manual_override_requests_immediate_evaluation() -> None:
     controller = _controller({}, {})
     controller._manual_until = dt_util.utcnow()
     controller._manual_active = True
-    controller._manual_scope_all = True
     controller._manual_expire_unsub = None
     controller._reason = "manual_override"
     controller._status = {
-        "manual": {"active": True, "scope_all": True, "until": "later"}
+        "manual": {"active": True, "until": "later"}
     }
     controller.persist_status = Mock()
     controller._refresh_next_events = Mock()
@@ -378,9 +398,86 @@ def test_clearing_manual_override_requests_immediate_evaluation() -> None:
 
     controller.clear_manual_override()
     assert not controller._manual_active
-    assert not controller._manual_scope_all
     assert controller._manual_until is None
     controller.async_request_evaluate.assert_called_once_with("manual_cleared")
+
+
+@pytest.mark.parametrize(
+    "action",
+    ["open", "close", "ventilation", "shading", "heat_protection", "resident"],
+)
+def test_manual_override_blocks_all_automation_actions(action: str) -> None:
+    controller = _controller({}, {})
+    controller._manual_active = True
+
+    assert controller._manual_blocks_action(action)
+
+
+def test_manual_override_expires_after_configured_minutes() -> None:
+    now = dt_util.utcnow()
+    controller = _controller({CONF_MANUAL_OVERRIDE_MINUTES: 15}, {})
+
+    assert controller._manual_reset_at(now) == now + timedelta(minutes=15)
+
+
+def test_manual_override_zero_duration_persists() -> None:
+    controller = _controller({CONF_MANUAL_OVERRIDE_MINUTES: 0}, {})
+
+    assert controller._manual_reset_at(dt_util.utcnow()) is None
+
+
+def test_disabled_manual_override_ignores_manual_detection() -> None:
+    controller = _controller({CONF_MANUAL_CONTROL: False}, {})
+    controller._manual_active = False
+
+    assert not controller._manual_detection_enabled()
+
+
+def test_runtime_reevaluates_after_override_expiry() -> None:
+    controller = _controller({}, {})
+    controller._manual_until = dt_util.utcnow()
+    controller._manual_active = True
+    controller._manual_expire_unsub = None
+    controller._reason = "manual_override"
+    controller._status = {"manual": {"active": True}}
+    controller.persist_status = Mock()
+    controller._logbook_entry = Mock()
+    controller._refresh_next_events = Mock()
+    controller._publish_state = Mock()
+    controller.async_request_evaluate = Mock()
+
+    controller._handle_manual_expiry(None)
+
+    assert not controller._manual_active
+    controller.async_request_evaluate.assert_called_once_with("manual_expired")
+
+
+def test_manual_override_survives_restart_before_expiry() -> None:
+    until = dt_util.utcnow() + timedelta(minutes=15)
+    controller = _controller({}, {})
+    controller._status = {
+        "manual": {"active": True, "until": until.isoformat(), "ts": 1}
+    }
+    controller._last_action_dates = {}
+
+    controller._hydrate_persistent_status()
+
+    assert controller._manual_active
+    assert controller._manual_until == until
+
+
+def test_expired_manual_override_is_not_restored() -> None:
+    until = dt_util.utcnow() - timedelta(minutes=1)
+    controller = _controller({}, {})
+    controller._status = {
+        "manual": {"active": True, "until": until.isoformat(), "ts": 1}
+    }
+    controller._last_action_dates = {}
+
+    controller._hydrate_persistent_status()
+
+    assert not controller._manual_active
+    assert controller._manual_until is None
 
 
 def test_drive_delay_uses_fixed_setting() -> None:
@@ -482,125 +579,6 @@ def test_continuous_shading_end_wait_resets_and_restarts() -> None:
     assert controller._shading_end_wait_complete(
         start + timedelta(seconds=500), True, 300
     )
-
-
-def _adoption_controller(position: float, **overrides) -> CoverController:
-    cover_state = SimpleNamespace(
-        state="open" if position else "closed",
-        attributes={"current_position": position},
-    )
-    config = {
-        CONF_MASTER_ENABLED: True,
-        CONF_AUTO_TIME: True,
-        CONF_AUTO_UP: True,
-        CONF_AUTO_DOWN: True,
-        CONF_MANUAL_SCHEDULE_ADOPTION: True,
-        CONF_OPEN_POSITION: 100,
-        "close_position": 0,
-        CONF_POSITION_TOLERANCE: 2,
-        **overrides,
-    }
-    controller = _controller(config, {"cover.test": cover_state})
-    controller.cover = "cover.test"
-    controller._last_action_dates = {}
-    controller.persist_status = Mock()
-    controller._logbook_entry = Mock()
-    controller._calendar_windows = AsyncMock(return_value=(None, None))
-    return controller
-
-
-@pytest.mark.asyncio
-async def test_manual_schedule_adoption_open_and_close_inside_windows() -> None:
-    """CCA parity: final manual targets adopt their per-cover daily actions."""
-
-    now = dt_util.utcnow()
-    opening = _adoption_controller(99)
-    opening._within_opening_phase = Mock(return_value=True)
-    opening._within_closing_phase = Mock(return_value=False)
-    assert await opening._async_adopt_manual_schedule("open", now)
-    assert opening._last_action_dates["open"] == dt_util.as_local(now).date()
-    opening._logbook_entry.assert_called_once_with(
-        "Manual movement adopted as today's scheduled opening"
-    )
-
-    closing = _adoption_controller(1)
-    closing._within_opening_phase = Mock(return_value=False)
-    closing._within_closing_phase = Mock(return_value=True)
-    assert await closing._async_adopt_manual_schedule("close", now)
-    assert closing._last_action_dates["close"] == dt_util.as_local(now).date()
-
-
-@pytest.mark.asyncio
-async def test_manual_schedule_adoption_rejects_window_and_position_mismatches() -> None:
-    """CCA parity: outside-window and intermediate manual positions are ignored."""
-
-    now = dt_util.utcnow()
-    outside = _adoption_controller(100)
-    outside._within_opening_phase = Mock(return_value=False)
-    outside._within_closing_phase = Mock(return_value=False)
-    assert not await outside._async_adopt_manual_schedule("open", now)
-    assert outside._last_action_dates == {}
-
-    intermediate = _adoption_controller(50)
-    assert intermediate._manual_schedule_action_for_position(50) is None
-
-
-def test_manual_schedule_adoption_waits_for_final_position_feedback() -> None:
-    """CCA parity: opening/closing feedback never causes premature adoption."""
-
-    controller = _adoption_controller(50)
-    cover_state = controller.hass.states.get("cover.test")
-    cover_state.state = "opening"
-    controller._manual_until = None
-    controller._manual_active = False
-    controller._manual_expire_unsub = None
-    controller._status = {}
-    controller._reason = None
-    controller._last_position = 0
-    controller._target = 0
-    controller._last_command_at = None
-    controller._manual_movement_pending = False
-    controller._activate_manual_override = Mock()
-    controller.async_request_evaluate = Mock()
-    scheduled = []
-
-    def _capture_task(coro):
-        scheduled.append(coro)
-        coro.close()
-
-    controller.hass.async_create_task = _capture_task
-    event = SimpleNamespace(
-        data={
-            "entity_id": "cover.test",
-            "old_state": None,
-            "new_state": cover_state,
-        }
-    )
-    controller._handle_state_event(event)
-    assert scheduled == []
-
-    cover_state.state = "open"
-    cover_state.attributes["current_position"] = 100
-    controller._handle_state_event(event)
-    assert len(scheduled) == 1
-
-
-@pytest.mark.asyncio
-async def test_manual_schedule_adoption_is_per_cover_and_keeps_override() -> None:
-    """CCA parity: adoption changes one history and never clears manual override."""
-
-    now = dt_util.utcnow()
-    left = _adoption_controller(100)
-    right = _adoption_controller(0)
-    left._within_opening_phase = Mock(return_value=True)
-    left._within_closing_phase = Mock(return_value=False)
-    left._manual_active = True
-    left._manual_scope_all = True
-
-    assert await left._async_adopt_manual_schedule("open", now)
-    assert left._manual_active
-    assert left._last_action_dates.get("open") == dt_util.as_local(now).date()
-    assert right._last_action_dates == {}
 
 
 def test_logbook_is_optional_and_deduplicates_blocked_decisions() -> None:
