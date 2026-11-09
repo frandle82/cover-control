@@ -72,6 +72,67 @@ LEGACY_CCA_KEYS = {
     "lockout_tilt_shading_end",
 }
 LEGACY_KEEP_SUN_PROTECTION = "prevent_opening_after_shading_end"
+LEGACY_RUNTIME_OPTION_KEYS = {
+    "force_open_entity",
+    "force_close_entity",
+    "force_ventilate_entity",
+    "force_shading_entity",
+    "force_pause_entity",
+    "position_source",
+    "custom_position_sensor",
+    "recovery_mode",
+    "drive_delay_random",
+}
+
+
+def cleanup_runtime_options(settings: Mapping[str, Any]) -> tuple[dict[str, Any], set[str]]:
+    """Remove runtime options that no longer belong to the fixed model."""
+
+    result = deepcopy(dict(settings))
+    warnings: set[str] = set()
+    if result.get("position_source") == "custom_sensor" or result.get(
+        "custom_position_sensor"
+    ):
+        warnings.add("custom position source was removed")
+    if result.get("recovery_mode") in {"never", "always"}:
+        warnings.add("configurable recovery mode was removed")
+    for key in LEGACY_RUNTIME_OPTION_KEYS:
+        result.pop(key, None)
+    return result, warnings
+
+
+def cleanup_runtime_model(model: dict[str, Any], warnings: list[str]) -> None:
+    """Remove retired runtime options from every persistent model layer."""
+
+    found: set[str] = set()
+    global_config = model.get(CONF_GLOBAL, {})  # noqa: F405
+    if isinstance(global_config, dict):
+        for section in (CONF_GLOBAL_SOURCES, CONF_GLOBAL_DEFAULTS):  # noqa: F405
+            values = global_config.get(section)
+            if isinstance(values, Mapping):
+                global_config[section], section_warnings = cleanup_runtime_options(values)
+                found.update(section_warnings)
+    for settings in model.get(CONF_GROUPS, {}).values():  # noqa: F405
+        if isinstance(settings, dict):
+            cleaned, section_warnings = cleanup_runtime_options(settings)
+            settings.clear()
+            settings.update(cleaned)
+            found.update(section_warnings)
+    for room in model.get(CONF_ROOMS, {}).values():  # noqa: F405
+        if not isinstance(room, dict):
+            continue
+        for section in (CONF_ROOM_SETTINGS, CONF_SOURCE_OVERRIDES):  # noqa: F405
+            values = room.get(section)
+            if isinstance(values, Mapping):
+                room[section], section_warnings = cleanup_runtime_options(values)
+                found.update(section_warnings)
+        overrides = room.get(CONF_ROOM_OVERRIDES)  # noqa: F405
+        if isinstance(overrides, Mapping):
+            for override_id, values in tuple(overrides.items()):
+                if isinstance(values, Mapping):
+                    overrides[override_id], section_warnings = cleanup_runtime_options(values)
+                    found.update(section_warnings)
+    warnings.extend(sorted(found))
 
 
 def cleanup_cca_settings(settings: Mapping[str, Any]) -> tuple[dict[str, Any], bool]:
@@ -308,9 +369,11 @@ def _legacy_settings(profile: Mapping[str, Any]) -> dict[str, Any]:
 def migrate_profile_model(model: Mapping[str, Any]) -> tuple[dict[str, Any], list[str]]:
     """Convert arbitrary legacy profiles and rooms to three fixed groups."""
 
-    if CONF_GROUPS in model:  # noqa: F405
-        canonical = ConfigGroupModel(model).data
-        warnings: list[str] = []
+    source = deepcopy(dict(model))
+    warnings: list[str] = []
+    cleanup_runtime_model(source, warnings)
+    if CONF_GROUPS in source:  # noqa: F405
+        canonical = ConfigGroupModel(source).data
         for group in GROUPS:  # noqa: F405
             canonical[CONF_GROUPS][group], warned = migrate_sun_settings(  # noqa: F405
                 canonical[CONF_GROUPS][group]
@@ -328,9 +391,10 @@ def migrate_profile_model(model: Mapping[str, Any]) -> tuple[dict[str, Any], lis
                 )
         migrate_room_shading_geometry(canonical, warnings)
         cleanup_cca_model(canonical, warnings)
+        cleanup_runtime_model(canonical, warnings)
         canonical[CONF_CONFIG_VERSION] = CONFIG_MODEL_VERSION  # noqa: F405
         return canonical, warnings
-    result = deepcopy(dict(model))
+    result = source
     profiles = result.pop(LEGACY_PROFILES, {})
     rooms = result.setdefault(CONF_ROOMS, {})  # noqa: F405
     flat_profiles: dict[str, Mapping[str, Any]] = {}
@@ -369,7 +433,6 @@ def migrate_profile_model(model: Mapping[str, Any]) -> tuple[dict[str, Any], lis
         room.pop(LEGACY_PROFILES, None)
 
     groups: dict[str, dict[str, Any]] = {group: {} for group in GROUPS}  # noqa: F405
-    warnings: list[str] = []
     for group in GROUPS:  # noqa: F405
         candidates = sorted(
             ((count, profile_id) for (target, profile_id), count in usage.items() if target == group),
@@ -403,6 +466,7 @@ def migrate_profile_model(model: Mapping[str, Any]) -> tuple[dict[str, Any], lis
     result[CONF_GROUPS] = groups  # noqa: F405
     migrate_room_shading_geometry(result, warnings)
     cleanup_cca_model(result, warnings)
+    cleanup_runtime_model(result, warnings)
     result[CONF_CONFIG_VERSION] = CONFIG_MODEL_VERSION  # noqa: F405
     return ConfigGroupModel(result).data, warnings
 
@@ -420,6 +484,7 @@ def normalize_legacy_config(
 
     flat = {**data, **options}
     flat, _cca_changed = cleanup_cca_settings(flat)
+    flat, _runtime_warnings = cleanup_runtime_options(flat)
     room_name = str(flat.get(CONF_ROOM) or flat.get(CONF_NAME) or room_id)  # noqa: F405
     global_sources = {key: flat[key] for key in GLOBAL_SOURCE_KEYS if key in flat}
     group_keys = set().union(*GROUP_SECTION_KEYS.values())
