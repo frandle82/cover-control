@@ -502,10 +502,16 @@ class ControllerManager:
         )
         control_state = _control_state(active_reasons, active_controls)
         first_controller = next(iter(self.controllers.values()), None)
+        resolved = getattr(self, "_resolved_config", None)
+        resolved_get = getattr(resolved, "get", None)
         resident_entity = (
-            first_controller.config.get(CONF_RESIDENT_SENSOR)
-            if first_controller is not None
-            else None
+            resolved_get(CONF_RESIDENT_SENSOR)
+            if callable(resolved_get)
+            else (
+                first_controller.config.get(CONF_RESIDENT_SENSOR)
+                if first_controller is not None
+                else None
+            )
         )
         resident_state = self.hass.states.get(resident_entity) if resident_entity else None
         first_status = getattr(first_controller, "_status", {})
@@ -534,6 +540,7 @@ class ControllerManager:
             "resident_status": (
                 "on"
                 if resident_state is not None
+                and first_controller is not None
                 and first_controller._resident_state_is_on(resident_state.state)
                 else "off"
             ),
@@ -543,7 +550,11 @@ class ControllerManager:
             "safety_target": safety_target,
             "window_down_sequences": window_down_sequences,
             "heat_protection_active": heat_protection_active,
-            "shading_mode": first_controller.config.get(CONF_SHADING_MODE),
+            "shading_mode": (
+                resolved_get(CONF_SHADING_MODE)
+                if callable(resolved_get)
+                else None
+            ),
             "shading_conditions": dict(shading_conditions),
         }
 

@@ -5,6 +5,7 @@ from copy import deepcopy
 from typing import Any
 from homeassistant.core import HomeAssistant
 from homeassistant.helpers.storage import Store
+from .config_migration import migrate_profile_model
 from .const import CONF_GROUP, CONF_GROUPS, CONF_ROOMS, DOMAIN, GROUPS
 
 RECOVERY_STORAGE_VERSION = 2
@@ -12,14 +13,38 @@ RECOVERY_STORAGE_VERSION = 2
 class ConfigValidationError(ValueError):
     """Raised when structural configuration cannot be resolved safely."""
 
+
+class RecoveryStore(Store[dict[str, Any]]):
+    """Store with an explicit migration from the profile-era snapshot format."""
+
+    async def _async_migrate_func(
+        self,
+        old_major_version: int,
+        old_minor_version: int,
+        old_data: dict[str, Any],
+    ) -> dict[str, Any]:
+        if old_major_version != 1:
+            raise ConfigValidationError(
+                f"unsupported recovery snapshot version: {old_major_version}"
+            )
+        if CONF_GROUPS in old_data and CONF_ROOMS in old_data:
+            return deepcopy(old_data)
+        migrated, _warnings = migrate_profile_model(old_data)
+        return deepcopy(migrated)
+
 class RecoveryManager:
     def __init__(self, hass: HomeAssistant, entry_id: str) -> None:
-        self._store: Store[dict[str, Any]] = Store(hass, RECOVERY_STORAGE_VERSION, f"{DOMAIN}.{entry_id}.last_known_good")
+        self._store: RecoveryStore = RecoveryStore(
+            hass, RECOVERY_STORAGE_VERSION, f"{DOMAIN}.{entry_id}.last_known_good"
+        )
         self.last_known_good: dict[str, Any] | None = None
         self.recovered = False
 
     async def async_initialize(self) -> None:
-        stored = await self._store.async_load()
+        try:
+            stored = await self._store.async_load()
+        except (ConfigValidationError, KeyError, TypeError, ValueError):
+            stored = None
         if isinstance(stored, Mapping):
             candidate = deepcopy(dict(stored))
             try:
