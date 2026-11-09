@@ -466,7 +466,7 @@ def test_intermediate_close_never_raises_cover_below_target() -> None:
     assert controller._intermediate_close_target(now, 80, False) == (True, 50)
 
 
-def test_shading_pending_timer_cancels_and_restarts() -> None:
+def test_shading_end_timer_cancels_and_restarts() -> None:
     """A broken shading condition cancels its timer before a fresh wait."""
 
     controller = object.__new__(CoverController)
@@ -492,18 +492,18 @@ def test_shading_pending_timer_cancels_and_restarts() -> None:
         "custom_components.cover_control.runtime.events.async_track_point_in_time",
         side_effect=_track,
     ):
-        controller._set_shading_pending("start", first_due, False)
-        assert controller._shading_pending_active("start")
-        controller._set_shading_pending("start", second_due, False)
+        controller._set_shading_pending("end", first_due, False)
+        assert controller._shading_pending_active("end")
+        controller._set_shading_pending("end", second_due, False)
         unsubs[0].assert_called_once_with()
-        controller._clear_shading_pending("start")
+        controller._clear_shading_pending("end")
         unsubs[1].assert_called_once_with()
-        assert not controller._shading_pending_active("start")
+        assert not controller._shading_pending_active("end")
 
-        controller._set_shading_pending("start", third_due, False)
+        controller._set_shading_pending("end", third_due, False)
         callbacks[2][0](third_due)
 
-    controller.async_request_evaluate.assert_called_once_with("shading_start_timer")
+    controller.async_request_evaluate.assert_called_once_with("shading_end_timer")
 
 
 def test_duration_condition_uses_timer_and_cancels_on_fall() -> None:
@@ -572,7 +572,7 @@ def test_brightness_open_and_close_duration_use_distinct_timer_keys() -> None:
     ]
 
 
-def test_shading_start_and_end_use_distinct_triggers() -> None:
+def test_shading_end_uses_distinct_trigger() -> None:
     controller = object.__new__(CoverController)
     controller.hass = object()
     controller._shading_timer_unsubs = {}
@@ -584,15 +584,11 @@ def test_shading_start_and_end_use_distinct_triggers() -> None:
         side_effect=lambda _hass, callback, _due: callbacks.append(callback) or Mock(),
     ):
         due = dt_util.utcnow() + timedelta(seconds=1)
-        controller._schedule_shading_timer("start", due)
         controller._schedule_shading_timer("end", due)
         for callback in callbacks:
             callback(due)
 
-    assert [call.args[0] for call in controller.async_request_evaluate.call_args_list] == [
-        "shading_start_timer",
-        "shading_end_timer",
-    ]
+    controller.async_request_evaluate.assert_called_once_with("shading_end_timer")
 
     source = object.__new__(CoverController)
     source.config = {CONF_SHADING_BRIGHTNESS_SENSOR: "sensor.shading"}

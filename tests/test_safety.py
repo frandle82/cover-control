@@ -21,7 +21,7 @@ from custom_components.cover_control.const import (
     CONF_GROUP,
     CONF_GROUPS,
     CONF_ROOM_SETTINGS,
-    CONF_SHADING_TEMPERATURE_SENSOR_2,
+    CONF_TEMPERATURE_SENSOR_OUTDOOR,
     CONF_ROOMS,
     DOMAIN,
     ENTRY_TYPE_CONTROLLER,
@@ -398,7 +398,7 @@ async def test_heat_protection_does_not_override_safety() -> None:
         {
             CONF_HEAT_PROTECTION_ENABLED: True,
             CONF_HEAT_PROTECTION_THRESHOLD: 30,
-            CONF_SHADING_TEMPERATURE_SENSOR_2: "sensor.outdoor",
+            CONF_TEMPERATURE_SENSOR_OUTDOOR: "sensor.outdoor",
         }
     )
 
@@ -415,7 +415,7 @@ async def test_heat_protection_resumes_after_safety_when_still_valid() -> None:
         {
             CONF_HEAT_PROTECTION_ENABLED: True,
             CONF_HEAT_PROTECTION_THRESHOLD: 30,
-            CONF_SHADING_TEMPERATURE_SENSOR_2: "sensor.outdoor",
+            CONF_TEMPERATURE_SENSOR_OUTDOOR: "sensor.outdoor",
         }
     )
     await controller._evaluate_safety()

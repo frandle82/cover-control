@@ -80,12 +80,12 @@ def test_group_switch_clears_old_group_timer() -> None:
 async def test_controller_and_room_load_with_fixed_groups(hass) -> None:
     async_mock_service(hass, "cover", "set_cover_position")
     hass.states.async_set("cover.living", "open", {"current_position": 100})
-    controller = MockConfigEntry(domain=DOMAIN, version=14, unique_id=DOMAIN, data={
+    controller = MockConfigEntry(domain=DOMAIN, version=15, unique_id=DOMAIN, data={
         CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
         CONF_GLOBAL: {"sources": {}, "defaults": {}},
         CONF_GROUPS: {group: {} for group in GROUPS},
     })
-    room = MockConfigEntry(domain=DOMAIN, version=14, data={
+    room = MockConfigEntry(domain=DOMAIN, version=15, data={
         CONF_ENTRY_TYPE: ENTRY_TYPE_ROOM,
         CONF_CONTROLLER_ENTRY_ID: controller.entry_id,
         CONF_ROOM_ID: "living",

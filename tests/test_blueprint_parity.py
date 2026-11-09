@@ -35,12 +35,7 @@ from custom_components.cover_control.const import (
     CONF_SHADING_POSITION,
     CONF_SHADING_POSITION_ALT,
     CONF_SHADING_POSITION_ALT_ENTITY,
-    CONF_SHADING_CONDITIONS_END_AND,
-    CONF_SHADING_CONDITIONS_END_OR,
-    CONF_SHADING_INDEPENDENT_HOLDS_END,
     CONF_MASTER_ENABLED,
-    SHADING_CONDITION_AZIMUTH,
-    SHADING_CONDITION_BRIGHTNESS,
     CONF_WINDOW_SENSOR_TILT,
 )
 from custom_components.cover_control.controller import CoverController
@@ -573,75 +568,6 @@ def test_continuous_shading_end_wait_resets_and_restarts() -> None:
     )
     assert controller._shading_end_wait_complete(
         start + timedelta(seconds=500), True, 300
-    )
-
-
-@pytest.mark.parametrize(
-    ("end_and", "end_or", "end_invalid", "expected"),
-    [
-        (
-            [SHADING_CONDITION_AZIMUTH, SHADING_CONDITION_BRIGHTNESS],
-            [],
-            {SHADING_CONDITION_AZIMUTH: True, SHADING_CONDITION_BRIGHTNESS: False},
-            False,
-        ),
-        (
-            [],
-            [SHADING_CONDITION_AZIMUTH, SHADING_CONDITION_BRIGHTNESS],
-            {SHADING_CONDITION_AZIMUTH: False, SHADING_CONDITION_BRIGHTNESS: True},
-            True,
-        ),
-    ],
-)
-def test_continuous_shading_end_preserves_and_or_semantics(
-    end_and, end_or, end_invalid, expected
-) -> None:
-    """CCA parity: the combined end result, not one sensor, drives continuity."""
-
-    controller = _controller(
-        {
-            CONF_SHADING_CONDITIONS_END_AND: end_and,
-            CONF_SHADING_CONDITIONS_END_OR: end_or,
-        },
-        {},
-    )
-    controller._shading_condition_state = Mock(
-        return_value={
-            "configured": {
-                SHADING_CONDITION_AZIMUTH: True,
-                SHADING_CONDITION_BRIGHTNESS: True,
-            },
-            "end_invalid": end_invalid,
-        }
-    )
-
-    assert controller._shading_end_conditions(180, 30, 1000) is expected
-
-
-@pytest.mark.parametrize(
-    ("enabled", "temperature_met", "immediate_end", "expected"),
-    [
-        (False, True, False, False),
-        (True, True, False, True),
-        (True, False, False, False),
-        (True, True, True, False),
-    ],
-)
-def test_independent_temperature_hold_is_optional_and_yields_to_immediate_end(
-    enabled: bool, temperature_met: bool, immediate_end: bool, expected: bool
-) -> None:
-    """CCA parity: independent heat starts shading but only optionally holds it."""
-
-    controller = _controller(
-        {CONF_SHADING_INDEPENDENT_HOLDS_END: enabled},
-        {},
-    )
-
-    assert (
-        controller._shading_conditions_allow_active_state(
-            False, temperature_met, True, immediate_end
-        )
-        is expected
     )
 
 

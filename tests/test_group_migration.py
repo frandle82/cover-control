@@ -75,7 +75,7 @@ async def test_entry_migration_updates_controller_and_rooms(hass) -> None:
     controller.add_to_hass(hass)
     room.add_to_hass(hass)
     assert await async_migrate_entry(hass, controller)
-    assert controller.version == room.version == 14
+    assert controller.version == room.version == 15
     assert set(controller.data[CONF_GROUPS]) == set(GROUPS)
     assert room.data[CONF_GROUP] == GROUP_SLEEP
     assert "profile_id" not in room.data
@@ -134,6 +134,77 @@ def test_migration_preserves_group_specific_thresholds() -> None:
     assert model[CONF_GROUPS][GROUP_CHILDREN][CONF_SUN_ELEVATION_CLOSE] == -7
 
 
+@pytest.mark.parametrize(
+    ("conditions", "expected"),
+    [
+        (["cond_temp1", "cond_temp2"], SHADING_MODE_INSIDE_OUTSIDE),
+        (["cond_azimuth", "cond_elevation"], SHADING_MODE_DIRECTION),
+        (["cond_temp1", "cond_temp2", "cond_azimuth"], SHADING_MODE_INSIDE_OUTSIDE_DIRECTION),
+        (["cond_temp2", "cond_azimuth"], SHADING_MODE_OUTSIDE_DIRECTION),
+        (["cond_temp2"], SHADING_MODE_OUTSIDE),
+        (["cond_temp1"], SHADING_MODE_INSIDE),
+    ],
+)
+def test_migrate_fixed_shading_modes(conditions: list[str], expected: str) -> None:
+    source = _fixed_groups_with_sun("fixed")
+    source[CONF_GROUPS][GROUP_LIVING].update(
+        {
+            CONF_AUTO_SHADING: True,
+            "shading_conditions_start_and": conditions,
+            "shading_azimuth_start": 135,
+            "shading_azimuth_end": 225,
+        }
+    )
+    model, _ = migrate_profile_model(source)
+    living = model[CONF_GROUPS][GROUP_LIVING]
+    assert living[CONF_SHADING_MODE] == expected
+    assert living[CONF_SHADING_DIRECTION] == 180
+    assert living[CONF_SHADING_DIRECTION_RANGE] == 45
+
+
+def test_complex_or_rules_create_repair_warning_and_remove_forecast() -> None:
+    source = _fixed_groups_with_sun("fixed")
+    source[CONF_GROUPS][GROUP_SLEEP].update(
+        {
+            "shading_conditions_start_and": ["cond_temp1", "cond_temp2"],
+            "shading_conditions_start_or": ["cond_azimuth"],
+            "shading_forecast_sensor": "weather.home",
+            "shading_weather_conditions": ["sunny"],
+        }
+    )
+    model, warnings = migrate_profile_model(source)
+    sleep = model[CONF_GROUPS][GROUP_SLEEP]
+    assert sleep[CONF_SHADING_MODE] == SHADING_MODE_INSIDE_OUTSIDE
+    assert any("sleep: complex shading rules" in warning for warning in warnings)
+    assert not any("forecast" in key or "conditions_" in key for key in sleep)
+
+
+def test_group_specific_shading_migration() -> None:
+    source = _fixed_groups_with_sun("fixed")
+    source[CONF_GROUPS][GROUP_LIVING]["shading_conditions_start_and"] = ["cond_temp2"]
+    source[CONF_GROUPS][GROUP_SLEEP]["shading_conditions_start_and"] = ["cond_temp1"]
+    source[CONF_GROUPS][GROUP_CHILDREN]["shading_conditions_start_and"] = ["cond_azimuth"]
+    model, _ = migrate_profile_model(source)
+    assert model[CONF_GROUPS][GROUP_LIVING][CONF_SHADING_MODE] == SHADING_MODE_OUTSIDE
+    assert model[CONF_GROUPS][GROUP_SLEEP][CONF_SHADING_MODE] == SHADING_MODE_INSIDE
+    assert model[CONF_GROUPS][GROUP_CHILDREN][CONF_SHADING_MODE] == SHADING_MODE_DIRECTION
+
+
+def test_fixed_shading_mode_migration_is_idempotent() -> None:
+    source = _fixed_groups_with_sun("fixed")
+    source[CONF_GROUPS][GROUP_LIVING].update(
+        {
+            CONF_SHADING_MODE: SHADING_MODE_OUTSIDE_DIRECTION,
+            CONF_SHADING_DIRECTION: 210,
+            CONF_SHADING_DIRECTION_RANGE: 35,
+        }
+    )
+    first, _ = migrate_profile_model(source)
+    second, _ = migrate_profile_model(first)
+    assert second[CONF_GROUPS][GROUP_LIVING][CONF_SHADING_MODE] == SHADING_MODE_OUTSIDE_DIRECTION
+    assert second[CONF_GROUPS][GROUP_LIVING][CONF_SHADING_DIRECTION] == 210
+
+
 async def test_migration_warns_for_removed_dynamic_mode(hass) -> None:
     controller = MockConfigEntry(
         domain=DOMAIN,
@@ -146,5 +217,62 @@ async def test_migration_warns_for_removed_dynamic_mode(hass) -> None:
     )
     controller.add_to_hass(hass)
     assert await async_migrate_entry(hass, controller)
-    assert controller.version == 14
+    assert controller.version == 15
     assert (DOMAIN, "sun_mode_migration") in ir.async_get(hass).issues
+
+
+async def test_complex_shading_rules_create_repair_warning(hass) -> None:
+    data = _fixed_groups_with_sun("fixed")
+    data[CONF_GROUPS][GROUP_LIVING].update(
+        {
+            "shading_conditions_start_and": ["cond_temp1", "cond_temp2"],
+            "shading_conditions_start_or": ["cond_azimuth"],
+            "shading_forecast_sensor": "weather.home",
+        }
+    )
+    controller = MockConfigEntry(
+        domain=DOMAIN,
+        version=14,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
+            CONF_GLOBAL: {CONF_GLOBAL_SOURCES: {}, CONF_GLOBAL_DEFAULTS: {}},
+            **data,
+        },
+    )
+    controller.add_to_hass(hass)
+    assert await async_migrate_entry(hass, controller)
+    assert controller.version == 15
+    assert (DOMAIN, "shading_mode_migration") in ir.async_get(hass).issues
+
+
+async def test_room_direction_migrates_to_assigned_group(hass) -> None:
+    controller = MockConfigEntry(
+        domain=DOMAIN,
+        version=14,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
+            CONF_GLOBAL: {CONF_GLOBAL_SOURCES: {}, CONF_GLOBAL_DEFAULTS: {}},
+            CONF_GROUPS: {group: {} for group in GROUPS},
+        },
+    )
+    room = MockConfigEntry(
+        domain=DOMAIN,
+        version=14,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_ROOM,
+            CONF_CONTROLLER_ENTRY_ID: controller.entry_id,
+            CONF_ROOM_ID: "living",
+            CONF_GROUP: GROUP_LIVING,
+            CONF_ROOM_SETTINGS: {
+                "shading_azimuth_start": 320,
+                "shading_azimuth_end": 20,
+            },
+        },
+    )
+    controller.add_to_hass(hass)
+    room.add_to_hass(hass)
+    assert await async_migrate_entry(hass, controller)
+    group = controller.data[CONF_GROUPS][GROUP_LIVING]
+    assert group[CONF_SHADING_DIRECTION] == 350
+    assert group[CONF_SHADING_DIRECTION_RANGE] == 30
+    assert "shading_azimuth_start" not in room.data[CONF_ROOM_SETTINGS]

@@ -8,17 +8,17 @@ from custom_components.cover_control.const import (
     CONF_HEAT_PROTECTION_ENABLED,
     CONF_HEAT_PROTECTION_THRESHOLD,
     CONF_SHADING_BRIGHTNESS_SENSOR,
-    CONF_SHADING_BRIGHTNESS_START,
-    CONF_SHADING_CONDITIONS_START_AND,
+    CONF_SHADING_BRIGHTNESS_THRESHOLD,
+    CONF_SHADING_DIRECTION,
+    CONF_SHADING_DIRECTION_RANGE,
+    CONF_SHADING_MODE,
+    CONF_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD,
     CONF_SHADING_POSITION,
-    CONF_SHADING_TEMPERATURE_SENSOR_2,
-    CONF_SUN_AZIMUTH_END,
-    CONF_SUN_AZIMUTH_START,
     CONF_SUN_ELEVATION_MAX,
     CONF_SUN_ELEVATION_MIN,
-    SHADING_CONDITION_AZIMUTH,
-    SHADING_CONDITION_BRIGHTNESS,
-    SHADING_CONDITION_ELEVATION,
+    CONF_TEMPERATURE_SENSOR_OUTDOOR,
+    SHADING_MODE_OUTSIDE_DIRECTION,
+    SHADING_MODE_OFF,
 )
 from custom_components.cover_control.runtime.common import _normalize_cover_status
 from custom_components.cover_control.runtime.controller import CoverController
@@ -42,16 +42,13 @@ def _controller(temperature: str = "31") -> CoverController:
     controller.config = {
         CONF_HEAT_PROTECTION_ENABLED: True,
         CONF_HEAT_PROTECTION_THRESHOLD: 30,
-        CONF_SHADING_TEMPERATURE_SENSOR_2: "sensor.outdoor",
+        CONF_TEMPERATURE_SENSOR_OUTDOOR: "sensor.outdoor",
+        CONF_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD: 20,
         CONF_SHADING_BRIGHTNESS_SENSOR: "sensor.brightness",
-        CONF_SHADING_BRIGHTNESS_START: 20000,
-        CONF_SHADING_CONDITIONS_START_AND: [
-            SHADING_CONDITION_AZIMUTH,
-            SHADING_CONDITION_ELEVATION,
-            SHADING_CONDITION_BRIGHTNESS,
-        ],
-        CONF_SUN_AZIMUTH_START: 100,
-        CONF_SUN_AZIMUTH_END: 260,
+        CONF_SHADING_BRIGHTNESS_THRESHOLD: 20000,
+        CONF_SHADING_MODE: SHADING_MODE_OUTSIDE_DIRECTION,
+        CONF_SHADING_DIRECTION: 180,
+        CONF_SHADING_DIRECTION_RANGE: 80,
         CONF_SUN_ELEVATION_MIN: 10,
         CONF_SUN_ELEVATION_MAX: 70,
         CONF_CLOSE_POSITION: 0,
@@ -81,6 +78,13 @@ def test_heat_protection_does_not_activate_below_threshold() -> None:
     assert _controller("30")._heat_protection_state() == (False, 30.0)
 
 
+def test_heat_protection_requires_valid_shading_mode() -> None:
+    controller = _controller()
+    controller.config[CONF_SHADING_MODE] = SHADING_MODE_OFF
+    assert controller._heat_protection_state()[0]
+    assert not controller._shading_start_conditions(180, 40, 30000)[0]
+
+
 def test_heat_protection_uses_existing_shading_position() -> None:
     controller = _controller()
     assert controller._shading_target_reason() == (0.0, "heat_protection")
@@ -99,6 +103,11 @@ def test_heat_protection_respects_elevation() -> None:
     controller = _controller()
     assert controller._heat_protection_state()[0]
     assert not controller._shading_start_conditions(180, 5, 30000)[0]
+
+
+def test_heat_protection_ends_with_shading() -> None:
+    controller = _controller("18")
+    assert controller._shading_end_conditions(180, 40, 30000)
 
 
 def test_heat_protection_handles_temperature_sensor_unavailable() -> None:
