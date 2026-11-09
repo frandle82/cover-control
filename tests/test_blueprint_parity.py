@@ -19,12 +19,6 @@ from custom_components.cover_control.const import (
     CONF_AUTO_VENTILATE,
     CONF_DRIVE_TIME,
     CONF_DRIVE_DELAY_FIXED,
-    CONF_DRIVE_DELAY_RANDOM,
-    CONF_FORCE_OPEN_ENTITY,
-    CONF_RECOVERY_MODE,
-    RECOVERY_ALWAYS,
-    RECOVERY_NEVER,
-    RECOVERY_OUTAGE,
     CONF_ENABLE_LOGBOOK_COVER,
     CONF_LOCKOUT_POSITION,
     CONF_OPEN_POSITION,
@@ -389,45 +383,47 @@ def test_clearing_manual_override_requests_immediate_evaluation() -> None:
     controller.async_request_evaluate.assert_called_once_with("manual_cleared")
 
 
-def test_drive_delay_keeps_fixed_and_random_settings_separate() -> None:
+def test_drive_delay_uses_fixed_setting() -> None:
     controller = _controller(
-        {CONF_DRIVE_TIME: 90, CONF_DRIVE_DELAY_FIXED: 2, CONF_DRIVE_DELAY_RANDOM: 0},
+        {CONF_DRIVE_TIME: 90, CONF_DRIVE_DELAY_FIXED: 2},
         {},
     )
     assert controller._drive_delay_seconds() == 2
     assert controller.config[CONF_DRIVE_TIME] == 90
 
 
-def test_force_entity_is_a_state_source_not_manual_override() -> None:
-    force = SimpleNamespace(state="on", attributes={})
-    controller = _controller({CONF_FORCE_OPEN_ENTITY: "input_boolean.force"}, {
-        "input_boolean.force": force,
-    })
-    controller._manual_active = False
-    assert controller._entity_active(CONF_FORCE_OPEN_ENTITY)
-    assert not controller._manual_active
-
-
-def test_drive_delay_random_range_is_non_negative() -> None:
+def test_current_position_uses_home_assistant_cover_attribute() -> None:
     controller = _controller(
-        {CONF_DRIVE_DELAY_FIXED: 0, CONF_DRIVE_DELAY_RANDOM: 5}, {}
+        {},
+        {
+            "cover.test": SimpleNamespace(
+                state="open", attributes={"current_position": 42}
+            )
+        },
     )
-    assert 0 <= controller._drive_delay_seconds() <= 5
+    controller.cover = "cover.test"
+
+    assert controller._current_position() == 42
 
 
-@pytest.mark.parametrize(
-    ("mode", "expected"),
-    [(RECOVERY_ALWAYS, True), (RECOVERY_OUTAGE, False), (RECOVERY_NEVER, False)],
-)
-def test_delayed_startup_recovery_uses_runtime_state(mode: str, expected: bool) -> None:
-    controller = _controller({CONF_RECOVERY_MODE: mode}, {})
+def test_current_position_is_unavailable_without_standard_attribute() -> None:
+    controller = _controller(
+        {}, {"cover.test": SimpleNamespace(state="closed", attributes={})}
+    )
+    controller.cover = "cover.test"
+
+    assert controller._current_position() is None
+
+
+def test_delayed_startup_does_not_trigger_recovery() -> None:
+    controller = _controller({}, {})
     controller._startup_complete = False
     controller._runtime_outage_active = False
-    assert controller._recovery_should_catch_up(True) is expected
+    assert not controller._recovery_should_catch_up(True)
 
 
 def test_completed_startup_recovery_uses_runtime_outage_mode() -> None:
-    controller = _controller({CONF_RECOVERY_MODE: RECOVERY_OUTAGE}, {})
+    controller = _controller({}, {})
     controller._startup_complete = True
     controller._runtime_outage_active = True
     assert controller._recovery_should_catch_up(True)

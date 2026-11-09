@@ -197,12 +197,6 @@ def test_summer_period_does_not_block_safety() -> None:
     )
 
 
-def test_summer_period_does_not_block_force_close() -> None:
-    source = inspect.getsource(EvaluationMixin._evaluate)
-
-    assert source.index("forced =") < source.index("self._seasonal_close_target")
-
-
 def test_christmas_does_not_override_safety() -> None:
     evaluation_source = inspect.getsource(EvaluationMixin._evaluate)
     target_source = inspect.getsource(EvaluationMixin._seasonal_close_target)

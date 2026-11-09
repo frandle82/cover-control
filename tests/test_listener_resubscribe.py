@@ -10,9 +10,6 @@ from custom_components.cover_control.const import (
     CONF_AUTO_SHADING,
     CONF_AUTO_VENTILATE,
     CONF_BRIGHTNESS_SENSOR,
-    CONF_CUSTOM_POSITION_SENSOR,
-    CONF_POSITION_SOURCE,
-    CONF_POSITION_SOURCE_CUSTOM_SENSOR,
     CONF_WINDOW_SENSOR_TILT,
 )
 from custom_components.cover_control.controller import ControllerManager, CoverController
@@ -62,13 +59,8 @@ def test_window_listener_rebinds_after_config_change() -> None:
     assert not unsubs["cover.test"].called
 
 
-def test_custom_position_listener_rebinds_after_config_change() -> None:
-    controller = _local_controller(
-        {
-            CONF_POSITION_SOURCE: CONF_POSITION_SOURCE_CUSTOM_SENSOR,
-            CONF_CUSTOM_POSITION_SENSOR: "sensor.old_position",
-        }
-    )
+def test_cover_position_listener_remains_bound_after_config_change() -> None:
+    controller = _local_controller({})
     unsubs: dict[str, Mock] = {}
 
     def _track(_hass, entity_ids, _callback):
@@ -81,17 +73,11 @@ def test_custom_position_listener_rebinds_after_config_change() -> None:
         side_effect=_track,
     ):
         controller._resubscribe_local_decision_entities()
-        controller.config = {
-            CONF_POSITION_SOURCE: CONF_POSITION_SOURCE_CUSTOM_SENSOR,
-            CONF_CUSTOM_POSITION_SENSOR: "sensor.new_position",
-        }
+        controller.config = {}
         controller._resubscribe_local_decision_entities()
 
-    unsubs["sensor.old_position"].assert_called_once_with()
-    assert controller._local_listener_entities == {
-        "cover.test",
-        "sensor.new_position",
-    }
+    assert controller._local_listener_entities == {"cover.test"}
+    assert not unsubs["cover.test"].called
 
 
 def _toggle_manager() -> tuple[ControllerManager, Mock]:

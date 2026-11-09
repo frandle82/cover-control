@@ -79,8 +79,7 @@ def test_runtime_control_states_are_valid_sensor_options() -> None:
     assert set(sensor.options or ()) == CONTROL_STATE_OPTION_SET
     assert {
         "idle", "time", "sun", "brightness", "calendar", "resident",
-        "ventilation", "shading", "heat_protection", "manual_override", "force_open",
-        "force_close", "force_ventilate", "force_shading", "force_pause",
+        "ventilation", "shading", "heat_protection", "manual_override",
         "window_lockout", "recovery", "multiple",
     } <= CONTROL_STATE_OPTION_SET
 
@@ -277,12 +276,10 @@ def test_time_only_ignores_sun_and_live_gates() -> None:
             CONF_TIME_DOWN_LATE_WORKDAY: time(22),
             "brightness_sensor": "sensor.brightness",
             "resident_sensor": "binary_sensor.resident",
-            "force_pause_entity": "input_boolean.pause",
         },
         states={
             "sensor.brightness": SimpleNamespace(state="0"),
             "binary_sensor.resident": SimpleNamespace(state="on"),
-            "input_boolean.pause": SimpleNamespace(state="on"),
         },
     )
     controller._time_bounds = Mock(

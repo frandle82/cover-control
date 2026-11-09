@@ -103,6 +103,82 @@ def test_removed_cca_settings_are_deleted_from_all_layers() -> None:
     )
     assert warnings == ["CCA behavior overrides were removed"]
 
+
+def test_removed_runtime_options_are_deleted_from_all_layers() -> None:
+    source = _fixed_groups_with_sun("fixed")
+    source[CONF_GLOBAL] = {
+        CONF_GLOBAL_SOURCES: {"force_open_entity": "input_boolean.force"},
+        CONF_GLOBAL_DEFAULTS: {"recovery_mode": "outage"},
+    }
+    source[CONF_GROUPS][GROUP_LIVING].update(
+        {"drive_delay_fixed": 4, "drive_delay_random": 8}
+    )
+    source[CONF_ROOMS] = {
+        "room": {
+            CONF_GROUP: GROUP_LIVING,
+            CONF_ROOM_SETTINGS: {
+                "position_source": "custom_sensor",
+                "custom_position_sensor": "sensor.position",
+                "recovery_mode": "always",
+            },
+            CONF_SOURCE_OVERRIDES: {"force_pause_entity": "input_boolean.pause"},
+            CONF_ROOM_OVERRIDES: {
+                "cover.test": {"force_close_entity": "input_boolean.close"}
+            },
+        }
+    }
+
+    model, warnings = migrate_profile_model(source)
+    serialized = str(model)
+
+    assert "force_" not in serialized
+    assert "position_source" not in serialized
+    assert "custom_position_sensor" not in serialized
+    assert "recovery_mode" not in serialized
+    assert "drive_delay_random" not in serialized
+    assert model[CONF_GROUPS][GROUP_LIVING]["drive_delay_fixed"] == 4
+    assert warnings == [
+        "configurable recovery mode was removed",
+        "custom position source was removed",
+    ]
+
+
+async def test_removed_runtime_options_create_repair_warnings(hass) -> None:
+    data = _fixed_groups_with_sun("fixed")
+    data[CONF_GROUPS][GROUP_LIVING]["recovery_mode"] = "never"
+    controller = MockConfigEntry(
+        domain=DOMAIN,
+        version=16,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
+            CONF_GLOBAL: {CONF_GLOBAL_SOURCES: {}, CONF_GLOBAL_DEFAULTS: {}},
+            **data,
+        },
+    )
+    room = MockConfigEntry(
+        domain=DOMAIN,
+        version=16,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_ROOM,
+            CONF_CONTROLLER_ENTRY_ID: controller.entry_id,
+            CONF_ROOM_ID: "living",
+            CONF_GROUP: GROUP_LIVING,
+            CONF_ROOM_SETTINGS: {
+                "position_source": "custom_sensor",
+                "custom_position_sensor": "sensor.position",
+            },
+        },
+    )
+    controller.add_to_hass(hass)
+    room.add_to_hass(hass)
+
+    assert await async_migrate_entry(hass, controller)
+
+    issues = ir.async_get(hass).issues
+    assert (DOMAIN, "custom_position_migration") in issues
+    assert (DOMAIN, "recovery_mode_migration") in issues
+    assert "custom_position_sensor" not in str(room.data)
+
 def test_migration_removes_legacy_assignment_fields() -> None:
     model, _ = migrate_profile_model(_legacy("Living", {"room": ("Room", "selected", {})}))
     room = model[CONF_ROOMS]["room"]
@@ -127,7 +203,7 @@ async def test_entry_migration_updates_controller_and_rooms(hass) -> None:
     controller.add_to_hass(hass)
     room.add_to_hass(hass)
     assert await async_migrate_entry(hass, controller)
-    assert controller.version == room.version == 16
+    assert controller.version == room.version == 17
     assert set(controller.data[CONF_GROUPS]) == set(GROUPS)
     assert room.data[CONF_GROUP] == GROUP_SLEEP
     assert "profile_id" not in room.data
@@ -269,7 +345,7 @@ async def test_migration_warns_for_removed_dynamic_mode(hass) -> None:
     )
     controller.add_to_hass(hass)
     assert await async_migrate_entry(hass, controller)
-    assert controller.version == 16
+    assert controller.version == 17
     assert (DOMAIN, "sun_mode_migration") in ir.async_get(hass).issues
 
 
@@ -293,7 +369,7 @@ async def test_complex_shading_rules_create_repair_warning(hass) -> None:
     )
     controller.add_to_hass(hass)
     assert await async_migrate_entry(hass, controller)
-    assert controller.version == 16
+    assert controller.version == 17
     assert (DOMAIN, "shading_mode_migration") in ir.async_get(hass).issues
 
 
@@ -347,7 +423,7 @@ async def test_removed_cca_behavior_creates_single_repair_warning(hass) -> None:
 
     assert await async_migrate_entry(hass, controller)
 
-    assert controller.version == 16
+    assert controller.version == 17
     assert (DOMAIN, "cca_cleanup_migration") in ir.async_get(hass).issues
 
 
@@ -366,6 +442,6 @@ async def test_room_cleanup_creates_same_single_repair_warning(hass) -> None:
 
     assert await async_migrate_entry(hass, room)
 
-    assert room.version == 16
+    assert room.version == 17
     assert "lockout_tilt_shading_start" not in room.data[CONF_ROOM_SETTINGS]
     assert (DOMAIN, "cca_cleanup_migration") in ir.async_get(hass).issues
