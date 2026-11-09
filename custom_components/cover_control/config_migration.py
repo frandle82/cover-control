@@ -44,6 +44,94 @@ LEGACY_SHADING_KEYS = {
     "shading_temperature_hysteresis2", "shading_brightness_start",
     "shading_brightness_end",
 }
+LEGACY_CCA_KEYS = {
+    "additional_conditions_enabled",
+    "additional_condition_global",
+    "additional_condition_open",
+    "additional_condition_close",
+    "additional_condition_ventilate",
+    "additional_condition_ventilate_end",
+    "additional_condition_shading",
+    "additional_condition_shading_tilt",
+    "additional_condition_shading_end",
+    "prevent_higher_position_closing",
+    "prevent_lowering_when_closing_if_shaded",
+    "prevent_shading_end_if_closed",
+    "prevent_opening_after_ventilation_end",
+    "prevent_opening_multiple_times",
+    "prevent_closing_multiple_times",
+    "prevent_shading_multiple_times",
+    "prevent_default_cover_actions",
+    "ventilation_allow_higher_position",
+    "ventilation_use_after_shading",
+    "ventilation_start_no_delay",
+    "ventilation_keep_open_on_full_to_tilt",
+    "shading_over_ventilation",
+    "lockout_tilt_close",
+    "lockout_tilt_shading_start",
+    "lockout_tilt_shading_end",
+}
+LEGACY_KEEP_SUN_PROTECTION = "prevent_opening_after_shading_end"
+
+
+def cleanup_cca_settings(settings: Mapping[str, Any]) -> tuple[dict[str, Any], bool]:
+    """Remove legacy CCA overrides and preserve KeepSunProtect semantics."""
+
+    result = deepcopy(dict(settings))
+    changed_behavior = any(bool(result.get(key)) for key in LEGACY_CCA_KEYS)
+    if LEGACY_KEEP_SUN_PROTECTION in result:
+        result.setdefault(
+            CONF_KEEP_SUN_PROTECTION,  # noqa: F405
+            bool(result[LEGACY_KEEP_SUN_PROTECTION]),
+        )
+        result.pop(LEGACY_KEEP_SUN_PROTECTION, None)
+    for key in LEGACY_CCA_KEYS:
+        result.pop(key, None)
+    return result, changed_behavior
+
+
+def cleanup_cca_model(model: dict[str, Any], warnings: list[str]) -> None:
+    """Remove CCA-only settings from every persistent model layer."""
+
+    changed_behavior = False
+    global_config = model.get(CONF_GLOBAL, {})  # noqa: F405
+    if isinstance(global_config, dict):
+        for section in (CONF_GLOBAL_SOURCES, CONF_GLOBAL_DEFAULTS):  # noqa: F405
+            values = global_config.get(section)
+            if isinstance(values, Mapping):
+                global_config[section], changed = cleanup_cca_settings(values)
+                changed_behavior |= changed
+    for settings in model.get(CONF_GROUPS, {}).values():  # noqa: F405
+        if isinstance(settings, dict):
+            cleaned, changed = cleanup_cca_settings(settings)
+            settings.clear()
+            settings.update(cleaned)
+            changed_behavior |= changed
+    for room in model.get(CONF_ROOMS, {}).values():  # noqa: F405
+        if not isinstance(room, dict):
+            continue
+        for section in (
+            CONF_ROOM_SETTINGS,  # noqa: F405
+            CONF_SOURCE_OVERRIDES,  # noqa: F405
+        ):
+            values = room.get(section)
+            if isinstance(values, Mapping):
+                room[section], changed = cleanup_cca_settings(values)
+                changed_behavior |= changed
+        overrides = room.get(CONF_ROOM_OVERRIDES)  # noqa: F405
+        if isinstance(overrides, Mapping):
+            cleaned_overrides: dict[str, Any] = {}
+            for override_id, values in overrides.items():
+                if isinstance(values, Mapping):
+                    cleaned_overrides[str(override_id)], changed = (
+                        cleanup_cca_settings(values)
+                    )
+                    changed_behavior |= changed
+                else:
+                    cleaned_overrides[str(override_id)] = deepcopy(values)
+            room[CONF_ROOM_OVERRIDES] = cleaned_overrides  # noqa: F405
+    if changed_behavior:
+        warnings.append("CCA behavior overrides were removed")
 
 
 def _percent_hysteresis(threshold: float, end_limit: float) -> float:
@@ -239,6 +327,7 @@ def migrate_profile_model(model: Mapping[str, Any]) -> tuple[dict[str, Any], lis
                     f"{group}: complex shading rules were simplified; forecast and OR conditions were removed"
                 )
         migrate_room_shading_geometry(canonical, warnings)
+        cleanup_cca_model(canonical, warnings)
         canonical[CONF_CONFIG_VERSION] = CONFIG_MODEL_VERSION  # noqa: F405
         return canonical, warnings
     result = deepcopy(dict(model))
@@ -313,6 +402,7 @@ def migrate_profile_model(model: Mapping[str, Any]) -> tuple[dict[str, Any], lis
                 )
     result[CONF_GROUPS] = groups  # noqa: F405
     migrate_room_shading_geometry(result, warnings)
+    cleanup_cca_model(result, warnings)
     result[CONF_CONFIG_VERSION] = CONFIG_MODEL_VERSION  # noqa: F405
     return ConfigGroupModel(result).data, warnings
 
@@ -329,6 +419,7 @@ def normalize_legacy_config(
     """Convert one flat legacy room into the fixed-group model."""
 
     flat = {**data, **options}
+    flat, _cca_changed = cleanup_cca_settings(flat)
     room_name = str(flat.get(CONF_ROOM) or flat.get(CONF_NAME) or room_id)  # noqa: F405
     global_sources = {key: flat[key] for key in GLOBAL_SOURCE_KEYS if key in flat}
     group_keys = set().union(*GROUP_SECTION_KEYS.values())

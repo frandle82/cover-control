@@ -459,7 +459,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
 class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the config flow."""
 
-    VERSION = 15
+    VERSION = 16
 
     @staticmethod
     @callback
