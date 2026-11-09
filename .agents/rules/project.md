@@ -45,6 +45,7 @@ Controller-Imports bleiben stabil über `controller.py`. Logik nicht ohne klaren
 * **ROOM:** Besitzt Hardware, Cover-Entitäten, physische Positionen, Fenstersensoren, Geometrie, Raumschalter und eine Gruppenzuordnung.
 * **SWITCH:** Steuert, ob eine konfigurierte Raumfunktion zur Laufzeit aktiv (enabled) ist.
 * **RUNTIME:** Entscheidet, ob eine aktive Funktion unter den aktuellen Bedingungen ausführungsberechtigt (eligible) ist.
+* Generische Zusatzbedingungen und CCA-spezifische Override-Schalter gehören nicht zum Zielmodell. Window-, Ventilation- und Shading-Konflikte folgen festen Shuttercontrol-Prioritäten.
 
 ### Zustandsmodell
 * **`configured`**: Funktion gehört zum festen Gruppenmodell.
@@ -75,6 +76,7 @@ Ein Schalterzustand ändert niemals die Konfiguration oder Gruppenzuordnung.
 * **Fahrbefehle (`actuator.py`):** Sämtliche automatischen Fahrbefehle laufen über den Controller und `actuator.py`.
 * **Prioritätenhierarchie:** Lockout > Force > Manual Override > Ventilation > Shading > Resident.
 * **Toleranz:** Keine doppelten Fahrbefehle senden, wenn sich die Position bereits innerhalb der konfigurierten Toleranz befindet.
+* **Fensterpriorität:** Offen fährt auf die Lockout-Position, gekippt auf die Lüftungsposition; beide Zustände gehen Komfort-Beschattung vor. Nach dem Schließen wird der gespeicherte Hintergrund wieder ausgewertet.
 * **Manuelle Steuerung:** Strikt trennen zwischen:
   1. Manueller Bewegungserkennung (`manual movement detection`)
   2. Manuellem Override-Zustand (`manual override state`)

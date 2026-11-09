@@ -2,7 +2,7 @@
 title: Reverse Engineering ioBroker.shuttercontrol 2.1.2
 type: domain
 status: active
-updated: 2026-11-08
+updated: 2026-11-09
 tags:
   - reverse-engineering
   - parity
@@ -99,6 +99,8 @@ Seit 2.1.0 kann `useOpenWindowLevel` bei einer automatischen Schließfahrt:
 4. danach von unten auf die offene oder gekippte Lüftungsposition fahren.
 
 Schließt das Fenster während der ersten Fahrt, bleibt der Rollladen geschlossen. Frost verhindert die zweite Fahrt. `oldHeight` wird auf die Schließposition gesetzt, damit die zweite automatische Fahrt nicht als manuelle Bewegung erkannt wird. Die Verdunklungsposition bleibt als `triggerHeight` für die spätere Wiederherstellung erhalten. Dies ist durch `lib/windowLevel.test.js` abgedeckt.
+
+Cover Control verwendet dafür ein festes Zielmodell ohne CCA-Sonderschalter: vollständig offen → Lockout-Position, gekippt → Lüftungsposition, geschlossen → gespeicherten Hintergrund neu auswerten. Fenster-/Aussperrschutz gewinnt vor Komfort-Beschattung. Die frühere Option `prevent_opening_after_shading_end` ist verlustfrei als `keep_sun_protection` benannt und bildet ausschließlich `KeepSunProtect` ab. Generische Additional Conditions sowie CCA-spezifische `prevent_*`, Ventilation- und Lockout/Tilt-Overrides gehören nicht mehr zum Zielumfang. Resident und Recalibrate bleiben bewusste Cover-Control-Erweiterungen.
 
 ## Safety-Alarme und Prioritätsabweichung
 

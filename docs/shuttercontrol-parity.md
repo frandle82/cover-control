@@ -1,6 +1,6 @@
 # ioBroker.shuttercontrol parity
 
-Stand: 2026-11-08
+Stand: 2026-11-09
 Referenz: [`simatec/ioBroker.shuttercontrol@64ccaedc4f413f187e2a6f6d5164c83b5d6aa848`](https://github.com/simatec/ioBroker.shuttercontrol/tree/64ccaedc4f413f187e2a6f6d5164c83b5d6aa848) (`master`, Version 2.1.2)
 
 ## Statusdefinitionen
@@ -44,18 +44,18 @@ Referenz: [`simatec/ioBroker.shuttercontrol@64ccaedc4f413f187e2a6f6d5164c83b5d6a
 | Innen-/Außentemperatur | Varianten mit Innen, Außen oder beiden Sensoren | Vorhandene Global-/Room-Sources, gruppenbezogene Schwellen und prozentuale Hysteresen | FULL | – |
 | Heat Protection | Strikt oberhalb der Außentemperaturschwelle innerhalb gültiger Sun Protection auf vollständige Schließposition statt Beschattungsposition | Vorhandene Outdoor-Quelle, gültiger fester Modus, `close_position`, persistierter No-Churn-Hold, Diagnose und Tests | FULL | Kein eigener Sonnenschutzmodus |
 | Beschattungs-Endverzögerung | Per Rollladen, bei erneutem Licht abgebrochen | End-Wait mit kontinuierlicher Bedingung, Cancel/Restart und Tests | FULL | – |
-| Beschattungs-Rückkehr | Öffnen, Zustand halten oder Fensterziel beachten | Status-Hintergrund, Shading-End-Optionen, Ventilation und Logbook | FULL | – |
-| `KeepSunProtect` | Kein Öffnen beim Beschattungsende | `prevent_opening_after_shading_end` | MAPPED | – |
+| Beschattungs-Rückkehr | Öffnen, Sonnenschutzposition halten oder Fensterziel beachten | Feste Window-Priorität, `keep_sun_protection`, Ventilation und Logbook | FULL | – |
+| `KeepSunProtect` | Kein Öffnen beim Beschattungsende | Eindeutiges `keep_sun_protection`, Migration des früheren Felds und Runtime-Test | FULL | – |
 
 ### Entfernte frühere Zusatzfelder
 
-Die freie Cover-Control-Regelengine und Forecast-Beschattung sind nicht mehr Teil des Modells. Entfernt wurden `shading_conditions_start_and`, `shading_conditions_start_or`, `shading_conditions_end_and`, `shading_conditions_end_or`, alle `shading_forecast_*`-Felder, `use_shading_forecast_sensor`, `shading_weather_conditions`, `shading_config`, `shading_independent_*`, `shading_start_max_duration`, `shading_end_max_duration`, `shading_end_immediate_by_sun_position`, `shading_waitingtime_start`, die generischen `shading_temperatur_sensor1/2`-Felder sowie die alten getrennten Brightness-Start-/Endwerte. Diese Namen existieren nur noch lokal im Migrationscode und in Migrationstests.
+Die freie Cover-Control-Regelengine und Forecast-Beschattung sind nicht mehr Teil des Modells. Entfernt wurden `shading_conditions_start_and`, `shading_conditions_start_or`, `shading_conditions_end_and`, `shading_conditions_end_or`, alle `shading_forecast_*`-Felder, `use_shading_forecast_sensor`, `shading_weather_conditions`, `shading_config`, `shading_independent_*`, `shading_start_max_duration`, `shading_end_max_duration`, `shading_end_immediate_by_sun_position`, `shading_waitingtime_start`, die generischen `shading_temperatur_sensor1/2`-Felder sowie die alten getrennten Brightness-Start-/Endwerte. Ebenfalls entfernt sind generische Additional Conditions, CCA-spezifische `prevent_*`-Schalter, Ventilation-Prioritätsoptionen und Lockout/Tilt-Sonderregeln. Legacy-Namen existieren nur noch im Migrationscode und in Migrationstests.
 | Fenster geschlossen/gekippt/offen | Drei Zustände und getrennte Zielhöhen | Full-/Tilt-Sensoren, Lüftungs-/Lockoutpositionen und Kontakt-Listener | FULL | – |
 | Triggerverzögerung Fenster | `trigDelyUp` verzögert die Öffnungsreaktion, `trigDelyDown` die Schließreaktion | `contact_trigger_delay`, `contact_status_delay` und `ventilation_delay_after_close` decken Entprellung, stabilen Status und zweistufige Rückfahrt ab | MAPPED | Nicht richtungsgetrennt und deshalb nicht parameteridentisch; der vorhandene Pfad deckt den Nutzerfall ohne Doppelkonfiguration ab |
-| Aussperrschutz/Fahrerlaubnis | Off, onlyUp, onlyDown, upDown bei offenem Kontakt | Lockoutposition, Tilt-Locks und Ventilation-Gates | MAPPED | Kein einzelner vierstufiger Modus; Zielarchitektur bleibt granular |
+| Aussperrschutz/Fahrerlaubnis | Off, onlyUp, onlyDown, upDown bei offenem Kontakt | Feste Fenstersemantik: offen → Lockout-Position, gekippt → Lüftungsposition; Window vor Shading | MAPPED | Kein konfigurierbarer vierstufiger Modus; feste sichere Priorität |
 | Wiederherstellung nach Fensterschließen | Gesicherte Höhe/Aktion wird wieder angefahren | Persistierter Ventilationshintergrund und Restore-Ziel | FULL | – |
 | Automatik schließt bei offenem Fenster auf Lüftung | Erst vollständig schließen, Fahrzeit warten, Kontakt erneut prüfen, dann Lüftungsposition | Per-Cover-Sequenz für `scheduled_close`, `sun_close` und `brightness_close`; aktueller Kontakt bestimmt das zweite Ziel, Safety/Force/Manual/Unload brechen ab und das Schließziel bleibt als Restore-Ziel erhalten | FULL | – |
-| Schließen bei offenem Fenster | Je nach `autoDrive` blockieren oder schließen | Full-Open-Lockout verhindert Force-Close; Tilt-Locks sind konfigurierbar | MAPPED | Referenzrichtungen nicht 1:1 als Select vorhanden |
+| Schließen bei offenem Fenster | Je nach `autoDrive` blockieren oder schließen | Full-Open-Lockout verhindert Force-Close; automatische Schließfahrten verwenden die feste zweistufige Fenstersequenz | MAPPED | Referenzrichtungen nicht als Nutzeroption vorhanden; feste sichere Semantik |
 | Fire Safety | Zielposition, höchste Priorität, Latch, keine automatische Rückkehr, bewusste Reinitialisierung | Gruppenbezogene `safety`-Konfiguration, globale Quelle, Room-Teilnahme, persistenter Runtime-Latch, Reset-Button, Listener/Trigger, Movement und Restart-/Entity-Tests | FULL | – |
 | Rain Safety | Zielposition und nächsthöherer verbleibender Alarm | Gruppenziel, Room-Teilnahme, feste Priorität, unmittelbare Reevaluation und Reality-Test | FULL | Referenz ist bei Aktivierung eventreihenfolgeabhängig; Cover Control folgt bewusst der deterministischen Zielrangfolge |
 | Wind 2 Safety | Zweite Windstufe mit Zielposition und Priorität | Gruppenziel, globale Quelle, Room-Teilnahme, Listener, Runtime und Regressionstest | FULL | – |

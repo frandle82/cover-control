@@ -111,6 +111,7 @@ Strikte Grenzen der Verantwortlichkeit:
 * **ROOM:** Ist ein eigenständiger `ConfigEntry` (`ENTRY_TYPE_ROOM`), kein Subentry (`async_get_supported_subentry_types() == {}`). Besitzt Hardware, Cover-Entitäten, physische Positionen, Fenstersensoren, Raumschalter und genau eine Gruppenzuordnung (`CONF_GROUP`).
 * **SWITCH:** Steuert, ob eine konfigurierte Raumfunktion zur Laufzeit aktiv (enabled) ist.
 * **RUNTIME:** Entscheidet, ob eine aktive Funktion unter den aktuellen Bedingungen ausführungsberechtigt (eligible) ist.
+* Cover Control bietet keine generischen Zusatzbedingungen oder CCA-spezifischen Verhaltensschalter. Konflikte zwischen Fenster, Lüftung und Beschattung werden durch feste, an Shuttercontrol angelehnte Runtime-Prioritäten gelöst.
 
 ### Zustandsmodell
 * **`configured`**: Funktion gehört zum festen Gruppenmodell.
@@ -147,6 +148,7 @@ Ein Schalterzustand ändert niemals die Konfiguration oder Gruppenzuordnung.
 ### Fahrbefehle (`actuator.py`)
 * Sämtliche automatischen Fahrbefehle laufen über den Controller und `actuator.py`.
 * Prioritätenhierarchie wahren: Lockout > Force > Manual Override > Ventilation > Shading > Resident.
+* Offene Fenster verwenden die Lockout-Position, gekippte Fenster die Lüftungsposition. Fenster-/Aussperrschutz hat fest Vorrang vor Komfort-Beschattung; identische Zielbefehle werden intern immer dedupliziert.
 * Keine doppelten Fahrbefehle senden, wenn sich die Position bereits innerhalb der konfigurierten Toleranz befindet.
 * Zwischenzustände (`opening`, `closing`) nicht als manuelle Bewegung werten, wenn Cover Control die Fahrt ausgelöst hat.
 

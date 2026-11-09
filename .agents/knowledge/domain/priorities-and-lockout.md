@@ -58,7 +58,7 @@ Im Falle gleichzeitiger Anforderungen gewinnt immer die Funktion mit der höhere
 
 ### 5. Ventilation
 * **Zweck:** Ermöglicht Luftzirkulation bei gekipptem Fenster.
-* **Verhalten:** Fährt auf die konfigurierte Lüftungsposition (z. B. 20% oder Lamellen gekippt), solange das Fenster geöffnet/gekippt ist.
+* **Verhalten:** Ein vollständig offener Kontakt verwendet fest die Lockout-Position, ein gekippter Kontakt die Lüftungsposition. Beim Wechsel `open → tilted` wird die Lüftungsposition angefahren. Nach dem Schließen wertet die Runtime den gespeicherten Hintergrund erneut aus.
 
 ### 6. Shading
 * **Zweck:** Überhitzungsschutz bei direkter Sonneneinstrahlung.
@@ -66,6 +66,10 @@ Im Falle gleichzeitiger Anforderungen gewinnt immer die Funktion mit der höhere
 
 ### 7. Resident / Time / Sun / Brightness (Grundautomation)
 * **Zweck:** Reguläres Öffnen am Morgen und Schließen am Abend basierend auf Zeit, Helligkeit oder Sonnenuntergang.
+
+## Vereinfachtes Verhaltensmodell
+
+Cover Control besitzt keine generischen Additional Conditions und keine CCA-spezifischen `prevent_*`, Ventilation- oder Lockout/Tilt-Override-Schalter. Fenster-, Lüftungs- und Beschattungskonflikte werden ausschließlich durch die feste Priorität gelöst. Identische effektive Ziele werden im Aktorpfad anhand Positionstoleranz und laufendem Ziel dedupliziert. Resident und Recalibrate bleiben bewusst zusätzliche Cover-Control-Funktionen.
 
 ---
 Verwandte Notizen:

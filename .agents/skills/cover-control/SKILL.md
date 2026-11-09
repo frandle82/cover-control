@@ -52,6 +52,8 @@ Bei konkurrierenden Bedingungen gewinnt ausnahmslos die höhere Priorität:
 6. **Resident (Anwesenheit / Nachtmodus):** Schlafsensor / Resident-Modus.
 7. **Schedule & Sun (Grundautomation):** Reguläre zeit- oder sonnenbasierte Fahrten.
 
+Fenster- und Lüftungsentscheidungen sind fest: offen verwendet die Lockout-Position, gekippt die Lüftungsposition, und beide haben Vorrang vor Beschattung. Generische Additional Conditions sowie CCA-spezifische `prevent_*`, Ventilation- und Lockout/Tilt-Overrides werden nicht angeboten. Resident und Recalibrate bleiben bewusste Cover-Control-Erweiterungen.
+
 ---
 
 ## 4. Testausführung
