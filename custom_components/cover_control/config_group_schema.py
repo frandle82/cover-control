@@ -100,7 +100,6 @@ _DURATION_KEYS = frozenset(
         c.CONF_CONTACT_STATUS_DELAY,
         c.CONF_VENTILATION_DELAY_AFTER_CLOSE,
         c.CONF_DRIVE_DELAY_FIXED,
-        c.CONF_DRIVE_DELAY_RANDOM,
     }
 )
 
@@ -164,10 +163,6 @@ _SELECTS = {
             c.MANUAL_OVERRIDE_RESET_TIMEOUT,
         ],
         "manual_override_reset_mode",
-    ),
-    c.CONF_RECOVERY_MODE: (
-        [c.RECOVERY_NEVER, c.RECOVERY_OUTAGE, c.RECOVERY_ALWAYS],
-        "recovery_mode",
     ),
     c.CONF_COVER_TILT_WAIT_MODE: (
         [
@@ -359,9 +354,7 @@ _GROUP_FIELDS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
         (
             "runtime_control",
             (
-                c.CONF_RECOVERY_MODE,
                 c.CONF_DRIVE_DELAY_FIXED,
-                c.CONF_DRIVE_DELAY_RANDOM,
             ),
         ),
     ),
@@ -496,9 +489,7 @@ GROUP_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
         "safety": frozenset(c.DEFAULT_SAFETY_SETTINGS),
         "runtime_control": frozenset(
             {
-                c.CONF_RECOVERY_MODE,
                 c.CONF_DRIVE_DELAY_FIXED,
-                c.CONF_DRIVE_DELAY_RANDOM,
             }
         ),
     },

@@ -49,20 +49,14 @@ from .const import (
     CONF_COVER_TYPE,
     CONF_COVER_TYPE_AWNING,
     CONF_COVER_TYPE_BLIND,
-    CONF_CUSTOM_POSITION_SENSOR,
     CONF_DRIVE_TIME,
     CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON,
     CONF_ENABLE_LOGBOOK_COVER,
     CONF_ENABLE_RECALIBRATE_BUTTON,
     CONF_ENTRY_TYPE,
-    CONF_FORCE_CLOSE_ENTITY,
-    CONF_FORCE_OPEN_ENTITY,
-    CONF_FORCE_PAUSE_ENTITY,
-    CONF_FORCE_SHADING_ENTITY,
     CONF_HEAT_PROTECTION_ENABLED,
     CONF_HEAT_PROTECTION_THRESHOLD,
     CONF_KEEP_SUN_PROTECTION,
-    CONF_FORCE_VENTILATE_ENTITY,
     CONF_GLOBAL,
     CONF_GLOBAL_DEFAULTS,
     CONF_GLOBAL_SOURCES,
@@ -74,10 +68,6 @@ from .const import (
     CONF_NAME,
     CONF_OPEN_POSITION,
     CONF_OPEN_TILT_POSITION,
-    CONF_POSITION_SOURCE,
-    CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
-    CONF_POSITION_SOURCE_CUSTOM_SENSOR,
-    CONF_POSITION_SOURCE_POSITION_ATTR,
     CONF_POSITION_TOLERANCE,
     CONF_RESIDENT_SENSOR,
     CONF_RESIDENT_STATUS,
@@ -258,7 +248,6 @@ CLEARABLE_ENTITY_SELECTOR_KEYS = {
     CONF_TEMPERATURE_SENSOR_INDOOR,
     CONF_TEMPERATURE_SENSOR_OUTDOOR,
     CONF_COLD_PROTECTION_FORECAST_SENSOR,
-    CONF_CUSTOM_POSITION_SENSOR,
 }
 
 ENTITY_TOGGLE_MAP: dict[str, str] = {
@@ -459,7 +448,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
 class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the config flow."""
 
-    VERSION = 16
+    VERSION = 17
 
     @staticmethod
     @callback
@@ -1314,11 +1303,6 @@ class RoomFlowMixin:
                 CONF_ENABLE_RECALIBRATE_BUTTON,
                 CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON,
                 CONF_ENABLE_LOGBOOK_COVER,
-                CONF_FORCE_OPEN_ENTITY,
-                CONF_FORCE_CLOSE_ENTITY,
-                CONF_FORCE_VENTILATE_ENTITY,
-                CONF_FORCE_SHADING_ENTITY,
-                CONF_FORCE_PAUSE_ENTITY,
             ):
                 settings[key] = user_input.get(key) or None
             data[CONF_ROOM_SETTINGS] = settings
@@ -1342,20 +1326,6 @@ class RoomFlowMixin:
                         CONF_ENABLE_LOGBOOK_COVER,
                         default=bool(settings.get(CONF_ENABLE_LOGBOOK_COVER, False)),
                     ): bool,
-                    **{
-                        vol.Optional(key, default=_selector_default(settings.get(key))): selector.EntitySelector(
-                            selector.EntitySelectorConfig(
-                                domain=["input_boolean", "switch", "binary_sensor"]
-                            )
-                        )
-                        for key in (
-                            CONF_FORCE_OPEN_ENTITY,
-                            CONF_FORCE_CLOSE_ENTITY,
-                            CONF_FORCE_VENTILATE_ENTITY,
-                            CONF_FORCE_SHADING_ENTITY,
-                            CONF_FORCE_PAUSE_ENTITY,
-                        )
-                    },
                 }
             ),
             description_placeholders=self._room_context_placeholders(),
@@ -1558,8 +1528,6 @@ class RoomFlowMixin:
                     user_input[CONF_TILT_POSITION_TOLERANCE]
                 )
             settings[CONF_COVERS] = list(user_input[CONF_COVERS])
-            if settings.get(CONF_POSITION_SOURCE) != CONF_POSITION_SOURCE_CUSTOM_SENSOR:
-                settings.pop(CONF_CUSTOM_POSITION_SENSOR, None)
             data[CONF_ROOM_SETTINGS] = settings
             return await self._save_room(data)
         return self.async_show_form(
@@ -1570,28 +1538,6 @@ class RoomFlowMixin:
                         CONF_COVERS, default=settings.get(CONF_COVERS, [])
                     ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["cover"], multiple=True)
-                    ),
-                    vol.Required(
-                        CONF_POSITION_SOURCE,
-                        default=settings.get(
-                            CONF_POSITION_SOURCE,
-                            CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
-                        ),
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=[
-                                CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
-                                CONF_POSITION_SOURCE_POSITION_ATTR,
-                                CONF_POSITION_SOURCE_CUSTOM_SENSOR,
-                            ],
-                            translation_key="position_source",
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_CUSTOM_POSITION_SENSOR,
-                        default=_selector_default(settings.get(CONF_CUSTOM_POSITION_SENSOR)),
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor"])
                     ),
                     vol.Required(
                         CONF_COVER_TYPE,

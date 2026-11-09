@@ -187,12 +187,7 @@
         "data": {
           "enable_recalibrate_button": "Enable recalibration button",
           "enable_clear_manual_override_button": "Enable clear manual override button",
-          "enable_logbook_cover": "Log cover actions",
-          "force_open_entity": "Force open entity",
-          "force_close_entity": "Force close entity",
-          "force_ventilate_entity": "Force ventilate entity",
-          "force_shading_entity": "Force shading entity",
-          "force_pause_entity": "Force pause entity"
+          "enable_logbook_cover": "Log cover actions"
         }
       },
       "safety": {
@@ -240,11 +235,9 @@
       },
       "hardware": {
         "title": "Room - Cover & hardware",
-        "description": "Assign controlled covers to this room and configure hardware-related properties such as cover type, position source, and drive time.",
+        "description": "Assign controlled covers to this room and configure hardware-related properties such as cover type and drive time.",
         "data": {
           "covers": "Covers",
-          "position_source": "Position source",
-          "custom_position_sensor": "Custom position sensor",
           "cover_type": "Cover type",
           "drive_time": "Drive time",
           "cover_tilt_wait_mode": "Tilt wait mode",
@@ -254,8 +247,6 @@
         },
         "data_description": {
           "covers": "All covers that belong to this room and are controlled together by Cover Control.",
-          "position_source": "Choose where Cover Control reads the current cover position.",
-          "custom_position_sensor": "Sensor used when the custom position source is selected.",
           "cover_type": "Physical cover type used for movement and position behavior.",
           "drive_time": "Approximate full travel time for covers without reliable position feedback.",
           "cover_tilt_wait_mode": "How slatted blind tilt commands are sequenced with cover movement.",
@@ -1096,12 +1087,7 @@
         "data": {
           "enable_recalibrate_button": "Enable recalibration button",
           "enable_clear_manual_override_button": "Enable clear manual override button",
-          "enable_logbook_cover": "Log cover actions",
-          "force_open_entity": "Force open entity",
-          "force_close_entity": "Force close entity",
-          "force_ventilate_entity": "Force ventilate entity",
-          "force_shading_entity": "Force shading entity",
-          "force_pause_entity": "Force pause entity"
+          "enable_logbook_cover": "Log cover actions"
         }
       },
       "safety": {
@@ -1149,11 +1135,9 @@
       },
       "hardware": {
         "title": "Room - Cover & hardware",
-        "description": "Assign controlled covers to this room and configure hardware-related properties such as cover type, position source, and drive time.",
+        "description": "Assign controlled covers to this room and configure hardware-related properties such as cover type and drive time.",
         "data": {
           "covers": "Covers",
-          "position_source": "Position source",
-          "custom_position_sensor": "Custom position sensor",
           "cover_type": "Cover type",
           "drive_time": "Drive time",
           "cover_tilt_wait_mode": "Tilt wait mode",
@@ -1163,8 +1147,6 @@
         },
         "data_description": {
           "covers": "All covers that belong to this room and are controlled together by Cover Control.",
-          "position_source": "Choose where Cover Control reads the current cover position.",
-          "custom_position_sensor": "Sensor used when the custom position source is selected.",
           "cover_type": "Physical cover type used for movement and position behavior.",
           "drive_time": "Approximate full travel time for covers without reliable position feedback.",
           "cover_tilt_wait_mode": "How slatted blind tilt commands are sequenced with cover movement.",
@@ -1828,13 +1810,6 @@
     }
   },
   "selector": {
-    "position_source": {
-      "options": {
-        "current_position_attr": "current_position attribute",
-        "position_attr": "position attribute",
-        "custom_sensor": "Custom position sensor"
-      }
-    },
     "manual_override_reset_mode": {
       "options": {
         "none": "Manual reset",
@@ -1917,6 +1892,14 @@
     "cca_cleanup_migration": {
       "title": "Advanced behavior settings removed",
       "description": "Some advanced Cover Control overrides were removed. Window, ventilation and shading behavior now follows the simplified shuttercontrol model. Check the affected rooms."
+    },
+    "custom_position_migration": {
+      "title": "Custom position source removed",
+      "description": "The custom position source was removed. Cover Control now uses the standardized cover position from Home Assistant. Check the affected actuator."
+    },
+    "recovery_mode_migration": {
+      "title": "Recovery strategy simplified",
+      "description": "The configurable recovery strategy was removed. Cover Control now uses fixed recovery after actual outages."
     }
   },
   "entity": {
@@ -1947,11 +1930,6 @@
           "frost_alarm": "Frost protection",
           "fire_latched": "Fire alarm latched",
           "manual_override": "Manual override",
-          "force_open": "Forced opening",
-          "force_close": "Forced closing",
-          "force_ventilate": "Forced ventilation",
-          "force_shading": "Forced shading",
-          "force_pause": "Force pause",
           "window_lockout": "Window lockout",
           "no_go_time": "Opening no-go time",
           "summer_period": "Summer period",
