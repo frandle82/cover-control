@@ -63,7 +63,6 @@
         "title": "Globale Datenquellen",
         "description": "Wähle Home-Assistant-Entitäten, die von mehreren Räumen gemeinsam verwendet werden. Räume können einzelne Quellen lokal überschreiben, wenn dies erforderlich ist.",
         "data": {
-          "additional_condition_global": "Globale Zusatzbedingung",
           "brightness_sensor": "Globale Helligkeit",
           "calendar_entity": "Kalender",
           "cold_protection_forecast_sensor": "Forecast-Quelle für Kälteschutz",
@@ -78,7 +77,6 @@
           "workday_tomorrow_sensor": "Workday morgen"
         },
         "data_description": {
-          "additional_condition_global": "Optionale Home-Assistant-Bedingung, die global vor einer Cover-Control-Aktion geprüft wird.",
           "brightness_sensor": "Gemeinsamer Helligkeitssensor für Räume ohne lokale Helligkeitsquelle.",
           "calendar_entity": "Gemeinsamer Kalender für Group, die Kalendertitel auswerten.",
           "cold_protection_forecast_sensor": "Gemeinsame Wetter- oder Sensorquelle für Forecast-Werte des Kälteschutzes.",
@@ -616,29 +614,13 @@
               "auto_ventilate_enabled": "Lüftung aktiv",
               "contact_status_delay": "Kontakt-Statusverzögerung",
               "contact_trigger_delay": "Kontakt-Triggerverzögerung",
-              "lockout_tilt_close": "Schließen bei Kippstellung blockieren",
-              "lockout_tilt_shading_end": "Beschattungsende bei Kippstellung blockieren",
-              "lockout_tilt_shading_start": "Beschattungsstart bei Kippstellung blockieren",
-              "shading_over_ventilation": "Beschattung vor Lüftung",
-              "ventilation_allow_higher_position": "Höhere Lüftungsposition erlauben",
-              "ventilation_delay_after_close": "Lüftungsverzögerung nach Schließen",
-              "ventilation_keep_open_on_full_to_tilt": "Bei Wechsel vollständig zu gekippt offen lassen",
-              "ventilation_start_no_delay": "Lüftung ohne Verzögerung starten",
-              "ventilation_use_after_shading": "Nach Beschattung lüften"
+              "ventilation_delay_after_close": "Lüftungsverzögerung nach Schließen"
             },
             "data_description": {
               "auto_ventilate_enabled": "Wert für Lüftung aktiv in dieser Gruppe.",
               "contact_status_delay": "Wert für Kontakt-Statusverzögerung in dieser Gruppe.",
               "contact_trigger_delay": "Wert für Kontakt-Triggerverzögerung in dieser Gruppe.",
-              "lockout_tilt_close": "Wert für Schließen bei Kippstellung blockieren in dieser Gruppe.",
-              "lockout_tilt_shading_end": "Wert für Beschattungsende bei Kippstellung blockieren in dieser Gruppe.",
-              "lockout_tilt_shading_start": "Wert für Beschattungsstart bei Kippstellung blockieren in dieser Gruppe.",
-              "shading_over_ventilation": "Wert für Beschattung vor Lüftung in dieser Gruppe.",
-              "ventilation_allow_higher_position": "Wert für Höhere Lüftungsposition erlauben in dieser Gruppe.",
-              "ventilation_delay_after_close": "Wert für Lüftungsverzögerung nach Schließen in dieser Gruppe.",
-              "ventilation_keep_open_on_full_to_tilt": "Wert für Bei Wechsel vollständig zu gekippt offen lassen in dieser Gruppe.",
-              "ventilation_start_no_delay": "Wert für Lüftung ohne Verzögerung starten in dieser Gruppe.",
-              "ventilation_use_after_shading": "Wert für Nach Beschattung lüften in dieser Gruppe."
+              "ventilation_delay_after_close": "Wert für Lüftungsverzögerung nach Schließen in dieser Gruppe."
             }
           }
         }
@@ -695,31 +677,6 @@
               "manual_override_reset_time": "Wert für Rücksetzzeit des manuellen Overrides in dieser Gruppe.",
               "manual_schedule_adoption": "Wert für Manuelle Zeitplanübernahme in dieser Gruppe.",
               "no_go_time_minutes": "Minuten nach einer Cover-Zustandsänderung, in denen zeitgesteuertes Öffnen blockiert ist."
-            }
-          },
-          "prevention": {
-            "name": "Bewegungsschutz",
-            "data": {
-              "prevent_closing_multiple_times": "Mehrfaches Schließen verhindern",
-              "prevent_default_cover_actions": "Standard-Cover-Aktionen verhindern",
-              "prevent_higher_position_closing": "Höhere Schließposition verhindern",
-              "prevent_lowering_when_closing_if_shaded": "Absenken bei Beschattung verhindern",
-              "prevent_opening_after_shading_end": "Öffnen nach Beschattung verhindern",
-              "prevent_opening_after_ventilation_end": "Öffnen nach Lüftung verhindern",
-              "prevent_opening_multiple_times": "Mehrfaches Öffnen verhindern",
-              "prevent_shading_end_if_closed": "Beschattungsende bei geschlossenem Cover verhindern",
-              "prevent_shading_multiple_times": "Mehrfache Beschattung verhindern"
-            },
-            "data_description": {
-              "prevent_closing_multiple_times": "Wert für Mehrfaches Schließen verhindern in dieser Gruppe.",
-              "prevent_default_cover_actions": "Wert für Standard-Cover-Aktionen verhindern in dieser Gruppe.",
-              "prevent_higher_position_closing": "Wert für Höhere Schließposition verhindern in dieser Gruppe.",
-              "prevent_lowering_when_closing_if_shaded": "Wert für Absenken bei Beschattung verhindern in dieser Gruppe.",
-              "prevent_opening_after_shading_end": "Wert für Öffnen nach Beschattung verhindern in dieser Gruppe.",
-              "prevent_opening_after_ventilation_end": "Wert für Öffnen nach Lüftung verhindern in dieser Gruppe.",
-              "prevent_opening_multiple_times": "Wert für Mehrfaches Öffnen verhindern in dieser Gruppe.",
-              "prevent_shading_end_if_closed": "Wert für Beschattungsende bei geschlossenem Cover verhindern in dieser Gruppe.",
-              "prevent_shading_multiple_times": "Wert für Mehrfache Beschattung verhindern in dieser Gruppe."
             }
           },
           "tilt_wait": {
@@ -916,10 +873,12 @@
           "shading_waits": {
             "name": "Wartezeiten",
             "data": {
-              "shading_waitingtime_end": "Endwartezeit"
+              "shading_waitingtime_end": "Endwartezeit",
+              "keep_sun_protection": "Sonnenschutzposition beibehalten"
             },
             "data_description": {
-              "shading_waitingtime_end": "Endbedingung muss so lange bestehen bleiben."
+              "shading_waitingtime_end": "Endbedingung muss so lange bestehen bleiben.",
+              "keep_sun_protection": "Nach Ende des Sonnenschutzes nicht automatisch öffnen."
             }
           },
           "shading_tilt": {
@@ -1013,7 +972,6 @@
         "title": "Globale Datenquellen",
         "description": "Wähle Home-Assistant-Entitäten, die von mehreren Räumen gemeinsam verwendet werden. Räume können einzelne Quellen lokal überschreiben, wenn dies erforderlich ist.",
         "data": {
-          "additional_condition_global": "Globale Zusatzbedingung",
           "brightness_sensor": "Globale Helligkeit",
           "calendar_entity": "Kalender",
           "cold_protection_forecast_sensor": "Forecast-Quelle für Kälteschutz",
@@ -1028,7 +986,6 @@
           "workday_tomorrow_sensor": "Workday morgen"
         },
         "data_description": {
-          "additional_condition_global": "Optionale Home-Assistant-Bedingung, die global vor einer Cover-Control-Aktion geprüft wird.",
           "brightness_sensor": "Gemeinsamer Helligkeitssensor für Räume ohne lokale Helligkeitsquelle.",
           "calendar_entity": "Gemeinsamer Kalender für Group, die Kalendertitel auswerten.",
           "cold_protection_forecast_sensor": "Gemeinsame Wetter- oder Sensorquelle für Forecast-Werte des Kälteschutzes.",
@@ -1566,29 +1523,13 @@
               "auto_ventilate_enabled": "Lüftung aktiv",
               "contact_status_delay": "Kontakt-Statusverzögerung",
               "contact_trigger_delay": "Kontakt-Triggerverzögerung",
-              "lockout_tilt_close": "Schließen bei Kippstellung blockieren",
-              "lockout_tilt_shading_end": "Beschattungsende bei Kippstellung blockieren",
-              "lockout_tilt_shading_start": "Beschattungsstart bei Kippstellung blockieren",
-              "shading_over_ventilation": "Beschattung vor Lüftung",
-              "ventilation_allow_higher_position": "Höhere Lüftungsposition erlauben",
-              "ventilation_delay_after_close": "Lüftungsverzögerung nach Schließen",
-              "ventilation_keep_open_on_full_to_tilt": "Bei Wechsel vollständig zu gekippt offen lassen",
-              "ventilation_start_no_delay": "Lüftung ohne Verzögerung starten",
-              "ventilation_use_after_shading": "Nach Beschattung lüften"
+              "ventilation_delay_after_close": "Lüftungsverzögerung nach Schließen"
             },
             "data_description": {
               "auto_ventilate_enabled": "Wert für Lüftung aktiv in dieser Gruppe.",
               "contact_status_delay": "Wert für Kontakt-Statusverzögerung in dieser Gruppe.",
               "contact_trigger_delay": "Wert für Kontakt-Triggerverzögerung in dieser Gruppe.",
-              "lockout_tilt_close": "Wert für Schließen bei Kippstellung blockieren in dieser Gruppe.",
-              "lockout_tilt_shading_end": "Wert für Beschattungsende bei Kippstellung blockieren in dieser Gruppe.",
-              "lockout_tilt_shading_start": "Wert für Beschattungsstart bei Kippstellung blockieren in dieser Gruppe.",
-              "shading_over_ventilation": "Wert für Beschattung vor Lüftung in dieser Gruppe.",
-              "ventilation_allow_higher_position": "Wert für Höhere Lüftungsposition erlauben in dieser Gruppe.",
-              "ventilation_delay_after_close": "Wert für Lüftungsverzögerung nach Schließen in dieser Gruppe.",
-              "ventilation_keep_open_on_full_to_tilt": "Wert für Bei Wechsel vollständig zu gekippt offen lassen in dieser Gruppe.",
-              "ventilation_start_no_delay": "Wert für Lüftung ohne Verzögerung starten in dieser Gruppe.",
-              "ventilation_use_after_shading": "Wert für Nach Beschattung lüften in dieser Gruppe."
+              "ventilation_delay_after_close": "Wert für Lüftungsverzögerung nach Schließen in dieser Gruppe."
             }
           }
         }
@@ -1645,31 +1586,6 @@
               "manual_override_reset_time": "Wert für Rücksetzzeit des manuellen Overrides in dieser Gruppe.",
               "manual_schedule_adoption": "Wert für Manuelle Zeitplanübernahme in dieser Gruppe.",
               "no_go_time_minutes": "Minuten nach einer Cover-Zustandsänderung, in denen zeitgesteuertes Öffnen blockiert ist."
-            }
-          },
-          "prevention": {
-            "name": "Bewegungsschutz",
-            "data": {
-              "prevent_closing_multiple_times": "Mehrfaches Schließen verhindern",
-              "prevent_default_cover_actions": "Standard-Cover-Aktionen verhindern",
-              "prevent_higher_position_closing": "Höhere Schließposition verhindern",
-              "prevent_lowering_when_closing_if_shaded": "Absenken bei Beschattung verhindern",
-              "prevent_opening_after_shading_end": "Öffnen nach Beschattung verhindern",
-              "prevent_opening_after_ventilation_end": "Öffnen nach Lüftung verhindern",
-              "prevent_opening_multiple_times": "Mehrfaches Öffnen verhindern",
-              "prevent_shading_end_if_closed": "Beschattungsende bei geschlossenem Cover verhindern",
-              "prevent_shading_multiple_times": "Mehrfache Beschattung verhindern"
-            },
-            "data_description": {
-              "prevent_closing_multiple_times": "Wert für Mehrfaches Schließen verhindern in dieser Gruppe.",
-              "prevent_default_cover_actions": "Wert für Standard-Cover-Aktionen verhindern in dieser Gruppe.",
-              "prevent_higher_position_closing": "Wert für Höhere Schließposition verhindern in dieser Gruppe.",
-              "prevent_lowering_when_closing_if_shaded": "Wert für Absenken bei Beschattung verhindern in dieser Gruppe.",
-              "prevent_opening_after_shading_end": "Wert für Öffnen nach Beschattung verhindern in dieser Gruppe.",
-              "prevent_opening_after_ventilation_end": "Wert für Öffnen nach Lüftung verhindern in dieser Gruppe.",
-              "prevent_opening_multiple_times": "Wert für Mehrfaches Öffnen verhindern in dieser Gruppe.",
-              "prevent_shading_end_if_closed": "Wert für Beschattungsende bei geschlossenem Cover verhindern in dieser Gruppe.",
-              "prevent_shading_multiple_times": "Wert für Mehrfache Beschattung verhindern in dieser Gruppe."
             }
           },
           "tilt_wait": {
@@ -1866,10 +1782,12 @@
           "shading_waits": {
             "name": "Wartezeiten",
             "data": {
-              "shading_waitingtime_end": "Endwartezeit"
+              "shading_waitingtime_end": "Endwartezeit",
+              "keep_sun_protection": "Sonnenschutzposition beibehalten"
             },
             "data_description": {
-              "shading_waitingtime_end": "Endbedingung muss so lange bestehen bleiben."
+              "shading_waitingtime_end": "Endbedingung muss so lange bestehen bleiben.",
+              "keep_sun_protection": "Nach Ende des Sonnenschutzes nicht automatisch öffnen."
             }
           },
           "shading_tilt": {
@@ -1995,6 +1913,10 @@
     "shading_mode_migration": {
       "title": "Sonnenschutzkonfiguration vereinfacht",
       "description": "Die frei kombinierte Sonnenschutzlogik wurde auf eine feste Sonnenschutzart reduziert. Forecast- und OR-Bedingungen werden nicht mehr unterstützt. Bitte Sonnenschutz prüfen: {details}"
+    },
+    "cca_cleanup_migration": {
+      "title": "Erweiterte Verhaltenseinstellungen entfernt",
+      "description": "Einige erweiterte Cover-Control-Sonderoptionen wurden entfernt. Fenster-, Lüftungs- und Beschattungsverhalten folgt jetzt dem vereinfachten Shuttercontrol-Modell. Bitte die betroffenen Räume prüfen."
     }
   },
   "entity": {
@@ -2031,7 +1953,6 @@
           "force_shading": "Erzwungene Beschattung",
           "force_pause": "Zwangspause",
           "window_lockout": "Fenstersperre",
-          "additional_condition": "Zusatzbedingung",
           "no_go_time": "Öffnungs-Sperrzeit",
           "summer_period": "Sommerzeitraum",
           "recovery": "Wiederherstellung",
