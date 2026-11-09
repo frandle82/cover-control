@@ -106,6 +106,8 @@ Cover Control verwendet dafür ein festes Zielmodell ohne CCA-Sonderschalter: vo
 
 Weitere feste Zielinvarianten: Es gibt keine externen Force-Entities. Die Istposition stammt ausschließlich aus dem standardisierten HA-Cover-Attribut `current_position`; fehlt es, gilt die Position als nicht verfügbar. Catch-up erfolgt nur nach einem echten Runtime-Ausfall, nicht nach ConfigEntry-Reloads. Die Fahrstaffelung ist mit `drive_delay_fixed` deterministisch und besitzt keinen Zufallsanteil.
 
+Tilt/Raffstore bleibt bewusst eine Cover-Control-Erweiterung außerhalb der Shuttercontrol-Parität. Die HA-Capability `SET_TILT_POSITION` schaltet ausschließlich vier raumeigene physische Tilt-Ziele frei. Mehrstufige Elevation-Tilt-Werte werden bei der Migration deterministisch auf die bisherige mittlere Stufe 2 reduziert; Position → Idle/Timeout → Tilt sowie die Deduplizierungstoleranz sind feste Runtime-Invarianten.
+
 ## Safety-Alarme und Prioritätsabweichung
 
 Jeder Alarm besitzt eine globale Entity und Zielposition sowie eine Aktivierung pro Rollladen.

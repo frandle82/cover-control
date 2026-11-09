@@ -9,6 +9,7 @@ description: Config-, Reconfigure- und Options-Flow-Regeln für feste Gruppen un
 - Gruppen werden weder erstellt, umbenannt, dupliziert noch gelöscht. Jede Gruppe bietet dieselben Bereiche.
 - Rooms sind eigenständige `ENTRY_TYPE_ROOM`-ConfigEntries; `async_get_supported_subentry_types() == {}`.
 - Ein Room speichert `CONF_GROUP` (Default `living`) sowie Hardware, Positionen, Kontakte, lokale Quellen, Safety-Teilnahme und Controls.
+- Tilt-Felder sind capability-basiert und erscheinen nur bei mindestens einem gewählten Cover mit `SET_TILT_POSITION`; sichtbar sind ausschließlich Open-, Close-, Ventilation- und Shading-Tilt-Ziel.
 - Gruppenwerte liegen ausschließlich in `controller.data[CONF_GROUPS]`.
 - Shared Schemas liegen in `config_group_schema.py`, Modellnormalisierung in `config_groups.py`, Auflösung in `config_resolver.py`.
 - Manual Override besitzt im Gruppenverhalten nur `manual_control_enabled` und `manual_override_minutes`; `0` Minuten bedeutet Ablauf nur über den Clear-Button.

@@ -43,6 +43,7 @@ Controller-Imports bleiben stabil über `controller.py`. Logik nicht ohne klaren
   * Öffnen verwendet genau einen Modus aus `time`, `sunrise`, `golden_hour`, `elevation`, `brightness`; Schließen genau einen aus `time`, `sunset`, `golden_hour`, `elevation`, `brightness`.
   * Dynamic-/Hybrid-Elevation ist kein aktives Feature und wird nur als Legacy-Migrationsinput erkannt.
 * **ROOM:** Besitzt Hardware, Cover-Entitäten, physische Positionen, Fenstersensoren, Geometrie, Raumschalter und eine Gruppenzuordnung.
+  * Tilt ist eine bewusste HA-Erweiterung. Die capability-basierte UI zeigt nur die vier physischen Ziele für Öffnen, Schließen, Lüften und Beschatten; Sequenz, Wartezeit und Toleranz sind interne Runtime-Belange.
 * **SWITCH:** Steuert, ob eine konfigurierte Raumfunktion zur Laufzeit aktiv (enabled) ist.
 * **RUNTIME:** Entscheidet, ob eine aktive Funktion unter den aktuellen Bedingungen ausführungsberechtigt (eligible) ist.
 * Generische Zusatzbedingungen und CCA-spezifische Override-Schalter gehören nicht zum Zielmodell. Window-, Ventilation- und Shading-Konflikte folgen festen Shuttercontrol-Prioritäten.

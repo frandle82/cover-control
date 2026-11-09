@@ -24,9 +24,8 @@ Cover Control ist eine benutzerfreundlich konfigurierbare Home-Assistant-Integra
 - Separate Zielpositionen für vollständig geöffnet, geschlossen, Lüftung, Aussperrschutz und Beschattung.
 - Alternative Beschattungsposition, die über eine zusätzliche Entität aktiviert werden kann.
 - Eigene Lamellenpositionen für Öffnen, Schließen, Lüften und Beschatten.
-- Vierstufige, vom Sonnenstand abhängige Lamellenposition für die Beschattung.
 - Einstellbare Positionstoleranz und Fahrzeit zur Erkennung eigener beziehungsweise manueller Bewegungen.
-- Wahlweise feste Wartezeit, Warten auf Stillstand oder Lamellenausrichtung vor der Cover-Bewegung.
+- Lamellenfelder erscheinen nur für Cover mit Tilt-Unterstützung; Fahrsequenz und Toleranz regelt die Runtime intern.
 
 ### Zeitsteuerung
 

@@ -28,6 +28,7 @@ Fachliche Regeln für Beschattung, Fahrbefehle und Prioritäten:
 * 📄 [`domain/priorities-and-lockout.md`](domain/priorities-and-lockout.md) – Feste Prioritäten mit Safety und Window/Lockout vor Komfortautomation; keine generischen CCA-Overrides.
 * 📄 [`domain/shading-and-solar-geometry.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/shading-and-solar-geometry.md) – Feste Shuttercontrol-Sonnenschutzmodi, Direction-Geometrie und prozentuale Endhysterese.
 * 📄 [`domain/manual-override-vs-automation.md`](domain/manual-override-vs-automation.md) – Einheitliche Automatikpause, Restart-/Ablaufsemantik und toleranzbasierte Adoption der effektiven Beschattungsposition.
+* 📄 [`domain/tilt-and-raffstore.md`](domain/tilt-and-raffstore.md) – Capability-gesteuertes Tilt-Modell mit vier physischen Raumzielen und fester Aktorsequenz.
 
 ### 3. Troubleshooting, Fallstricke & Lessons Learned
 Dokumentierte Lösungen für knifflige Bugs und HA-Spezifika:

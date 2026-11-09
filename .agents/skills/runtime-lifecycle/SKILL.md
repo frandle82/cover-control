@@ -18,6 +18,7 @@ Controller (global + groups)
 - Ein Room-Gruppenwechsel ersetzt den `ResolvedRoomConfig`, aktualisiert Controller, Listener und Schedule-Snapshot und entfernt dadurch alte Gruppenwerte.
 - Gemeinsame Gruppentimer werden per Cancel/Recreate dedupliziert; Unload entfernt Listener und Timer.
 - Shared Inputs bleiben global oder room-lokal, physische Positionen bleiben Room-Eigentum.
+- Tilt verwendet fest Position → Idle/Timeout → Tilt und eine interne Deduplizierungstoleranz; diese technischen Parameter werden nicht persistiert.
 - Keine blockierenden Callbacks; Tasks und Listener an ConfigEntry-Lifecycle binden.
 
 Tests: `tests/test_group_runtime.py`, `tests/test_event_driven_processing.py`.

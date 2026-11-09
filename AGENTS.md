@@ -109,6 +109,7 @@ Strikte Grenzen der Verantwortlichkeit:
 * **GLOBAL:** Besitzt geteilte Home Assistant Datenquellen (Arbeitstage, Kalender, Helligkeit, Außentemperatur, Wetter/Vorhersage, globale Bedingungen) im zentralen Controller-Entry.
 * **GROUP:** Genau `living`, `sleep` und `children` besitzen Automationsverhalten und Schwellenwerte ausschließlich im Controller-Entry unter `controller.data[CONF_GROUPS]`. Gruppen besitzen niemals raumeigene Entitäten oder Positionen.
 * **ROOM:** Ist ein eigenständiger `ConfigEntry` (`ENTRY_TYPE_ROOM`), kein Subentry (`async_get_supported_subentry_types() == {}`). Besitzt Hardware, Cover-Entitäten, physische Positionen, Fenstersensoren, Raumschalter und genau eine Gruppenzuordnung (`CONF_GROUP`).
+  * Tilt/Raffstore ist eine bewusste Home-Assistant-Erweiterung. Die UI ist capability-basiert und beschränkt sich auf vier physische Tilt-Ziele; Sequenz, Wartezeit und Toleranz bleiben intern.
 * **SWITCH:** Steuert, ob eine konfigurierte Raumfunktion zur Laufzeit aktiv (enabled) ist.
 * **RUNTIME:** Entscheidet, ob eine aktive Funktion unter den aktuellen Bedingungen ausführungsberechtigt (eligible) ist.
 * Cover Control bietet keine generischen Zusatzbedingungen oder CCA-spezifischen Verhaltensschalter. Konflikte zwischen Fenster, Lüftung und Beschattung werden durch feste, an Shuttercontrol angelehnte Runtime-Prioritäten gelöst.

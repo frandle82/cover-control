@@ -17,8 +17,7 @@ automation actions outside the integration.
 | Restart/outage catch-up | FULL | Explicit startup/runtime-outage state with `never`, `outage` and `always` recovery modes; dependencies unavailable during startup remain in startup until the initial dependency set becomes usable. |
 | Fixed drive delay | FULL | Deterministic pre-drive delay with post-wait live-gate and target rechecks. |
 | Manual override | MAPPED | Native override state and clear/re-evaluate behavior. |
-| Tilt reposition | FULL | Native tilt-before-position mode is available. |
-| Tilt tolerance | FULL | Separate configurable tilt tolerance is persisted, resolved and used for tilt no-op decisions. |
+| Tilt / slatted blinds | EXTENSION | Deliberate Home Assistant extension with four room-owned physical targets; capability-driven UI and fixed runtime sequencing do not affect CCA parity. |
 | Shading mode selection | FULL | Seven fixed shuttercontrol-style modes cover UI, persistence, sources, listeners, runtime, diagnostics, migration and regression tests. |
 | Before/After Actions | MAPPED | `Aktive Steuerung` plus external HA automations. |
 | CCA status helper | NOT_APPLICABLE | Runtime status is native Cover Control state and entities. |
