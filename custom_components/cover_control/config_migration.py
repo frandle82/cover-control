@@ -28,6 +28,142 @@ LEGACY_DYNAMIC_SUN_KEYS = {
     "sun_time_duration",
     "brightness_sun_operator",
 }
+LEGACY_SHADING_KEYS = {
+    "shading_conditions_start_and", "shading_conditions_start_or",
+    "shading_conditions_end_and", "shading_conditions_end_or",
+    "shading_forecast_sensor", "use_shading_forecast_sensor",
+    "shading_forecast_type", "shading_forecast_temp_sensor",
+    "shading_forecast_temp", "shading_forecast_temp_hysteresis",
+    "shading_weather_conditions", "shading_config",
+    "shading_independent_temp", "shading_independent_holds_end",
+    "shading_waitingtime_start",
+    "shading_start_max_duration", "shading_end_max_duration",
+    "shading_end_immediate_by_sun_position", "shading_temperatur_sensor1",
+    "shading_temperatur_sensor2", "shading_min_temperatur1",
+    "shading_min_temperatur2", "shading_temperature_hysteresis1",
+    "shading_temperature_hysteresis2", "shading_brightness_start",
+    "shading_brightness_end",
+}
+
+
+def _percent_hysteresis(threshold: float, end_limit: float) -> float:
+    if threshold <= 0:
+        return 0.0
+    return max(0.0, min(100.0, (1 - end_limit / threshold) * 100))
+
+
+def _legacy_float(value: Any, default: float) -> float:
+    try:
+        return float(value)
+    except (TypeError, ValueError):
+        return default
+
+
+def migrate_shading_settings(settings: Mapping[str, Any]) -> tuple[dict[str, Any], bool]:
+    """Map the legacy free shading rules to one fixed mode."""
+
+    result = deepcopy(dict(settings))
+    if CONF_SHADING_MODE in result:  # noqa: F405
+        for key in LEGACY_SHADING_KEYS | {"shading_azimuth_start", "shading_azimuth_end"}:
+            result.pop(key, None)
+        return result, False
+    start_and = set(result.get("shading_conditions_start_and") or [])
+    start_or = set(result.get("shading_conditions_start_or") or [])
+    direction_conditions = {"cond_azimuth", "cond_elevation"} & start_and
+    direction = bool(direction_conditions)
+    inside = "cond_temp1" in start_and
+    outside = "cond_temp2" in start_and
+    complex_rules = bool(
+        start_or
+        or len(direction_conditions) == 1
+        or result.get("shading_conditions_end_and")
+        or result.get("shading_conditions_end_or")
+        or {"cond_forecast_temp", "cond_forecast_weather"} & start_and
+        or result.get("shading_forecast_sensor")
+        or result.get("shading_forecast_temp_sensor")
+        or result.get("shading_weather_conditions")
+        or result.get("shading_config")
+        or result.get("shading_independent_temp") is not None
+    )
+    if direction and inside and outside:
+        mode = SHADING_MODE_INSIDE_OUTSIDE_DIRECTION  # noqa: F405
+    elif direction and outside:
+        mode = SHADING_MODE_OUTSIDE_DIRECTION  # noqa: F405
+    elif direction and not inside:
+        mode = SHADING_MODE_DIRECTION  # noqa: F405
+    elif inside and outside:
+        mode = SHADING_MODE_INSIDE_OUTSIDE  # noqa: F405
+    elif outside:
+        mode = SHADING_MODE_OUTSIDE  # noqa: F405
+    elif inside:
+        mode = SHADING_MODE_INSIDE  # noqa: F405
+    elif result.get(CONF_AUTO_SHADING, False):  # noqa: F405
+        mode = SHADING_MODE_DIRECTION  # noqa: F405
+        complex_rules = True
+    else:
+        mode = SHADING_MODE_OFF  # noqa: F405
+    if direction and inside and not outside:
+        mode = SHADING_MODE_INSIDE_OUTSIDE_DIRECTION  # noqa: F405
+        complex_rules = True
+    result[CONF_SHADING_MODE] = mode  # noqa: F405
+
+    start = _legacy_float(result.get("shading_azimuth_start"), 95)
+    end = _legacy_float(result.get("shading_azimuth_end"), 265)
+    span = (end - start) % 360
+    result[CONF_SHADING_DIRECTION] = (start + span / 2) % 360  # noqa: F405
+    result[CONF_SHADING_DIRECTION_RANGE] = span / 2  # noqa: F405
+
+    for old_threshold, old_hysteresis, new_threshold, new_hysteresis, default in (
+        ("shading_min_temperatur1", "shading_temperature_hysteresis1", CONF_SHADING_INSIDE_TEMPERATURE_THRESHOLD, CONF_SHADING_INSIDE_TEMPERATURE_HYSTERESIS, DEFAULT_SHADING_INSIDE_TEMPERATURE_THRESHOLD),  # noqa: F405
+        ("shading_min_temperatur2", "shading_temperature_hysteresis2", CONF_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD, CONF_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS, DEFAULT_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD),  # noqa: F405
+    ):
+        base = _legacy_float(result.get(old_threshold), default)
+        absolute = _legacy_float(result.get(old_hysteresis), 0)
+        threshold = base + absolute
+        result[new_threshold] = threshold
+        result[new_hysteresis] = _percent_hysteresis(threshold, base - absolute)
+
+    bright_start = _legacy_float(result.get("shading_brightness_start"), DEFAULT_SHADING_BRIGHTNESS_THRESHOLD)  # noqa: F405
+    bright_end = _legacy_float(result.get("shading_brightness_end"), bright_start)
+    bright_absolute = _legacy_float(result.get("shading_sun_brightness_hysteresis"), 0)
+    bright_threshold = bright_start + bright_absolute
+    result[CONF_SHADING_BRIGHTNESS_THRESHOLD] = bright_threshold  # noqa: F405
+    result[CONF_SHADING_BRIGHTNESS_HYSTERESIS] = _percent_hysteresis(  # noqa: F405
+        bright_threshold, bright_end - bright_absolute
+    )
+    for key in LEGACY_SHADING_KEYS | {"shading_azimuth_start", "shading_azimuth_end"}:
+        result.pop(key, None)
+    return result, complex_rules
+
+
+def migrate_room_shading_geometry(model: dict[str, Any], warnings: list[str]) -> None:
+    """Move legacy room azimuth ranges into their assigned fixed group."""
+
+    selected: dict[str, tuple[float, float]] = {}
+    for room_id, room in model.get(CONF_ROOMS, {}).items():  # noqa: F405
+        if not isinstance(room, dict):
+            continue
+        settings = room.get(CONF_ROOM_SETTINGS, {})  # noqa: F405
+        if not isinstance(settings, dict):
+            continue
+        start = settings.pop("shading_azimuth_start", None)
+        end = settings.pop("shading_azimuth_end", None)
+        if start is None and end is None:
+            continue
+        start_value = _legacy_float(start, 95)
+        end_value = _legacy_float(end, 265)
+        span = (end_value - start_value) % 360
+        geometry = ((start_value + span / 2) % 360, span / 2)
+        group = str(room.get(CONF_GROUP, GROUP_LIVING))  # noqa: F405
+        if group in selected and selected[group] != geometry:
+            warnings.append(
+                f"{group}: conflicting room directions were simplified using the first room; check {room_id}"
+            )
+            continue
+        selected[group] = geometry
+        group_settings = model[CONF_GROUPS][group]  # noqa: F405
+        group_settings[CONF_SHADING_DIRECTION] = geometry[0]  # noqa: F405
+        group_settings[CONF_SHADING_DIRECTION_RANGE] = geometry[1]  # noqa: F405
 
 
 def migrate_sun_settings(settings: Mapping[str, Any]) -> tuple[dict[str, Any], bool]:
@@ -95,6 +231,14 @@ def migrate_profile_model(model: Mapping[str, Any]) -> tuple[dict[str, Any], lis
                 warnings.append(
                     f"{group}: dynamic sun elevation was replaced by fixed elevation"
                 )
+            canonical[CONF_GROUPS][group], shading_warned = migrate_shading_settings(  # noqa: F405
+                canonical[CONF_GROUPS][group]
+            )
+            if shading_warned:
+                warnings.append(
+                    f"{group}: complex shading rules were simplified; forecast and OR conditions were removed"
+                )
+        migrate_room_shading_geometry(canonical, warnings)
         canonical[CONF_CONFIG_VERSION] = CONFIG_MODEL_VERSION  # noqa: F405
         return canonical, warnings
     result = deepcopy(dict(model))
@@ -153,9 +297,14 @@ def migrate_profile_model(model: Mapping[str, Any]) -> tuple[dict[str, Any], lis
             groups[group], warned = migrate_sun_settings(
                 _legacy_settings(flat_profiles[selected_id])
             )
+            groups[group], shading_warned = migrate_shading_settings(groups[group])
             if warned:
                 warnings.append(
                     f"{group}: dynamic sun elevation was replaced by fixed elevation"
+                )
+            if shading_warned:
+                warnings.append(
+                    f"{group}: complex shading rules were simplified; forecast and OR conditions were removed"
                 )
             if len(candidates) > 1:
                 warnings.append(
@@ -163,6 +312,7 @@ def migrate_profile_model(model: Mapping[str, Any]) -> tuple[dict[str, Any], lis
                     + ", ".join(profile_id for _, profile_id in candidates[1:])
                 )
     result[CONF_GROUPS] = groups  # noqa: F405
+    migrate_room_shading_geometry(result, warnings)
     result[CONF_CONFIG_VERSION] = CONFIG_MODEL_VERSION  # noqa: F405
     return ConfigGroupModel(result).data, warnings
 
@@ -188,6 +338,7 @@ def normalize_legacy_config(
         if key in group_keys and key not in GROUP_BLOCKED_KEYS
     }
     group_settings, _warned = migrate_sun_settings(group_settings)
+    group_settings, _shading_warned = migrate_shading_settings(group_settings)
     room_settings = {
         key: deepcopy(value)
         for key, value in flat.items()
