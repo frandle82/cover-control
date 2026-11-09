@@ -648,26 +648,14 @@
           "manual_override": {
             "name": "Manuelles Verhalten",
             "data": {
-              "manual_override_block_close": "Manueller Override blockiert Schließen",
-              "manual_override_block_open": "Manueller Override blockiert Öffnen",
-              "manual_override_block_shading": "Manueller Override blockiert Beschattung",
-              "manual_override_block_ventilate": "Manueller Override blockiert Lüftung",
-              "manual_override_minutes": "Dauer des manuellen Overrides",
-              "manual_override_reset_mode": "Rücksetzmodus des manuellen Overrides",
-              "manual_override_reset_time": "Rücksetzzeit des manuellen Overrides",
-              "manual_schedule_adoption": "Manuelle Zeitplanübernahme",
-              "no_go_time_minutes": "Öffnungs-Sperrzeit"
+              "manual_override_minutes": "Dauer des Manual Override",
+              "no_go_time_minutes": "Öffnungs-Sperrzeit",
+              "manual_control_enabled": "Manual Override aktiviert"
             },
             "data_description": {
-              "manual_override_block_close": "Wert für Manueller Override blockiert Schließen in dieser Gruppe.",
-              "manual_override_block_open": "Wert für Manueller Override blockiert Öffnen in dieser Gruppe.",
-              "manual_override_block_shading": "Wert für Manueller Override blockiert Beschattung in dieser Gruppe.",
-              "manual_override_block_ventilate": "Wert für Manueller Override blockiert Lüftung in dieser Gruppe.",
-              "manual_override_minutes": "Wert für Dauer des manuellen Overrides in dieser Gruppe.",
-              "manual_override_reset_mode": "Wert für Rücksetzmodus des manuellen Overrides in dieser Gruppe.",
-              "manual_override_reset_time": "Wert für Rücksetzzeit des manuellen Overrides in dieser Gruppe.",
-              "manual_schedule_adoption": "Wert für Manuelle Zeitplanübernahme in dieser Gruppe.",
-              "no_go_time_minutes": "Minuten nach einer Cover-Zustandsänderung, in denen zeitgesteuertes Öffnen blockiert ist."
+              "manual_override_minutes": "Dauer der Automatikpause in Minuten. Bei 0 bleibt sie bis zum manuellen Zurücksetzen aktiv.",
+              "no_go_time_minutes": "Minuten nach einer Cover-Zustandsänderung, in denen zeitgesteuertes Öffnen blockiert ist.",
+              "manual_control_enabled": "Manuelle Bewegungen pausieren die normale Automatik."
             }
           },
           "tilt_wait": {
@@ -1548,26 +1536,14 @@
           "manual_override": {
             "name": "Manuelles Verhalten",
             "data": {
-              "manual_override_block_close": "Manueller Override blockiert Schließen",
-              "manual_override_block_open": "Manueller Override blockiert Öffnen",
-              "manual_override_block_shading": "Manueller Override blockiert Beschattung",
-              "manual_override_block_ventilate": "Manueller Override blockiert Lüftung",
-              "manual_override_minutes": "Dauer des manuellen Overrides",
-              "manual_override_reset_mode": "Rücksetzmodus des manuellen Overrides",
-              "manual_override_reset_time": "Rücksetzzeit des manuellen Overrides",
-              "manual_schedule_adoption": "Manuelle Zeitplanübernahme",
-              "no_go_time_minutes": "Öffnungs-Sperrzeit"
+              "manual_override_minutes": "Dauer des Manual Override",
+              "no_go_time_minutes": "Öffnungs-Sperrzeit",
+              "manual_control_enabled": "Manual Override aktiviert"
             },
             "data_description": {
-              "manual_override_block_close": "Wert für Manueller Override blockiert Schließen in dieser Gruppe.",
-              "manual_override_block_open": "Wert für Manueller Override blockiert Öffnen in dieser Gruppe.",
-              "manual_override_block_shading": "Wert für Manueller Override blockiert Beschattung in dieser Gruppe.",
-              "manual_override_block_ventilate": "Wert für Manueller Override blockiert Lüftung in dieser Gruppe.",
-              "manual_override_minutes": "Wert für Dauer des manuellen Overrides in dieser Gruppe.",
-              "manual_override_reset_mode": "Wert für Rücksetzmodus des manuellen Overrides in dieser Gruppe.",
-              "manual_override_reset_time": "Wert für Rücksetzzeit des manuellen Overrides in dieser Gruppe.",
-              "manual_schedule_adoption": "Wert für Manuelle Zeitplanübernahme in dieser Gruppe.",
-              "no_go_time_minutes": "Minuten nach einer Cover-Zustandsänderung, in denen zeitgesteuertes Öffnen blockiert ist."
+              "manual_override_minutes": "Dauer der Automatikpause in Minuten. Bei 0 bleibt sie bis zum manuellen Zurücksetzen aktiv.",
+              "no_go_time_minutes": "Minuten nach einer Cover-Zustandsänderung, in denen zeitgesteuertes Öffnen blockiert ist.",
+              "manual_control_enabled": "Manuelle Bewegungen pausieren die normale Automatik."
             }
           },
           "tilt_wait": {
@@ -1810,13 +1786,6 @@
     }
   },
   "selector": {
-    "manual_override_reset_mode": {
-      "options": {
-        "none": "Manuell zurücksetzen",
-        "time": "Feste Uhrzeit",
-        "timeout": "Nach Dauer"
-      }
-    },
     "cover_tilt_wait_mode": {
       "options": {
         "fixed_delay": "Feste Verzögerung",
@@ -1900,6 +1869,10 @@
     "recovery_mode_migration": {
       "title": "Wiederherstellungsstrategie vereinfacht",
       "description": "Die konfigurierbare Wiederherstellungsstrategie wurde entfernt. Cover Control verwendet jetzt eine feste Wiederherstellung nach echten Ausfällen."
+    },
+    "manual_override_reset_time_migration": {
+      "title": "Tägliche Manual-Override-Rücksetzzeit entfernt",
+      "description": "Die feste tägliche Reset-Uhrzeit für Manual Override wurde entfernt. Der Override bleibt jetzt bis zum manuellen Reset aktiv."
     }
   },
   "entity": {

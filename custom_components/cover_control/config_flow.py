@@ -135,7 +135,6 @@ from .const import (
     DEFAULT_COVER_TILT_WAIT_TIMEOUT,
     DEFAULT_DRIVE_TIME,
     DEFAULT_GROUP,
-    DEFAULT_MANUAL_OVERRIDE_FLAGS,
     DEFAULT_MASTER_FLAGS,
     DEFAULT_NAME,
     DEFAULT_POSITION_SETTINGS,
@@ -189,7 +188,6 @@ def _with_config_defaults(config: dict) -> dict:
         **DEFAULT_TIME_SETTINGS,
         **DEFAULT_AUTOMATION_FLAGS,
         **DEFAULT_MASTER_FLAGS,
-        **DEFAULT_MANUAL_OVERRIDE_FLAGS,
         **DEFAULT_CONTACT_SETTINGS,
         **DEFAULT_BEHAVIOR_SETTINGS,
         **DEFAULT_BUTTON_SETTINGS,
@@ -448,7 +446,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
 class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the config flow."""
 
-    VERSION = 17
+    VERSION = 18
 
     @staticmethod
     @callback

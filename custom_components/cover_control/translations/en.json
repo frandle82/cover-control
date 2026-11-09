@@ -648,26 +648,14 @@
           "manual_override": {
             "name": "Manual override",
             "data": {
-              "manual_override_block_close": "Manual override blocks closing",
-              "manual_override_block_open": "Manual override blocks opening",
-              "manual_override_block_shading": "Manual override blocks shading",
-              "manual_override_block_ventilate": "Manual override blocks ventilation",
               "manual_override_minutes": "Manual override duration",
-              "manual_override_reset_mode": "Manual override reset mode",
-              "manual_override_reset_time": "Manual override reset time",
-              "manual_schedule_adoption": "Manual schedule adoption",
-              "no_go_time_minutes": "Opening no-go time"
+              "no_go_time_minutes": "Opening no-go time",
+              "manual_control_enabled": "Manual override enabled"
             },
             "data_description": {
-              "manual_override_block_close": "Value for Manual override blocks closing in this group or default.",
-              "manual_override_block_open": "Value for Manual override blocks opening in this group or default.",
-              "manual_override_block_shading": "Value for Manual override blocks shading in this group or default.",
-              "manual_override_block_ventilate": "Value for Manual override blocks ventilation in this group or default.",
-              "manual_override_minutes": "Value for Manual override duration in this group or default.",
-              "manual_override_reset_mode": "Value for Manual override reset mode in this group or default.",
-              "manual_override_reset_time": "Value for Manual override reset time in this group or default.",
-              "manual_schedule_adoption": "Value for Manual schedule adoption in this group or default.",
-              "no_go_time_minutes": "Minutes after a cover state change during which scheduled opening is blocked."
+              "manual_override_minutes": "Automation pause duration in minutes. At 0 it remains active until manually cleared.",
+              "no_go_time_minutes": "Minutes after a cover state change during which scheduled opening is blocked.",
+              "manual_control_enabled": "Manual movements pause normal automation."
             }
           },
           "tilt_wait": {
@@ -1548,26 +1536,14 @@
           "manual_override": {
             "name": "Manual override",
             "data": {
-              "manual_override_block_close": "Manual override blocks closing",
-              "manual_override_block_open": "Manual override blocks opening",
-              "manual_override_block_shading": "Manual override blocks shading",
-              "manual_override_block_ventilate": "Manual override blocks ventilation",
               "manual_override_minutes": "Manual override duration",
-              "manual_override_reset_mode": "Manual override reset mode",
-              "manual_override_reset_time": "Manual override reset time",
-              "manual_schedule_adoption": "Manual schedule adoption",
-              "no_go_time_minutes": "Opening no-go time"
+              "no_go_time_minutes": "Opening no-go time",
+              "manual_control_enabled": "Manual override enabled"
             },
             "data_description": {
-              "manual_override_block_close": "Value for Manual override blocks closing in this group or default.",
-              "manual_override_block_open": "Value for Manual override blocks opening in this group or default.",
-              "manual_override_block_shading": "Value for Manual override blocks shading in this group or default.",
-              "manual_override_block_ventilate": "Value for Manual override blocks ventilation in this group or default.",
-              "manual_override_minutes": "Value for Manual override duration in this group or default.",
-              "manual_override_reset_mode": "Value for Manual override reset mode in this group or default.",
-              "manual_override_reset_time": "Value for Manual override reset time in this group or default.",
-              "manual_schedule_adoption": "Value for Manual schedule adoption in this group or default.",
-              "no_go_time_minutes": "Minutes after a cover state change during which scheduled opening is blocked."
+              "manual_override_minutes": "Automation pause duration in minutes. At 0 it remains active until manually cleared.",
+              "no_go_time_minutes": "Minutes after a cover state change during which scheduled opening is blocked.",
+              "manual_control_enabled": "Manual movements pause normal automation."
             }
           },
           "tilt_wait": {
@@ -1810,13 +1786,6 @@
     }
   },
   "selector": {
-    "manual_override_reset_mode": {
-      "options": {
-        "none": "Manual reset",
-        "time": "Fixed time",
-        "timeout": "After duration"
-      }
-    },
     "cover_tilt_wait_mode": {
       "options": {
         "fixed_delay": "Fixed delay",
@@ -1900,6 +1869,10 @@
     "recovery_mode_migration": {
       "title": "Recovery strategy simplified",
       "description": "The configurable recovery strategy was removed. Cover Control now uses fixed recovery after actual outages."
+    },
+    "manual_override_reset_time_migration": {
+      "title": "Daily manual override reset removed",
+      "description": "The fixed daily reset time for Manual Override was removed. The override now remains active until it is manually cleared."
     }
   },
   "entity": {

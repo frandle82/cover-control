@@ -37,11 +37,7 @@ _BOOLEAN_KEYS = frozenset(
         c.CONF_RESIDENT_ALLOW_SHADING,
         c.CONF_RESIDENT_ALLOW_OPEN,
         c.CONF_RESIDENT_ALLOW_VENTILATION,
-        c.CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
-        c.CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
-        c.CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
-        c.CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
-        c.CONF_MANUAL_SCHEDULE_ADOPTION,
+        c.CONF_MANUAL_CONTROL,
         c.CONF_ENABLE_LOGBOOK_COVER,
         *(
             enabled_key
@@ -60,7 +56,6 @@ _TIME_KEYS = frozenset(
         c.CONF_TIME_DOWN_LATE_WORKDAY,
         c.CONF_TIME_DOWN_EARLY_NON_WORKDAY,
         c.CONF_TIME_DOWN_LATE_NON_WORKDAY,
-        c.CONF_MANUAL_OVERRIDE_RESET_TIME,
         c.CONF_FINAL_CLOSE_TIME,
     }
 )
@@ -156,14 +151,6 @@ _SELECTS = {
     c.CONF_OPEN_MODE: (list(c.OPEN_MODES), "open_mode"),
     c.CONF_CLOSE_MODE: (list(c.CLOSE_MODES), "close_mode"),
     c.CONF_SHADING_MODE: (list(c.SHADING_MODES), "shading_mode"),
-    c.CONF_MANUAL_OVERRIDE_RESET_MODE: (
-        [
-            c.MANUAL_OVERRIDE_RESET_NONE,
-            c.MANUAL_OVERRIDE_RESET_TIME,
-            c.MANUAL_OVERRIDE_RESET_TIMEOUT,
-        ],
-        "manual_override_reset_mode",
-    ),
     c.CONF_COVER_TILT_WAIT_MODE: (
         [
             c.COVER_TILT_WAIT_FIXED_DELAY,
@@ -316,14 +303,8 @@ _GROUP_FIELDS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
         (
             "manual_override",
             (
+                c.CONF_MANUAL_CONTROL,
                 c.CONF_MANUAL_OVERRIDE_MINUTES,
-                c.CONF_MANUAL_OVERRIDE_RESET_MODE,
-                c.CONF_MANUAL_OVERRIDE_RESET_TIME,
-                c.CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
-                c.CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
-                c.CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
-                c.CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
-                c.CONF_MANUAL_SCHEDULE_ADOPTION,
                 c.CONF_NO_GO_TIME_MINUTES,
             ),
         ),
@@ -458,14 +439,8 @@ GROUP_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
     c.GROUP_SECTION_BEHAVIOR: {
         "manual_override": frozenset(
             {
+                c.CONF_MANUAL_CONTROL,
                 c.CONF_MANUAL_OVERRIDE_MINUTES,
-                c.CONF_MANUAL_OVERRIDE_RESET_MODE,
-                c.CONF_MANUAL_OVERRIDE_RESET_TIME,
-                c.CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
-                c.CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
-                c.CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
-                c.CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
-                c.CONF_MANUAL_SCHEDULE_ADOPTION,
             }
         ),
         "ventilation": frozenset(
