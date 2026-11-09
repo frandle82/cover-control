@@ -83,7 +83,6 @@ class CoverController(
         self._local_listener_entities: set[str] = set()
         self._manual_until: datetime | None = None
         self._manual_active: bool = False
-        self._manual_scope_all: bool = False
         self._target: float | None = None
         self._last_position: float | None = None
         self._pre_ventilation_position: float | None = None

@@ -159,7 +159,6 @@ class EvaluationMixin:
                 "trigger": trigger,
                 "triggers": sorted(self._current_evaluation_triggers),
                 "manual_active": self._manual_active,
-                "manual_scope_all": self._manual_scope_all,
                 "next_open": self._next_open,
                 "next_close": self._next_close,
                 "master_enabled": self._master_enabled(),
@@ -189,17 +188,13 @@ class EvaluationMixin:
             return
         if self._manual_active:
             self._cancel_window_down_sequence()
-            if self._manual_scope_all or all(
-                self._manual_blocks_action(action)
-                for action in ("open", "close", "ventilation", "shading")
-            ):
-                self._logbook_entry(
-                    "No movement · manual override active",
-                    dedupe_key="blocked:manual_override",
-                )
-                self._refresh_next_events(now)
-                self._publish_state()
-                return
+            self._logbook_entry(
+                "No movement · manual override active",
+                dedupe_key="blocked:manual_override",
+            )
+            self._refresh_next_events(now)
+            self._publish_state()
+            return
 
         if not self._master_enabled():
             self._cancel_window_down_sequence()

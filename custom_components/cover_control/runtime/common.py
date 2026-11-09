@@ -233,7 +233,7 @@ def _default_cover_status() -> dict:
             "ts": 0,
         },
         "safety": {"fire_latched": False, "ts": 0},
-        "manual": {"active": False, "scope_all": False, "until": None, "ts": 0},
+        "manual": {"active": False, "until": None, "ts": 0},
         "reason": None,
         "target": None,
         "last_action_dates": {},
@@ -288,7 +288,6 @@ def _normalize_cover_status(raw: object) -> dict:
     manual = raw.get("manual")
     if isinstance(manual, dict):
         status["manual"]["active"] = bool(manual.get("active", False))
-        status["manual"]["scope_all"] = bool(manual.get("scope_all", False))
         until = manual.get("until")
         status["manual"]["until"] = until if isinstance(until, str) and until else None
         status["manual"]["ts"] = int(manual.get("ts") or 0)

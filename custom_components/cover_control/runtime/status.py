@@ -8,8 +8,10 @@ from homeassistant.util import dt as dt_util
 
 from ..const import (
     CONF_CLOSE_POSITION,
+    CONF_MANUAL_CONTROL,
     CONF_OPEN_POSITION,
     DEFAULT_CLOSE_POSITION,
+    DEFAULT_MANUAL_CONTROL,
     DEFAULT_OPEN_POSITION,
 )
 from .common import (
@@ -39,12 +41,12 @@ class StatusMixin:
                 until = dt_util.as_utc(until)
             self._manual_until = until
             self._manual_active = bool(
-                manual.get("active") and (until is None or until > dt_util.utcnow())
+                self.config.get(CONF_MANUAL_CONTROL, DEFAULT_MANUAL_CONTROL)
+                and manual.get("active")
+                and (until is None or until > dt_util.utcnow())
             )
-            self._manual_scope_all = bool(manual.get("scope_all"))
             if not self._manual_active:
                 self._manual_until = None
-                self._manual_scope_all = False
 
         dates = self._status.get("last_action_dates", {})
         if isinstance(dates, dict):
@@ -70,7 +72,6 @@ class StatusMixin:
         }
         manual = self._status.setdefault("manual", {})
         manual["active"] = self._manual_active
-        manual["scope_all"] = self._manual_scope_all
         manual["until"] = self._manual_until.isoformat() if self._manual_until else None
         if self._manual_active and not manual.get("ts"):
             manual["ts"] = _ts_now()

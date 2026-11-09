@@ -20,13 +20,8 @@ from ..const import (
     CONF_AUTO_SHADING,
     CONF_CLOSE_POSITION,
     CONF_DRIVE_TIME,
-    CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
-    CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
-    CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
-    CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
+    CONF_MANUAL_CONTROL,
     CONF_MANUAL_OVERRIDE_MINUTES,
-    CONF_MANUAL_OVERRIDE_RESET_MODE,
-    CONF_MANUAL_OVERRIDE_RESET_TIME,
     CONF_OPEN_POSITION,
     CONF_POSITION_TOLERANCE,
     CONF_RESIDENT_SENSOR,
@@ -34,16 +29,12 @@ from ..const import (
     CONF_VENTILATE_POSITION,
     DEFAULT_CLOSE_POSITION,
     DEFAULT_DRIVE_TIME,
-    DEFAULT_MANUAL_OVERRIDE_FLAGS,
+    DEFAULT_MANUAL_CONTROL,
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
-    DEFAULT_MANUAL_OVERRIDE_RESET_TIME,
     DEFAULT_OPEN_POSITION,
     DEFAULT_TOLERANCE,
     DEFAULT_VENTILATE_POSITION,
     DOMAIN,
-    MANUAL_OVERRIDE_RESET_NONE,
-    MANUAL_OVERRIDE_RESET_TIME,
-    MANUAL_OVERRIDE_RESET_TIMEOUT,
 )
 from .common import (
     CALENDAR_BOUNDARY_TRIGGERS,
@@ -60,7 +51,6 @@ from .common import (
     TRIGGER_WINDOW_OPEN,
     TRIGGER_WINDOW_TILTED,
     _coerce_float,
-    _parse_time,
     scheduled_trigger,
     _ts_now,
 )
@@ -233,18 +223,15 @@ class EventsMixin:
                     "closing",
                 }
                 if movement_finished:
-                    action = self._manual_schedule_action_for_position(current)
                     self._manual_movement_pending = False
                     adopted_shading = self._adopt_manual_shading_position(current)
-                    if not adopted_shading and not self._manual_active:
+                    if (
+                        not adopted_shading
+                        and not self._manual_active
+                        and self._manual_detection_enabled()
+                    ):
                         self._clear_shading_for_manual_override()
-                        self._activate_manual_override(
-                            scope_all=True, reason="manual_override"
-                        )
-                    if action is not None:
-                        self.hass.async_create_task(
-                            self._async_adopt_manual_schedule(action, now)
-                        )
+                        self._activate_manual_override(reason="manual_override")
             self._last_position = current if current is not None else previous_position
         if entity_id in self._contact_entities():
             new_state = event.data.get("new_state")
@@ -330,8 +317,9 @@ class EventsMixin:
             and self._manual_shading_position_matches(position)
         )
         if not shading_adoption_pending:
-            self._clear_shading_for_manual_override()
-            self._activate_manual_override(scope_all=True, reason="manual_override")
+            if self._manual_detection_enabled():
+                self._clear_shading_for_manual_override()
+                self._activate_manual_override(reason="manual_override")
         self.async_request_evaluate("manual_service")
 
     @callback
@@ -354,16 +342,8 @@ class EventsMixin:
         )
 
     def _manual_detection_enabled(self) -> bool:
-        if self._manual_active:
-            return False
-        return any(
-            bool(self.config.get(flag, DEFAULT_MANUAL_OVERRIDE_FLAGS.get(flag, False)))
-            for flag in (
-                CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
-                CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
-                CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
-                CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
-            )
+        return not self._manual_active and bool(
+            self.config.get(CONF_MANUAL_CONTROL, DEFAULT_MANUAL_CONTROL)
         )
 
     def _manual_shading_position_matches(self, position: float | None) -> bool:
@@ -412,21 +392,15 @@ class EventsMixin:
     def _activate_manual_override(
         self,
         minutes: int | None = None,
-        scope_all: bool = False,
         reason: str | None = None,
     ) -> None:
         now = dt_util.utcnow()
         was_active = self._manual_active
         self._manual_active = True
-        self._manual_scope_all = self._manual_scope_all or scope_all
         self._manual_until = self._manual_reset_at(now, minutes)
-        if reason:
-            self._reason = reason
-        elif self._manual_scope_all:
-            self._reason = "manual_override"
+        self._reason = reason or "manual_override"
         manual = self._status.setdefault("manual", {})
         manual["active"] = True
-        manual["scope_all"] = self._manual_scope_all
         manual["until"] = self._manual_until.isoformat() if self._manual_until else None
         manual["ts"] = _ts_now()
         self.persist_status()
@@ -439,64 +413,34 @@ class EventsMixin:
     def _manual_reset_at(
         self, now: datetime, minutes: int | None = None
     ) -> datetime | None:
-        if minutes is not None:
-            return now + timedelta(minutes=minutes)
-        mode = self.config.get(
-            CONF_MANUAL_OVERRIDE_RESET_MODE, MANUAL_OVERRIDE_RESET_TIMEOUT
-        )
-        if mode == MANUAL_OVERRIDE_RESET_NONE:
-            return None
-        if mode == MANUAL_OVERRIDE_RESET_TIME:
-            reset_time = _parse_time(
-                self.config.get(CONF_MANUAL_OVERRIDE_RESET_TIME)
-            ) or _parse_time(DEFAULT_MANUAL_OVERRIDE_RESET_TIME)
-            return self._next_time_for_point(reset_time, now)
-        duration = self.config.get(
-            CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES
+        duration = (
+            minutes
+            if minutes is not None
+            else self.config.get(
+                CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES
+            )
         )
         try:
             minutes_value = int(duration)
         except (TypeError, ValueError):
             minutes_value = DEFAULT_MANUAL_OVERRIDE_MINUTES
-        return now + timedelta(minutes=minutes_value)
+        return now + timedelta(minutes=minutes_value) if minutes_value > 0 else None
 
-    def _manual_blocks_action(self, action: str) -> bool:
-        if not self._manual_active:
-            return False
-        if self._manual_scope_all:
-            return True
-        flag_map = {
-            "open": CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
-            "close": CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
-            "ventilation": CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
-            "shading": CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
-        }
-        flag = flag_map.get(action)
-        if not flag:
-            return False
-        return bool(
-            self.config.get(flag, DEFAULT_MANUAL_OVERRIDE_FLAGS.get(flag, False))
-        )
+    def _manual_blocks_action(self, _action: str) -> bool:
+        return self._manual_active
 
     def set_manual_override(self, minutes: int) -> None:
-        duration = minutes or self.config.get(
-            CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES
-        )
-        self._activate_manual_override(
-            minutes=duration, scope_all=True, reason="manual_override"
-        )
+        self._activate_manual_override(minutes=minutes, reason="manual_override")
 
     def clear_manual_override(self) -> None:
         was_active = self._manual_active
         self._manual_until = None
         self._manual_active = False
-        self._manual_scope_all = False
         self._clear_manual_expiry()
         if self._reason in {"manual_override", "manual_shading"}:
             self._reason = None
         manual = self._status.setdefault("manual", {})
         manual["active"] = False
-        manual["scope_all"] = False
         manual["until"] = None
         self.persist_status()
         if was_active:
@@ -756,19 +700,7 @@ class EventsMixin:
             )
 
     def activate_shading(self, minutes: int | None = None) -> None:
-        duration = minutes or self.config.get(
-            CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES
-        )
-        self._manual_until = dt_util.utcnow() + timedelta(minutes=duration)
-        self._manual_active = True
-        self._manual_scope_all = True
-        manual = self._status.setdefault("manual", {})
-        manual["active"] = True
-        manual["scope_all"] = True
-        manual["until"] = self._manual_until.isoformat()
-        manual["ts"] = _ts_now()
-        self.persist_status()
-        self._schedule_manual_expiry()
+        self._activate_manual_override(minutes=minutes, reason="manual_shading")
         self.hass.async_create_task(
             self._set_position(self._effective_shading_position(), "manual_shading")
         )
@@ -783,7 +715,6 @@ class EventsMixin:
         manual_state = (
             self._manual_until,
             self._manual_active,
-            self._manual_scope_all,
             self._reason,
         )
 
@@ -791,7 +722,6 @@ class EventsMixin:
             minutes=self.config.get(
                 CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES
             ),
-            scope_all=True,
             reason="manual_override",
         )
 
@@ -808,7 +738,6 @@ class EventsMixin:
             (
                 self._manual_until,
                 self._manual_active,
-                self._manual_scope_all,
                 self._reason,
             ) = manual_state
             self._refresh_next_events(dt_util.utcnow())
@@ -818,13 +747,11 @@ class EventsMixin:
         if self._manual_until and now >= self._manual_until:
             self._manual_until = None
             self._manual_active = False
-            self._manual_scope_all = False
             self._clear_manual_expiry()
             if self._reason in {"manual_override", "manual_shading"}:
                 self._reason = None
             manual = self._status.setdefault("manual", {})
             manual["active"] = False
-            manual["scope_all"] = False
             manual["until"] = None
             self.persist_status()
             self._logbook_entry("Manual override ended")
@@ -862,13 +789,11 @@ class EventsMixin:
     def _handle_manual_expiry(self, _) -> None:
         self._manual_until = None
         self._manual_active = False
-        self._manual_scope_all = False
         self._manual_expire_unsub = None
         if self._reason in {"manual_override", "manual_shading"}:
             self._reason = None
         manual = self._status.setdefault("manual", {})
         manual["active"] = False
-        manual["scope_all"] = False
         manual["until"] = None
         self.persist_status()
         self._logbook_entry("Manual override ended")
