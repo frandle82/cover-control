@@ -3,13 +3,11 @@
 from __future__ import annotations
 
 import asyncio
-import random
 from datetime import (
     datetime,
     timedelta,
 )
 from importlib import import_module
-from inspect import isawaitable
 
 from homeassistant.const import (
     STATE_ON,
@@ -26,15 +24,6 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.util import dt as dt_util
 
 from ..const import (
-    CONF_ADDITIONAL_CONDITION_CLOSE,
-    CONF_ADDITIONAL_CONDITION_GLOBAL,
-    CONF_ADDITIONAL_CONDITION_OPEN,
-    CONF_ADDITIONAL_CONDITION_SHADING,
-    CONF_ADDITIONAL_CONDITION_SHADING_END,
-    CONF_ADDITIONAL_CONDITION_SHADING_TILT,
-    CONF_ADDITIONAL_CONDITION_VENTILATE,
-    CONF_ADDITIONAL_CONDITION_VENTILATE_END,
-    CONF_ADDITIONAL_CONDITIONS_ENABLED,
     CONF_AUTO_BRIGHTNESS,
     CONF_AUTO_SHADING,
     CONF_AUTO_SUN,
@@ -44,45 +33,23 @@ from ..const import (
     CONF_CALENDAR_ENTITY,
     CONF_CLOSE_POSITION,
     CONF_CLOSE_TILT_POSITION,
-    CONF_COVER_TILT_WAIT_MODE,
-    CONF_COVER_TILT_WAIT_TIMEOUT,
-    CONF_CUSTOM_POSITION_SENSOR,
     CONF_DRIVE_TIME,
     CONF_ENABLE_LOGBOOK_COVER,
     CONF_LOCKOUT_POSITION,
     CONF_MASTER_ENABLED,
     CONF_OPEN_POSITION,
     CONF_OPEN_TILT_POSITION,
-    CONF_POSITION_SOURCE,
-    CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
-    CONF_POSITION_SOURCE_CUSTOM_SENSOR,
-    CONF_POSITION_SOURCE_POSITION_ATTR,
     CONF_POSITION_TOLERANCE,
-    CONF_TILT_POSITION_TOLERANCE,
+    CONF_TEMPERATURE_SENSOR_INDOOR,
+    CONF_TEMPERATURE_SENSOR_OUTDOOR,
     CONF_DRIVE_DELAY_FIXED,
-    CONF_DRIVE_DELAY_RANDOM,
-    CONF_FORCE_PAUSE_ENTITY,
-    CONF_PREVENT_DEFAULT_COVER_ACTIONS,
     CONF_RESIDENT_SENSOR,
     CONF_RESIDENT_STATUS,
     CONF_SHADING_BRIGHTNESS_SENSOR,
-    CONF_SHADING_FORECAST_SENSOR,
-    CONF_SHADING_FORECAST_TEMP_SENSOR,
     CONF_SHADING_POSITION,
     CONF_SHADING_POSITION_ALT,
     CONF_SHADING_POSITION_ALT_ENTITY,
-    CONF_SHADING_TEMPERATURE_SENSOR_1,
-    CONF_SHADING_TEMPERATURE_SENSOR_2,
-    CONF_SHADING_TILT_ELEVATION_1,
-    CONF_SHADING_TILT_ELEVATION_2,
-    CONF_SHADING_TILT_ELEVATION_3,
     CONF_SHADING_TILT_POSITION,
-    CONF_SHADING_TILT_POSITION_0,
-    CONF_SHADING_TILT_POSITION_1,
-    CONF_SHADING_TILT_POSITION_2,
-    CONF_SHADING_TILT_POSITION_3,
-    CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
-    CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
     CONF_VENTILATE_POSITION,
     CONF_VENTILATE_TILT_POSITION,
     CONF_WINDOW_SENSOR_FULL,
@@ -91,41 +58,29 @@ from ..const import (
     CONF_WORKDAY_TOMORROW_SENSOR,
     FUNCTION_SAFETY,
     SAFETY_ALARMS,
-    COVER_TILT_WAIT_BEFORE_POSITION,
-    COVER_TILT_WAIT_IDLE,
     DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_CLOSE_TILT_POSITION,
     DEFAULT_CLOSE_POSITION,
-    DEFAULT_COVER_TILT_WAIT_MODE,
-    DEFAULT_COVER_TILT_WAIT_TIMEOUT,
     DEFAULT_DRIVE_TIME,
     DEFAULT_MASTER_FLAGS,
     DEFAULT_OPEN_POSITION,
     DEFAULT_OPEN_TILT_POSITION,
     DEFAULT_SHADING_POSITION,
-    DEFAULT_SHADING_TILT_ELEVATION_1,
-    DEFAULT_SHADING_TILT_ELEVATION_2,
-    DEFAULT_SHADING_TILT_ELEVATION_3,
     DEFAULT_SHADING_TILT_POSITION,
-    DEFAULT_SHADING_TILT_POSITION_0,
-    DEFAULT_SHADING_TILT_POSITION_1,
-    DEFAULT_SHADING_TILT_POSITION_2,
-    DEFAULT_SHADING_TILT_POSITION_3,
+    DEFAULT_TILT_TOLERANCE,
     DEFAULT_TOLERANCE,
     DEFAULT_DRIVE_DELAY_FIXED,
-    DEFAULT_DRIVE_DELAY_RANDOM,
     DEFAULT_VENTILATE_POSITION,
     DEFAULT_VENTILATE_TILT_POSITION,
     DOMAIN,
     EVENT_COVER_CONTROL,
     SIGNAL_STATE_UPDATED,
+    TILT_WAIT_TIMEOUT,
 )
 from .common import (
     _LOGGER,
     IDLE_REASON,
     TRIGGER_BRIGHTNESS_CHANGED,
-    TRIGGER_DYNAMIC_SUN_CLOSE_CHANGED,
-    TRIGGER_DYNAMIC_SUN_OPEN_CHANGED,
     TRIGGER_RESIDENT_OFF,
     TRIGGER_RESIDENT_ON,
     TRIGGER_SHADING_END_CHANGED,
@@ -151,8 +106,6 @@ from .common import (
 from .safety import SAFETY_REASONS
 
 _COVER_ENTITY_FEATURE = None
-_CONDITION_API = None
-_CONDITION_ERROR = None
 
 
 async def _async_cover_entity_feature(hass):
@@ -165,27 +118,6 @@ async def _async_cover_entity_feature(hass):
         )
         _COVER_ENTITY_FEATURE = cover_module.CoverEntityFeature
     return _COVER_ENTITY_FEATURE
-
-
-async def _async_condition_api(hass):
-    """Load optional condition support off the event loop on first use."""
-
-    global _CONDITION_API, _CONDITION_ERROR
-    if _CONDITION_API is None:
-
-        def _load_condition_api():
-            condition_api = import_module("homeassistant.helpers.condition")
-            exceptions = import_module("homeassistant.exceptions")
-            return condition_api, exceptions.ConditionError
-
-        async_add_executor_job = getattr(hass, "async_add_executor_job", None)
-        if async_add_executor_job is None:
-            _CONDITION_API, _CONDITION_ERROR = _load_condition_api()
-        else:
-            _CONDITION_API, _CONDITION_ERROR = await async_add_executor_job(
-                _load_condition_api
-            )
-    return _CONDITION_API, _CONDITION_ERROR
 
 
 class ActuatorMixin:
@@ -228,97 +160,6 @@ class ActuatorMixin:
             if entity_id and self.hass.states.get(entity_id) is not None:
                 return self.hass.states.is_state(entity_id, STATE_ON)
         return bool(self.config.get(config_key))
-
-    async def _condition_allows(self, config_key: str) -> bool:
-        condition_config = self.config.get(config_key)
-        if condition_config in (None, "", []):
-            return True
-
-        if isinstance(condition_config, bool):
-            return condition_config
-
-        if isinstance(condition_config, str):
-            state = self.hass.states.get(condition_config)
-            if state is None:
-                return False
-            return self.hass.states.is_state(condition_config, STATE_ON)
-
-        if not isinstance(condition_config, (list, dict)):
-            _LOGGER.error(
-                "Invalid additional condition '%s': unsupported type %s",
-                config_key,
-                type(condition_config).__name__,
-            )
-            return False
-
-        condition, condition_error = await _async_condition_api(self.hass)
-
-        try:
-            config: dict = (
-                {"condition": "and", "conditions": condition_config}
-                if isinstance(condition_config, list)
-                else condition_config
-            )
-            normalized_config = self._normalize_condition_config(config)
-            validated_config = await condition.async_validate_condition_config(
-                self.hass, normalized_config
-            )
-            checker = await condition.async_from_config(self.hass, validated_config)
-            async_check = getattr(checker, "async_check", None)
-            if async_check is None:
-                # Home Assistant before the condition checker API returned a
-                # callable instead. Keep supporting the HACS minimum version.
-                result = checker(self.hass)
-                if isawaitable(result):
-                    result = await result
-                return bool(result)
-            try:
-                return bool(async_check())
-            finally:
-                checker.async_unload()
-        except (
-            condition_error
-        ) as err:  # pragma: no cover - defensive for invalid config
-            _LOGGER.error(
-                "Invalid additional condition '%s': %s (config=%s)",
-                config_key,
-                err,
-                condition_config,
-            )
-            return False
-        except Exception:  # pragma: no cover - defensive for runtime errors
-            _LOGGER.exception("Failed to evaluate additional condition: %s", config_key)
-            return False
-
-    def _normalize_condition_config(self, config: dict | list) -> dict | list:
-        """Normalize condition configuration to match Home Assistant expectations.
-
-        Converts string-based time values into ``datetime.time`` objects so they are
-        not misinterpreted as entity IDs during validation. Nested condition blocks
-        are processed recursively.
-        """
-
-        if isinstance(config, list):
-            return [self._normalize_condition_config(item) for item in config]
-
-        normalized = dict(config)
-        condition_type = normalized.get("condition")
-
-        if condition_type == "time":
-            for key in ("after", "before"):
-                value = normalized.get(key)
-                if isinstance(value, str):
-                    parsed = dt_util.parse_time(value)
-                    if parsed is not None:
-                        normalized[key] = parsed
-
-        if condition_type in {"and", "or", "not"}:
-            normalized["conditions"] = [
-                self._normalize_condition_config(item)
-                for item in normalized.get("conditions", [])
-            ]
-
-        return normalized
 
     def _master_enabled(self) -> bool:
         return bool(
@@ -463,9 +304,7 @@ class ActuatorMixin:
                 current_tilt = _coerce_float(
                     state and state.attributes.get("current_tilt_position")
                 )
-                tilt_tolerance = self._position_value(
-                    CONF_TILT_POSITION_TOLERANCE, DEFAULT_TOLERANCE
-                )
+                tilt_tolerance = DEFAULT_TILT_TOLERANCE
                 if current_tilt is None or abs(current_tilt - tilt_position) > tilt_tolerance:
                     await self._command_tilt_position(float(tilt_position), reason=reason)
             if self._reason is None:
@@ -480,24 +319,8 @@ class ActuatorMixin:
         if delay > 0:
             await asyncio.sleep(delay)
             safety_move = reason in SAFETY_REASONS
-            if not safety_move and self._entity_active(CONF_FORCE_PAUSE_ENTITY):
-                self.async_request_evaluate("force_pause_during_delay")
-                return
             if not safety_move and (self._manual_active or not self._master_enabled()):
                 self.async_request_evaluate("movement_gate_changed_during_delay")
-                return
-            force_reasons = {
-                "force_open": "force_open_entity",
-                "force_close": "force_close_entity",
-                "force_ventilate": "force_ventilate_entity",
-                "force_shading": "force_shading_entity",
-            }
-            if not safety_move and any(
-                self._entity_active(key)
-                for key in force_reasons.values()
-                if key != force_reasons.get(reason)
-            ):
-                self.async_request_evaluate("force_changed_during_delay")
                 return
             if (
                 not safety_move
@@ -513,16 +336,6 @@ class ActuatorMixin:
             if current_after_delay is not None and abs(current_after_delay - target) <= tolerance:
                 self.async_request_evaluate("target_reached_during_delay")
                 return
-        if (
-            tilt_position is not None
-            and str(
-                self.config.get(CONF_COVER_TILT_WAIT_MODE, DEFAULT_COVER_TILT_WAIT_MODE)
-                or DEFAULT_COVER_TILT_WAIT_MODE
-            ).lower()
-            == COVER_TILT_WAIT_BEFORE_POSITION
-            and current is not None
-        ):
-            await self._align_tilt_before_position(current, target, reason)
         await self._command_position(target, reason=reason)
         if tilt_position is not None:
             await self._send_tilt_after_position(float(tilt_position), reason=reason)
@@ -629,103 +442,38 @@ class ActuatorMixin:
         return dict(self._window_down_sequence or {})
 
     def _drive_delay_seconds(self) -> float:
-        """Return the combined pre-drive delay for a real movement."""
+        """Return the deterministic pre-drive delay for a real movement."""
 
         fixed = max(0.0, float(self.config.get(CONF_DRIVE_DELAY_FIXED, DEFAULT_DRIVE_DELAY_FIXED) or 0))
-        random_max = max(0.0, float(self.config.get(CONF_DRIVE_DELAY_RANDOM, DEFAULT_DRIVE_DELAY_RANDOM) or 0))
-        return fixed + random.uniform(0.0, random_max)
+        return fixed
 
     def _current_position(self) -> float | None:
         state = self.hass.states.get(self.cover)
         if not state:
             return None
 
-        source = str(
-            self.config.get(
-                CONF_POSITION_SOURCE, CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR
-            )
-            or CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR
-        )
-        if source == CONF_POSITION_SOURCE_CUSTOM_SENSOR:
-            return _float_state(self.hass, self.config.get(CONF_CUSTOM_POSITION_SENSOR))
-
         try:
-            if (
-                source == CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR
-                and "current_position" in state.attributes
-            ):
-                return float(state.attributes["current_position"])
-            if (
-                source == CONF_POSITION_SOURCE_POSITION_ATTR
-                and "position" in state.attributes
-            ):
-                return float(state.attributes["position"])
             if "current_position" in state.attributes:
                 return float(state.attributes["current_position"])
-            if "position" in state.attributes:
-                return float(state.attributes["position"])
-            if state.state == "open" or state.state == "opening":
-                return 100.0
-            if state.state == "closed" or state.state == "closing":
-                return 0.0
-            return float(state.state)
+            return None
         except (TypeError, ValueError):
             return None
-
-    async def _align_tilt_before_position(
-        self, current: float, target: float, reason: str
-    ) -> None:
-        """Align slats with the travel direction for tilt-restoring motors."""
-
-        state = self.hass.states.get(self.cover)
-        if state is None or state.attributes.get("current_tilt_position") is None:
-            return
-        if current >= 99.5:
-            ctx = Context()
-            self._last_command_context_id = ctx.id
-            self._last_command_at = dt_util.utcnow()
-            if not self._config_bool(CONF_PREVENT_DEFAULT_COVER_ACTIONS):
-                await self.hass.services.async_call(
-                    "cover",
-                    "close_cover",
-                    {"entity_id": self.cover},
-                    blocking=True,
-                    context=ctx,
-                )
-            await self._async_wait_for_state_change(
-                lambda: (
-                    (state := self.hass.states.get(self.cover)) is not None
-                    and state.state != "open"
-                ),
-                1,
-            )
-            return
-        preliminary_tilt = 0.0 if target < current else 100.0
-        await self._command_tilt_position(
-            preliminary_tilt, reason=f"{reason}_tilt_alignment"
-        )
 
     async def _send_tilt_after_position(
         self, tilt_position: float, *, reason: str | None = None
     ) -> None:
-        wait_mode = str(
-            self.config.get(CONF_COVER_TILT_WAIT_MODE, DEFAULT_COVER_TILT_WAIT_MODE)
-            or DEFAULT_COVER_TILT_WAIT_MODE
-        ).lower()
-        if wait_mode in {
-            COVER_TILT_WAIT_IDLE,
-            COVER_TILT_WAIT_BEFORE_POSITION,
-        }:
-            timeout = self._duration_value(
-                CONF_COVER_TILT_WAIT_TIMEOUT, DEFAULT_COVER_TILT_WAIT_TIMEOUT
-            )
-            await self._async_wait_for_state_change(
-                lambda: (
-                    (state := self.hass.states.get(self.cover)) is not None
-                    and state.state in ("open", "closed")
-                ),
-                timeout,
-            )
+        state = self.hass.states.get(self.cover)
+        cover_entity_feature = await _async_cover_entity_feature(self.hass)
+        supported = (state.attributes.get("supported_features") if state else 0) or 0
+        if not bool(int(supported) & cover_entity_feature.SET_TILT_POSITION):
+            return
+        await self._async_wait_for_state_change(
+            lambda: (
+                (state := self.hass.states.get(self.cover)) is not None
+                and state.state in ("open", "closed")
+            ),
+            TILT_WAIT_TIMEOUT,
+        )
         await self._command_tilt_position(tilt_position, reason=reason)
 
     def _tilt_position_value(self, reason: str | None) -> float | None:
@@ -753,42 +501,10 @@ class ActuatorMixin:
             and "end_open" not in reason
             and "end_close" not in reason
         ):
-            return self._shading_tilt_for_elevation()
+            return self._position_value(
+                CONF_SHADING_TILT_POSITION, DEFAULT_SHADING_TILT_POSITION
+            )
         return None
-
-    def _shading_tilt_for_elevation(self) -> float | None:
-        sun_state = self.hass.states.get(self._sun_entity())
-        elevation = _coerce_float(sun_state and sun_state.attributes.get("elevation"))
-        el1 = self._number_value(
-            CONF_SHADING_TILT_ELEVATION_1, DEFAULT_SHADING_TILT_ELEVATION_1
-        )
-        el2 = self._number_value(
-            CONF_SHADING_TILT_ELEVATION_2, DEFAULT_SHADING_TILT_ELEVATION_2
-        )
-        el3 = self._number_value(
-            CONF_SHADING_TILT_ELEVATION_3, DEFAULT_SHADING_TILT_ELEVATION_3
-        )
-        pos0 = self._number_value(
-            CONF_SHADING_TILT_POSITION_0, DEFAULT_SHADING_TILT_POSITION_0
-        )
-        pos1 = self._number_value(
-            CONF_SHADING_TILT_POSITION_1, DEFAULT_SHADING_TILT_POSITION_1
-        )
-        pos2 = self._number_value(
-            CONF_SHADING_TILT_POSITION_2, DEFAULT_SHADING_TILT_POSITION_2
-        )
-        pos3 = self._number_value(
-            CONF_SHADING_TILT_POSITION_3, DEFAULT_SHADING_TILT_POSITION_3
-        )
-        if elevation is None:
-            return pos0
-        if elevation >= el3:
-            return pos3
-        if elevation >= el2:
-            return pos2
-        if elevation >= el1:
-            return pos1
-        return pos0
 
     def _full_open_sensors(self) -> list[str]:
         mapping = self.config.get(CONF_WINDOW_SENSOR_FULL) or {}
@@ -836,21 +552,12 @@ class ActuatorMixin:
             )
         if auto_brightness:
             keys.append(CONF_BRIGHTNESS_SENSOR)
-        if auto_sun:
-            keys.extend(
-                [
-                    CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
-                    CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
-                ]
-            )
         if auto_shading:
             keys.extend(
                 [
                     CONF_SHADING_BRIGHTNESS_SENSOR,
-                    CONF_SHADING_TEMPERATURE_SENSOR_1,
-                    CONF_SHADING_TEMPERATURE_SENSOR_2,
-                    CONF_SHADING_FORECAST_SENSOR,
-                    CONF_SHADING_FORECAST_TEMP_SENSOR,
+                    CONF_TEMPERATURE_SENSOR_INDOOR,
+                    CONF_TEMPERATURE_SENSOR_OUTDOOR,
                     CONF_SHADING_POSITION_ALT_ENTITY,
                 ]
             )
@@ -862,8 +569,6 @@ class ActuatorMixin:
             for _alarm, entity_key, enabled_key, _target, room_key, _default in SAFETY_ALARMS:
                 if self.config.get(enabled_key) and self.config.get(room_key):
                     keys.append(entity_key)
-        if self.config.get(CONF_POSITION_SOURCE) == CONF_POSITION_SOURCE_CUSTOM_SENSOR:
-            keys.append(CONF_CUSTOM_POSITION_SENSOR)
 
         for key in keys:
             entity_id = self.config.get(key)
@@ -882,47 +587,12 @@ class ActuatorMixin:
             )
             if isinstance(entity_id, str) and entity_id
         )
-        entities.update(
-            entity_id
-            for entity_id in (
-                self.config.get(key)
-                for key in (
-                    "force_open_entity",
-                    "force_close_entity",
-                    "force_ventilate_entity",
-                    "force_shading_entity",
-                    "force_pause_entity",
-                )
-            )
-            if isinstance(entity_id, str) and entity_id
-        )
-        if self.config.get(
-            CONF_ADDITIONAL_CONDITIONS_ENABLED,
-            DEFAULT_AUTOMATION_FLAGS.get(CONF_ADDITIONAL_CONDITIONS_ENABLED, False),
-        ):
-            for key in (
-                CONF_ADDITIONAL_CONDITION_GLOBAL,
-                CONF_ADDITIONAL_CONDITION_OPEN,
-                CONF_ADDITIONAL_CONDITION_CLOSE,
-                CONF_ADDITIONAL_CONDITION_VENTILATE,
-                CONF_ADDITIONAL_CONDITION_VENTILATE_END,
-                CONF_ADDITIONAL_CONDITION_SHADING,
-                CONF_ADDITIONAL_CONDITION_SHADING_TILT,
-                CONF_ADDITIONAL_CONDITION_SHADING_END,
-            ):
-                entity_id = self.config.get(key)
-                if isinstance(entity_id, str) and entity_id:
-                    entities.add(entity_id)
         return entities
 
     def _local_decision_entities(self) -> set[str]:
         """Return inputs whose state is specific to this cover."""
 
         entities = set(self._contact_entities())
-        if self.config.get(CONF_POSITION_SOURCE) == CONF_POSITION_SOURCE_CUSTOM_SENSOR:
-            custom_sensor = self.config.get(CONF_CUSTOM_POSITION_SENSOR)
-            if isinstance(custom_sensor, str) and custom_sensor:
-                entities.add(custom_sensor)
         return entities
 
     def _shared_decision_entities(self) -> set[str]:
@@ -938,12 +608,6 @@ class ActuatorMixin:
         triggers: set[str] = set()
         role_triggers = {
             CONF_BRIGHTNESS_SENSOR: (TRIGGER_BRIGHTNESS_CHANGED,),
-            CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR: (
-                TRIGGER_DYNAMIC_SUN_OPEN_CHANGED,
-            ),
-            CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR: (
-                TRIGGER_DYNAMIC_SUN_CLOSE_CHANGED,
-            ),
             CONF_WORKDAY_SENSOR: (TRIGGER_WORKDAY_CHANGED,),
             CONF_WORKDAY_TOMORROW_SENSOR: (TRIGGER_WORKDAY_TOMORROW_CHANGED,),
             CONF_CALENDAR_ENTITY: ("calendar_changed",),
@@ -951,26 +615,13 @@ class ActuatorMixin:
         }
         for key in (
             CONF_SHADING_BRIGHTNESS_SENSOR,
-            CONF_SHADING_TEMPERATURE_SENSOR_1,
-            CONF_SHADING_TEMPERATURE_SENSOR_2,
-            CONF_SHADING_FORECAST_SENSOR,
-            CONF_SHADING_FORECAST_TEMP_SENSOR,
+            CONF_TEMPERATURE_SENSOR_INDOOR,
+            CONF_TEMPERATURE_SENSOR_OUTDOOR,
         ):
             role_triggers[key] = (
                 TRIGGER_SHADING_START_CHANGED,
                 TRIGGER_SHADING_END_CHANGED,
             )
-        for key in (
-            CONF_ADDITIONAL_CONDITION_GLOBAL,
-            CONF_ADDITIONAL_CONDITION_OPEN,
-            CONF_ADDITIONAL_CONDITION_CLOSE,
-            CONF_ADDITIONAL_CONDITION_VENTILATE,
-            CONF_ADDITIONAL_CONDITION_VENTILATE_END,
-            CONF_ADDITIONAL_CONDITION_SHADING,
-            CONF_ADDITIONAL_CONDITION_SHADING_TILT,
-            CONF_ADDITIONAL_CONDITION_SHADING_END,
-        ):
-            role_triggers[key] = (f"{key}_changed",)
         for key, values in role_triggers.items():
             if self.config.get(key) == entity_id:
                 triggers.update(values)
@@ -1019,11 +670,6 @@ class ActuatorMixin:
 
         for key in (
             *self._auto_entity_map.values(),
-            "force_open_entity",
-            "force_close_entity",
-            "force_ventilate_entity",
-            "force_shading_entity",
-            "force_pause_entity",
         ):
             if self.config.get(key) == entity_id:
                 triggers.add(f"{key}_changed")
@@ -1201,10 +847,9 @@ class ActuatorMixin:
                 "target_position": self._target,
             },
         )
-        if not self._config_bool(CONF_PREVENT_DEFAULT_COVER_ACTIONS):
-            await self.hass.services.async_call(
-                "cover", service, service_data, blocking=True, context=ctx
-            )
+        await self.hass.services.async_call(
+            "cover", service, service_data, blocking=True, context=ctx
+        )
 
     async def _command_tilt_position(
         self, tilt_position: float, *, reason: str | None = None
@@ -1219,6 +864,12 @@ class ActuatorMixin:
         cover_entity_feature = await _async_cover_entity_feature(self.hass)
         supported = (state.attributes.get("supported_features")) or 0
         if not bool(int(supported) & cover_entity_feature.SET_TILT_POSITION):
+            return
+        current_tilt = _coerce_float(state.attributes.get("current_tilt_position"))
+        if (
+            current_tilt is not None
+            and abs(current_tilt - tilt_position) <= DEFAULT_TILT_TOLERANCE
+        ):
             return
 
         ctx = Context()
@@ -1235,14 +886,13 @@ class ActuatorMixin:
                 "target_tilt_position": float(tilt_position),
             },
         )
-        if not self._config_bool(CONF_PREVENT_DEFAULT_COVER_ACTIONS):
-            await self.hass.services.async_call(
-                "cover",
-                "set_cover_tilt_position",
-                {"entity_id": self.cover, "tilt_position": float(tilt_position)},
-                blocking=True,
-                context=ctx,
-            )
+        await self.hass.services.async_call(
+            "cover",
+            "set_cover_tilt_position",
+            {"entity_id": self.cover, "tilt_position": float(tilt_position)},
+            blocking=True,
+            context=ctx,
+        )
 
     async def _wait_for_position(
         self, target: float, tolerance: float, timeout: int = 30
@@ -1255,10 +905,6 @@ class ActuatorMixin:
             return current is not None and abs(current - target) <= tolerance
 
         entities = [self.cover]
-        if self.config.get(CONF_POSITION_SOURCE) == CONF_POSITION_SOURCE_CUSTOM_SENSOR:
-            custom_sensor = self.config.get(CONF_CUSTOM_POSITION_SENSOR)
-            if isinstance(custom_sensor, str) and custom_sensor:
-                entities.append(custom_sensor)
         await self._async_wait_for_state_change(_target_reached, timeout, entities)
 
     async def _async_wait_for_state_change(

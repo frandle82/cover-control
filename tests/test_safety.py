@@ -12,25 +12,21 @@ from custom_components.cover_control import button
 from custom_components.cover_control.const import (
     CONF_COVERS,
     CONF_ENTRY_TYPE,
-    CONF_FIRE_ALARM_ENTITY,
     CONF_GLOBAL,
     CONF_GLOBAL_DEFAULTS,
     CONF_GLOBAL_SOURCES,
     CONF_HEAT_PROTECTION_ENABLED,
     CONF_HEAT_PROTECTION_THRESHOLD,
     CONF_NAME,
-    CONF_PROFILE_FUNCTIONS,
-    CONF_PROFILE_ID,
-    CONF_PROFILE_NAME,
-    CONF_PROFILE_SETTINGS,
-    CONF_PROFILES,
-    CONF_ROOM_PROFILE_ID,
+    CONF_GROUP,
+    CONF_GROUPS,
     CONF_ROOM_SETTINGS,
-    CONF_SHADING_TEMPERATURE_SENSOR_2,
+    CONF_TEMPERATURE_SENSOR_OUTDOOR,
     CONF_ROOMS,
     DOMAIN,
     ENTRY_TYPE_CONTROLLER,
     FUNCTION_SAFETY,
+    GROUP_LIVING,
     SAFETY_ALARMS,
 )
 from custom_components.cover_control.config_resolver import resolve_config_model
@@ -301,6 +297,15 @@ async def test_safety_blocks_shading_action() -> None:
     await _assert_safety_blocks_normal_action("shading")
 
 
+@pytest.mark.asyncio
+async def test_manual_override_does_not_block_safety() -> None:
+    controller = _controller({"binary_sensor.rain": "on"})
+    controller._manual_active = True
+
+    assert await controller._evaluate_safety()
+    controller._set_position.assert_awaited_once_with(100, "rain_alarm")
+
+
 def _safety_model(target: int = 100) -> dict:
     settings = {}
     for _alarm, _entity, enabled, target_key, _room, default in SAFETY_ALARMS:
@@ -316,19 +321,11 @@ def _safety_model(target: int = 100) -> dict:
             },
             CONF_GLOBAL_DEFAULTS: {},
         },
-        CONF_PROFILES: {
-            "profile": {
-                CONF_PROFILE_ID: "profile",
-                CONF_PROFILE_NAME: "Safety",
-                CONF_PROFILE_SETTINGS: settings,
-                CONF_PROFILE_FUNCTIONS: [FUNCTION_SAFETY],
-            }
-        },
+        CONF_GROUPS: {GROUP_LIVING: settings},
         CONF_ROOMS: {
             "living": {
                 CONF_NAME: "Living",
-                CONF_ROOM_PROFILE_ID: "profile",
-                CONF_PROFILE_FUNCTIONS: [FUNCTION_SAFETY],
+                CONF_GROUP: GROUP_LIVING,
                 CONF_ROOM_SETTINGS: {
                     CONF_COVERS: ["cover.living"],
                     **{room_key: True for *_head, room_key, _default in SAFETY_ALARMS},
@@ -338,7 +335,7 @@ def _safety_model(target: int = 100) -> dict:
     }
 
 
-def test_safety_profile_updates_loaded_rooms() -> None:
+def test_safety_group_updates_loaded_rooms() -> None:
     manager = object.__new__(ControllerManager)
     manager.room_id = "living"
     manager.entry = SimpleNamespace(entry_id="entry", runtime_data=None)
@@ -410,7 +407,7 @@ async def test_heat_protection_does_not_override_safety() -> None:
         {
             CONF_HEAT_PROTECTION_ENABLED: True,
             CONF_HEAT_PROTECTION_THRESHOLD: 30,
-            CONF_SHADING_TEMPERATURE_SENSOR_2: "sensor.outdoor",
+            CONF_TEMPERATURE_SENSOR_OUTDOOR: "sensor.outdoor",
         }
     )
 
@@ -427,7 +424,7 @@ async def test_heat_protection_resumes_after_safety_when_still_valid() -> None:
         {
             CONF_HEAT_PROTECTION_ENABLED: True,
             CONF_HEAT_PROTECTION_THRESHOLD: 30,
-            CONF_SHADING_TEMPERATURE_SENSOR_2: "sensor.outdoor",
+            CONF_TEMPERATURE_SENSOR_OUTDOOR: "sensor.outdoor",
         }
     )
     await controller._evaluate_safety()

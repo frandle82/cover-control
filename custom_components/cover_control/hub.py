@@ -1,214 +1,115 @@
-"""Integration-wide configuration, dependency routing, and profile evaluation."""
-
+"""Integration-wide configuration, dependency routing, and group evaluation."""
 from __future__ import annotations
-
 from collections.abc import Mapping
 from copy import deepcopy
 from dataclasses import dataclass
 from datetime import datetime
 from typing import TYPE_CHECKING, Any
-
 from homeassistant.core import HomeAssistant, callback
 from homeassistant.helpers.dispatcher import async_dispatcher_send
-from homeassistant.helpers.event import (
-    async_track_point_in_time,
-)
-
-from .config_profiles import ConfigProfileModel
-from .config_resolver import (
-    GLOBAL_SOURCE_KEYS,
-    configured_functions_from_profile,
-    effective_profile,
-    effective_profile_id,
-    effective_room_profile_functions,
-    resolve_profile_config,
-)
+from homeassistant.helpers.event import async_track_point_in_time
+from .config_groups import ConfigGroupModel
+from .config_resolver import GLOBAL_SOURCE_KEYS, resolve_room_config, system_defaults
 from .const import (
-    CONF_GLOBAL,
-    CONF_GLOBAL_DEFAULTS,
-    CONF_GLOBAL_SOURCES,
-    CONF_FIRE_ALARM_ENTITY,
-    CONF_FROST_ALARM_ENTITY,
-    CONF_PROFILE_NAME,
-    CONF_PROFILES,
-    CONF_RAIN_ALARM_ENTITY,
-    CONF_ROOMS,
-    CONF_ROOM_OVERRIDES,
-    CONF_WIND_ALARM_1_ENTITY,
-    CONF_WIND_ALARM_2_ENTITY,
-    PROFILE_TYPES,
-    PROFILE_TYPE_TIME,
-    PROFILE_TYPE_SHADING,
-    PROFILE_TYPE_BEHAVIOR,
-    SIGNAL_HUB_STATE_UPDATED,
-    FUNCTION_BRIGHTNESS,
-    FUNCTION_RESIDENT,
-    FUNCTION_SHADING,
-    FUNCTION_SUN,
-    FUNCTION_TIME,
-    FUNCTION_SAFETY,
+    CONF_CLOSE_MODE, CONF_GLOBAL, CONF_GLOBAL_DEFAULTS, CONF_GLOBAL_SOURCES, CONF_GROUP, CONF_GROUPS,
+    CONF_OPEN_MODE,
+    CONF_ROOMS, DEFAULT_GROUP, GROUPS, SIGNAL_HUB_STATE_UPDATED,
 )
-from .runtime.profile_evaluation import evaluate_time_profile
-from .runtime.common import TRIGGER_SCHEDULED_CLOSE, TRIGGER_SCHEDULED_OPEN
+from .runtime.group_evaluation import evaluate_time_group
+from .runtime.common import scheduled_trigger
 from .shared_input import SharedInputCoordinator
 
 if TYPE_CHECKING:
     from .runtime.manager import ControllerManager
 
-
 @dataclass(frozen=True)
-class ProfileEvaluation:
-    """Transient shared result for one reusable profile."""
-
+class GroupEvaluation:
+    """Transient shared result for one fixed group."""
     next_open: datetime | None = None
     next_close: datetime | None = None
-    brightness_eligible: bool | None = None
-    forecast_eligible: bool | None = None
-    weather_eligible: bool | None = None
-
 
 class CoverControlHub:
     """Own shared configuration and route global events to room managers."""
-
     def __init__(self, hass: HomeAssistant) -> None:
         self.hass = hass
-        self.model = ConfigProfileModel({}).data
+        self.model = ConfigGroupModel({}).data
         self.managers: dict[str, ControllerManager] = {}
-        self.profile_users: dict[tuple[str, str], set[str]] = {}
-        self.entity_profile_routes: dict[str, set[tuple[str, str]]] = {}
+        self.group_users: dict[str, set[str]] = {group: set() for group in GROUPS}
         self.entity_room_routes: dict[str, set[str]] = {}
-        self.profile_evaluations: dict[tuple[str, str], ProfileEvaluation] = {}
+        self.group_evaluations: dict[str, GroupEvaluation] = {}
         self._shared_entities: set[str] = set()
-        self.shared_input_coordinator = SharedInputCoordinator(
-            hass, self._handle_shared_state_event
-        )
-        self._profile_timer_unsubs: dict[tuple[str, str], Any] = {}
-        self._profile_timer_at: dict[tuple[str, str], datetime] = {}
+        self.shared_input_coordinator = SharedInputCoordinator(hass, self._handle_shared_state_event)
+        self._group_timer_unsubs: dict[tuple[str, str], Any] = {}
+        self._group_timer_at: dict[tuple[str, str], datetime] = {}
 
     @callback
     def set_parent_model(self, model: Mapping[str, Any]) -> None:
-        """Install transient model assembled from parent and subentries."""
-
-        self.model = ConfigProfileModel(model).data
+        self.model = ConfigGroupModel(model).data
         self._rebuild_dependencies()
 
     async def async_register_room(self, manager: ControllerManager) -> None:
-        """Register one manager keyed by native room subentry ID."""
-
         self.managers[manager.room_id] = manager
         manager.hub = self
         manager.apply_config_model(self.model, {manager.room_id})
         self._rebuild_dependencies()
         self.refresh_shared_listener()
-        self.refresh_profile_evaluations()
+        self.refresh_group_evaluations()
 
     async def async_unregister_room(self, room_id: str) -> None:
-        """Unregister one room manager while keeping the parent hub alive."""
-
         self.managers.pop(room_id, None)
         self._rebuild_dependencies()
         self.refresh_shared_listener()
-        self.refresh_profile_evaluations()
+        self.refresh_group_evaluations()
 
     async def async_unload_parent(self) -> None:
-        """Release parent-owned listeners and shared timers."""
-
         self.managers.clear()
         self._clear_shared_listener()
-        self._clear_profile_timers()
+        self._clear_group_timers()
 
     @callback
     def apply_model(self, model: Mapping[str, Any], affected_rooms: set[str]) -> None:
-        """Apply a canonical edit only to dependent runtime rooms."""
-
-        self.model = ConfigProfileModel(model).data
+        self.model = ConfigGroupModel(model).data
         self._rebuild_dependencies()
         for manager in self.managers.values():
             manager.apply_config_model(self.model, affected_rooms)
         self.refresh_shared_listener()
-        self.refresh_profile_evaluations()
+        affected_groups = {
+            self.model[CONF_ROOMS][room_id].get(CONF_GROUP, DEFAULT_GROUP)
+            for room_id in affected_rooms if room_id in self.model[CONF_ROOMS]
+        }
+        self.refresh_group_evaluations(affected_groups)
 
     @callback
     def _rebuild_dependencies(self) -> None:
-        users: dict[tuple[str, str], set[str]] = {}
-        for room_id, room in self.model.get(CONF_ROOMS, {}).items():
-            profile_id = effective_profile_id(room)
-            if profile_id:
-                users.setdefault(("profile", profile_id), set()).add(room_id)
-        self.profile_users = users
-
-        profile_routes: dict[str, set[tuple[str, str]]] = {}
-        room_routes: dict[str, set[str]] = {}
-        global_sources = self.model.get(CONF_GLOBAL, {}).get(
-            CONF_GLOBAL_SOURCES, {}
-        )
-        for key, entity_id in global_sources.items():
-            if key not in GLOBAL_SOURCE_KEYS or not isinstance(entity_id, str):
-                continue
-            for profile_key, rooms in users.items():
-                if not any(
-                    self._room_uses_source(self.model[CONF_ROOMS][room_id], key)
-                    for room_id in rooms
-                ):
-                    continue
-                profile_routes.setdefault(entity_id, set()).add(profile_key)
-                room_routes.setdefault(entity_id, set()).update(rooms)
+        self.group_users = ConfigGroupModel(self.model).group_users
+        routes: dict[str, set[str]] = {}
+        for key, entity_id in self.model.get(CONF_GLOBAL, {}).get(CONF_GLOBAL_SOURCES, {}).items():
+            if key in GLOBAL_SOURCE_KEYS and isinstance(entity_id, str):
+                routes.setdefault(entity_id, set()).update(self.model.get(CONF_ROOMS, {}))
         for manager in self.managers.values():
             for entity_id in manager.shared_entity_routes():
-                room_routes.setdefault(entity_id, set()).add(manager.room_id)
-        self.entity_profile_routes = profile_routes
-        self.entity_room_routes = room_routes
-
-    def _room_uses_source(self, room: Mapping[str, Any], source_key: str) -> bool:
-        function_by_source = {
-            "workday_sensor": FUNCTION_TIME,
-            "workday_tomorrow_sensor": FUNCTION_TIME,
-            "calendar_entity": FUNCTION_TIME,
-            "brightness_sensor": FUNCTION_BRIGHTNESS,
-            "sun_elevation_dynamic_open_sensor": FUNCTION_SUN,
-            "sun_elevation_dynamic_close_sensor": FUNCTION_SUN,
-            "shading_brightness_sensor": FUNCTION_SHADING,
-            "temperature_sensor_outdoor": FUNCTION_SHADING,
-            "cold_protection_forecast_sensor": FUNCTION_SHADING,
-            "shading_forecast_sensor": FUNCTION_SHADING,
-            "shading_forecast_temp_sensor": FUNCTION_SHADING,
-            "resident_sensor": FUNCTION_RESIDENT,
-            CONF_FIRE_ALARM_ENTITY: FUNCTION_SAFETY,
-            CONF_RAIN_ALARM_ENTITY: FUNCTION_SAFETY,
-            CONF_WIND_ALARM_2_ENTITY: FUNCTION_SAFETY,
-            CONF_WIND_ALARM_1_ENTITY: FUNCTION_SAFETY,
-            CONF_FROST_ALARM_ENTITY: FUNCTION_SAFETY,
-        }
-        function = function_by_source.get(source_key)
-        if function is None:
-            return False
-        return function in effective_room_profile_functions(self.model, room)
+                routes.setdefault(entity_id, set()).add(manager.room_id)
+        self.entity_room_routes = routes
 
     @callback
     def refresh_shared_listener(self) -> None:
-        """Maintain exactly one listener for all shared entities."""
-
-        desired: set[str] = set()
-        for manager in self.managers.values():
-            desired.update(manager.shared_entity_routes())
-        if desired == self._shared_entities:
-            return
-        self._shared_entities = desired
-        self.shared_input_coordinator.update_entities(desired)
+        desired = {entity for manager in self.managers.values() for entity in manager.shared_entity_routes()}
+        if desired != self._shared_entities:
+            self._shared_entities = desired
+            self.shared_input_coordinator.update_entities(desired)
 
     @callback
     def _handle_shared_state_event(self, event) -> None:
-        entity_id = event.data.get("entity_id")
-        affected_rooms = self.entity_room_routes.get(entity_id, set())
+        affected_rooms = self.entity_room_routes.get(event.data.get("entity_id"), set())
+        affected_groups: set[str] = set()
         for room_id in affected_rooms:
             manager = self.managers.get(room_id)
             if manager is not None:
                 manager._handle_shared_state_event(event)
-                refresh = getattr(manager, "refresh_schedule_snapshot", None)
-                if refresh is not None:
-                    refresh()
-        affected_profiles = self.entity_profile_routes.get(entity_id, set())
-        self.refresh_profile_evaluations(affected_profiles)
+                manager.refresh_schedule_snapshot()
+            room = self.model.get(CONF_ROOMS, {}).get(room_id, {})
+            affected_groups.add(str(room.get(CONF_GROUP, DEFAULT_GROUP)))
+        self.refresh_group_evaluations(affected_groups)
 
     @callback
     def _clear_shared_listener(self) -> None:
@@ -216,162 +117,98 @@ class CoverControlHub:
         self._shared_entities.clear()
 
     @callback
-    def refresh_profile_evaluations(
-        self, profile_keys: set[tuple[str, str]] | None = None
-    ) -> None:
-        """Calculate each profile once without room overrides."""
-
-        evaluations: dict[tuple[str, str], ProfileEvaluation] = dict(
-            self.profile_evaluations
-        )
-        candidates = self.profile_users if profile_keys is None else profile_keys
-        if profile_keys is None:
-            evaluations = {}
-        for profile_key in candidates:
-            if profile_key not in self.profile_users:
-                evaluations.pop(profile_key, None)
+    def refresh_group_evaluations(self, groups: set[str] | None = None) -> None:
+        candidates = set(self.group_users) if groups is None else groups
+        evaluations = {} if groups is None else dict(self.group_evaluations)
+        global_config = self.model.get(CONF_GLOBAL, {})
+        for group in candidates:
+            if group not in GROUPS or not self.group_users.get(group):
+                evaluations.pop(group, None)
                 continue
-            rooms = self.profile_users.get(profile_key, set())
-            known_rooms = self.model.get(CONF_ROOMS, {})
-            if not any(
-                FUNCTION_TIME
-                in effective_room_profile_functions(self.model, known_rooms[room_id])
-                for room_id in rooms
-                if room_id in known_rooms
-            ):
-                if known_rooms:
-                    evaluations.pop(profile_key, None)
-                    continue
-            config = resolve_profile_config(
-                self.model, profile_key[0], profile_key[1]
+            config = resolve_room_config(
+                system_defaults(),
+                global_config.get(CONF_GLOBAL_SOURCES, {}),
+                global_config.get(CONF_GLOBAL_DEFAULTS, {}),
+                group,
+                self.model.get(CONF_GROUPS, {}).get(group, {}),
+                {}, {}, room_id="group", room_name=group,
             )
-            profile = effective_profile(self.model, {"profile_id": profile_key[1]})
-            if not profile:
-                room = next(
-                    (
-                        room
-                        for room in self.model.get(CONF_ROOMS, {}).values()
-                        if effective_profile_id(room) == profile_key[1]
-                    ),
-                    {},
-                )
-                profile = effective_profile(self.model, room)
-            profile_capabilities = {
-                function
-                for room_id in rooms
-                if (room := known_rooms.get(room_id)) is not None
-                for function in effective_room_profile_functions(self.model, room)
-                if function in {FUNCTION_TIME, FUNCTION_SUN}
-            }
-            next_open, next_close = evaluate_time_profile(
+            next_open, next_close = evaluate_time_group(
                 self.hass,
                 config,
-                capabilities={
-                    "time" if function == FUNCTION_TIME else "sun"
-                    for function in profile_capabilities
-                },
+                capabilities={"time", "sun", "brightness", "opening", "closing"},
             )
-            evaluations[profile_key] = ProfileEvaluation(
-                next_open=next_open,
-                next_close=next_close,
-            )
-        if evaluations != self.profile_evaluations:
-            self.profile_evaluations = evaluations
+            evaluations[group] = GroupEvaluation(next_open, next_close)
+        if evaluations != self.group_evaluations:
+            self.group_evaluations = evaluations
             async_dispatcher_send(self.hass, SIGNAL_HUB_STATE_UPDATED)
-            affected_rooms = {
-                room_id
-                for profile_key in candidates
-                for room_id in self.profile_users.get(profile_key, set())
-            }
-            for room_id in affected_rooms:
-                manager = self.managers.get(room_id)
-                refresh = getattr(manager, "refresh_schedule_snapshot", None)
-                if manager is not None and refresh is not None:
-                    refresh()
-        self._reschedule_profile_timers()
+            for group in candidates:
+                for room_id in self.group_users.get(group, set()):
+                    manager = self.managers.get(room_id)
+                    if manager is not None:
+                        manager.refresh_schedule_snapshot()
+        self._reschedule_group_timers()
 
     @callback
-    def _reschedule_profile_timers(self) -> None:
-        desired: dict[tuple[str, str], datetime] = {}
-        for profile_key, evaluation in self.profile_evaluations.items():
-            if evaluation.next_open is not None:
-                desired[(profile_key[1], "open")] = evaluation.next_open
-            if evaluation.next_close is not None:
-                desired[(profile_key[1], "close")] = evaluation.next_close
-        for timer_key in set(self._profile_timer_unsubs) - set(desired):
-            self._profile_timer_unsubs.pop(timer_key)()
-            self._profile_timer_at.pop(timer_key, None)
-        for timer_key, due_at in desired.items():
-            if self._profile_timer_at.get(timer_key) == due_at:
+    def _reschedule_group_timers(self) -> None:
+        desired = {
+            (group, action): due
+            for group, evaluation in self.group_evaluations.items()
+            for action, due in (("open", evaluation.next_open), ("close", evaluation.next_close))
+            if due is not None
+        }
+        for key in set(self._group_timer_unsubs) - set(desired):
+            self._group_timer_unsubs.pop(key)()
+            self._group_timer_at.pop(key, None)
+        for key, due_at in desired.items():
+            if self._group_timer_at.get(key) == due_at:
                 continue
-            old = self._profile_timer_unsubs.pop(timer_key, None)
+            old = self._group_timer_unsubs.pop(key, None)
             if old is not None:
                 old()
-
             @callback
-            def _handle(_now: datetime, key=timer_key) -> None:
-                self._profile_timer_unsubs.pop(key, None)
-                self._profile_timer_at.pop(key, None)
-                rooms = self.profile_users.get(("profile", key[0]), set())
-                for manager in self.managers.values():
-                    if manager.room_id in rooms:
-                        manager.request_evaluate_all(
-                            TRIGGER_SCHEDULED_OPEN
-                            if key[1] == "open"
-                            else TRIGGER_SCHEDULED_CLOSE
+            def _handle(_now: datetime, timer_key=key) -> None:
+                self._group_timer_unsubs.pop(timer_key, None)
+                self._group_timer_at.pop(timer_key, None)
+                for room_id in self.group_users.get(timer_key[0], set()):
+                    manager = self.managers.get(room_id)
+                    if manager is not None:
+                        group_config = self.model.get(CONF_GROUPS, {}).get(
+                            timer_key[0], {}
                         )
-                self.refresh_profile_evaluations()
-
-            self._profile_timer_unsubs[timer_key] = async_track_point_in_time(
-                self.hass, _handle, due_at
-            )
-            self._profile_timer_at[timer_key] = due_at
+                        mode_key = (
+                            CONF_OPEN_MODE
+                            if timer_key[1] == "open"
+                            else CONF_CLOSE_MODE
+                        )
+                        manager.request_evaluate_all(
+                            scheduled_trigger(
+                                timer_key[1], str(group_config.get(mode_key, "time"))
+                            )
+                        )
+                self.refresh_group_evaluations({timer_key[0]})
+            self._group_timer_unsubs[key] = async_track_point_in_time(self.hass, _handle, due_at)
+            self._group_timer_at[key] = due_at
 
     @callback
-    def _clear_profile_timers(self) -> None:
-        for unsubscribe in self._profile_timer_unsubs.values():
+    def _clear_group_timers(self) -> None:
+        for unsubscribe in self._group_timer_unsubs.values():
             unsubscribe()
-        self._profile_timer_unsubs.clear()
-        self._profile_timer_at.clear()
+        self._group_timer_unsubs.clear()
+        self._group_timer_at.clear()
 
     def room_uses_shared_time_timer(self, room_id: str) -> bool:
-        room = self.model.get(CONF_ROOMS, {}).get(room_id, {})
-        profile_id = effective_profile_id(room)
-        return bool(
-            profile_id
-            and FUNCTION_TIME in effective_room_profile_functions(self.model, room)
-            and not room.get(CONF_ROOM_OVERRIDES)
-        )
-
-    def profile_name(self, profile_id: str) -> str:
-        profile = effective_profile(self.model, {"profile_id": profile_id})
-        if not profile:
-            for room in self.model.get(CONF_ROOMS, {}).values():
-                if effective_profile_id(room) == profile_id:
-                    profile = effective_profile(self.model, room)
-                    break
-        return str(profile.get(CONF_PROFILE_NAME, profile_id))
+        return room_id in self.model.get(CONF_ROOMS, {})
 
     def diagnostics(self) -> dict[str, Any]:
-        profiles = {
-            profile_id: {
-                "name": profile.get(CONF_PROFILE_NAME, profile_id),
-                "functions": sorted(configured_functions_from_profile(profile)),
-                "users": sorted(self.profile_users.get(("profile", profile_id), ())),
-            }
-            for profile_id, profile in self.model.get(CONF_PROFILES, {}).items()
-            if profile_id not in PROFILE_TYPES and isinstance(profile, Mapping)
-        }
         return {
-            "global_sources": deepcopy(
-                self.model.get(CONF_GLOBAL, {}).get(CONF_GLOBAL_SOURCES, {})
-            ),
-            "profiles": profiles,
-            "profile_evaluation": {
-                f"{profile_type}:{profile_id}": {
-                    "next_open": evaluation.next_open,
-                    "next_close": evaluation.next_close,
-                }
-                for (profile_type, profile_id), evaluation in self.profile_evaluations.items()
+            "global_sources": deepcopy(self.model.get(CONF_GLOBAL, {}).get(CONF_GLOBAL_SOURCES, {})),
+            "groups": {
+                group: {"users": sorted(self.group_users.get(group, ())) }
+                for group in GROUPS
+            },
+            "group_evaluation": {
+                group: {"next_open": evaluation.next_open, "next_close": evaluation.next_close}
+                for group, evaluation in self.group_evaluations.items()
             },
         }

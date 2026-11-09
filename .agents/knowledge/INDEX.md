@@ -1,7 +1,7 @@
 ---
 title: Map of Content (MOC) – Cover Control Knowledge Base
 type: index
-updated: 2026-11-08
+updated: 2026-11-09
 tags:
   - moc
   - index
@@ -19,21 +19,22 @@ Willkommen in der internen Wissensdatenbank von `cover-control`. Dieser Ordner d
 ### 1. Architektur & Designentscheidungen (ADRs)
 Grundsatzentscheidungen zur Struktur, Datenhaltung und Integration:
 * 📄 [`architecture/adr-001-mixin-architecture.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/architecture/adr-001-mixin-architecture.md) – Aufteilung der Controller-Verantwortlichkeiten auf spezialisierte Mixins.
-* 📄 [`architecture/adr-002-config-entry-vs-subentry.md`](architecture/adr-002-config-entry-vs-subentry.md) – Zentraler Controller plus eigenständige Room-ConfigEntries; Profile bleiben zentrale Datenobjekte, Subentries bleiben deaktiviert.
-* 📄 [`architecture/adr-003-state-hierarchy-configured-enabled-eligible.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/architecture/adr-003-state-hierarchy-configured-enabled-eligible.md) – Das dreistufige Zustandsmodell für Profilfunktionen.
+* 📄 [`architecture/adr-002-config-entry-vs-subentry.md`](architecture/adr-002-config-entry-vs-subentry.md) – Zentraler Controller mit drei festen Gruppen plus eigenständige Room-ConfigEntries; Subentries bleiben deaktiviert.
+* 📄 [`architecture/adr-003-state-hierarchy-configured-enabled-eligible.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/architecture/adr-003-state-hierarchy-configured-enabled-eligible.md) – Das dreistufige Zustandsmodell für Gruppenfunktionen.
 
 ### 2. Domänenwissen & Steuerungslogik
 Fachliche Regeln für Beschattung, Fahrbefehle und Prioritäten:
-* 📄 [`ioBroker-shuttercontrol.md`](ioBroker-shuttercontrol.md) – Fixierte Quellcodeanalyse von ioBroker.shuttercontrol 2.1.2 einschließlich Safety, No-Go-Time, gestuftem und saisonalem Schließen, Heat Protection und Fenster-Lüftungsfahrt.
-* 📄 [`domain/priorities-and-lockout.md`](domain/priorities-and-lockout.md) – Die Prioritätenhierarchie mit Safety oberhalb von Lockout, Force und Komfortautomation.
-* 📄 [`domain/shading-and-solar-geometry.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/shading-and-solar-geometry.md) – Sonnenberechnung (Azimut, Elevation), Hysterese und Wetterbewertung.
-* 📄 [`domain/manual-override-vs-automation.md`](domain/manual-override-vs-automation.md) – Erkennung manueller Fahrten, Override-Abgrenzung und toleranzbasierte Adoption der effektiven Beschattungsposition.
+* 📄 [`ioBroker-shuttercontrol.md`](ioBroker-shuttercontrol.md) – Fixierte Quellcodeanalyse von ioBroker.shuttercontrol 2.1.2 einschließlich reduzierter Runtime-Invarianten, Safety, No-Go-Time, gestuftem und saisonalem Schließen, Heat Protection und Fenster-Lüftungsfahrt.
+* 📄 [`domain/priorities-and-lockout.md`](domain/priorities-and-lockout.md) – Feste Prioritäten mit Safety und Window/Lockout vor Komfortautomation; keine generischen CCA-Overrides.
+* 📄 [`domain/shading-and-solar-geometry.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/domain/shading-and-solar-geometry.md) – Feste Shuttercontrol-Sonnenschutzmodi, Direction-Geometrie und prozentuale Endhysterese.
+* 📄 [`domain/manual-override-vs-automation.md`](domain/manual-override-vs-automation.md) – Einheitliche Automatikpause, Restart-/Ablaufsemantik und toleranzbasierte Adoption der effektiven Beschattungsposition.
+* 📄 [`domain/tilt-and-raffstore.md`](domain/tilt-and-raffstore.md) – Capability-gesteuertes Tilt-Modell mit vier physischen Raumzielen und fester Aktorsequenz.
 
 ### 3. Troubleshooting, Fallstricke & Lessons Learned
 Dokumentierte Lösungen für knifflige Bugs und HA-Spezifika:
-* 📄 [`troubleshooting/entity-registry-cleanup.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/troubleshooting/entity-registry-cleanup.md) – Lifecycle-Bereinigung verwaister Entitäten bei Raum- und Profiländerungen.
+* 📄 [`troubleshooting/entity-registry-cleanup.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/troubleshooting/entity-registry-cleanup.md) – Lifecycle-Bereinigung verwaister Entitäten bei Raumänderungen.
 * 📄 [`troubleshooting/home-assistant-async-guidelines.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/troubleshooting/home-assistant-async-guidelines.md) – Vermeidung blockierender I/O im Event-Loop und sauberes Unload.
-* 📄 [`troubleshooting/stable-sun-events-and-active-controls.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/troubleshooting/stable-sun-events-and-active-controls.md) – Stabile Sun-Duration-Ereignisse und getrennte Erfassung aktiver Entscheidungs-Controls.
+* 📄 [`troubleshooting/stable-sun-events-and-active-controls.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/troubleshooting/stable-sun-events-and-active-controls.md) – Deterministische Astro-Ereignisse und getrennte Erfassung aktiver Entscheidungs-Controls.
 
 ---
 

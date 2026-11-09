@@ -34,14 +34,14 @@ class CoverControlRuntime:
         return self.hub
 
     @property
-    def profile_evaluators(self) -> dict:
-        """Return shared profile evaluation registry."""
+    def group_evaluators(self) -> dict:
+        """Return shared group evaluation registry."""
 
-        return self.hub.profile_evaluations
+        return self.hub.group_evaluations
 
     @property
     def evaluation_scheduler(self) -> CoverControlHub:
-        """Expose deduplicated profile timer scheduler."""
+        """Expose deduplicated group timer scheduler."""
 
         return self.hub
 

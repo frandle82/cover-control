@@ -51,7 +51,7 @@ Strukturiert die folgenden 6 Prüfkategorien durchgehen:
   * Sonnengeometrie/Sensorik → `shading.py`
   * Status/Diagnose → `status.py`
 * [ ] **Keine Logik in Fassade:** `controller.py` bleibt reine Fassade/Delegator.
-* [ ] **Schichten-Trennung:** Global vs. Profil vs. Raum sauber getrennt (Profile dürfen keine Raum-Entitäten/Positionen kennen).
+* [ ] **Schichten-Trennung:** Global vs. Gruppe vs. Raum sauber getrennt (Groups dürfen keine Raum-Entitäten/Positionen kennen).
 
 ### 3. Sicherheit, Robustheit & Resilienz
 * [ ] **Defensive Entity-Zugriffe:** Kein blindes Vertrauen auf existierende States (`hass.states.get(...) is not None`). Fehlende oder unbekannte Entitäten (`STATE_UNAVAILABLE`, `STATE_UNKNOWN`) werden sauber abgefangen.

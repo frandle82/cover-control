@@ -9,19 +9,16 @@ automation actions outside the integration.
 
 | Area | Status | Mapping / note |
 | --- | --- | --- |
-| Sun fixed elevation | FULL | Fixed thresholds and duration are evaluated by the room runtime. |
-| Sun dynamic elevation | FULL | Configured open/close sensors, use switches, fallback to fixed. |
-| Sun hybrid elevation | FULL | Dynamic value plus the fixed threshold as offset. |
-| Configurable sun source | MAPPED | Global `sun_sensor`, default `sun.sun`; room source overrides are supported. |
-| Dynamic sun room sources | MAPPED | Dynamic open/close sources are resolvable per room. |
-| Force controls | FULL | Room UI, resolver, listeners, explicit priority, shared safety gates and imperative compatibility path. |
-| Force pause | FULL | Entity pause blocks dispatch and release requests fresh evaluation, including delayed movements. |
+| Sun fixed elevation | FULL | Explicit opening/closing modes use fixed group thresholds and HA `sun.sun` elevation. |
+| Sun dynamic elevation | NOT_APPLICABLE | Removed from the target model; legacy values migrate deterministically to fixed elevation. |
+| Sun hybrid elevation | NOT_APPLICABLE | Removed from the target model; legacy values migrate deterministically to fixed elevation. |
+| Configurable sun source | NOT_APPLICABLE | Cover Control uses the HA location and canonical `sun.sun`; no redundant source selector is exposed. |
+| Dynamic sun room sources | NOT_APPLICABLE | Dynamic elevation sources are outside the simplified shuttercontrol-style model. |
 | Restart/outage catch-up | FULL | Explicit startup/runtime-outage state with `never`, `outage` and `always` recovery modes; dependencies unavailable during startup remain in startup until the initial dependency set becomes usable. |
-| Fixed/random drive delay | FULL | Central combined pre-drive delay with post-wait live-gate, force and target rechecks. |
+| Fixed drive delay | FULL | Deterministic pre-drive delay with post-wait live-gate and target rechecks. |
 | Manual override | MAPPED | Native override state and clear/re-evaluate behavior. |
-| Tilt reposition | FULL | Native tilt-before-position mode is available. |
-| Tilt tolerance | FULL | Separate configurable tilt tolerance is persisted, resolved and used for tilt no-op decisions. |
-| Shading custom sensor | MAPPED | Additional shading conditions and configured sources cover the same use case. |
+| Tilt / slatted blinds | EXTENSION | Deliberate Home Assistant extension with four room-owned physical targets; capability-driven UI and fixed runtime sequencing do not affect CCA parity. |
+| Shading mode selection | FULL | Seven fixed shuttercontrol-style modes cover UI, persistence, sources, listeners, runtime, diagnostics, migration and regression tests. |
 | Before/After Actions | MAPPED | `Aktive Steuerung` plus external HA automations. |
 | CCA status helper | NOT_APPLICABLE | Runtime status is native Cover Control state and entities. |
 

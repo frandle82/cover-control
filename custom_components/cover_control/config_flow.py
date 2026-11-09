@@ -2,42 +2,33 @@
 from __future__ import annotations
 
 import logging
-from types import MappingProxyType
-from datetime import date, datetime, time, timedelta
-from collections import OrderedDict
+from datetime import datetime
 from copy import deepcopy
 from typing import Any
 
 import voluptuous as vol
 from homeassistant import config_entries
-from homeassistant.config_entries import ConfigSubentry
+from homeassistant.components.cover import CoverEntityFeature
 from homeassistant.core import callback
 from homeassistant.data_entry_flow import FlowResult, section
 from homeassistant.helpers import selector
 from homeassistant.util import dt as dt_util
 
-from .config_profiles import ConfigProfileModel
-from .config_profile_schema import (
-    PROFILE_CAPABILITY_KEYS,
-    build_profile_schema,
+from .config_groups import ConfigGroupModel
+from .config_group_schema import (
+    GROUP_CAPABILITY_KEYS,
+    build_group_schema,
     capability_keys,
     extract_sparse_settings,
     flatten_section_input,
 )
-from .config_profile_summary import profile_summary
 from .config_resolver import (
     GLOBAL_SOURCE_KEYS,
-    PROFILE_KEYS,
+    GROUP_BLOCKED_KEYS,
     ROOM_SOURCE_OVERRIDE_KEYS,
-    configured_functions_from_profile,
-    effective_profile,
-    resolve_config_model,
     system_defaults,
 )
-from .config_subentries import model_to_native_payloads
 from .const import (
-    BRIGHTNESS_SUN_OPERATOR_AND,
-    BRIGHTNESS_SUN_OPERATOR_OR,
     CONF_AUTO_BRIGHTNESS,
     CONF_AUTO_DOWN,
     CONF_AUTO_SHADING,
@@ -45,278 +36,129 @@ from .const import (
     CONF_AUTO_TIME,
     CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
-    CONF_ADDITIONAL_CONDITION_CLOSE,
-    CONF_ADDITIONAL_CONDITION_GLOBAL,
-    CONF_ADDITIONAL_CONDITION_OPEN,
-    CONF_ADDITIONAL_CONDITION_SHADING,
-    CONF_ADDITIONAL_CONDITION_SHADING_END,
-    CONF_ADDITIONAL_CONDITION_SHADING_TILT,
-    CONF_ADDITIONAL_CONDITION_VENTILATE,
-    CONF_ADDITIONAL_CONDITION_VENTILATE_END,
-    CONF_ADDITIONAL_CONDITIONS_ENABLED,
-    CONF_BRIGHTNESS_SUN_OPERATOR,
-    CONF_COLD_PROTECTION_FORECAST_SENSOR,
-    CONF_COLD_PROTECTION_THRESHOLD,
-    CONF_GLOBAL,
-    CONF_CONTROLLER_ENTRY_ID,
-    CONF_ENTRY_TYPE,
-    CONF_GLOBAL_DEFAULTS,
-    CONF_GLOBAL_SOURCES,
-    CONF_CALENDAR_CLOSE_TITLE,
-    CONF_CALENDAR_ENTITY,
-    CONF_CALENDAR_OPEN_TITLE,
-    CONF_BRIGHTNESS_CLOSE_BELOW,
-    CONF_BRIGHTNESS_HYSTERESIS,
-    CONF_BRIGHTNESS_OPEN_ABOVE,
     CONF_BRIGHTNESS_SENSOR,
-    CONF_BRIGHTNESS_TIME_DURATION,
-    CONF_CONTACT_STATUS_DELAY,
-    CONF_CONTACT_TRIGGER_DELAY,
-    CONF_CLOSE_POSITION,
-    CONF_INTERMEDIATE_CLOSE_POSITION,
+    CONF_CALENDAR_ENTITY,
     CONF_CHRISTMAS_POSITION,
-    CONF_SUMMER_SKIP_CLOSE_ENABLED,
     CONF_CHRISTMAS_POSITION_ENABLED,
+    CONF_CLOSE_POSITION,
     CONF_CLOSE_TILT_POSITION,
-    CONF_COVER_TILT_WAIT_MODE,
-    CONF_COVER_TILT_WAIT_TIMEOUT,
-    CONF_CUSTOM_POSITION_SENSOR,
+    CONF_COLD_PROTECTION_FORECAST_SENSOR,
+    CONF_CONTROLLER_ENTRY_ID,
     CONF_COVERS,
     CONF_COVER_TYPE,
     CONF_COVER_TYPE_AWNING,
     CONF_COVER_TYPE_BLIND,
     CONF_DRIVE_TIME,
-    CONF_TILT_POSITION_TOLERANCE,
-    CONF_FORCE_CLOSE_ENTITY,
-    CONF_FORCE_OPEN_ENTITY,
-    CONF_FORCE_PAUSE_ENTITY,
-    CONF_FORCE_SHADING_ENTITY,
-    CONF_FORCE_VENTILATE_ENTITY,
     CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON,
     CONF_ENABLE_LOGBOOK_COVER,
     CONF_ENABLE_RECALIBRATE_BUTTON,
-    CONF_MANUAL_CONTROL,
-    CONF_MANUAL_SCHEDULE_ADOPTION,
+    CONF_ENTRY_TYPE,
+    CONF_HEAT_PROTECTION_ENABLED,
+    CONF_HEAT_PROTECTION_THRESHOLD,
+    CONF_KEEP_SUN_PROTECTION,
+    CONF_GLOBAL,
+    CONF_GLOBAL_DEFAULTS,
+    CONF_GLOBAL_SOURCES,
+    CONF_GROUP,
+    CONF_GROUPS,
+    CONF_INTERMEDIATE_CLOSE_POSITION,
     CONF_LOCKOUT_POSITION,
-    CONF_LOCKOUT_TILT_CLOSE,
-    CONF_LOCKOUT_TILT_SHADING_END,
-    CONF_LOCKOUT_TILT_SHADING_START,
-    CONF_MANUAL_OVERRIDE_MINUTES,
-    CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
-    CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
-    CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
-    CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
-    CONF_MANUAL_OVERRIDE_RESET_MODE,
-    CONF_MANUAL_OVERRIDE_RESET_TIME,
+    CONF_MANUAL_CONTROL,
     CONF_NAME,
-    CONF_PROFILE_FUNCTIONS,
-    CONF_PROFILE_ID,
-    CONF_PROFILE_NAME,
-    CONF_PROFILES,
-    CONF_PROFILE_SETTINGS,
     CONF_OPEN_POSITION,
-    CONF_ROOM_PROFILE_ID,
     CONF_OPEN_TILT_POSITION,
-    CONF_ROOM,
-    CONF_ROOMS,
-    CONF_ROOM_OVERRIDES,
-    CONF_ROOM_SETTINGS,
-    CONF_SOURCE_OVERRIDES,
-    CONF_PROFILE_SELECTIONS,
-    CONF_ROOM_ID,
     CONF_POSITION_TOLERANCE,
-    CONF_POSITION_SOURCE,
-    CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
-    CONF_POSITION_SOURCE_CUSTOM_SENSOR,
-    CONF_POSITION_SOURCE_POSITION_ATTR,
-    CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
-    CONF_PREVENT_DEFAULT_COVER_ACTIONS,
-    CONF_PREVENT_HIGHER_POSITION_CLOSING,
-    CONF_PREVENT_LOWERING_WHEN_CLOSING_IF_SHADED,
-    CONF_PREVENT_OPENING_AFTER_SHADING_END,
-    CONF_PREVENT_OPENING_AFTER_VENTILATION_END,
-    CONF_PREVENT_OPENING_MULTIPLE_TIMES,
-    CONF_PREVENT_SHADING_END_IF_CLOSED,
-    CONF_PREVENT_SHADING_MULTIPLE_TIMES,
     CONF_RESIDENT_SENSOR,
     CONF_RESIDENT_STATUS,
-    CONF_RESIDENT_OPEN_ENABLED,
-    CONF_RESIDENT_CLOSE_ENABLED,
-    CONF_RESIDENT_ALLOW_SHADING,
-    CONF_RESIDENT_ALLOW_OPEN,
-    CONF_RESIDENT_ALLOW_VENTILATION,
-    CONF_SHADING_FORECAST_SENSOR,
-    CONF_SHADING_FORECAST_TEMP,
-    CONF_SHADING_FORECAST_TEMP_HYSTERESIS,
-    CONF_SHADING_FORECAST_TEMP_SENSOR,
-    CONF_SHADING_FORECAST_TYPE,
-    CONF_SHADING_INDEPENDENT_TEMP,
-    CONF_SHADING_INDEPENDENT_HOLDS_END,
-    CONF_SHADING_WEATHER_CONDITIONS,
-    CONF_SHADING_BRIGHTNESS_HYSTERESIS,
-    CONF_SHADING_BRIGHTNESS_END,
+    CONF_ROOM,
+    CONF_ROOMS,
+    CONF_ROOM_ID,
+    CONF_ROOM_SETTINGS,
     CONF_SHADING_BRIGHTNESS_SENSOR,
-    CONF_SHADING_BRIGHTNESS_START,
-    CONF_SHADING_CONDITIONS_END_AND,
-    CONF_SHADING_CONDITIONS_END_OR,
-    CONF_SHADING_CONDITIONS_START_AND,
-    CONF_SHADING_CONDITIONS_START_OR,
-    CONF_SHADING_CONFIG,
-    CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
-    CONF_SHADING_END_MAX_DURATION,
-    CONF_SHADING_MIN_TEMPERATURE_1,
-    CONF_SHADING_MIN_TEMPERATURE_2,
+    CONF_SHADING_BRIGHTNESS_HYSTERESIS,
+    CONF_SHADING_BRIGHTNESS_THRESHOLD,
+    CONF_SHADING_DIRECTION,
+    CONF_SHADING_DIRECTION_RANGE,
+    CONF_SHADING_INSIDE_TEMPERATURE_HYSTERESIS,
+    CONF_SHADING_INSIDE_TEMPERATURE_THRESHOLD,
+    CONF_SHADING_MODE,
+    CONF_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS,
+    CONF_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD,
     CONF_SHADING_POSITION,
     CONF_SHADING_POSITION_ALT,
     CONF_SHADING_POSITION_ALT_ENTITY,
-    CONF_SHADING_TEMPERATURE_HYSTERESIS_1,
-    CONF_SHADING_TEMPERATURE_HYSTERESIS_2,
-    CONF_SHADING_TEMPERATURE_SENSOR_1,
-    CONF_SHADING_TEMPERATURE_SENSOR_2,
-    CONF_SHADING_TILT_ELEVATION_1,
-    CONF_SHADING_TILT_ELEVATION_2,
-    CONF_SHADING_TILT_ELEVATION_3,
     CONF_SHADING_TILT_POSITION,
-    CONF_SHADING_TILT_POSITION_0,
-    CONF_SHADING_TILT_POSITION_1,
-    CONF_SHADING_TILT_POSITION_2,
-    CONF_SHADING_TILT_POSITION_3,
-    CONF_SHADING_START_MAX_DURATION,
     CONF_SHADING_WAITINGTIME_END,
-    CONF_SHADING_WAITINGTIME_START,
-    CONF_SUN_AZIMUTH_END,
-    CONF_SUN_AZIMUTH_START,
+    CONF_SOURCE_OVERRIDES,
+    CONF_SUMMER_SKIP_CLOSE_ENABLED,
     CONF_SUN_ELEVATION_CLOSE,
-    CONF_SUN_ELEVATION_MODE,
-    CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
-    CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
-    CONF_SUN_TIME_DURATION,
-    CONF_SUN_ELEVATION_OPEN_OFFSET,
-    CONF_SUN_ELEVATION_CLOSE_OFFSET,
     CONF_SUN_ELEVATION_MAX,
     CONF_SUN_ELEVATION_MIN,
     CONF_SUN_ELEVATION_OPEN,
+    CONF_ASTRO_CLOSE_OFFSET,
+    CONF_ASTRO_OPEN_OFFSET,
+    CONF_CLOSE_MODE,
+    CONF_OPEN_MODE,
     CONF_TEMPERATURE_FORECAST_THRESHOLD,
     CONF_TEMPERATURE_SENSOR_INDOOR,
     CONF_TEMPERATURE_SENSOR_OUTDOOR,
     CONF_TEMPERATURE_THRESHOLD,
-    CONF_TIME_DOWN_EARLY_NON_WORKDAY,
-    CONF_TIME_DOWN_EARLY_WORKDAY,
-    CONF_TIME_DOWN_LATE_NON_WORKDAY,
-    CONF_TIME_DOWN_LATE_WORKDAY,
-    CONF_TIME_UP_EARLY_NON_WORKDAY,
-    CONF_TIME_UP_EARLY_WORKDAY,
-    CONF_TIME_UP_LATE_NON_WORKDAY,
-    CONF_TIME_UP_LATE_WORKDAY,
-    CONF_VENTILATION_ALLOW_HIGHER_POSITION,
-    CONF_VENTILATION_DELAY_AFTER_CLOSE,
-    CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT,
-    CONF_SHADING_OVER_VENTILATION,
-    CONF_VENTILATION_START_NO_DELAY,
-    CONF_VENTILATION_USE_AFTER_SHADING,
+    CONF_USE_BRIGHTNESS_SENSOR,
+    CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
+    CONF_USE_RESIDENT_SENSOR,
+    CONF_USE_TEMPERATURE_SENSOR_INDOOR,
+    CONF_USE_TEMPERATURE_SENSOR_OUTDOOR,
+    CONF_USE_WORKDAY_SENSOR,
     CONF_VENTILATE_POSITION,
     CONF_VENTILATE_TILT_POSITION,
     CONF_WINDOW_SENSOR_FULL,
     CONF_WINDOW_SENSOR_TILT,
     CONF_WORKDAY_SENSOR,
     CONF_WORKDAY_TOMORROW_SENSOR,
-    CONF_USE_WORKDAY_SENSOR,
-    CONF_USE_RESIDENT_SENSOR,
-    CONF_USE_BRIGHTNESS_SENSOR,
-    CONF_USE_TEMPERATURE_SENSOR_INDOOR,
-    CONF_USE_TEMPERATURE_SENSOR_OUTDOOR,
-    CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
-    CONF_USE_SHADING_FORECAST_SENSOR,
-    CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
-    CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
-    COVER_TILT_WAIT_BEFORE_POSITION,
-    COVER_TILT_WAIT_FIXED_DELAY,
-    COVER_TILT_WAIT_IDLE,
-    DEFAULT_BRIGHTNESS_SUN_OPERATOR,
-    DEFAULT_CONTACT_SETTINGS,
     DEFAULT_AUTOMATION_FLAGS,
     DEFAULT_BEHAVIOR_SETTINGS,
     DEFAULT_BUTTON_SETTINGS,
-    DEFAULT_BRIGHTNESS_CLOSE,
-    DEFAULT_BRIGHTNESS_HYSTERESIS,
-    DEFAULT_BRIGHTNESS_OPEN,
-    DEFAULT_BRIGHTNESS_TIME_DURATION,
-    DEFAULT_COLD_PROTECTION_THRESHOLD,
-    DEFAULT_COVER_TILT_WAIT_MODE,
-    DEFAULT_COVER_TILT_WAIT_TIMEOUT,
+    DEFAULT_CONTACT_SETTINGS,
     DEFAULT_DRIVE_TIME,
-    DEFAULT_MANUAL_OVERRIDE_MINUTES,
-    DEFAULT_MANUAL_OVERRIDE_FLAGS,
-    DEFAULT_MANUAL_OVERRIDE_RESET_TIME,
+    DEFAULT_GROUP,
     DEFAULT_MASTER_FLAGS,
     DEFAULT_NAME,
     DEFAULT_POSITION_SETTINGS,
-    DEFAULT_SHADING_AZIMUTH_END,
-    DEFAULT_SHADING_AZIMUTH_START,
-    DEFAULT_SHADING_BRIGHTNESS_END,
-    DEFAULT_SHADING_BRIGHTNESS_HYSTERESIS,
-    DEFAULT_SHADING_BRIGHTNESS_START,
-    DEFAULT_SHADING_CONDITION_SETTINGS,
-    DEFAULT_SHADING_CONDITIONS_END_AND,
-    DEFAULT_SHADING_CONDITIONS_END_OR,
-    DEFAULT_SHADING_CONDITIONS_START_AND,
-    DEFAULT_SHADING_CONDITIONS_START_OR,
-    DEFAULT_SHADING_END_MAX_DURATION,
-    DEFAULT_SHADING_FORECAST_TYPE,
-    DEFAULT_SHADING_FORECAST_TEMP_HYSTERESIS,
-    DEFAULT_SHADING_INDEPENDENT_TEMP,
-    DEFAULT_SHADING_ELEVATION_MAX,
-    DEFAULT_SHADING_ELEVATION_MIN,
-    DEFAULT_SHADING_MIN_TEMPERATURE_1,
-    DEFAULT_SHADING_MIN_TEMPERATURE_2,
-    DEFAULT_SHADING_START_MAX_DURATION,
-    DEFAULT_SHADING_TEMPERATURE_HYSTERESIS_1,
-    DEFAULT_SHADING_TEMPERATURE_HYSTERESIS_2,
-    DEFAULT_SHADING_TILT_ELEVATION_1,
-    DEFAULT_SHADING_TILT_ELEVATION_2,
-    DEFAULT_SHADING_TILT_ELEVATION_3,
-    DEFAULT_SHADING_TILT_POSITION_0,
-    DEFAULT_SHADING_TILT_POSITION_1,
-    DEFAULT_SHADING_TILT_POSITION_2,
-    DEFAULT_SHADING_TILT_POSITION_3,
-    DEFAULT_SHADING_TIMING_SETTINGS,
-    DEFAULT_SHADING_WAITINGTIME_END,
-    DEFAULT_SHADING_WAITINGTIME_START,
     DEFAULT_SAFETY_PARTICIPATION,
     DEFAULT_SAFETY_SETTINGS,
-    DEFAULT_SUN_ELEVATION_CLOSE,
-    DEFAULT_SUN_ELEVATION_OPEN,
-    DEFAULT_SUN_ELEVATION_MODE,
-    DEFAULT_SUN_ELEVATION_OPEN_OFFSET,
-    DEFAULT_SUN_ELEVATION_CLOSE_OFFSET,
-    DEFAULT_SUN_TIME_DURATION,
-    DEFAULT_TIME_SETTINGS,
+    DEFAULT_SHADING_SETTINGS,
+    DEFAULT_SHADING_TIMING_SETTINGS,
+    DEFAULT_ASTRO_CLOSE_OFFSET,
+    DEFAULT_ASTRO_OPEN_OFFSET,
+    DEFAULT_CLOSE_MODE,
+    DEFAULT_OPEN_MODE,
     DEFAULT_TEMPERATURE_FORECAST_THRESHOLD,
     DEFAULT_TEMPERATURE_THRESHOLD,
-    DEFAULT_CONTACT_TRIGGER_DELAY,
-    DEFAULT_CONTACT_STATUS_DELAY,
-    DEFAULT_VENTILATION_DELAY_AFTER_CLOSE,
+    DEFAULT_TIME_SETTINGS,
     DOMAIN,
     ENTRY_TYPE_CONTROLLER,
     ENTRY_TYPE_ROOM,
-    PROFILE_TYPE_BEHAVIOR,
-    PROFILE_TYPE_SHADING,
-    PROFILE_TYPE_TIME,
-    PROFILE_TYPES,
-    PROFILE_FUNCTIONS,
+    GROUPS,
+    GROUP_CHILDREN,
+    GROUP_LIVING,
+    GROUP_SECTION_BEHAVIOR,
+    GROUP_SECTION_SHADING,
+    GROUP_SECTION_TIME,
+    GROUP_SLEEP,
+    MODE_ELEVATION,
+    MODE_BRIGHTNESS,
+    MODE_GOLDEN_HOUR,
+    MODE_SUNRISE,
+    MODE_SUNSET,
+    MODE_TIME,
     SAFETY_ALARMS,
-    MANUAL_OVERRIDE_RESET_NONE,
-    MANUAL_OVERRIDE_RESET_TIME,
-    MANUAL_OVERRIDE_RESET_TIMEOUT,
-    SHADING_CONDITION_AZIMUTH,
-    SHADING_CONDITION_BRIGHTNESS,
-    SHADING_CONDITION_ELEVATION,
-    SHADING_CONDITION_FORECAST_TEMP,
-    SHADING_CONDITION_FORECAST_WEATHER,
-    SHADING_CONDITION_TEMP_1,
-    SHADING_CONDITION_TEMP_2,
-    SHADING_CONFIG_COMPARE_FORECAST_SENSOR2,
-    SHADING_CONFIG_TEMP_INDEPENDENT,
+    SHADING_MODE_DIRECTION,
+    SHADING_MODE_INSIDE,
+    SHADING_MODE_INSIDE_OUTSIDE,
+    SHADING_MODE_INSIDE_OUTSIDE_DIRECTION,
+    SHADING_MODE_OFF,
+    SHADING_MODE_OUTSIDE,
+    SHADING_MODE_OUTSIDE_DIRECTION,
 )
 
 
@@ -328,17 +170,17 @@ def _with_config_defaults(config: dict) -> dict:
         **DEFAULT_TIME_SETTINGS,
         **DEFAULT_AUTOMATION_FLAGS,
         **DEFAULT_MASTER_FLAGS,
-        **DEFAULT_MANUAL_OVERRIDE_FLAGS,
         **DEFAULT_CONTACT_SETTINGS,
         **DEFAULT_BEHAVIOR_SETTINGS,
         **DEFAULT_BUTTON_SETTINGS,
         **DEFAULT_SAFETY_SETTINGS,
         **DEFAULT_SAFETY_PARTICIPATION,
         **DEFAULT_SHADING_TIMING_SETTINGS,
-        **{key: list(value) if isinstance(value, list) else value for key, value in DEFAULT_SHADING_CONDITION_SETTINGS.items()},
-        CONF_SUN_ELEVATION_MODE: DEFAULT_SUN_ELEVATION_MODE,
-        CONF_SUN_ELEVATION_OPEN_OFFSET: DEFAULT_SUN_ELEVATION_OPEN_OFFSET,
-        CONF_SUN_ELEVATION_CLOSE_OFFSET: DEFAULT_SUN_ELEVATION_CLOSE_OFFSET,
+        **{key: list(value) if isinstance(value, list) else value for key, value in DEFAULT_SHADING_SETTINGS.items()},
+        CONF_OPEN_MODE: DEFAULT_OPEN_MODE,
+        CONF_CLOSE_MODE: DEFAULT_CLOSE_MODE,
+        CONF_ASTRO_OPEN_OFFSET: DEFAULT_ASTRO_OPEN_OFFSET,
+        CONF_ASTRO_CLOSE_OFFSET: DEFAULT_ASTRO_CLOSE_OFFSET,
         CONF_TEMPERATURE_THRESHOLD: DEFAULT_TEMPERATURE_THRESHOLD,
         CONF_TEMPERATURE_FORECAST_THRESHOLD: DEFAULT_TEMPERATURE_FORECAST_THRESHOLD,
         **config,
@@ -385,14 +227,7 @@ CLEARABLE_ENTITY_SELECTOR_KEYS = {
     CONF_SHADING_BRIGHTNESS_SENSOR,
     CONF_TEMPERATURE_SENSOR_INDOOR,
     CONF_TEMPERATURE_SENSOR_OUTDOOR,
-    CONF_SHADING_TEMPERATURE_SENSOR_1,
-    CONF_SHADING_TEMPERATURE_SENSOR_2,
     CONF_COLD_PROTECTION_FORECAST_SENSOR,
-    CONF_SHADING_FORECAST_SENSOR,
-    CONF_SHADING_FORECAST_TEMP_SENSOR,
-    CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
-    CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
-    CONF_CUSTOM_POSITION_SENSOR,
 }
 
 ENTITY_TOGGLE_MAP: dict[str, str] = {
@@ -402,9 +237,6 @@ ENTITY_TOGGLE_MAP: dict[str, str] = {
     CONF_USE_TEMPERATURE_SENSOR_INDOOR: CONF_TEMPERATURE_SENSOR_INDOOR,
     CONF_USE_TEMPERATURE_SENSOR_OUTDOOR: CONF_TEMPERATURE_SENSOR_OUTDOOR,
     CONF_USE_COLD_PROTECTION_FORECAST_SENSOR: CONF_COLD_PROTECTION_FORECAST_SENSOR,
-    CONF_USE_SHADING_FORECAST_SENSOR: CONF_SHADING_FORECAST_SENSOR,
-    CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR: CONF_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
-    CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR: CONF_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
 }
 
 
@@ -415,7 +247,6 @@ INITIAL_FEATURE_KEYS = (
     CONF_AUTO_SUN,
     CONF_AUTO_SHADING,
     CONF_RESIDENT_STATUS,
-    CONF_ADDITIONAL_CONDITIONS_ENABLED,
 )
 
 
@@ -436,28 +267,6 @@ def _time_default(value, fallback: str | None = None):
     return vol.UNDEFINED
 
 
-SHADING_CONDITION_OPTIONS = [
-    {"value": SHADING_CONDITION_AZIMUTH, "label": "cond_azimuth"},
-    {"value": SHADING_CONDITION_ELEVATION, "label": "cond_elevation"},
-    {"value": SHADING_CONDITION_BRIGHTNESS, "label": "cond_brightness"},
-    {"value": SHADING_CONDITION_TEMP_1, "label": "cond_temp1"},
-    {"value": SHADING_CONDITION_TEMP_2, "label": "cond_temp2"},
-    {"value": SHADING_CONDITION_FORECAST_TEMP, "label": "cond_forecast_temp"},
-    {"value": SHADING_CONDITION_FORECAST_WEATHER, "label": "cond_forecast_weather"},
-]
-
-SHADING_CONFIG_OPTIONS = [
-    {
-        "value": SHADING_CONFIG_TEMP_INDEPENDENT,
-        "label": "shading_temp_comparison_independent",
-    },
-    {
-        "value": SHADING_CONFIG_COMPARE_FORECAST_SENSOR2,
-        "label": "shading_compare_forecast_with_sensor2",
-    },
-]
-
-
 POSITION_FIELD_LIMITS = {
     CONF_OPEN_POSITION: 100,
     CONF_CLOSE_POSITION: 100,
@@ -468,24 +277,11 @@ POSITION_FIELD_LIMITS = {
     CONF_SHADING_POSITION: 100,
     CONF_SHADING_POSITION_ALT: 100,
     CONF_POSITION_TOLERANCE: 20,
-    CONF_TILT_POSITION_TOLERANCE: 20,
     CONF_OPEN_TILT_POSITION: 100,
     CONF_CLOSE_TILT_POSITION: 100,
     CONF_VENTILATE_TILT_POSITION: 100,
     CONF_SHADING_TILT_POSITION: 100,
-    CONF_SHADING_TILT_POSITION_0: 100,
-    CONF_SHADING_TILT_POSITION_1: 100,
-    CONF_SHADING_TILT_POSITION_2: 100,
-    CONF_SHADING_TILT_POSITION_3: 100,
 }
-
-_EXTRA_POSITION_DEFAULTS: dict[str, int] = {
-    CONF_SHADING_TILT_POSITION_0: DEFAULT_SHADING_TILT_POSITION_0,
-    CONF_SHADING_TILT_POSITION_1: DEFAULT_SHADING_TILT_POSITION_1,
-    CONF_SHADING_TILT_POSITION_2: DEFAULT_SHADING_TILT_POSITION_2,
-    CONF_SHADING_TILT_POSITION_3: DEFAULT_SHADING_TILT_POSITION_3,
-}
-
 
 def _position_number_selector(
     key: str = CONF_OPEN_POSITION,
@@ -508,7 +304,7 @@ def _normalize_position_value(key: str, value: Any) -> int | None:
     try:
         parsed = int(float(str(value).replace(",", ".")))
     except (TypeError, ValueError):
-        fallback = DEFAULT_POSITION_SETTINGS.get(key, _EXTRA_POSITION_DEFAULTS.get(key, 0))
+        fallback = DEFAULT_POSITION_SETTINGS.get(key, 0)
         if key in optional_positions and fallback is None:
             return None
         parsed = int(fallback)
@@ -516,7 +312,7 @@ def _normalize_position_value(key: str, value: Any) -> int | None:
 
 
 def _position_default(config: dict[str, Any], key: str) -> int | None:
-    fallback = DEFAULT_POSITION_SETTINGS.get(key, _EXTRA_POSITION_DEFAULTS.get(key, 0))
+    fallback = DEFAULT_POSITION_SETTINGS.get(key, 0)
     return _normalize_position_value(key, config.get(key, fallback))
 
 
@@ -573,20 +369,11 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
     async def async_step_global_sources(self, user_input=None):
         return await self._forward_step("global_sources", user_input)
 
-    async def async_step_profiles(self, user_input=None):
-        return await self._forward_step("profiles", user_input)
-
-    async def async_step_profile_back(self, user_input=None):
-        return await self._forward_step("profile_back", user_input)
-
     async def async_step_diagnostics(self, user_input=None):
         return await self._forward_step("diagnostics", user_input)
 
     async def async_step_recovery(self, user_input=None):
         return await self._forward_step("recovery", user_input)
-
-    async def async_step_profile_done(self, user_input=None):
-        return await self._forward_step("profile_done", user_input)
 
     async def async_step_general(self, user_input=None):
         return await self._forward_step("general", user_input)
@@ -606,8 +393,8 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
     async def async_step_geometry(self, user_input=None):
         return await self._forward_step("geometry", user_input)
 
-    async def async_step_profile_assignment(self, user_input=None):
-        return await self._forward_step("profile_assignment", user_input)
+    async def async_step_group_assignment(self, user_input=None):
+        return await self._forward_step("group_assignment", user_input)
 
     async def async_step_source_overrides(self, user_input=None):
         return await self._forward_step("source_overrides", user_input)
@@ -628,7 +415,7 @@ class CoverOptionsFlow(config_entries.OptionsFlow):
 class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
     """Handle the config flow."""
 
-    VERSION = 12
+    VERSION = 19
 
     @staticmethod
     @callback
@@ -678,15 +465,13 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
                     CONF_NAME: DEFAULT_NAME,
                     CONF_GLOBAL: self._data[CONF_GLOBAL],
-                    CONF_PROFILES: {},
+                    CONF_GROUPS: {group: {} for group in GROUPS},
                 },
             )
         fields = {}
         for key in sorted(GLOBAL_SOURCE_KEYS):
-            fields[vol.Optional(key)] = (
-                selector.ConditionSelector()
-                if key == CONF_ADDITIONAL_CONDITION_GLOBAL
-                else selector.EntitySelector(selector.EntitySelectorConfig())
+            fields[vol.Optional(key)] = selector.EntitySelector(
+                selector.EntitySelectorConfig()
             )
         return self.async_show_form(
             step_id="global_sources", data_schema=vol.Schema(fields)
@@ -717,7 +502,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 or (
                     CONF_ENTRY_TYPE not in entry.data
                     and CONF_GLOBAL in entry.data
-                    and CONF_PROFILES in entry.data
+                    and CONF_GROUPS in entry.data
                 )
             ),
             None,
@@ -767,7 +552,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                     CONF_CONTROLLER_ENTRY_ID: controller_entry_id,
                     CONF_ROOM_ID: room_id,
                     CONF_NAME: title,
-                    CONF_PROFILE_FUNCTIONS: [],
+                    CONF_GROUP: user_input.get(CONF_GROUP, DEFAULT_GROUP),
                     CONF_ROOM_SETTINGS: {
                         CONF_ROOM: user_input[CONF_ROOM],
                         CONF_COVERS: list(user_input[CONF_COVERS]),
@@ -780,6 +565,11 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_NAME): selector.TextSelector(),
+                    vol.Required(CONF_GROUP, default=DEFAULT_GROUP): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=list(GROUPS), translation_key="group"
+                        )
+                    ),
                     vol.Required(CONF_ROOM): selector.AreaSelector(),
                     vol.Required(CONF_COVERS): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["cover"], multiple=True)
@@ -788,7 +578,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             ),
         )
 
-    def _model(self) -> ConfigProfileModel:
+    def _model(self) -> ConfigGroupModel:
         from .config_subentries import model_from_entries, model_from_subentries
 
         entry = self._entry()
@@ -799,22 +589,18 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 if candidate.data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM
                 and candidate.data.get(CONF_CONTROLLER_ENTRY_ID) == entry.entry_id
             ]
-            return ConfigProfileModel(
+            return ConfigGroupModel(
                 model_from_entries(entry.entry_id, entry.data, room_entries)
             )
-        return ConfigProfileModel(
+        return ConfigGroupModel(
             model_from_subentries(entry.data, entry.subentries.values())
         )
 
-    def _save_parent_model(self, model: ConfigProfileModel) -> None:
+    def _save_parent_model(self, model: ConfigGroupModel) -> None:
         entry = self._entry()
         new_data = deepcopy(dict(entry.data))
         new_data[CONF_GLOBAL] = deepcopy(model.data[CONF_GLOBAL])
-        new_data[CONF_PROFILES] = {
-            profile_id: deepcopy(profile)
-            for profile_id, profile in model.data[CONF_PROFILES].items()
-            if profile_id not in PROFILE_TYPES
-        }
+        new_data[CONF_GROUPS] = deepcopy(model.data[CONF_GROUPS])
         self.hass.config_entries.async_update_entry(
             entry,
             data=new_data,
@@ -823,11 +609,12 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         runtime = getattr(entry, "runtime_data", None)
         if runtime is not None and getattr(runtime, "hub", None) is not None:
             runtime.model = deepcopy(model.data)
-            affected_rooms = {
-                room_id
-                for users in model.profile_users.values()
-                for room_id in users
-            }
+            editing_group = getattr(self, "_editing_group", None)
+            affected_rooms = (
+                set(model.group_users.get(editing_group, set()))
+                if editing_group
+                else set(model.data[CONF_ROOMS])
+            )
             if affected_rooms:
                 runtime.hub.apply_model(runtime.model, affected_rooms)
 
@@ -848,7 +635,9 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             step_id="controller_reconfigure",
             menu_options=[
                 "global_sources",
-                "profiles",
+                "group_living",
+                "group_sleep",
+                "group_children",
                 "diagnostics",
                 "recovery",
                 "finish",
@@ -874,21 +663,17 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                         CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
                         CONF_NAME: DEFAULT_NAME,
                         CONF_GLOBAL: self._data[CONF_GLOBAL],
-                        CONF_PROFILES: {},
+                        CONF_GROUPS: {group: {} for group in GROUPS},
                     },
                 )
             fields = {}
             for key in sorted(GLOBAL_SOURCE_KEYS):
-                fields[vol.Optional(key)] = (
-                    selector.ConditionSelector()
-                    if key == CONF_ADDITIONAL_CONDITION_GLOBAL
-                    else selector.EntitySelector(
-                        selector.EntitySelectorConfig(
-                            domain=["binary_sensor", "input_boolean", "switch"]
-                        )
-                        if key in {alarm[1] for alarm in SAFETY_ALARMS}
-                        else selector.EntitySelectorConfig()
+                fields[vol.Optional(key)] = selector.EntitySelector(
+                    selector.EntitySelectorConfig(
+                        domain=["binary_sensor", "input_boolean", "switch"]
                     )
+                    if key in {alarm[1] for alarm in SAFETY_ALARMS}
+                    else selector.EntitySelectorConfig()
                 )
             return self.async_show_form(
                 step_id="global_sources", data_schema=vol.Schema(fields)
@@ -920,48 +705,43 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 key,
                 description={"suggested_value": current} if current else None,
             )
-            schema[marker] = (
-                selector.ConditionSelector()
-                if key == CONF_ADDITIONAL_CONDITION_GLOBAL
-                else selector.EntitySelector(
-                    selector.EntitySelectorConfig(
-                        domain=["binary_sensor", "input_boolean", "switch"]
-                    )
-                    if key in {alarm[1] for alarm in SAFETY_ALARMS}
-                    else selector.EntitySelectorConfig()
+            schema[marker] = selector.EntitySelector(
+                selector.EntitySelectorConfig(
+                    domain=["binary_sensor", "input_boolean", "switch"]
                 )
+                if key in {alarm[1] for alarm in SAFETY_ALARMS}
+                else selector.EntitySelectorConfig()
             )
         return self.async_show_form(
             step_id="global_sources", data_schema=vol.Schema(schema)
         )
 
     async def async_step_recovery(self, user_input=None) -> FlowResult:
-        """Restore last-known-good parent and native subentries."""
+        """Restore the last-known-good controller and standalone rooms."""
 
         entry = self._entry()
         runtime = getattr(entry, "runtime_data", None)
         recovery = getattr(runtime, "recovery_manager", None)
         available = recovery is not None and recovery.last_known_good is not None
         if user_input is not None and user_input.get("confirm") and available:
-            parent_data, payloads = model_to_native_payloads(
-                recovery.last_known_good
-            )
-            parent_data[CONF_NAME] = DEFAULT_NAME
-            for subentry_id in tuple(entry.subentries):
-                self.hass.config_entries.async_remove_subentry(
-                    entry, subentry_id
-                )
-            for subentry_id, subentry_type, title, data in payloads:
-                self.hass.config_entries.async_add_subentry(
-                    entry,
-                    ConfigSubentry(
-                        data=MappingProxyType(data),
-                        subentry_id=subentry_id,
-                        subentry_type=subentry_type,
-                        title=title,
-                        unique_id=subentry_id,
-                    ),
-                )
+            restored = ConfigGroupModel(recovery.last_known_good).data
+            parent_data = deepcopy(dict(entry.data))
+            parent_data[CONF_GLOBAL] = deepcopy(restored[CONF_GLOBAL])
+            parent_data[CONF_GROUPS] = deepcopy(restored[CONF_GROUPS])
+            for room_entry in self.hass.config_entries.async_entries(DOMAIN):
+                if room_entry.data.get(CONF_CONTROLLER_ENTRY_ID) != entry.entry_id:
+                    continue
+                room_id = str(room_entry.data.get(CONF_ROOM_ID) or room_entry.entry_id)
+                room = restored[CONF_ROOMS].get(room_id)
+                if room is None:
+                    continue
+                room_data = deepcopy(dict(room))
+                room_data.update({
+                    CONF_ENTRY_TYPE: ENTRY_TYPE_ROOM,
+                    CONF_CONTROLLER_ENTRY_ID: entry.entry_id,
+                    CONF_ROOM_ID: room_id,
+                })
+                self.hass.config_entries.async_update_entry(room_entry, data=room_data)
             self.hass.config_entries.async_update_entry(
                 entry,
                 data=parent_data,
@@ -979,329 +759,370 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
 
     async def async_step_diagnostics(self, user_input=None) -> FlowResult:
         model = self._model()
-        usage = []
-        for profile_id, profile in model.data[CONF_PROFILES].items():
-            if profile_id in PROFILE_TYPES:
-                continue
-            rooms = sorted(model.profile_users.get(("profile", profile_id), ()))
-            usage.append(
-                f"{profile.get(CONF_PROFILE_NAME, profile_id)}: "
-                f"{', '.join(self._room_names(model, rooms)) or '—'}"
-            )
-        return self.async_show_form(
-            step_id="room_diagnostics",
-            data_schema=vol.Schema({}),
-            description_placeholders={"profiles": "; ".join(usage) or "—"},
-        )
-
-    async def async_step_profiles(self, user_input=None) -> FlowResult:
-        if self._entry().data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM:
-            return self.async_abort(reason="profile_controller_only")
-        model = self._model()
-        catalog = {
-            profile_id: profile
-            for profile_id, profile in model.data[CONF_PROFILES].items()
-            if profile_id not in PROFILE_TYPES
-        }
-        errors: dict[str, str] = {}
-        if user_input is not None:
-            action = user_input["profile_action"]
-            profile_id = user_input.get("profile_id")
-            if action == "back":
-                return await self.async_step_controller_reconfigure()
-            if action == "create":
-                self._editing_profile_id = None
-                return await self.async_step_profile_setup()
-            if not profile_id:
-                errors["base"] = "profile_required"
-            elif action == "edit":
-                self._editing_profile_id = profile_id
-                return await self.async_step_profile_sections()
-            elif action == "duplicate":
-                from homeassistant.util.ulid import ulid_now
-
-                copied = deepcopy(catalog[profile_id])
-                new_id = ulid_now()
-                copied[CONF_PROFILE_ID] = new_id
-                copied[CONF_PROFILE_NAME] = f"{copied.get(CONF_PROFILE_NAME, profile_id)} 2"
-                model.data[CONF_PROFILES][new_id] = copied
-                self._save_parent_model(model)
-                return await self.async_step_profiles()
-            elif action == "delete":
-                users = [
-                    room_id
-                    for room_id, room in model.data[CONF_ROOMS].items()
-                    if room.get("profile_id") == profile_id
-                ]
-                if users:
-                    self._blocked_profile_rooms = self._room_names(model, users)
-                    errors["base"] = "profile_in_use"
-                else:
-                    model.data[CONF_PROFILES].pop(profile_id, None)
-                    self._save_parent_model(model)
-                    return await self.async_step_profiles()
-
-        profile_options = [
-            {"value": profile_id, "label": profile.get(CONF_PROFILE_NAME, profile_id)}
-            for profile_id, profile in catalog.items()
+        usage = [
+            f"{group}: {', '.join(self._room_names(model, sorted(rooms))) or '—'}"
+            for group, rooms in model.group_users.items()
         ]
-        action_options = (
-            ["create", "back"]
-            if not profile_options
-            else ["create", "edit", "duplicate", "delete", "back"]
-        )
-        schema: dict = {
-            vol.Required(
-                "profile_action", default=action_options[0] if not profile_options else "edit"
-            ): selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=action_options,
-                    translation_key="profile_action",
-                )
-            )
-        }
-        if profile_options:
-            schema[vol.Optional("profile_id")] = selector.SelectSelector(
-                selector.SelectSelectorConfig(options=profile_options)
-            )
         return self.async_show_form(
-            step_id="profiles",
-            data_schema=vol.Schema(schema),
-            errors=errors,
-            description_placeholders={
-                "profile_usage": "; ".join(
-                    f"{profile.get(CONF_PROFILE_NAME, profile_id)}: "
-                    f"{', '.join(self._room_names(model, sorted(model.profile_users.get(('profile', profile_id), ())))) or '—'}"
-                    for profile_id, profile in catalog.items()
-                )
-                or "—",
-                "blocked_rooms": ", ".join(getattr(self, "_blocked_profile_rooms", [])),
-            },
+            step_id="diagnostics",
+            data_schema=vol.Schema({}),
+            description_placeholders={"groups": "; ".join(usage)},
         )
 
-    async def async_step_profile_setup(self, user_input=None) -> FlowResult:
-        if self._entry().data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM:
-            return self.async_abort(reason="profile_controller_only")
-        model = self._model()
-        profile_id = getattr(self, "_editing_profile_id", None)
-        profile = model.data[CONF_PROFILES].get(profile_id, {})
-        if user_input is not None:
-            name = str(user_input["profile_name"]).strip()
-            if profile_id:
-                profile[CONF_PROFILE_NAME] = name
-            else:
-                from homeassistant.util.ulid import ulid_now
+    async def async_step_group_living(self, user_input=None) -> FlowResult:
+        return await self._start_group(GROUP_LIVING)
 
-                profile_id = ulid_now()
-                model.data[CONF_PROFILES][profile_id] = {
-                    CONF_PROFILE_ID: profile_id,
-                    CONF_PROFILE_NAME: name,
-                    CONF_PROFILE_SETTINGS: {},
-                    CONF_PROFILE_FUNCTIONS: [],
-                }
-                self._editing_profile_id = profile_id
-            self._save_parent_model(model)
-            return await self.async_step_profile_sections()
-        return self.async_show_form(
-            step_id="profile_setup",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        "profile_name",
-                        default=profile.get(CONF_PROFILE_NAME, ""),
-                    ): selector.TextSelector(),
-                }
-            ),
-            description_placeholders={
-                "profile_usage": self._profile_usage_text(model, "profile", profile_id)
-            },
-        )
+    async def async_step_group_sleep(self, user_input=None) -> FlowResult:
+        return await self._start_group(GROUP_SLEEP)
 
-    async def async_step_profile_sections(self, user_input=None) -> FlowResult:
-        if self._entry().data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM:
-            return self.async_abort(reason="profile_controller_only")
-        model = self._model()
-        profile_id = getattr(self, "_editing_profile_id", None)
-        profile_steps = [f"profile_{function}" for function in PROFILE_FUNCTIONS]
+    async def async_step_group_children(self, user_input=None) -> FlowResult:
+        return await self._start_group(GROUP_CHILDREN)
+
+    async def _start_group(self, group: str) -> FlowResult:
+        self._editing_group = group
+        return await self.async_step_group_sections()
+
+    async def async_step_group_sections(self, user_input=None) -> FlowResult:
         return self.async_show_menu(
-            step_id="profile_sections",
+            step_id="group_sections",
             menu_options=[
-                "profile_setup",
-                *profile_steps,
-                "profile_done",
-                "profile_back",
+                "group_time",
+                "group_brightness",
+                "group_sun",
+                "group_shading",
+                "group_ventilation",
+                "group_resident",
+                "group_behavior",
+                "group_safety",
+                "group_back",
             ],
-            description_placeholders=self._profile_context_placeholders(
-                model, profile_id
-            ),
+            description_placeholders=self._group_context_placeholders(),
         )
 
-    async def async_step_profile_done(self, user_input=None) -> FlowResult:
-        """Finish profile editing and return to the profile catalog."""
+    async def async_step_group_back(self, user_input=None) -> FlowResult:
+        self._editing_group = None
+        return await self.async_step_controller_reconfigure()
 
-        model = self._model()
-        profile_id = getattr(self, "_editing_profile_id", None)
-        if not profile_id or profile_id not in model.data[CONF_PROFILES]:
-            return await self.async_step_profiles()
-        self._save_parent_model(model)
-        self._editing_profile_id = None
-        return await self.async_step_profiles()
-
-    async def async_step_profile_back(self, user_input=None) -> FlowResult:
-        """Return to the profile overview without discarding saved sections."""
-
-        self._editing_profile_id = None
-        return await self.async_step_profiles()
-
-    async def _async_unified_profile_function_step(
+    async def _async_group_section_step(
         self,
-        profile_type: str,
+        section_name: str,
         step_id: str,
         user_input,
         *,
         capabilities: tuple[str, ...],
     ) -> FlowResult:
-        if self._entry().data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM:
-            return self.async_abort(reason="profile_controller_only")
+        group = getattr(self, "_editing_group", None)
+        if group not in GROUPS:
+            return await self.async_step_controller_reconfigure()
         model = self._model()
-        profile_id = getattr(self, "_editing_profile_id", None)
-        if not profile_id or profile_id not in model.data[CONF_PROFILES]:
-            return await self.async_step_profiles()
-        profile = model.data[CONF_PROFILES][profile_id]
-        existing = dict(profile.get(CONF_PROFILE_SETTINGS, {}))
-        allowed = capability_keys(profile_type, capabilities)
+        existing = dict(model.data[CONF_GROUPS][group])
+        allowed = capability_keys(section_name, capabilities) - GROUP_BLOCKED_KEYS
         if user_input is not None:
             selected = extract_sparse_settings(
                 flatten_section_input(user_input),
-                profile_type,
+                section_name,
                 {key: value for key, value in existing.items() if key in allowed},
                 field_selection=None,
                 allowed_keys=allowed,
             )
-            profile[CONF_PROFILE_SETTINGS] = {
+            model.data[CONF_GROUPS][group] = {
                 **{key: value for key, value in existing.items() if key not in allowed},
                 **selected,
             }
-            from .config_resolver import configured_functions_from_profile
-
-            profile[CONF_PROFILE_FUNCTIONS] = sorted(
-                configured_functions_from_profile(profile)
-            )
             self._save_parent_model(model)
-            return await self.async_step_profile_sections()
+            return await self.async_step_group_sections()
         return self.async_show_form(
             step_id=step_id,
-            data_schema=build_profile_schema(
-                profile_type,
+            data_schema=build_group_schema(
+                section_name,
                 existing,
                 system_defaults(),
                 field_selection=None,
                 allowed_keys=allowed,
             ),
-            description_placeholders=self._profile_context_placeholders(
-                model, profile_id
-            ),
+            description_placeholders=self._group_context_placeholders(),
         )
 
-    def _profile_context_placeholders(
-        self, model: ConfigProfileModel, profile_id: str | None
-    ) -> dict[str, str]:
-        name = self._profile_display_name(model, profile_id)
-        profile = model.data[CONF_PROFILES].get(profile_id, {}) if profile_id else {}
+    def _group_context_placeholders(self) -> dict[str, str]:
+        group = getattr(self, "_editing_group", DEFAULT_GROUP)
+        model = self._model()
+        rooms = self._room_names(model, sorted(model.group_users.get(group, ())))
         return {
-            "profile_name": name,
-            "profile_context": f'Profile "{name}"',
-            "profile_usage": self._profile_usage_text(model, "profile", profile_id),
-            **profile_summary(
-                profile,
-                system_defaults(),
-                language=getattr(getattr(self, "hass", None), "config", None)
-                and getattr(self.hass.config, "language", None),
-            ),
+            "group": group,
+            "group_name": group,
+            "group_usage": ", ".join(rooms) or "—",
         }
 
-    @staticmethod
-    def _profile_display_name(
-        model: ConfigProfileModel, profile_id: str | None
-    ) -> str:
-        if not profile_id:
-            return "—"
-        profile = model.data[CONF_PROFILES].get(profile_id, {})
-        return str(profile.get(CONF_PROFILE_NAME) or profile_id)
-
-    async def async_step_profile_time(self, user_input=None) -> FlowResult:
-        return await self._async_unified_profile_function_step(
-            PROFILE_TYPE_TIME,
-            "profile_time",
-            user_input,
+    async def async_step_group_time(self, user_input=None) -> FlowResult:
+        return await self._async_group_section_step(
+            GROUP_SECTION_TIME, "group_time", user_input,
             capabilities=("opening", "closing", "workday", "calendar"),
         )
 
-    async def async_step_profile_brightness(self, user_input=None) -> FlowResult:
-        return await self._async_unified_profile_function_step(
-            PROFILE_TYPE_TIME,
-            "profile_brightness",
-            user_input,
+    async def async_step_group_brightness(self, user_input=None) -> FlowResult:
+        return await self._async_group_section_step(
+            GROUP_SECTION_TIME, "group_brightness", user_input,
             capabilities=("brightness",),
         )
 
-    async def async_step_profile_sun(self, user_input=None) -> FlowResult:
-        return await self._async_unified_profile_function_step(
-            PROFILE_TYPE_TIME, "profile_sun", user_input, capabilities=("sun",)
+    async def async_step_group_sun(self, user_input=None) -> FlowResult:
+        group = getattr(self, "_editing_group", None)
+        if group not in GROUPS:
+            return await self.async_step_controller_reconfigure()
+        model = self._model()
+        existing = dict(model.data[CONF_GROUPS][group])
+        mode_keys = {CONF_OPEN_MODE, CONF_CLOSE_MODE}
+        if user_input is not None:
+            selected = extract_sparse_settings(
+                flatten_section_input(user_input),
+                GROUP_SECTION_TIME,
+                {key: value for key, value in existing.items() if key in mode_keys},
+                allowed_keys=mode_keys,
+            )
+            model.data[CONF_GROUPS][group] = {
+                **existing,
+                **selected,
+            }
+            modes = {selected.get(CONF_OPEN_MODE), selected.get(CONF_CLOSE_MODE)}
+            model.data[CONF_GROUPS][group].update(
+                {
+                    CONF_AUTO_UP: True,
+                    CONF_AUTO_DOWN: True,
+                    CONF_AUTO_TIME: True,
+                    CONF_AUTO_SUN: bool(
+                        modes - {None, MODE_TIME, MODE_BRIGHTNESS}
+                    ),
+                    CONF_AUTO_BRIGHTNESS: MODE_BRIGHTNESS in modes,
+                }
+            )
+            self._save_parent_model(model)
+            return await self.async_step_group_sun_details()
+        return self.async_show_form(
+            step_id="group_sun",
+            data_schema=build_group_schema(
+                GROUP_SECTION_TIME,
+                existing,
+                system_defaults(),
+                allowed_keys=mode_keys,
+            ),
+            description_placeholders=self._group_context_placeholders(),
         )
 
-    async def async_step_profile_shading(self, user_input=None) -> FlowResult:
-        return await self._async_unified_profile_function_step(
-            PROFILE_TYPE_SHADING,
-            "profile_shading",
-            user_input,
-            capabilities=tuple(PROFILE_CAPABILITY_KEYS[PROFILE_TYPE_SHADING]),
+    async def async_step_group_sun_details(self, user_input=None) -> FlowResult:
+        group = getattr(self, "_editing_group", None)
+        if group not in GROUPS:
+            return await self.async_step_controller_reconfigure()
+        model = self._model()
+        existing = dict(model.data[CONF_GROUPS][group])
+        open_mode = str(existing.get(CONF_OPEN_MODE, DEFAULT_OPEN_MODE))
+        close_mode = str(existing.get(CONF_CLOSE_MODE, DEFAULT_CLOSE_MODE))
+        allowed: set[str] = set()
+        if open_mode == MODE_ELEVATION:
+            allowed.add(CONF_SUN_ELEVATION_OPEN)
+        if close_mode == MODE_ELEVATION:
+            allowed.add(CONF_SUN_ELEVATION_CLOSE)
+        if open_mode in {MODE_SUNRISE, MODE_GOLDEN_HOUR}:
+            allowed.add(CONF_ASTRO_OPEN_OFFSET)
+        if close_mode in {MODE_SUNSET, MODE_GOLDEN_HOUR}:
+            allowed.add(CONF_ASTRO_CLOSE_OFFSET)
+        if not allowed:
+            return await self.async_step_group_sections()
+        if user_input is not None:
+            selected = extract_sparse_settings(
+                flatten_section_input(user_input),
+                GROUP_SECTION_TIME,
+                {key: value for key, value in existing.items() if key in allowed},
+                allowed_keys=allowed,
+            )
+            model.data[CONF_GROUPS][group] = {**existing, **selected}
+            self._save_parent_model(model)
+            return await self.async_step_group_sections()
+        return self.async_show_form(
+            step_id="group_sun_details",
+            data_schema=build_group_schema(
+                GROUP_SECTION_TIME,
+                existing,
+                system_defaults(),
+                allowed_keys=allowed,
+            ),
+            description_placeholders=self._group_context_placeholders(),
         )
 
-    async def async_step_profile_ventilation(self, user_input=None) -> FlowResult:
-        return await self._async_unified_profile_function_step(
-            PROFILE_TYPE_BEHAVIOR,
-            "profile_ventilation",
-            user_input,
+    async def async_step_group_shading(self, user_input=None) -> FlowResult:
+        group = getattr(self, "_editing_group", None)
+        if group not in GROUPS:
+            return await self.async_step_controller_reconfigure()
+        model = self._model()
+        existing = dict(model.data[CONF_GROUPS][group])
+        allowed = {CONF_SHADING_MODE}
+        if user_input is not None:
+            selected = extract_sparse_settings(
+                flatten_section_input(user_input),
+                GROUP_SECTION_SHADING,
+                {key: value for key, value in existing.items() if key in allowed},
+                allowed_keys=allowed,
+            )
+            mode = str(selected.get(CONF_SHADING_MODE, SHADING_MODE_OFF))
+            self._selected_shading_mode = mode
+            model.data[CONF_GROUPS][group] = {
+                **existing,
+                **selected,
+                CONF_AUTO_SHADING: mode != SHADING_MODE_OFF,
+            }
+            if mode == SHADING_MODE_OFF:
+                for key in (
+                    CONF_SHADING_DIRECTION,
+                    CONF_SHADING_DIRECTION_RANGE,
+                    CONF_SUN_ELEVATION_MIN,
+                    CONF_SUN_ELEVATION_MAX,
+                    CONF_SHADING_INSIDE_TEMPERATURE_THRESHOLD,
+                    CONF_SHADING_INSIDE_TEMPERATURE_HYSTERESIS,
+                    CONF_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD,
+                    CONF_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS,
+                    CONF_SHADING_BRIGHTNESS_THRESHOLD,
+                    CONF_SHADING_BRIGHTNESS_HYSTERESIS,
+                    CONF_HEAT_PROTECTION_ENABLED,
+                    CONF_HEAT_PROTECTION_THRESHOLD,
+                ):
+                    model.data[CONF_GROUPS][group].pop(key, None)
+            self._save_parent_model(model)
+            return await self.async_step_group_shading_details()
+        return self.async_show_form(
+            step_id="group_shading",
+            data_schema=build_group_schema(
+                GROUP_SECTION_SHADING,
+                existing,
+                system_defaults(),
+                allowed_keys=allowed,
+            ),
+            description_placeholders=self._group_context_placeholders(),
+        )
+
+    async def async_step_group_shading_details(self, user_input=None) -> FlowResult:
+        group = getattr(self, "_editing_group", None)
+        if group not in GROUPS:
+            return await self.async_step_controller_reconfigure()
+        model = self._model()
+        existing = dict(model.data[CONF_GROUPS][group])
+        mode = str(
+            getattr(
+                self,
+                "_selected_shading_mode",
+                existing.get(CONF_SHADING_MODE, SHADING_MODE_OFF),
+            )
+        )
+        allowed = {
+            CONF_SHADING_WAITINGTIME_END,
+            CONF_KEEP_SUN_PROTECTION,
+        }
+        if mode in {
+            SHADING_MODE_INSIDE_OUTSIDE,
+            SHADING_MODE_INSIDE_OUTSIDE_DIRECTION,
+            SHADING_MODE_INSIDE,
+        }:
+            allowed.update(
+                {
+                    CONF_SHADING_INSIDE_TEMPERATURE_THRESHOLD,
+                    CONF_SHADING_INSIDE_TEMPERATURE_HYSTERESIS,
+                }
+            )
+        if mode in {
+            SHADING_MODE_INSIDE_OUTSIDE,
+            SHADING_MODE_INSIDE_OUTSIDE_DIRECTION,
+            SHADING_MODE_OUTSIDE_DIRECTION,
+            SHADING_MODE_OUTSIDE,
+        }:
+            allowed.update(
+                {
+                    CONF_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD,
+                    CONF_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS,
+                    CONF_SHADING_BRIGHTNESS_THRESHOLD,
+                    CONF_SHADING_BRIGHTNESS_HYSTERESIS,
+                    CONF_HEAT_PROTECTION_ENABLED,
+                    CONF_HEAT_PROTECTION_THRESHOLD,
+                }
+            )
+        if mode in {
+            SHADING_MODE_DIRECTION,
+            SHADING_MODE_INSIDE_OUTSIDE_DIRECTION,
+            SHADING_MODE_OUTSIDE_DIRECTION,
+        }:
+            allowed.update(
+                {
+                    CONF_SHADING_DIRECTION,
+                    CONF_SHADING_DIRECTION_RANGE,
+                    CONF_SUN_ELEVATION_MIN,
+                    CONF_SUN_ELEVATION_MAX,
+                }
+            )
+        if mode == SHADING_MODE_OFF:
+            return await self.async_step_group_sections()
+        if user_input is not None:
+            selected = extract_sparse_settings(
+                flatten_section_input(user_input),
+                GROUP_SECTION_SHADING,
+                {key: value for key, value in existing.items() if key in allowed},
+                allowed_keys=allowed,
+            )
+            mode_fields = {
+                CONF_SHADING_DIRECTION,
+                CONF_SHADING_DIRECTION_RANGE,
+                CONF_SUN_ELEVATION_MIN,
+                CONF_SUN_ELEVATION_MAX,
+                CONF_SHADING_INSIDE_TEMPERATURE_THRESHOLD,
+                CONF_SHADING_INSIDE_TEMPERATURE_HYSTERESIS,
+                CONF_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD,
+                CONF_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS,
+                CONF_SHADING_BRIGHTNESS_THRESHOLD,
+                CONF_SHADING_BRIGHTNESS_HYSTERESIS,
+                CONF_HEAT_PROTECTION_ENABLED,
+                CONF_HEAT_PROTECTION_THRESHOLD,
+            }
+            retained = {
+                key: value
+                for key, value in existing.items()
+                if key not in mode_fields or key in allowed
+            }
+            model.data[CONF_GROUPS][group] = {**retained, **selected}
+            self._save_parent_model(model)
+            return await self.async_step_group_sections()
+        return self.async_show_form(
+            step_id="group_shading_details",
+            data_schema=build_group_schema(
+                GROUP_SECTION_SHADING,
+                existing,
+                system_defaults(),
+                allowed_keys=allowed,
+            ),
+            description_placeholders=self._group_context_placeholders(),
+        )
+
+    async def async_step_group_ventilation(self, user_input=None) -> FlowResult:
+        return await self._async_group_section_step(
+            GROUP_SECTION_BEHAVIOR, "group_ventilation", user_input,
             capabilities=("ventilation",),
         )
 
-    async def async_step_profile_resident(self, user_input=None) -> FlowResult:
-        return await self._async_unified_profile_function_step(
-            PROFILE_TYPE_BEHAVIOR,
-            "profile_resident",
-            user_input,
+    async def async_step_group_resident(self, user_input=None) -> FlowResult:
+        return await self._async_group_section_step(
+            GROUP_SECTION_BEHAVIOR, "group_resident", user_input,
             capabilities=("resident",),
         )
 
-    async def async_step_profile_behavior(self, user_input=None) -> FlowResult:
-        return await self._async_unified_profile_function_step(
-            PROFILE_TYPE_BEHAVIOR,
-            "profile_behavior",
-            user_input,
+    async def async_step_group_behavior(self, user_input=None) -> FlowResult:
+        return await self._async_group_section_step(
+            GROUP_SECTION_BEHAVIOR, "group_behavior", user_input,
             capabilities=("manual_override", "movement_protection", "tilt_behavior"),
         )
 
-    async def async_step_profile_safety(self, user_input=None) -> FlowResult:
-        return await self._async_unified_profile_function_step(
-            PROFILE_TYPE_BEHAVIOR,
-            "profile_safety",
-            user_input,
+    async def async_step_group_safety(self, user_input=None) -> FlowResult:
+        return await self._async_group_section_step(
+            GROUP_SECTION_BEHAVIOR, "group_safety", user_input,
             capabilities=("safety",),
         )
 
-    def _profile_usage_text(
-        self, model: ConfigProfileModel, profile_type: str, profile_id: str | None
-    ) -> str:
-        if not profile_id:
-            return "This profile is currently not used by any room."
-        rooms = self._room_names(
-            model, sorted(model.profile_users.get((profile_type, profile_id), ()))
-        )
-        return ", ".join(rooms) or "—"
-
     @staticmethod
-    def _room_names(model: ConfigProfileModel, room_ids: list[str]) -> list[str]:
+    def _room_names(model: ConfigGroupModel, room_ids: list[str]) -> list[str]:
         return [
             str(model.data[CONF_ROOMS].get(room_id, {}).get(CONF_NAME, room_id))
             for room_id in room_ids
@@ -1338,13 +1159,13 @@ class RoomFlowMixin:
 
         return controller_entry_for_room(self.hass, self._room_entry())
 
-    def _controller_profiles(self) -> dict[str, Any]:
-        """Return central profile catalog for this room."""
+    def _controller_groups(self) -> dict[str, Any]:
+        """Return the controller-owned fixed groups."""
 
         controller_entry = self._controller_entry_for_room()
         if controller_entry is None:
             return {}
-        return dict(controller_entry.data.get(CONF_PROFILES, {}))
+        return dict(controller_entry.data.get(CONF_GROUPS, {}))
 
     async def _save_room(
         self, data: dict[str, Any], *, title: str | None = None
@@ -1367,24 +1188,13 @@ class RoomFlowMixin:
     def _room_context_placeholders(self) -> dict[str, str]:
         data = self._room_data()
         settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
-        profiles = self._controller_profiles()
-        profile_id = data.get(CONF_ROOM_PROFILE_ID)
-        profile = profiles.get(profile_id, {}) if profile_id else {}
-        profile_name = str(profile.get(CONF_PROFILE_NAME) or "—")
         covers = settings.get(CONF_COVERS, [])
-        selected = data.get(CONF_PROFILE_FUNCTIONS, [])
-        if isinstance(selected, dict):
-            selected = [
-                function for function, enabled in selected.items() if enabled
-            ]
         return {
             "room_name": str(data.get(CONF_NAME) or self._room_title()),
             "area": str(settings.get(CONF_ROOM) or "—"),
             "cover_count": str(len(covers) if isinstance(covers, list) else 0),
-            "profile_name": profile_name,
-            "profile_function_count": str(
-                len(selected) if isinstance(selected, list) else 0
-            ),
+            "group": str(data.get(CONF_GROUP, DEFAULT_GROUP)),
+            "group_name": str(data.get(CONF_GROUP, DEFAULT_GROUP)),
         }
 
     async def async_step_user(self, user_input=None) -> FlowResult:
@@ -1396,7 +1206,7 @@ class RoomFlowMixin:
                 title=title,
                 data={
                     CONF_NAME: title,
-                    CONF_PROFILE_FUNCTIONS: [],
+                    CONF_GROUP: user_input.get(CONF_GROUP, DEFAULT_GROUP),
                     CONF_ROOM_SETTINGS: {
                         CONF_ROOM: user_input[CONF_ROOM],
                         CONF_COVERS: list(user_input[CONF_COVERS]),
@@ -1409,6 +1219,11 @@ class RoomFlowMixin:
             data_schema=vol.Schema(
                 {
                     vol.Required(CONF_NAME): selector.TextSelector(),
+                    vol.Required(CONF_GROUP, default=DEFAULT_GROUP): selector.SelectSelector(
+                        selector.SelectSelectorConfig(
+                            options=list(GROUPS), translation_key="group"
+                        )
+                    ),
                     vol.Required(CONF_ROOM): selector.AreaSelector(),
                     vol.Required(CONF_COVERS): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["cover"], multiple=True)
@@ -1433,8 +1248,7 @@ class RoomFlowMixin:
                 "positions",
                 "contacts",
                 "room_sensors",
-                "geometry",
-                "profile_assignment",
+                "group_assignment",
                 "safety",
                 "source_overrides",
                 "controls",
@@ -1453,11 +1267,6 @@ class RoomFlowMixin:
                 CONF_ENABLE_RECALIBRATE_BUTTON,
                 CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON,
                 CONF_ENABLE_LOGBOOK_COVER,
-                CONF_FORCE_OPEN_ENTITY,
-                CONF_FORCE_CLOSE_ENTITY,
-                CONF_FORCE_VENTILATE_ENTITY,
-                CONF_FORCE_SHADING_ENTITY,
-                CONF_FORCE_PAUSE_ENTITY,
             ):
                 settings[key] = user_input.get(key) or None
             data[CONF_ROOM_SETTINGS] = settings
@@ -1481,20 +1290,6 @@ class RoomFlowMixin:
                         CONF_ENABLE_LOGBOOK_COVER,
                         default=bool(settings.get(CONF_ENABLE_LOGBOOK_COVER, False)),
                     ): bool,
-                    **{
-                        vol.Optional(key, default=_selector_default(settings.get(key))): selector.EntitySelector(
-                            selector.EntitySelectorConfig(
-                                domain=["input_boolean", "switch", "binary_sensor"]
-                            )
-                        )
-                        for key in (
-                            CONF_FORCE_OPEN_ENTITY,
-                            CONF_FORCE_CLOSE_ENTITY,
-                            CONF_FORCE_VENTILATE_ENTITY,
-                            CONF_FORCE_SHADING_ENTITY,
-                            CONF_FORCE_PAUSE_ENTITY,
-                        )
-                    },
                 }
             ),
             description_placeholders=self._room_context_placeholders(),
@@ -1626,46 +1421,12 @@ class RoomFlowMixin:
         )
 
     async def async_step_geometry(self, user_input=None) -> FlowResult:
-        data = self._room_data()
-        settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
-        keys = (CONF_SUN_AZIMUTH_START, CONF_SUN_AZIMUTH_END)
-        if user_input is not None:
-            for key in keys:
-                settings[key] = user_input[key]
-            data[CONF_ROOM_SETTINGS] = settings
-            return await self._save_room(data)
-        return self.async_show_form(
-            step_id="geometry",
-            data_schema=vol.Schema(
-                {
-                    vol.Required(
-                        CONF_SUN_AZIMUTH_START,
-                        default=settings.get(
-                            CONF_SUN_AZIMUTH_START, DEFAULT_SHADING_AZIMUTH_START
-                        ),
-                    ): vol.Coerce(float),
-                    vol.Required(
-                        CONF_SUN_AZIMUTH_END,
-                        default=settings.get(
-                            CONF_SUN_AZIMUTH_END, DEFAULT_SHADING_AZIMUTH_END
-                        ),
-                    ): vol.Coerce(float),
-                }
-            ),
-            description_placeholders=self._room_context_placeholders(),
-        )
+        return await self.async_step_room_reconfigure()
 
     async def async_step_diagnostics(self, user_input=None) -> FlowResult:
         entry = self._room_entry()
         data = self._room_data()
         settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
-        profiles = self._controller_profiles()
-        profile_labels = []
-        profile_id = data.get("profile_id")
-        profile = profiles.get(profile_id) if profile_id else None
-        profile_labels.append(
-            str(profile.get(CONF_PROFILE_NAME)) if isinstance(profile, dict) else "—"
-        )
         snapshot = self._room_entry_snapshot(entry, self._room_id())
 
         return self.async_show_form(
@@ -1675,13 +1436,8 @@ class RoomFlowMixin:
                 "room": str(data.get(CONF_NAME, self._room_title())),
                 "area": str(settings.get(CONF_ROOM) or "—"),
                 "cover_count": str(len(settings.get(CONF_COVERS, []))),
-                "profiles": "; ".join(profile_labels),
-                "profile_name": "; ".join(profile_labels),
-                "profile_function_count": str(
-                    len(data.get(CONF_PROFILE_FUNCTIONS, []))
-                    if isinstance(data.get(CONF_PROFILE_FUNCTIONS, []), list)
-                    else 0
-                ),
+                "group": str(data.get(CONF_GROUP, DEFAULT_GROUP)),
+                "group_name": str(data.get(CONF_GROUP, DEFAULT_GROUP)),
                 "resident_sensor": self._entity_name(settings.get(CONF_RESIDENT_SENSOR)),
                 "temperature_sensor": self._entity_name(settings.get(CONF_TEMPERATURE_SENSOR_INDOOR)),
                 "next_open": self._format_schedule_event(snapshot.get("next_open")),
@@ -1731,13 +1487,7 @@ class RoomFlowMixin:
         if user_input is not None:
             settings = dict(data.get(CONF_ROOM_SETTINGS, {}))
             settings.update(_normalize_position_fields(dict(user_input)))
-            if CONF_TILT_POSITION_TOLERANCE in user_input:
-                settings[CONF_TILT_POSITION_TOLERANCE] = float(
-                    user_input[CONF_TILT_POSITION_TOLERANCE]
-                )
             settings[CONF_COVERS] = list(user_input[CONF_COVERS])
-            if settings.get(CONF_POSITION_SOURCE) != CONF_POSITION_SOURCE_CUSTOM_SENSOR:
-                settings.pop(CONF_CUSTOM_POSITION_SENSOR, None)
             data[CONF_ROOM_SETTINGS] = settings
             return await self._save_room(data)
         return self.async_show_form(
@@ -1748,28 +1498,6 @@ class RoomFlowMixin:
                         CONF_COVERS, default=settings.get(CONF_COVERS, [])
                     ): selector.EntitySelector(
                         selector.EntitySelectorConfig(domain=["cover"], multiple=True)
-                    ),
-                    vol.Required(
-                        CONF_POSITION_SOURCE,
-                        default=settings.get(
-                            CONF_POSITION_SOURCE,
-                            CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
-                        ),
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=[
-                                CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
-                                CONF_POSITION_SOURCE_POSITION_ATTR,
-                                CONF_POSITION_SOURCE_CUSTOM_SENSOR,
-                            ],
-                            translation_key="position_source",
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_CUSTOM_POSITION_SENSOR,
-                        default=_selector_default(settings.get(CONF_CUSTOM_POSITION_SENSOR)),
-                    ): selector.EntitySelector(
-                        selector.EntitySelectorConfig(domain=["sensor"])
                     ),
                     vol.Required(
                         CONF_COVER_TYPE,
@@ -1799,38 +1527,10 @@ class RoomFlowMixin:
                             mode=selector.NumberSelectorMode.BOX,
                         )
                     ),
-                    vol.Optional(
-                        CONF_COVER_TILT_WAIT_MODE,
-                        default=settings.get(
-                            CONF_COVER_TILT_WAIT_MODE,
-                            DEFAULT_COVER_TILT_WAIT_MODE,
-                        ),
-                    ): selector.SelectSelector(
-                        selector.SelectSelectorConfig(
-                            options=[
-                                COVER_TILT_WAIT_FIXED_DELAY,
-                                COVER_TILT_WAIT_IDLE,
-                                COVER_TILT_WAIT_BEFORE_POSITION,
-                            ],
-                            mode=selector.SelectSelectorMode.DROPDOWN,
-                            translation_key="cover_tilt_wait_mode",
-                        )
-                    ),
-                    vol.Optional(
-                        CONF_COVER_TILT_WAIT_TIMEOUT,
-                        default=settings.get(
-                            CONF_COVER_TILT_WAIT_TIMEOUT,
-                            DEFAULT_COVER_TILT_WAIT_TIMEOUT,
-                        ),
-                    ): vol.Coerce(int),
                     vol.Required(
                         CONF_POSITION_TOLERANCE,
                         default=_position_default(dict(settings), CONF_POSITION_TOLERANCE),
                     ): _position_number_selector(CONF_POSITION_TOLERANCE),
-                    vol.Optional(
-                        CONF_TILT_POSITION_TOLERANCE,
-                        default=_position_default(dict(settings), CONF_TILT_POSITION_TOLERANCE),
-                    ): _position_number_selector(CONF_TILT_POSITION_TOLERANCE),
                 }
             ),
             description_placeholders=self._room_context_placeholders(),
@@ -1862,10 +1562,6 @@ class RoomFlowMixin:
                 CONF_CLOSE_TILT_POSITION,
                 CONF_SHADING_TILT_POSITION,
                 CONF_VENTILATE_TILT_POSITION,
-                CONF_SHADING_TILT_POSITION_0,
-                CONF_SHADING_TILT_POSITION_1,
-                CONF_SHADING_TILT_POSITION_2,
-                CONF_SHADING_TILT_POSITION_3,
             }
             normalized = _normalize_position_fields(
                 {key: value for key, value in submitted.items() if key in keys}
@@ -1879,6 +1575,14 @@ class RoomFlowMixin:
             data[CONF_ROOM_SETTINGS] = settings
             return await self._save_room(data)
 
+        supports_tilt = any(
+            (state := self.hass.states.get(entity_id)) is not None
+            and bool(
+                int(state.attributes.get("supported_features", 0))
+                & int(CoverEntityFeature.SET_TILT_POSITION)
+            )
+            for entity_id in settings.get(CONF_COVERS, [])
+        )
         return self.async_show_form(
             step_id="positions",
             data_schema=vol.Schema(
@@ -1938,7 +1642,7 @@ class RoomFlowMixin:
                         ),
                         {"collapsed": False},
                     ),
-                    vol.Optional("tilt_positions"): section(
+                    **({vol.Optional("tilt_positions"): section(
                         vol.Schema(
                             {
                                 vol.Required(
@@ -1957,25 +1661,9 @@ class RoomFlowMixin:
                                     CONF_VENTILATE_TILT_POSITION,
                                     default=_position_default(settings, CONF_VENTILATE_TILT_POSITION),
                                 ): _position_number_selector(),
-                                vol.Required(
-                                    CONF_SHADING_TILT_POSITION_0,
-                                    default=_position_default(settings, CONF_SHADING_TILT_POSITION_0),
-                                ): _position_number_selector(),
-                                vol.Required(
-                                    CONF_SHADING_TILT_POSITION_1,
-                                    default=_position_default(settings, CONF_SHADING_TILT_POSITION_1),
-                                ): _position_number_selector(),
-                                vol.Required(
-                                    CONF_SHADING_TILT_POSITION_2,
-                                    default=_position_default(settings, CONF_SHADING_TILT_POSITION_2),
-                                ): _position_number_selector(),
-                                vol.Required(
-                                    CONF_SHADING_TILT_POSITION_3,
-                                    default=_position_default(settings, CONF_SHADING_TILT_POSITION_3),
-                                ): _position_number_selector(),
                             }
                         ),
-                    ),
+                    )} if supports_tilt else {}),
                 }
             ),
             description_placeholders=self._room_context_placeholders(),
@@ -2005,159 +1693,20 @@ class RoomFlowMixin:
             description_placeholders=self._room_context_placeholders(),
         )
 
-    def _store_profile_assignment(
-        self,
-        data: dict[str, Any],
-        profiles: dict[str, Any],
-        user_input: dict[str, Any],
-    ) -> None:
-        previous_profile_id = data.get(CONF_ROOM_PROFILE_ID)
-        profile_id = user_input.get(CONF_ROOM_PROFILE_ID)
-        if profile_id in (None, ""):
-            data.pop(CONF_ROOM_PROFILE_ID, None)
-            data[CONF_PROFILE_FUNCTIONS] = []
-            data.pop(CONF_PROFILE_SELECTIONS, None)
-            return
-        data[CONF_ROOM_PROFILE_ID] = profile_id
-        profile = profiles.get(profile_id, {})
-        available = configured_functions_from_profile(profile)
-        submitted = user_input.get(
-            CONF_PROFILE_FUNCTIONS, data.get(CONF_PROFILE_FUNCTIONS, [])
-        )
-        if isinstance(submitted, dict):
-            submitted = [
-                function for function, enabled in submitted.items() if enabled
-            ]
-        if profile_id != previous_profile_id and CONF_PROFILE_FUNCTIONS not in user_input:
-            submitted = sorted(available)
-        data[CONF_PROFILE_FUNCTIONS] = sorted(
-            function for function in submitted if function in available
-        )
-        data.pop(CONF_PROFILE_SELECTIONS, None)
-
-    async def async_step_profile_assignment(self, user_input=None) -> FlowResult:
+    async def async_step_group_assignment(self, user_input=None) -> FlowResult:
         data = self._room_data()
-        profiles = self._controller_profiles()
         if user_input is not None:
-            self._store_profile_assignment(data, profiles, user_input)
+            data[CONF_GROUP] = user_input[CONF_GROUP]
             return await self._save_room(data)
-
-        profile_options = [{"value": "", "label": "—"}]
-        profile_options.extend(
-            {
-                "value": profile_id,
-                "label": profile.get(CONF_PROFILE_NAME, profile_id),
-            }
-            for profile_id, profile in profiles.items()
-            if profile_id not in PROFILE_TYPES
-        )
-        profile_id = data.get(CONF_ROOM_PROFILE_ID)
-        profile = profiles.get(profile_id, {}) if profile_id else {}
-        available = configured_functions_from_profile(profile)
-        selected = data.get(CONF_PROFILE_FUNCTIONS, [])
-        if isinstance(selected, dict):
-            selected = [
-                function for function, enabled in selected.items() if enabled
-            ]
-        current = sorted(function for function in selected if function in available)
-        schema: dict = {
-            vol.Optional(
-                CONF_ROOM_PROFILE_ID,
-                default=profile_id or "",
-            ): selector.SelectSelector(
-                selector.SelectSelectorConfig(options=profile_options)
-            )
-        }
-        if available:
-            schema[
-                vol.Optional(
-                    CONF_PROFILE_FUNCTIONS,
-                    default=current,
-                )
-            ] = selector.SelectSelector(
-                selector.SelectSelectorConfig(
-                    options=[
-                        function for function in PROFILE_FUNCTIONS if function in available
-                    ],
-                    multiple=True,
-                    mode=selector.SelectSelectorMode.LIST,
-                    translation_key="profile_functions",
-                )
-            )
         return self.async_show_form(
-            step_id="profile_assignment",
-            data_schema=vol.Schema(schema),
-            description_placeholders=self._room_context_placeholders(),
-        )
-
-    async def async_step_profile_references(self, user_input=None) -> FlowResult:
-        data = self._room_data()
-        profiles = self._controller_profiles()
-        if user_input is not None:
-            self._store_profile_assignment(data, profiles, user_input)
-            return await self._save_room(data)
-        options = [{"value": "", "label": "—"}]
-        options.extend(
-            {
-                "value": profile_id,
-                "label": profile.get(CONF_PROFILE_NAME, profile_id),
-            }
-            for profile_id, profile in profiles.items()
-            if profile_id not in PROFILE_TYPES
-        )
-        current = data.get(CONF_ROOM_PROFILE_ID)
-        schema = {
-            vol.Optional(
-                CONF_ROOM_PROFILE_ID,
-                description={"suggested_value": current} if current else None,
-            ): selector.SelectSelector(selector.SelectSelectorConfig(options=options))
-        }
-        return self.async_show_form(
-            step_id="profile_references",
-            data_schema=vol.Schema(schema),
-            description_placeholders=self._room_context_placeholders(),
-        )
-
-    async def async_step_profile_functions(self, user_input=None) -> FlowResult:
-        data = self._room_data()
-        profile_id = data.get(CONF_ROOM_PROFILE_ID)
-        if not profile_id:
-            return self.async_abort(reason="profile_required_for_functions")
-        profile = effective_profile(
-            {CONF_PROFILES: self._controller_profiles()},
-            {CONF_ROOM_PROFILE_ID: profile_id},
-        )
-        available = configured_functions_from_profile(profile)
-        if not available:
-            return self.async_abort(reason="profile_has_no_functions")
-        selected = data.get(CONF_PROFILE_FUNCTIONS, [])
-        if isinstance(selected, dict):
-            selected = [
-                function for function, enabled in selected.items() if enabled
-            ]
-        current = sorted(function for function in selected if function in available)
-        if user_input is not None:
-            submitted = user_input.get(CONF_PROFILE_FUNCTIONS, [])
-            data[CONF_PROFILE_FUNCTIONS] = sorted(
-                function for function in submitted if function in available
-            )
-            return await self._save_room(data)
-        options = [
-            function for function in PROFILE_FUNCTIONS if function in available
-        ]
-        return self.async_show_form(
-            step_id="profile_functions",
+            step_id="group_assignment",
             data_schema=vol.Schema(
                 {
-                    vol.Optional(
-                        CONF_PROFILE_FUNCTIONS,
-                        default=current,
+                    vol.Required(
+                        CONF_GROUP, default=data.get(CONF_GROUP, DEFAULT_GROUP)
                     ): selector.SelectSelector(
                         selector.SelectSelectorConfig(
-                            options=options,
-                            multiple=True,
-                            mode=selector.SelectSelectorMode.LIST,
-                            translation_key="profile_functions",
+                            options=list(GROUPS), translation_key="group"
                         )
                     )
                 }
@@ -2172,7 +1721,7 @@ for _room_flow_name in (
     "_room_title",
     "_room_data",
     "_controller_entry_for_room",
-    "_controller_profiles",
+    "_controller_groups",
     "_save_room",
     "_room_context_placeholders",
     "_contact_key",
@@ -2180,7 +1729,6 @@ for _room_flow_name in (
     "_room_entry_snapshot",
     "_format_schedule_event",
     "_entity_name",
-    "_store_profile_assignment",
     "async_step_controls",
     "async_step_general",
     "async_step_contacts",
@@ -2190,9 +1738,7 @@ for _room_flow_name in (
     "async_step_positions",
     "async_step_safety",
     "async_step_source_overrides",
-    "async_step_profile_assignment",
-    "async_step_profile_references",
-    "async_step_profile_functions",
+    "async_step_group_assignment",
 ):
     setattr(CoverControlFlow, _room_flow_name, getattr(RoomFlowMixin, _room_flow_name))
 
@@ -2207,19 +1753,14 @@ async def _cover_control_diagnostics(self, user_input=None) -> FlowResult:
     if self._entry().data.get(CONF_ENTRY_TYPE) == ENTRY_TYPE_ROOM:
         return await RoomFlowMixin.async_step_diagnostics(self, user_input)
     model = self._model()
-    usage = []
-    for profile_id, profile in model.data[CONF_PROFILES].items():
-        if profile_id in PROFILE_TYPES:
-            continue
-        rooms = sorted(model.profile_users.get(("profile", profile_id), ()))
-        usage.append(
-            f"{profile.get(CONF_PROFILE_NAME, profile_id)}: "
-            f"{', '.join(self._room_names(model, rooms)) or '—'}"
-        )
+    usage = [
+        f"{group}: {', '.join(self._room_names(model, sorted(rooms))) or '—'}"
+        for group, rooms in model.group_users.items()
+    ]
     return self.async_show_form(
         step_id="diagnostics",
         data_schema=vol.Schema({}),
-        description_placeholders={"profiles": "; ".join(usage) or "—"},
+        description_placeholders={"groups": "; ".join(usage)},
     )
 
 

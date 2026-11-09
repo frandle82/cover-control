@@ -12,7 +12,6 @@ from homeassistant.util import dt as dt_util
 
 from custom_components.cover_control.config_flow import _normalize_position_value
 from custom_components.cover_control.const import (
-    CONF_ADDITIONAL_CONDITION_OPEN,
     CONF_AUTO_DOWN,
     CONF_AUTO_SHADING,
     CONF_AUTO_TIME,
@@ -20,27 +19,16 @@ from custom_components.cover_control.const import (
     CONF_AUTO_VENTILATE,
     CONF_DRIVE_TIME,
     CONF_DRIVE_DELAY_FIXED,
-    CONF_DRIVE_DELAY_RANDOM,
-    CONF_FORCE_OPEN_ENTITY,
-    CONF_RECOVERY_MODE,
-    RECOVERY_ALWAYS,
-    RECOVERY_NEVER,
-    RECOVERY_OUTAGE,
     CONF_ENABLE_LOGBOOK_COVER,
     CONF_LOCKOUT_POSITION,
+    CONF_MANUAL_OVERRIDE_MINUTES,
     CONF_OPEN_POSITION,
-    CONF_MANUAL_SCHEDULE_ADOPTION,
-    CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
+    CONF_MANUAL_CONTROL,
     CONF_POSITION_TOLERANCE,
     CONF_SHADING_POSITION,
     CONF_SHADING_POSITION_ALT,
     CONF_SHADING_POSITION_ALT_ENTITY,
-    CONF_SHADING_CONDITIONS_END_AND,
-    CONF_SHADING_CONDITIONS_END_OR,
-    CONF_SHADING_INDEPENDENT_HOLDS_END,
     CONF_MASTER_ENABLED,
-    SHADING_CONDITION_AZIMUTH,
-    SHADING_CONDITION_BRIGHTNESS,
     CONF_WINDOW_SENSOR_TILT,
 )
 from custom_components.cover_control.controller import CoverController
@@ -103,30 +91,6 @@ def test_full_ventilation_status_uses_lockout_position() -> None:
 
     assert controller._ventilation_is_active(82)
     assert not controller._ventilation_is_active(100)
-
-
-@pytest.mark.asyncio
-@pytest.mark.parametrize(
-    ("current", "target", "expected_tilt"), [(50, 20, 0), (50, 80, 100)]
-)
-async def test_tilt_before_position_aligns_with_travel(
-    current: float, target: float, expected_tilt: float
-) -> None:
-    """Slats align in the cover's travel direction before positioning."""
-
-    cover_state = SimpleNamespace(
-        state="open",
-        attributes={"current_tilt_position": 50},
-    )
-    controller = _controller({}, {"cover.test": cover_state})
-    controller.cover = "cover.test"
-    controller._command_tilt_position = AsyncMock()
-
-    await controller._align_tilt_before_position(current, target, "shading")
-
-    controller._command_tilt_position.assert_awaited_once_with(
-        float(expected_tilt), reason="shading_tilt_alignment"
-    )
 
 
 def test_startup_position_sync_preserves_persisted_target() -> None:
@@ -219,7 +183,7 @@ def _manual_shading_controller(
         {
             CONF_MASTER_ENABLED: True,
             CONF_AUTO_SHADING: True,
-            CONF_MANUAL_OVERRIDE_BLOCK_SHADING: True,
+            CONF_MANUAL_CONTROL: True,
             CONF_SHADING_POSITION: 30,
             CONF_POSITION_TOLERANCE: 2,
         },
@@ -229,7 +193,6 @@ def _manual_shading_controller(
     controller._status = {}
     controller._manual_until = None
     controller._manual_active = False
-    controller._manual_scope_all = False
     controller._manual_expire_unsub = None
     controller._manual_movement_pending = False
     controller._last_position = position
@@ -295,7 +258,7 @@ def test_manual_move_outside_shading_tolerance_sets_override() -> None:
     _manual_position_event(controller, cover_state)
 
     controller._activate_manual_override.assert_called_once_with(
-        scope_all=True, reason="manual_override"
+        reason="manual_override"
     )
     assert not controller._status_active("shading")
 
@@ -341,9 +304,31 @@ def test_second_manual_move_after_adoption_sets_override() -> None:
     _manual_position_event(controller, cover_state)
 
     controller._activate_manual_override.assert_called_once_with(
-        scope_all=True, reason="manual_override"
+        reason="manual_override"
     )
     assert not controller._status_active("shading")
+
+
+def test_reality_manual_override_blocks_then_expires() -> None:
+    controller, cover_state = _manual_shading_controller()
+    controller.config[CONF_MANUAL_OVERRIDE_MINUTES] = 1
+    controller._activate_manual_override = (
+        CoverController._activate_manual_override.__get__(controller)
+    )
+    controller._schedule_manual_expiry = Mock()
+    controller._refresh_next_events = Mock()
+
+    cover_state.attributes["current_position"] = 60
+    _manual_position_event(controller, cover_state)
+
+    assert controller._manual_active
+    assert controller._reason == "manual_override"
+    assert controller._manual_blocks_action("close")
+
+    controller._handle_manual_expiry(None)
+
+    assert not controller._manual_active
+    controller.async_request_evaluate.assert_called_with("manual_expired")
 
 
 def test_manual_shading_adoption_is_per_cover() -> None:
@@ -366,7 +351,7 @@ def test_safety_overrides_manual_shading_adoption() -> None:
     _manual_position_event(controller, cover_state)
 
     controller._activate_manual_override.assert_called_once_with(
-        scope_all=True, reason="manual_override"
+        reason="manual_override"
     )
     assert not controller._status_active("shading")
 
@@ -377,11 +362,10 @@ def test_clearing_manual_override_requests_immediate_evaluation() -> None:
     controller = _controller({}, {})
     controller._manual_until = dt_util.utcnow()
     controller._manual_active = True
-    controller._manual_scope_all = True
     controller._manual_expire_unsub = None
     controller._reason = "manual_override"
     controller._status = {
-        "manual": {"active": True, "scope_all": True, "until": "later"}
+        "manual": {"active": True, "until": "later"}
     }
     controller.persist_status = Mock()
     controller._refresh_next_events = Mock()
@@ -390,137 +374,134 @@ def test_clearing_manual_override_requests_immediate_evaluation() -> None:
 
     controller.clear_manual_override()
     assert not controller._manual_active
-    assert not controller._manual_scope_all
     assert controller._manual_until is None
     controller.async_request_evaluate.assert_called_once_with("manual_cleared")
 
 
-def test_drive_delay_keeps_fixed_and_random_settings_separate() -> None:
+@pytest.mark.parametrize(
+    "action",
+    ["open", "close", "ventilation", "shading", "heat_protection", "resident"],
+)
+def test_manual_override_blocks_all_automation_actions(action: str) -> None:
+    controller = _controller({}, {})
+    controller._manual_active = True
+
+    assert controller._manual_blocks_action(action)
+
+
+def test_manual_override_expires_after_configured_minutes() -> None:
+    now = dt_util.utcnow()
+    controller = _controller({CONF_MANUAL_OVERRIDE_MINUTES: 15}, {})
+
+    assert controller._manual_reset_at(now) == now + timedelta(minutes=15)
+
+
+def test_manual_override_zero_duration_persists() -> None:
+    controller = _controller({CONF_MANUAL_OVERRIDE_MINUTES: 0}, {})
+
+    assert controller._manual_reset_at(dt_util.utcnow()) is None
+
+
+def test_disabled_manual_override_ignores_manual_detection() -> None:
+    controller = _controller({CONF_MANUAL_CONTROL: False}, {})
+    controller._manual_active = False
+
+    assert not controller._manual_detection_enabled()
+
+
+def test_runtime_reevaluates_after_override_expiry() -> None:
+    controller = _controller({}, {})
+    controller._manual_until = dt_util.utcnow()
+    controller._manual_active = True
+    controller._manual_expire_unsub = None
+    controller._reason = "manual_override"
+    controller._status = {"manual": {"active": True}}
+    controller.persist_status = Mock()
+    controller._logbook_entry = Mock()
+    controller._refresh_next_events = Mock()
+    controller._publish_state = Mock()
+    controller.async_request_evaluate = Mock()
+
+    controller._handle_manual_expiry(None)
+
+    assert not controller._manual_active
+    controller.async_request_evaluate.assert_called_once_with("manual_expired")
+
+
+def test_manual_override_survives_restart_before_expiry() -> None:
+    until = dt_util.utcnow() + timedelta(minutes=15)
+    controller = _controller({}, {})
+    controller._status = {
+        "manual": {"active": True, "until": until.isoformat(), "ts": 1}
+    }
+    controller._last_action_dates = {}
+
+    controller._hydrate_persistent_status()
+
+    assert controller._manual_active
+    assert controller._manual_until == until
+
+
+def test_expired_manual_override_is_not_restored() -> None:
+    until = dt_util.utcnow() - timedelta(minutes=1)
+    controller = _controller({}, {})
+    controller._status = {
+        "manual": {"active": True, "until": until.isoformat(), "ts": 1}
+    }
+    controller._last_action_dates = {}
+
+    controller._hydrate_persistent_status()
+
+    assert not controller._manual_active
+    assert controller._manual_until is None
+
+
+def test_drive_delay_uses_fixed_setting() -> None:
     controller = _controller(
-        {CONF_DRIVE_TIME: 90, CONF_DRIVE_DELAY_FIXED: 2, CONF_DRIVE_DELAY_RANDOM: 0},
+        {CONF_DRIVE_TIME: 90, CONF_DRIVE_DELAY_FIXED: 2},
         {},
     )
     assert controller._drive_delay_seconds() == 2
     assert controller.config[CONF_DRIVE_TIME] == 90
 
 
-def test_force_entity_is_a_state_source_not_manual_override() -> None:
-    force = SimpleNamespace(state="on", attributes={})
-    controller = _controller({CONF_FORCE_OPEN_ENTITY: "input_boolean.force"}, {
-        "input_boolean.force": force,
-    })
-    controller._manual_active = False
-    assert controller._entity_active(CONF_FORCE_OPEN_ENTITY)
-    assert not controller._manual_active
-
-
-def test_drive_delay_random_range_is_non_negative() -> None:
+def test_current_position_uses_home_assistant_cover_attribute() -> None:
     controller = _controller(
-        {CONF_DRIVE_DELAY_FIXED: 0, CONF_DRIVE_DELAY_RANDOM: 5}, {}
+        {},
+        {
+            "cover.test": SimpleNamespace(
+                state="open", attributes={"current_position": 42}
+            )
+        },
     )
-    assert 0 <= controller._drive_delay_seconds() <= 5
+    controller.cover = "cover.test"
+
+    assert controller._current_position() == 42
 
 
-@pytest.mark.parametrize(
-    ("mode", "expected"),
-    [(RECOVERY_ALWAYS, True), (RECOVERY_OUTAGE, False), (RECOVERY_NEVER, False)],
-)
-def test_delayed_startup_recovery_uses_runtime_state(mode: str, expected: bool) -> None:
-    controller = _controller({CONF_RECOVERY_MODE: mode}, {})
+def test_current_position_is_unavailable_without_standard_attribute() -> None:
+    controller = _controller(
+        {}, {"cover.test": SimpleNamespace(state="closed", attributes={})}
+    )
+    controller.cover = "cover.test"
+
+    assert controller._current_position() is None
+
+
+def test_delayed_startup_does_not_trigger_recovery() -> None:
+    controller = _controller({}, {})
     controller._startup_complete = False
     controller._runtime_outage_active = False
-    assert controller._recovery_should_catch_up(True) is expected
+    assert not controller._recovery_should_catch_up(True)
 
 
 def test_completed_startup_recovery_uses_runtime_outage_mode() -> None:
-    controller = _controller({CONF_RECOVERY_MODE: RECOVERY_OUTAGE}, {})
+    controller = _controller({}, {})
     controller._startup_complete = True
     controller._runtime_outage_active = True
     assert controller._recovery_should_catch_up(True)
     controller._runtime_outage_active = False
     assert not controller._recovery_should_catch_up(True)
-
-@pytest.mark.asyncio
-async def test_additional_condition_uses_current_condition_api() -> None:
-    """Condition checkers use async_check and are unloaded after evaluation."""
-
-    condition_config = {
-        "condition": "state",
-        "entity_id": "binary_sensor.test",
-        "state": "on",
-    }
-    controller = _controller(
-        {CONF_ADDITIONAL_CONDITION_OPEN: condition_config},
-        {},
-    )
-    checker = Mock()
-    checker.async_check.return_value = True
-
-    with (
-        patch(
-            "homeassistant.helpers.condition.async_validate_condition_config",
-            new=AsyncMock(return_value=condition_config),
-        ) as validate,
-        patch(
-            "homeassistant.helpers.condition.async_from_config",
-            new=AsyncMock(return_value=checker),
-        ) as create,
-    ):
-        assert await controller._condition_allows(CONF_ADDITIONAL_CONDITION_OPEN)
-
-    validate.assert_awaited_once_with(controller.hass, condition_config)
-    create.assert_awaited_once_with(controller.hass, condition_config)
-    checker.async_check.assert_called_once_with()
-    checker.async_unload.assert_called_once_with()
-    checker.assert_not_called()
-
-
-@pytest.mark.asyncio
-async def test_additional_condition_keeps_legacy_condition_compatibility() -> None:
-    """The HACS minimum version can still use callable condition checkers."""
-
-    condition_config = {"condition": "state"}
-    controller = _controller(
-        {CONF_ADDITIONAL_CONDITION_OPEN: condition_config},
-        {},
-    )
-    legacy_checker = Mock(spec=())
-    legacy_checker.return_value = True
-
-    with (
-        patch(
-            "homeassistant.helpers.condition.async_validate_condition_config",
-            new=AsyncMock(return_value=condition_config),
-        ),
-        patch(
-            "homeassistant.helpers.condition.async_from_config",
-            new=AsyncMock(return_value=legacy_checker),
-        ),
-    ):
-        assert await controller._condition_allows(CONF_ADDITIONAL_CONDITION_OPEN)
-
-    legacy_checker.assert_called_once_with(controller.hass)
-
-
-@pytest.mark.asyncio
-async def test_additional_condition_runs_on_home_assistant_2026_8(hass) -> None:
-    """An actual Home Assistant condition checker can be evaluated."""
-
-    condition_config = {
-        "condition": "state",
-        "entity_id": "binary_sensor.test",
-        "state": "on",
-    }
-    controller = object.__new__(CoverController)
-    controller.hass = hass
-    controller.config = {CONF_ADDITIONAL_CONDITION_OPEN: condition_config}
-    hass.states.async_set("binary_sensor.test", "on")
-
-    assert await controller._condition_allows(CONF_ADDITIONAL_CONDITION_OPEN)
-
-    hass.states.async_set("binary_sensor.test", "off")
-    assert not await controller._condition_allows(CONF_ADDITIONAL_CONDITION_OPEN)
-
 
 def _shading_wait_controller() -> CoverController:
     controller = _controller({}, {})
@@ -574,194 +555,6 @@ def test_continuous_shading_end_wait_resets_and_restarts() -> None:
     assert controller._shading_end_wait_complete(
         start + timedelta(seconds=500), True, 300
     )
-
-
-@pytest.mark.parametrize(
-    ("end_and", "end_or", "end_invalid", "expected"),
-    [
-        (
-            [SHADING_CONDITION_AZIMUTH, SHADING_CONDITION_BRIGHTNESS],
-            [],
-            {SHADING_CONDITION_AZIMUTH: True, SHADING_CONDITION_BRIGHTNESS: False},
-            False,
-        ),
-        (
-            [],
-            [SHADING_CONDITION_AZIMUTH, SHADING_CONDITION_BRIGHTNESS],
-            {SHADING_CONDITION_AZIMUTH: False, SHADING_CONDITION_BRIGHTNESS: True},
-            True,
-        ),
-    ],
-)
-def test_continuous_shading_end_preserves_and_or_semantics(
-    end_and, end_or, end_invalid, expected
-) -> None:
-    """CCA parity: the combined end result, not one sensor, drives continuity."""
-
-    controller = _controller(
-        {
-            CONF_SHADING_CONDITIONS_END_AND: end_and,
-            CONF_SHADING_CONDITIONS_END_OR: end_or,
-        },
-        {},
-    )
-    controller._shading_condition_state = Mock(
-        return_value={
-            "configured": {
-                SHADING_CONDITION_AZIMUTH: True,
-                SHADING_CONDITION_BRIGHTNESS: True,
-            },
-            "end_invalid": end_invalid,
-        }
-    )
-
-    assert controller._shading_end_conditions(180, 30, 1000) is expected
-
-
-@pytest.mark.parametrize(
-    ("enabled", "temperature_met", "immediate_end", "expected"),
-    [
-        (False, True, False, False),
-        (True, True, False, True),
-        (True, False, False, False),
-        (True, True, True, False),
-    ],
-)
-def test_independent_temperature_hold_is_optional_and_yields_to_immediate_end(
-    enabled: bool, temperature_met: bool, immediate_end: bool, expected: bool
-) -> None:
-    """CCA parity: independent heat starts shading but only optionally holds it."""
-
-    controller = _controller(
-        {CONF_SHADING_INDEPENDENT_HOLDS_END: enabled},
-        {},
-    )
-
-    assert (
-        controller._shading_conditions_allow_active_state(
-            False, temperature_met, True, immediate_end
-        )
-        is expected
-    )
-
-
-def _adoption_controller(position: float, **overrides) -> CoverController:
-    cover_state = SimpleNamespace(
-        state="open" if position else "closed",
-        attributes={"current_position": position},
-    )
-    config = {
-        CONF_MASTER_ENABLED: True,
-        CONF_AUTO_TIME: True,
-        CONF_AUTO_UP: True,
-        CONF_AUTO_DOWN: True,
-        CONF_MANUAL_SCHEDULE_ADOPTION: True,
-        CONF_OPEN_POSITION: 100,
-        "close_position": 0,
-        CONF_POSITION_TOLERANCE: 2,
-        **overrides,
-    }
-    controller = _controller(config, {"cover.test": cover_state})
-    controller.cover = "cover.test"
-    controller._last_action_dates = {}
-    controller.persist_status = Mock()
-    controller._logbook_entry = Mock()
-    controller._calendar_windows = AsyncMock(return_value=(None, None))
-    return controller
-
-
-@pytest.mark.asyncio
-async def test_manual_schedule_adoption_open_and_close_inside_windows() -> None:
-    """CCA parity: final manual targets adopt their per-cover daily actions."""
-
-    now = dt_util.utcnow()
-    opening = _adoption_controller(99)
-    opening._within_opening_phase = Mock(return_value=True)
-    opening._within_closing_phase = Mock(return_value=False)
-    assert await opening._async_adopt_manual_schedule("open", now)
-    assert opening._last_action_dates["open"] == dt_util.as_local(now).date()
-    opening._logbook_entry.assert_called_once_with(
-        "Manual movement adopted as today's scheduled opening"
-    )
-
-    closing = _adoption_controller(1)
-    closing._within_opening_phase = Mock(return_value=False)
-    closing._within_closing_phase = Mock(return_value=True)
-    assert await closing._async_adopt_manual_schedule("close", now)
-    assert closing._last_action_dates["close"] == dt_util.as_local(now).date()
-
-
-@pytest.mark.asyncio
-async def test_manual_schedule_adoption_rejects_window_and_position_mismatches() -> None:
-    """CCA parity: outside-window and intermediate manual positions are ignored."""
-
-    now = dt_util.utcnow()
-    outside = _adoption_controller(100)
-    outside._within_opening_phase = Mock(return_value=False)
-    outside._within_closing_phase = Mock(return_value=False)
-    assert not await outside._async_adopt_manual_schedule("open", now)
-    assert outside._last_action_dates == {}
-
-    intermediate = _adoption_controller(50)
-    assert intermediate._manual_schedule_action_for_position(50) is None
-
-
-def test_manual_schedule_adoption_waits_for_final_position_feedback() -> None:
-    """CCA parity: opening/closing feedback never causes premature adoption."""
-
-    controller = _adoption_controller(50)
-    cover_state = controller.hass.states.get("cover.test")
-    cover_state.state = "opening"
-    controller._manual_until = None
-    controller._manual_active = False
-    controller._manual_expire_unsub = None
-    controller._status = {}
-    controller._reason = None
-    controller._last_position = 0
-    controller._target = 0
-    controller._last_command_at = None
-    controller._manual_movement_pending = False
-    controller._activate_manual_override = Mock()
-    controller.async_request_evaluate = Mock()
-    scheduled = []
-
-    def _capture_task(coro):
-        scheduled.append(coro)
-        coro.close()
-
-    controller.hass.async_create_task = _capture_task
-    event = SimpleNamespace(
-        data={
-            "entity_id": "cover.test",
-            "old_state": None,
-            "new_state": cover_state,
-        }
-    )
-    controller._handle_state_event(event)
-    assert scheduled == []
-
-    cover_state.state = "open"
-    cover_state.attributes["current_position"] = 100
-    controller._handle_state_event(event)
-    assert len(scheduled) == 1
-
-
-@pytest.mark.asyncio
-async def test_manual_schedule_adoption_is_per_cover_and_keeps_override() -> None:
-    """CCA parity: adoption changes one history and never clears manual override."""
-
-    now = dt_util.utcnow()
-    left = _adoption_controller(100)
-    right = _adoption_controller(0)
-    left._within_opening_phase = Mock(return_value=True)
-    left._within_closing_phase = Mock(return_value=False)
-    left._manual_active = True
-    left._manual_scope_all = True
-
-    assert await left._async_adopt_manual_schedule("open", now)
-    assert left._manual_active
-    assert left._last_action_dates.get("open") == dt_util.as_local(now).date()
-    assert right._last_action_dates == {}
 
 
 def test_logbook_is_optional_and_deduplicates_blocked_decisions() -> None:

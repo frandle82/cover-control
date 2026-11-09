@@ -8,8 +8,10 @@ from homeassistant.util import dt as dt_util
 
 from ..const import (
     CONF_CLOSE_POSITION,
+    CONF_MANUAL_CONTROL,
     CONF_OPEN_POSITION,
     DEFAULT_CLOSE_POSITION,
+    DEFAULT_MANUAL_CONTROL,
     DEFAULT_OPEN_POSITION,
 )
 from .common import (
@@ -39,12 +41,12 @@ class StatusMixin:
                 until = dt_util.as_utc(until)
             self._manual_until = until
             self._manual_active = bool(
-                manual.get("active") and (until is None or until > dt_util.utcnow())
+                self.config.get(CONF_MANUAL_CONTROL, DEFAULT_MANUAL_CONTROL)
+                and manual.get("active")
+                and (until is None or until > dt_util.utcnow())
             )
-            self._manual_scope_all = bool(manual.get("scope_all"))
             if not self._manual_active:
                 self._manual_until = None
-                self._manual_scope_all = False
 
         dates = self._status.get("last_action_dates", {})
         if isinstance(dates, dict):
@@ -70,7 +72,6 @@ class StatusMixin:
         }
         manual = self._status.setdefault("manual", {})
         manual["active"] = self._manual_active
-        manual["scope_all"] = self._manual_scope_all
         manual["until"] = self._manual_until.isoformat() if self._manual_until else None
         if self._manual_active and not manual.get("ts"):
             manual["ts"] = _ts_now()
@@ -269,7 +270,7 @@ class StatusMixin:
                 else (
                     f"Moved to {target_text} · sun shading started"
                     if reason == "shading"
-                    else f"Force action · moved to {target_text} for sun shading"
+                    else f"Moved to {target_text} · sun shading started manually"
                 )
             )
             self._logbook_entry(message)
@@ -283,9 +284,6 @@ class StatusMixin:
             self._logbook_entry(f"Moved to {target_text} · ventilation started")
         elif reason.startswith("ventilation_end") or reason == "ventilation_stop":
             self._logbook_entry("Ventilation ended")
-        elif reason.startswith("force_"):
-            self._logbook_entry(f"Force action · moved to {target_text}")
-
     def _record_group_background(self, reason: str) -> None:
         """Update the shared room target without interrupting local ventilation."""
 

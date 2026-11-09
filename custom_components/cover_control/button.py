@@ -17,7 +17,6 @@ from .const import (
     CONF_FIRE_ALARM_ENTITY,
     CONF_FIRE_ALARM_PARTICIPATE,
     CONF_FULL_OPEN_POSITION,
-    CONF_MANUAL_CONTROL,
     CONF_NAME,
     DEFAULT_BUTTON_SETTINGS,
     DEFAULT_NAME,
@@ -39,12 +38,9 @@ async def async_setup_entry(
         entities: list[ButtonEntity] = []
         for room_id, manager in runtime.room_managers.items():
             merged = {**DEFAULT_BUTTON_SETTINGS, **(manager._resolved_config or {})}
-            manual_enabled = bool(merged.get(CONF_MANUAL_CONTROL))
-            if manual_enabled or bool(merged.get(CONF_ENABLE_RECALIBRATE_BUTTON)):
+            if bool(merged.get(CONF_ENABLE_RECALIBRATE_BUTTON)):
                 entities.append(RecalibrateButton(hass, entry, "recalibrate", room_id=room_id))
-            if manual_enabled or bool(
-                merged.get(CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON)
-            ):
+            if bool(merged.get(CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON)):
                 entities.append(
                     ClearManualOverrideButton(
                         hass, entry, "clear_manual_override", room_id=room_id

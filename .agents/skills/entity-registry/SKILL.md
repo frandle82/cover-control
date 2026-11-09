@@ -1,6 +1,6 @@
 ---
 name: entity-registry
-description: Entity-Registry-Lifecycle, Cleanup-Muster und Debugging bei Konfigurationsänderungen in cover-control. Verhindert verwaiste Entitäten und Registry-Inkonsistenzen nach Profil-/Raumänderungen.
+description: Entity-Registry-Lifecycle, Cleanup-Muster und Debugging bei Konfigurationsänderungen in cover-control. Verhindert verwaiste Entitäten und Registry-Inkonsistenzen nach Gruppen-/Raumänderungen.
 ---
 
 # Entity Registry Skill – Cover Control
@@ -9,7 +9,7 @@ description: Entity-Registry-Lifecycle, Cleanup-Muster und Debugging bei Konfigu
 
 In cover-control werden Sensoren, Schalter und andere Entitäten dynamisch bei
 der Setup-Zeit erstellt und an Config Entries gebunden. Bei Konfigurationsänderungen
-(z. B. Profilfunktionen abwählen, Räume entfernen) entstehen leicht verwaiste
+(z. B. Gruppenfunktionen abwählen, Räume entfernen) entstehen leicht verwaiste
 Entitäten in der HA Entity Registry.
 
 Dieser Skill beschreibt, wie Entitäten korrekt registriert, bereinigt und
@@ -39,7 +39,7 @@ getestet werden.
 
 ## Cleanup: Verwaiste Entitäten entfernen
 
-Wenn Profilfunktionen abgewählt werden oder Räume entfernt werden, müssen
+Wenn Gruppenfunktionen abgewählt werden oder Räume entfernt werden, müssen
 die zugehörigen Entitäten aktiv bereinigt werden.
 
 ### Muster: Cleanup bei Options-Änderung
@@ -63,7 +63,7 @@ async def async_cleanup_removed_entities(
 ### Wann aufrufen
 - In `async_setup_entry` nach Ermittlung der aktiven Entitäten.
 - In `async_reload_entry` (via Options Flow Reload) nach jeder Konfigurationsänderung.
-- Nach dem Entfernen von Räumen oder Profilfunktionen.
+- Nach dem Entfernen von Räumen oder Gruppenfunktionen.
 
 ---
 
@@ -82,7 +82,7 @@ def get_all_cc_entities(hass, entry_id):
 
 | Symptom | Ursache | Lösung |
 |---|---|---|
-| Entität nach Profilabwahl weiter sichtbar | Cleanup nicht aufgerufen | `async_cleanup_removed_entities` nach Options-Reload |
+| Entität nach Room-Entfernung weiter sichtbar | Cleanup nicht aufgerufen | `async_cleanup_removed_entities` nach Options-Reload |
 | Doppelung nach Neustart | `unique_id` nicht stabil | `unique_id` aus stabilen IDs ableiten, nie aus Namen |
 | Entity nicht gefunden nach Umbenennung | `unique_id` enthielt Display-Name | Nur interne IDs verwenden |
 | Platform fehlt nach Reload | `async_unload_platforms` vergessen | Immer alle Platforms im Unload bereinigen |
@@ -96,7 +96,7 @@ Jede Änderung an Entity-Registrierung oder Cleanup erfordert Tests für:
 ### 1. Entity-Erstellung
 ```python
 async def test_entities_created_for_active_functions(hass, config_entry):
-    """Verify entities exist for all configured profile functions."""
+    """Verify entities exist for all configured group functions."""
     entity_registry = er.async_get(hass)
     entries = er.async_entries_for_config_entry(entity_registry, config_entry.entry_id)
     unique_ids = {e.unique_id for e in entries}
@@ -106,7 +106,7 @@ async def test_entities_created_for_active_functions(hass, config_entry):
 ### 2. Cleanup nach Deaktivierung
 ```python
 async def test_entity_removed_when_function_deselected(hass, config_entry):
-    """Verify entity is removed from registry when profile function removed."""
+    """Verify entity is removed from registry when a room function is removed."""
     # Deselect function via options update
     # ...
     entity_registry = er.async_get(hass)

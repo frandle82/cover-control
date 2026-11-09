@@ -1,534 +1,136 @@
-"""Cover controller behavior split from the public controller facade."""
+"""Fixed shuttercontrol-style shading modes."""
 
 from __future__ import annotations
 
 from datetime import datetime, timedelta
 
-from homeassistant.const import (
-    STATE_UNAVAILABLE,
-    STATE_UNKNOWN,
-)
-
 from ..const import (
-    CONF_BRIGHTNESS_SENSOR,
-    CONF_CLOSE_POSITION,
-    CONF_HEAT_PROTECTION_ENABLED,
-    CONF_HEAT_PROTECTION_THRESHOLD,
-    CONF_SHADING_BRIGHTNESS_END,
-    CONF_SHADING_BRIGHTNESS_HYSTERESIS,
-    CONF_SHADING_BRIGHTNESS_SENSOR,
-    CONF_SHADING_BRIGHTNESS_START,
-    CONF_SHADING_CONDITIONS_END_AND,
-    CONF_SHADING_CONDITIONS_END_OR,
-    CONF_SHADING_CONDITIONS_START_AND,
-    CONF_SHADING_CONDITIONS_START_OR,
-    CONF_SHADING_CONFIG,
-    CONF_SHADING_FORECAST_SENSOR,
-    CONF_SHADING_FORECAST_TEMP,
-    CONF_SHADING_FORECAST_TEMP_HYSTERESIS,
-    CONF_SHADING_FORECAST_TEMP_SENSOR,
-    CONF_SHADING_FORECAST_TYPE,
-    CONF_SHADING_INDEPENDENT_TEMP,
-    CONF_SHADING_INDEPENDENT_HOLDS_END,
-    CONF_SHADING_MIN_TEMPERATURE_1,
-    CONF_SHADING_MIN_TEMPERATURE_2,
-    CONF_SHADING_TEMPERATURE_HYSTERESIS_1,
-    CONF_SHADING_TEMPERATURE_HYSTERESIS_2,
-    CONF_SHADING_TEMPERATURE_SENSOR_1,
-    CONF_SHADING_TEMPERATURE_SENSOR_2,
-    CONF_SHADING_WEATHER_CONDITIONS,
-    CONF_SUN_AZIMUTH_END,
-    CONF_SUN_AZIMUTH_START,
-    CONF_SUN_ELEVATION_MAX,
-    CONF_SUN_ELEVATION_MIN,
-    CONF_TEMPERATURE_FORECAST_THRESHOLD,
-    CONF_TEMPERATURE_SENSOR_INDOOR,
-    CONF_TEMPERATURE_SENSOR_OUTDOOR,
-    CONF_TEMPERATURE_THRESHOLD,
-    DEFAULT_SHADING_BRIGHTNESS_END,
-    DEFAULT_SHADING_BRIGHTNESS_HYSTERESIS,
-    DEFAULT_SHADING_BRIGHTNESS_START,
-    DEFAULT_HEAT_PROTECTION_THRESHOLD,
-    DEFAULT_CLOSE_POSITION,
-    DEFAULT_SHADING_CONDITIONS_END_AND,
-    DEFAULT_SHADING_CONDITIONS_END_OR,
-    DEFAULT_SHADING_CONDITIONS_START_AND,
-    DEFAULT_SHADING_CONDITIONS_START_OR,
-    DEFAULT_SHADING_FORECAST_TEMP_HYSTERESIS,
-    DEFAULT_SHADING_FORECAST_TYPE,
-    DEFAULT_SHADING_INDEPENDENT_TEMP,
-    DEFAULT_SHADING_MIN_TEMPERATURE_1,
-    DEFAULT_SHADING_MIN_TEMPERATURE_2,
-    DEFAULT_SHADING_TEMPERATURE_HYSTERESIS_1,
-    DEFAULT_SHADING_TEMPERATURE_HYSTERESIS_2,
-    SHADING_CONDITION_AZIMUTH,
-    SHADING_CONDITION_BRIGHTNESS,
-    SHADING_CONDITION_ELEVATION,
-    SHADING_CONDITION_FORECAST_TEMP,
-    SHADING_CONDITION_FORECAST_WEATHER,
-    SHADING_CONDITION_TEMP_1,
-    SHADING_CONDITION_TEMP_2,
-    SHADING_CONFIG_COMPARE_FORECAST_SENSOR2,
-    SHADING_CONFIG_TEMP_INDEPENDENT,
+    CONF_CLOSE_POSITION, CONF_HEAT_PROTECTION_ENABLED,
+    CONF_HEAT_PROTECTION_THRESHOLD, CONF_SHADING_BRIGHTNESS_HYSTERESIS,
+    CONF_SHADING_BRIGHTNESS_SENSOR, CONF_SHADING_BRIGHTNESS_THRESHOLD,
+    CONF_SHADING_DIRECTION, CONF_SHADING_DIRECTION_RANGE,
+    CONF_SHADING_INSIDE_TEMPERATURE_HYSTERESIS,
+    CONF_SHADING_INSIDE_TEMPERATURE_THRESHOLD, CONF_SHADING_MODE,
+    CONF_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS,
+    CONF_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD, CONF_SUN_ELEVATION_MAX,
+    CONF_SUN_ELEVATION_MIN, CONF_TEMPERATURE_SENSOR_INDOOR,
+    CONF_TEMPERATURE_SENSOR_OUTDOOR, DEFAULT_CLOSE_POSITION,
+    DEFAULT_HEAT_PROTECTION_THRESHOLD, DEFAULT_SHADING_BRIGHTNESS_HYSTERESIS,
+    DEFAULT_SHADING_BRIGHTNESS_THRESHOLD, DEFAULT_SHADING_DIRECTION,
+    DEFAULT_SHADING_DIRECTION_RANGE, DEFAULT_SHADING_ELEVATION_MAX,
+    DEFAULT_SHADING_ELEVATION_MIN, DEFAULT_SHADING_INSIDE_TEMPERATURE_HYSTERESIS,
+    DEFAULT_SHADING_INSIDE_TEMPERATURE_THRESHOLD, DEFAULT_SHADING_MODE,
+    DEFAULT_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS,
+    DEFAULT_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD, SHADING_MODE_DIRECTION,
+    SHADING_MODE_INSIDE, SHADING_MODE_INSIDE_OUTSIDE,
+    SHADING_MODE_INSIDE_OUTSIDE_DIRECTION, SHADING_MODE_OFF,
+    SHADING_MODE_OUTSIDE, SHADING_MODE_OUTSIDE_DIRECTION,
 )
-from .common import (
-    _LOGGER,
-    _coerce_float,
-)
+from .common import _coerce_float
 
 
 class ShadingMixin:
-    def _shading_config_list(self, key: str, default: list[str]) -> list[str]:
-        value = self.config.get(key, default)
-        if isinstance(value, str):
-            return [value]
-        if isinstance(value, list | tuple | set):
-            return [str(item) for item in value if item]
-        return list(default)
+    """Evaluate one of the fixed shading modes."""
 
     def _shading_brightness_value(self, fallback: float | None) -> float | None:
-        sensor = self.config.get(CONF_SHADING_BRIGHTNESS_SENSOR) or self.config.get(
-            CONF_BRIGHTNESS_SENSOR
-        )
+        sensor = self.config.get(CONF_SHADING_BRIGHTNESS_SENSOR)
         if not sensor:
             return fallback
         state = self._state_for(sensor)
         return _coerce_float(state.state if state else None)
 
-    def _heat_protection_state(self) -> tuple[bool, float | None]:
-        sensor = self.config.get(
-            CONF_SHADING_TEMPERATURE_SENSOR_2
-        ) or self.config.get(CONF_TEMPERATURE_SENSOR_OUTDOOR)
-        state = self._state_for(sensor)
-        temperature = _coerce_float(state.state if state else None)
-        threshold = _coerce_float(
-            self.config.get(
-                CONF_HEAT_PROTECTION_THRESHOLD, DEFAULT_HEAT_PROTECTION_THRESHOLD
-            )
-        )
-        active = bool(
-            self.config.get(CONF_HEAT_PROTECTION_ENABLED, False)
-            and temperature is not None
-            and threshold is not None
-            and temperature > threshold
-        )
-        return active, temperature
+    def _temperature_value(self, key: str) -> float | None:
+        state = self._state_for(self.config.get(key))
+        return _coerce_float(state.state if state else None)
 
-    def _heat_protection_hold(self) -> bool:
-        section = self._status.get("heat_protection", {})
-        return bool(section.get("hold")) if isinstance(section, dict) else False
+    @staticmethod
+    def _above_threshold(
+        value: float | None, threshold: float, hysteresis: float, active: bool
+    ) -> bool:
+        if value is None:
+            return False
+        limit = threshold * (1 - max(0.0, hysteresis) / 100) if active else threshold
+        return value >= limit if active else value > limit
 
-    def _shading_target_reason(self) -> tuple[float, str]:
-        active, _temperature = self._heat_protection_state()
-        if active:
-            return (
-                self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
-                "heat_protection",
-            )
-        return self._effective_shading_position(), "shading"
-
-    def _active_shading_target_reason(
-        self, current_position: float | None
-    ) -> tuple[float | None, str, bool]:
-        active, _temperature = self._heat_protection_state()
-        if active:
-            target, reason = self._shading_target_reason()
-            return target, reason, True
-        close_target = self._position_value(
-            CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION
-        )
-        if self._heat_protection_hold() and self._position_matches(
-            close_target, current_position
-        ):
-            return None, "shading", True
-        return self._effective_shading_position(), "shading", False
-
-    def _set_heat_protection_status(self, active: bool, hold: bool) -> bool:
-        section = self._status.setdefault("heat_protection", {})
-        changed = (
-            section.get("active") is not active or section.get("hold") is not hold
-        )
-        section["active"] = active
-        section["hold"] = hold
-        return changed
-
-    def heat_protection_snapshot(self) -> dict[str, object]:
-        active, temperature = self._heat_protection_state()
-        return {
-            "active": active and self._reason == "heat_protection",
-            "threshold": self._number_value(
-                CONF_HEAT_PROTECTION_THRESHOLD, DEFAULT_HEAT_PROTECTION_THRESHOLD
-            ),
-            "temperature": temperature,
-        }
-
-    async def _async_update_shading_forecast(self) -> None:
-        forecast_entity = self.config.get(CONF_SHADING_FORECAST_SENSOR)
-        forecast_type = self.config.get(
-            CONF_SHADING_FORECAST_TYPE, DEFAULT_SHADING_FORECAST_TYPE
-        )
-        self._shading_forecast_cache = None
-        if not forecast_entity or forecast_type in (None, "weather_attributes"):
-            return
-
-        state = self._state_for(forecast_entity)
-        if state is None or not state.entity_id.startswith("weather."):
-            return
-
-        try:
-            response = await self.hass.services.async_call(
-                "weather",
-                "get_forecasts",
-                {"entity_id": forecast_entity, "type": forecast_type},
-                blocking=True,
-                return_response=True,
-            )
-        except Exception as err:  # noqa: BLE001 - HA service availability varies by version.
-            _LOGGER.debug(
-                "Cover Control could not fetch %s forecast for %s: %s",
-                forecast_type,
-                forecast_entity,
-                err,
-            )
-            return
-
-        payload = response.get(forecast_entity) if isinstance(response, dict) else None
-        forecast = payload.get("forecast") if isinstance(payload, dict) else None
-        if isinstance(forecast, list):
-            self._shading_forecast_cache = {
-                "entity_id": forecast_entity,
-                "forecast": forecast,
-            }
-
-    def _cached_shading_forecast(self, forecast_entity: str) -> list | None:
-        cache = self._shading_forecast_cache
-        if not isinstance(cache, dict) or cache.get("entity_id") != forecast_entity:
-            return None
-        forecast = cache.get("forecast")
-        return forecast if isinstance(forecast, list) else None
-
-    def _shading_forecast_temperature(self) -> float | None:
-        temp_sensor = self.config.get(CONF_SHADING_FORECAST_TEMP_SENSOR)
-        if temp_sensor:
-            temp_state = self._state_for(temp_sensor)
-            value = _coerce_float(temp_state.state if temp_state else None)
-            if value is not None:
-                return value
-
-        forecast_entity = self.config.get(CONF_SHADING_FORECAST_SENSOR)
-        if not forecast_entity:
-            return None
-        state = self._state_for(forecast_entity)
-        if state is None:
-            return None
-
-        if state.entity_id.startswith("sensor."):
-            return _coerce_float(state.state)
-
-        if not state.entity_id.startswith("weather."):
-            return None
-
-        forecast_type = self.config.get(
-            CONF_SHADING_FORECAST_TYPE, DEFAULT_SHADING_FORECAST_TYPE
-        )
-        if forecast_type in (None, "weather_attributes"):
-            for key in ("temperature", "templow"):
-                value = _coerce_float(state.attributes.get(key))
-                if value is not None:
-                    return value
-
-        forecast = self._cached_shading_forecast(forecast_entity)
-        if forecast is None:
-            forecast = state.attributes.get("forecast")
-        if not isinstance(forecast, list) or not forecast:
-            return None
-        first = forecast[0] or {}
-        for key in ("temperature", "templow"):
-            value = _coerce_float(first.get(key))
-            if value is not None:
-                return value
-        return None
-
-    def _shading_forecast_weather_condition(self) -> str | None:
-        forecast_entity = self.config.get(CONF_SHADING_FORECAST_SENSOR)
-        if not forecast_entity:
-            return None
-        state = self._state_for(forecast_entity)
-        if state is None or not state.entity_id.startswith("weather."):
-            return None
-
-        forecast_type = self.config.get(
-            CONF_SHADING_FORECAST_TYPE, DEFAULT_SHADING_FORECAST_TYPE
-        )
-        if forecast_type in (None, "weather_attributes"):
-            return (
-                state.state
-                if state.state not in (STATE_UNKNOWN, STATE_UNAVAILABLE)
-                else None
-            )
-
-        forecast = self._cached_shading_forecast(forecast_entity)
-        if forecast is None:
-            forecast = state.attributes.get("forecast")
-        if isinstance(forecast, list) and forecast:
-            value = (forecast[0] or {}).get("condition")
-            if isinstance(value, str) and value:
-                return value
-        return None
+    @staticmethod
+    def _direction_matches(azimuth: float | None, direction: float, span: float) -> bool:
+        if azimuth is None:
+            return False
+        distance = abs((azimuth - direction + 180) % 360 - 180)
+        return distance <= min(max(span, 0.0), 180.0)
 
     def _shading_condition_state(
-        self,
-        sun_azimuth: float | None,
-        sun_elevation: float | None,
-        brightness: float | None,
-    ) -> dict[str, object]:
-        az_start = self._number_value(CONF_SUN_AZIMUTH_START, 95)
-        az_end = self._number_value(CONF_SUN_AZIMUTH_END, 265)
-        el_min = self._number_value(CONF_SUN_ELEVATION_MIN, 25)
-        el_max = self._number_value(CONF_SUN_ELEVATION_MAX, 90)
-        shading_brightness = self._shading_brightness_value(brightness)
-        brightness_sensor = self.config.get(
-            CONF_SHADING_BRIGHTNESS_SENSOR
-        ) or self.config.get(CONF_BRIGHTNESS_SENSOR)
-        bright_start = self._number_value(
-            CONF_SHADING_BRIGHTNESS_START, DEFAULT_SHADING_BRIGHTNESS_START
+        self, sun_azimuth: float | None, sun_elevation: float | None,
+        brightness: float | None, *, active: bool,
+    ) -> dict[str, bool]:
+        mode = str(self.config.get(CONF_SHADING_MODE, DEFAULT_SHADING_MODE))
+        inside_ok = self._above_threshold(
+            self._temperature_value(CONF_TEMPERATURE_SENSOR_INDOOR),
+            self._number_value(CONF_SHADING_INSIDE_TEMPERATURE_THRESHOLD, DEFAULT_SHADING_INSIDE_TEMPERATURE_THRESHOLD),
+            self._number_value(CONF_SHADING_INSIDE_TEMPERATURE_HYSTERESIS, DEFAULT_SHADING_INSIDE_TEMPERATURE_HYSTERESIS),
+            active,
         )
-        bright_end = self._number_value(
-            CONF_SHADING_BRIGHTNESS_END, DEFAULT_SHADING_BRIGHTNESS_END
+        outside_ok = self._above_threshold(
+            self._temperature_value(CONF_TEMPERATURE_SENSOR_OUTDOOR),
+            self._number_value(CONF_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD, DEFAULT_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD),
+            self._number_value(CONF_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS, DEFAULT_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS),
+            active,
         )
-        bright_hysteresis = self._number_value(
-            CONF_SHADING_BRIGHTNESS_HYSTERESIS, DEFAULT_SHADING_BRIGHTNESS_HYSTERESIS
+        direction_ok = self._direction_matches(
+            sun_azimuth,
+            self._number_value(CONF_SHADING_DIRECTION, DEFAULT_SHADING_DIRECTION),
+            self._number_value(CONF_SHADING_DIRECTION_RANGE, DEFAULT_SHADING_DIRECTION_RANGE),
         )
-
-        temp1_sensor = self.config.get(
-            CONF_SHADING_TEMPERATURE_SENSOR_1
-        ) or self.config.get(CONF_TEMPERATURE_SENSOR_INDOOR)
-        temp2_sensor = self.config.get(
-            CONF_SHADING_TEMPERATURE_SENSOR_2
-        ) or self.config.get(CONF_TEMPERATURE_SENSOR_OUTDOOR)
-        temp1_state = self._state_for(temp1_sensor)
-        temp2_state = self._state_for(temp2_sensor)
-        temp1 = _coerce_float(temp1_state.state if temp1_state else None)
-        temp2 = _coerce_float(temp2_state.state if temp2_state else None)
-        temp1_min = _coerce_float(
-            self.config.get(
-                CONF_SHADING_MIN_TEMPERATURE_1,
-                self.config.get(
-                    CONF_TEMPERATURE_THRESHOLD, DEFAULT_SHADING_MIN_TEMPERATURE_1
-                ),
+        elevation_ok = (
+            sun_elevation is not None
+            and self._number_value(CONF_SUN_ELEVATION_MIN, DEFAULT_SHADING_ELEVATION_MIN)
+            <= sun_elevation
+            <= self._number_value(CONF_SUN_ELEVATION_MAX, DEFAULT_SHADING_ELEVATION_MAX)
+        )
+        brightness_sensor = self.config.get(CONF_SHADING_BRIGHTNESS_SENSOR)
+        brightness_ok = True
+        if brightness_sensor and mode in {
+            SHADING_MODE_INSIDE_OUTSIDE, SHADING_MODE_INSIDE_OUTSIDE_DIRECTION,
+            SHADING_MODE_OUTSIDE_DIRECTION, SHADING_MODE_OUTSIDE,
+        }:
+            brightness_ok = self._above_threshold(
+                self._shading_brightness_value(brightness),
+                self._number_value(CONF_SHADING_BRIGHTNESS_THRESHOLD, DEFAULT_SHADING_BRIGHTNESS_THRESHOLD),
+                self._number_value(CONF_SHADING_BRIGHTNESS_HYSTERESIS, DEFAULT_SHADING_BRIGHTNESS_HYSTERESIS),
+                active,
             )
-        )
-        temp2_min = _coerce_float(
-            self.config.get(
-                CONF_SHADING_MIN_TEMPERATURE_2,
-                self.config.get(
-                    CONF_TEMPERATURE_THRESHOLD, DEFAULT_SHADING_MIN_TEMPERATURE_2
-                ),
-            )
-        )
-        if temp1_min is None:
-            temp1_min = DEFAULT_SHADING_MIN_TEMPERATURE_1
-        if temp2_min is None:
-            temp2_min = DEFAULT_SHADING_MIN_TEMPERATURE_2
-        temp1_hysteresis = self._number_value(
-            CONF_SHADING_TEMPERATURE_HYSTERESIS_1,
-            DEFAULT_SHADING_TEMPERATURE_HYSTERESIS_1,
-        )
-        temp2_hysteresis = self._number_value(
-            CONF_SHADING_TEMPERATURE_HYSTERESIS_2,
-            DEFAULT_SHADING_TEMPERATURE_HYSTERESIS_2,
-        )
-
-        forecast_temp_limit = _coerce_float(
-            self.config.get(
-                CONF_SHADING_FORECAST_TEMP,
-                self.config.get(CONF_TEMPERATURE_FORECAST_THRESHOLD),
-            )
-        )
-        forecast_temp_hysteresis = self._number_value(
-            CONF_SHADING_FORECAST_TEMP_HYSTERESIS,
-            DEFAULT_SHADING_FORECAST_TEMP_HYSTERESIS,
-        )
-        forecast_temp = self._shading_forecast_temperature()
-        config_flags = self._shading_config_list(CONF_SHADING_CONFIG, [])
-        compare_forecast_with_sensor2 = (
-            SHADING_CONFIG_COMPARE_FORECAST_SENSOR2 in config_flags
-        )
-        forecast_temp_start_valid = forecast_temp_limit is not None and (
-            (
-                forecast_temp is not None
-                and forecast_temp > forecast_temp_limit + forecast_temp_hysteresis
-            )
-            or (
-                compare_forecast_with_sensor2
-                and temp2 is not None
-                and temp2 > forecast_temp_limit + forecast_temp_hysteresis
-            )
-        )
-
-        weather_conditions = self._shading_config_list(
-            CONF_SHADING_WEATHER_CONDITIONS, []
-        )
-        direct_forecast_temp_sensor = bool(
-            self.config.get(CONF_SHADING_FORECAST_TEMP_SENSOR)
-        )
-        forecast_weather = self._shading_forecast_weather_condition()
-
-        configured = {
-            SHADING_CONDITION_AZIMUTH: sun_azimuth is not None,
-            SHADING_CONDITION_ELEVATION: sun_elevation is not None,
-            SHADING_CONDITION_BRIGHTNESS: bool(brightness_sensor),
-            SHADING_CONDITION_TEMP_1: bool(temp1_sensor),
-            SHADING_CONDITION_TEMP_2: bool(temp2_sensor),
-            SHADING_CONDITION_FORECAST_TEMP: forecast_temp_limit is not None,
-            SHADING_CONDITION_FORECAST_WEATHER: bool(weather_conditions),
-        }
-        start_valid = {
-            SHADING_CONDITION_AZIMUTH: (
-                sun_azimuth is not None and az_start < sun_azimuth < az_end
-            ),
-            SHADING_CONDITION_ELEVATION: (
-                sun_elevation is not None and el_min < sun_elevation < el_max
-            ),
-            SHADING_CONDITION_BRIGHTNESS: (
-                shading_brightness is not None
-                and shading_brightness > bright_start + bright_hysteresis
-            ),
-            SHADING_CONDITION_TEMP_1: (
-                temp1 is not None and temp1 > temp1_min + temp1_hysteresis
-            ),
-            SHADING_CONDITION_TEMP_2: (
-                temp2 is not None and temp2 > temp2_min + temp2_hysteresis
-            ),
-            SHADING_CONDITION_FORECAST_TEMP: forecast_temp_start_valid,
-            SHADING_CONDITION_FORECAST_WEATHER: (
-                direct_forecast_temp_sensor
-                or not weather_conditions
-                or forecast_weather in weather_conditions
-            ),
-        }
-        end_invalid = {
-            SHADING_CONDITION_AZIMUTH: (
-                sun_azimuth is not None
-                and (sun_azimuth <= az_start or sun_azimuth >= az_end)
-            ),
-            SHADING_CONDITION_ELEVATION: (
-                sun_elevation is not None
-                and (sun_elevation <= el_min or sun_elevation >= el_max)
-            ),
-            SHADING_CONDITION_BRIGHTNESS: (
-                shading_brightness is not None
-                and shading_brightness < bright_end - bright_hysteresis
-            ),
-            SHADING_CONDITION_TEMP_1: (
-                temp1 is not None and temp1 < temp1_min - temp1_hysteresis
-            ),
-            SHADING_CONDITION_TEMP_2: (
-                temp2 is not None and temp2 < temp2_min - temp2_hysteresis
-            ),
-            SHADING_CONDITION_FORECAST_TEMP: (
-                forecast_temp_limit is not None
-                and forecast_temp is not None
-                and forecast_temp < forecast_temp_limit - forecast_temp_hysteresis
-            ),
-            SHADING_CONDITION_FORECAST_WEATHER: (
-                bool(weather_conditions)
-                and not direct_forecast_temp_sensor
-                and forecast_weather not in weather_conditions
-            ),
-        }
         return {
-            "configured": configured,
-            "start_valid": start_valid,
-            "end_invalid": end_invalid,
-            "forecast_temp_valid": start_valid[SHADING_CONDITION_FORECAST_TEMP],
-            "forecast_temp": forecast_temp,
-            "temperature_2": temp2,
-            "compare_forecast_with_sensor2": compare_forecast_with_sensor2,
-            "forecast_temp_hysteresis": forecast_temp_hysteresis,
+            "inside_temperature": inside_ok, "outside_temperature": outside_ok,
+            "brightness": brightness_ok, "direction": direction_ok,
+            "elevation": elevation_ok,
         }
 
-    def _shading_start_conditions(
-        self,
-        sun_azimuth: float | None,
-        sun_elevation: float | None,
-        brightness: float | None,
-    ) -> tuple[bool, bool]:
-        state = self._shading_condition_state(sun_azimuth, sun_elevation, brightness)
-        configured = state["configured"]
-        start_valid = state["start_valid"]
-        assert isinstance(configured, dict)
-        assert isinstance(start_valid, dict)
-
-        start_and = self._shading_config_list(
-            CONF_SHADING_CONDITIONS_START_AND, DEFAULT_SHADING_CONDITIONS_START_AND
-        )
-        start_or = self._shading_config_list(
-            CONF_SHADING_CONDITIONS_START_OR, DEFAULT_SHADING_CONDITIONS_START_OR
-        )
-        and_result = all(
-            start_valid.get(condition, False)
-            for condition in start_and
-            if configured.get(condition, False)
-        )
-        or_result = not start_or or any(
-            configured.get(condition, False) and start_valid.get(condition, False)
-            for condition in start_or
-        )
-        temp_independent = self._shading_independent_temperature_condition(state)
-        return and_result and or_result, temp_independent
-
-    def _shading_independent_temperature_condition(self, state: dict) -> bool:
-        """Return the shared independent-temperature start/hold condition."""
-
-        config_flags = self._shading_config_list(CONF_SHADING_CONFIG, [])
-        if SHADING_CONFIG_TEMP_INDEPENDENT not in config_flags:
-            return False
-        independent_limit = _coerce_float(
-            self.config.get(
-                CONF_SHADING_INDEPENDENT_TEMP, DEFAULT_SHADING_INDEPENDENT_TEMP
-            )
-        )
-        if independent_limit is None:
-            independent_limit = DEFAULT_SHADING_INDEPENDENT_TEMP
-        forecast_temp = _coerce_float(state["forecast_temp"])
-        temperature_2 = _coerce_float(state["temperature_2"])
-        forecast_temp_hysteresis = _coerce_float(state["forecast_temp_hysteresis"])
-        if forecast_temp_hysteresis is None:
-            forecast_temp_hysteresis = DEFAULT_SHADING_FORECAST_TEMP_HYSTERESIS
-        return (
-            forecast_temp is not None
-            and forecast_temp > independent_limit + forecast_temp_hysteresis
-        ) or (
-            bool(state["compare_forecast_with_sensor2"])
-            and temperature_2 is not None
-            and temperature_2 > independent_limit + forecast_temp_hysteresis
-        )
-
-    def _shading_conditions_allow_active_state(
-        self,
-        normal_conditions_met: bool,
-        independent_temperature_met: bool,
-        shading_active: bool,
-        immediate_sun_end: bool,
+    def _shading_mode_allows(
+        self, sun_azimuth: float | None, sun_elevation: float | None,
+        brightness: float | None, *, active: bool,
     ) -> bool:
-        """Apply independent-temperature start and optional hold semantics."""
-
-        if shading_active and immediate_sun_end:
-            return False
-        if normal_conditions_met:
-            return True
-        if not independent_temperature_met:
-            return False
-        return not shading_active or bool(
-            self.config.get(CONF_SHADING_INDEPENDENT_HOLDS_END, False)
+        mode = str(self.config.get(CONF_SHADING_MODE, DEFAULT_SHADING_MODE))
+        conditions = self._shading_condition_state(
+            sun_azimuth, sun_elevation, brightness, active=active
         )
+        self._status["shading_conditions"] = conditions
+        required = {
+            SHADING_MODE_INSIDE_OUTSIDE: ("inside_temperature", "outside_temperature", "brightness"),
+            SHADING_MODE_DIRECTION: ("direction", "elevation"),
+            SHADING_MODE_INSIDE_OUTSIDE_DIRECTION: ("inside_temperature", "outside_temperature", "brightness", "direction", "elevation"),
+            SHADING_MODE_OUTSIDE_DIRECTION: ("outside_temperature", "brightness", "direction", "elevation"),
+            SHADING_MODE_OUTSIDE: ("outside_temperature", "brightness"),
+            SHADING_MODE_INSIDE: ("inside_temperature",),
+        }.get(mode, ())
+        return mode != SHADING_MODE_OFF and bool(required) and all(conditions[key] for key in required)
 
-    def _shading_end_wait_complete(
-        self, now: datetime, condition_valid: bool, waiting_seconds: int
-    ) -> bool:
-        """Track one uninterrupted shading-end waiting period."""
+    def _shading_start_conditions(self, sun_azimuth: float | None, sun_elevation: float | None, brightness: float | None) -> tuple[bool, bool]:
+        return self._shading_mode_allows(sun_azimuth, sun_elevation, brightness, active=False), False
 
+    def _shading_end_conditions(self, sun_azimuth: float | None, sun_elevation: float | None, brightness: float | None) -> bool:
+        return not self._shading_mode_allows(sun_azimuth, sun_elevation, brightness, active=True)
+
+    def _shading_end_wait_complete(self, now: datetime, condition_valid: bool, waiting_seconds: int) -> bool:
         if not condition_valid:
             if self._shading_pending_active("end"):
                 self._clear_shading_pending("end")
@@ -538,37 +140,42 @@ class ShadingMixin:
         if self._shading_pending_due("end", now):
             return True
         if not self._shading_pending_active("end"):
-            self._set_shading_pending(
-                "end", now + timedelta(seconds=waiting_seconds), True
-            )
+            self._set_shading_pending("end", now + timedelta(seconds=waiting_seconds), True)
         return False
 
-    def _shading_end_conditions(
-        self,
-        sun_azimuth: float | None,
-        sun_elevation: float | None,
-        brightness: float | None,
-    ) -> bool:
-        state = self._shading_condition_state(sun_azimuth, sun_elevation, brightness)
-        configured = state["configured"]
-        end_invalid = state["end_invalid"]
-        assert isinstance(configured, dict)
-        assert isinstance(end_invalid, dict)
+    def _heat_protection_state(self) -> tuple[bool, float | None]:
+        temperature = self._temperature_value(CONF_TEMPERATURE_SENSOR_OUTDOOR)
+        threshold = _coerce_float(self.config.get(CONF_HEAT_PROTECTION_THRESHOLD, DEFAULT_HEAT_PROTECTION_THRESHOLD))
+        active = bool(self.config.get(CONF_HEAT_PROTECTION_ENABLED, False) and temperature is not None and threshold is not None and temperature > threshold)
+        return active, temperature
 
-        end_and = self._shading_config_list(
-            CONF_SHADING_CONDITIONS_END_AND, DEFAULT_SHADING_CONDITIONS_END_AND
-        )
-        end_or = self._shading_config_list(
-            CONF_SHADING_CONDITIONS_END_OR, DEFAULT_SHADING_CONDITIONS_END_OR
-        )
-        configured_end_and = [
-            condition for condition in end_and if configured.get(condition, False)
-        ]
-        and_result = bool(configured_end_and) and all(
-            end_invalid.get(condition, False) for condition in configured_end_and
-        )
-        or_result = any(
-            configured.get(condition, False) and end_invalid.get(condition, False)
-            for condition in end_or
-        )
-        return and_result or or_result
+    def _heat_protection_hold(self) -> bool:
+        section = self._status.get("heat_protection", {})
+        return bool(section.get("hold")) if isinstance(section, dict) else False
+
+    def _shading_target_reason(self) -> tuple[float, str]:
+        active, _temperature = self._heat_protection_state()
+        if active:
+            return self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION), "heat_protection"
+        return self._effective_shading_position(), "shading"
+
+    def _active_shading_target_reason(self, current_position: float | None) -> tuple[float | None, str, bool]:
+        active, _temperature = self._heat_protection_state()
+        if active:
+            target, reason = self._shading_target_reason()
+            return target, reason, True
+        close_target = self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION)
+        if self._heat_protection_hold() and self._position_matches(close_target, current_position):
+            return None, "shading", True
+        return self._effective_shading_position(), "shading", False
+
+    def _set_heat_protection_status(self, active: bool, hold: bool) -> bool:
+        section = self._status.setdefault("heat_protection", {})
+        changed = section.get("active") is not active or section.get("hold") is not hold
+        section["active"] = active
+        section["hold"] = hold
+        return changed
+
+    def heat_protection_snapshot(self) -> dict[str, object]:
+        active, temperature = self._heat_protection_state()
+        return {"active": active and self._reason == "heat_protection", "threshold": self._number_value(CONF_HEAT_PROTECTION_THRESHOLD, DEFAULT_HEAT_PROTECTION_THRESHOLD), "temperature": temperature}

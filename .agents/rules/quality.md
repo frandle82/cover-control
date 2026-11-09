@@ -26,7 +26,7 @@ Verbindliche Qualitätsstandards, Testanforderungen und Verifikationsprozesse f�
   ```
 * **Deterministisch & Offline:** Keine echten Netzwerkverbindungen in Tests. Parität zum Blueprint (CCA) lokal in `tests/test_blueprint_parity.py` ohne Abhängigkeit vom Live-Repository abbilden.
 * **Zustandstrennung testen:** `configured`, `enabled` und `eligible` als eigenständige Zustände separat abtesten.
-* **Lifecycle & Cleanup:** Entity-Registry-Cleanup testen, wenn Profilfunktionen abgewählt oder Profile aus einem Raum entfernt werden (Skill `entity-registry`).
+* **Lifecycle & Cleanup:** Entity-Registry-Cleanup testen, wenn Raumfunktionen oder Räume entfernt werden (Skill `entity-registry`).
 * **Frontend- & UI-Testing:** Bei Änderungen an Config- oder Options-Flow-Formularen interaktive Browser-Tests via Skill `playwright-interactive` zur Validierung von Selektoren und visueller Lokalisierung einsetzen.
 
 ---

@@ -1,34 +1,24 @@
 ---
-title: ADR-002: Controller- und Room-ConfigEntries statt Subentries
+title: ADR-002: Controller- und Room-ConfigEntries mit festen Gruppen
 type: adr
 status: accepted
-date: 2026-10-18
-tags:
-  - architecture
-  - config-flow
-  - config-entry
-  - migration
+date: 2026-11-08
+tags: [architecture, config-flow, config-entry, migration]
 ---
 
-# ADR-002: Controller- und Room-ConfigEntries statt Subentries
-
-## Kontext
-Frühere Versionen experimentierten mit `ConfigSubentryFlow` und einem einzigen ConfigEntry für Räume und Profile. Die Subentry-API führte zu instabilem Lifecycle, Registry-Inkonsistenzen und komplexer Navigation. Ein einziger Entry erschwerte zusätzlich die klare Eigentümerschaft von Raumhardware und raumeigenen Entitäten.
+# ADR-002: Controller, Standalone Rooms und feste Gruppen
 
 ## Entscheidung
-Das aktuelle Schema v12 verwendet ausschließlich native ConfigEntries:
-* Ein zentraler Controller-Entry besitzt globale Datenquellen und Profile unter `CONF_PROFILES`.
-* Jeder Raum ist ein eigenständiger `ENTRY_TYPE_ROOM`-ConfigEntry und besitzt Hardware, physische Positionen, lokale Quellen, Profil-ID und ausgewählte Profilfunktionen.
-* Profile sind weder ConfigEntries noch ConfigSubentries; sie bleiben zentrale Datenobjekte im Controller-Entry.
-* `async_get_supported_subentry_types() == {}`; es gibt keine Laufzeitabhängigkeit von `ConfigSubentryFlow`.
-* Migrationen überführen Altmodelle deterministisch in den Controller-/Room-Entry-Aufbau.
+
+- Ein Controller-ConfigEntry besitzt globale Quellen und exakt drei feste Gruppen unter `CONF_GROUPS`: `living`, `sleep`, `children`.
+- Jeder Raum ist ein eigenständiger `ENTRY_TYPE_ROOM`-ConfigEntry und speichert genau `CONF_GROUP`.
+- Gruppen sind weder ConfigEntries noch ConfigSubentries und können nicht erstellt, umbenannt oder gelöscht werden.
+- Rooms besitzen Hardware, physische Positionen, Kontakte, lokale Quellen, Safety-Teilnahme und Controls.
+- `async_get_supported_subentry_types() == {}`.
+- ConfigEntry-Version 13 und Modellversion 8 migrieren frühere freie Profile deterministisch in Gruppen.
 
 ## Konsequenzen
-* **Robuster Lifecycle:** Controller und Räume können über Standard-Home-Assistant-APIs sauber geladen, entladen und aktualisiert werden.
-* **Klare Eigentümerschaft:** Profile bleiben zentral; Raumhardware und Raum-Entities gehören ausschließlich zum Room-Entry.
-* **Saubere Translation-Namespaces:** Alle Übersetzungen liegen standardkonform unter `config.step` bzw. `options.step`.
-* **Stabile Migrationen:** Ältere Setups werden automatisch konvertiert, ohne Datenverlust oder verwaiste Subentries.
 
----
-Verwandte Notizen:
-* [`../troubleshooting/entity-registry-cleanup.md`](../troubleshooting/entity-registry-cleanup.md)
+Klare Eigentümerschaft, generischer Resolver `Room -> Group -> Controller group config`, gezielte Live-Propagation pro Gruppe und kein paralleles Profilmodell.
+
+Verwandt: [`../ioBroker-shuttercontrol.md`](../ioBroker-shuttercontrol.md)

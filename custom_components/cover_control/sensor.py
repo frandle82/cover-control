@@ -18,11 +18,7 @@ from .const import (
     DEFAULT_NAME,
     DOMAIN,
     ENTRY_TYPE_ROOM,
-    FUNCTION_RESIDENT,
     SIGNAL_ENTRY_STATE_UPDATED,
-)
-from .config_resolver import (
-    effective_room_profile_functions,
 )
 from .controller import ControllerManager
 from .runtime_data import CoverControlRuntime
@@ -31,9 +27,7 @@ from .runtime_data import CoverControlRuntime
 CONTROL_STATE_OPTIONS = [
     "idle", "time", "sun", "brightness", "calendar", "resident",
     "ventilation", "shading", "heat_protection", "manual_override",
-    "force_open",
-    "force_close", "force_ventilate", "force_shading", "force_pause",
-    "window_lockout", "additional_condition", "no_go_time", "summer_period",
+    "window_lockout", "no_go_time", "summer_period",
     "recovery", "multiple",
     "safety", "fire_alarm", "rain_alarm", "wind_alarm_2", "wind_alarm_1",
     "frost_alarm", "fire_latched",
@@ -55,11 +49,7 @@ async def async_setup_entry(
                     ControlStateSensor(hass, entry, room_id),
                 ]
             )
-            room = runtime.model.get("rooms", {}).get(room_id, {})
-            if FUNCTION_RESIDENT in effective_room_profile_functions(
-                runtime.model, room
-            ):
-                entities.append(ResidentStatusSensor(hass, entry, room_id))
+            entities.append(ResidentStatusSensor(hass, entry, room_id))
         desired = {entity.unique_id for entity in entities}
         registry = er.async_get(hass)
         for entity_entry in list(registry.entities.values()):

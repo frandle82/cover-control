@@ -2,7 +2,7 @@
 title: Reverse Engineering ioBroker.shuttercontrol 2.1.2
 type: domain
 status: active
-updated: 2026-11-08
+updated: 2026-11-09
 tags:
   - reverse-engineering
   - parity
@@ -35,7 +35,7 @@ Untersucht wurden `main.js`, `io-package.json`, `package.json`, `README.md`, `CH
 
 ## Referenzarchitektur und Zustände
 
-Die Referenz hält eine globale Adapterkonfiguration und eine `events`-Zeile je Rollladen. Feste Bereiche (`living`, `sleep`, `children`) wählen Zeit-/Astromodi; das ist keine Zielarchitektur für Cover Control. Dort werden diese Gruppen mit frei benennbaren Profilen und eigenständigen Room-ConfigEntries abgebildet.
+Die Referenz hält eine globale Adapterkonfiguration und eine `events`-Zeile je Rollladen. Feste Bereiche (`living`, `sleep`, `children`) wählen Zeit-/Astromodi; diese Bereiche sind in Cover Control vollständig als drei controller-eigene Konfigurationsgruppen umgesetzt. Rooms bleiben eigenständige ConfigEntries und gehören genau einer Gruppe an.
 
 Pro Rollladen werden unter anderem `currentAction`, `currentHeight`, `oldHeight`, `triggerAction`, `triggerHeight`, `firstCompleteUp`, `alarmTriggerAction`, `alarmTriggerLevel` und `lastAutoAction` geführt. `shutters.currentStates` persistiert diese Werte über Adapterstarts. Um 02:30 Uhr werden Aktionszustände täglich zurückgesetzt und die Istposition neu eingelesen.
 
@@ -83,6 +83,10 @@ Eine manuell erreichte Beschattungsposition ist ein besonderer bekannter Zielwer
 
 Cover Control bildet diese Semantik HA-nativ ab: Nach Abschluss einer nicht selbst ausgelösten Bewegung wird vor dem Manual Override geprüft, ob die Istposition innerhalb `position_tolerance` der aktuellen `_effective_shading_position()` entspricht. Dann werden Ziel, Reason und Shading-Status ausschließlich für dieses Cover auf `shading` gesetzt; es entsteht kein Override und kein zweiter Fahrbefehl. Alternative Shading-Positionen werden über denselben effektiven Resolver berücksichtigt, Heat Protections `close_position` dagegen nicht. Ein weiteres manuelles Verlassen des Ziels beendet den Shading-Status und aktiviert wieder den normalen Override. Safety wird vor der Adoption geprüft; Fensterlogik und Shading-Ende bleiben in der bestehenden Prioritäts- und Evaluationskette. Der Zustand wird über den vorhandenen Status persistiert und beim Reload weiterhin durch aktuelle Position und Bedingungen validiert; es gibt keine zusätzliche Persistenzstruktur.
 
+Manual Override ist dabei bewusst eine einfache HA-Erweiterung: aktiviert oder deaktiviert, mit einer einzigen Dauer. Er blockiert alle normalen Automatikaktionen; `0` Minuten bleibt bis zum Clear-Button aktiv. Einzelblockaden, tägliche Reset-Uhrzeit und Schedule Adoption gehören nicht zum Zielmodell. Safety bleibt dominant.
+
+Cover Control bildet außerdem die sieben Referenzvarianten direkt als `off`, `inside_outside`, `direction`, `inside_outside_direction`, `outside_direction`, `outside` und `inside` ab. Nutzer können keine Start-/Endbedingungen mehr frei per AND/OR kombinieren. Forecast- und Wetterbedingungen gehören nicht zum unterstützten Sonnenschutzmodell. Direction wird als Fensterausrichtung ± Bereich gespeichert und unterstützt den 0°-Übergang. Temperatur und optionale Helligkeit starten strikt oberhalb des Schwellwerts und enden unter der prozentual hysterese-berechneten Grenze.
+
 ## Fenster, Aussperrschutz und Wiederherstellung
 
 Ein Trigger kennt geschlossen, optional gekippt und sonst offen. `triggerChange` kann nur beim Öffnen, nur beim Schließen, in beide Richtungen oder gar nicht fahren. Vor einer Fensterfahrt werden Höhe und Aktion gesichert; beim Schließen kann die vorherige Verdunklungs-/Beschattungsposition wiederhergestellt werden.
@@ -98,6 +102,12 @@ Seit 2.1.0 kann `useOpenWindowLevel` bei einer automatischen Schließfahrt:
 
 Schließt das Fenster während der ersten Fahrt, bleibt der Rollladen geschlossen. Frost verhindert die zweite Fahrt. `oldHeight` wird auf die Schließposition gesetzt, damit die zweite automatische Fahrt nicht als manuelle Bewegung erkannt wird. Die Verdunklungsposition bleibt als `triggerHeight` für die spätere Wiederherstellung erhalten. Dies ist durch `lib/windowLevel.test.js` abgedeckt.
 
+Cover Control verwendet dafür ein festes Zielmodell ohne CCA-Sonderschalter: vollständig offen → Lockout-Position, gekippt → Lüftungsposition, geschlossen → gespeicherten Hintergrund neu auswerten. Fenster-/Aussperrschutz gewinnt vor Komfort-Beschattung. Die frühere Option `prevent_opening_after_shading_end` ist verlustfrei als `keep_sun_protection` benannt und bildet ausschließlich `KeepSunProtect` ab. Generische Additional Conditions sowie CCA-spezifische `prevent_*`, Ventilation- und Lockout/Tilt-Overrides gehören nicht mehr zum Zielumfang. Resident und Recalibrate bleiben bewusste Cover-Control-Erweiterungen.
+
+Weitere feste Zielinvarianten: Es gibt keine externen Force-Entities. Die Istposition stammt ausschließlich aus dem standardisierten HA-Cover-Attribut `current_position`; fehlt es, gilt die Position als nicht verfügbar. Catch-up erfolgt nur nach einem echten Runtime-Ausfall, nicht nach ConfigEntry-Reloads. Die Fahrstaffelung ist mit `drive_delay_fixed` deterministisch und besitzt keinen Zufallsanteil.
+
+Tilt/Raffstore bleibt bewusst eine Cover-Control-Erweiterung außerhalb der Shuttercontrol-Parität. Die HA-Capability `SET_TILT_POSITION` schaltet ausschließlich vier raumeigene physische Tilt-Ziele frei. Mehrstufige Elevation-Tilt-Werte werden bei der Migration deterministisch auf die bisherige mittlere Stufe 2 reduziert; Position → Idle/Timeout → Tilt sowie die Deduplizierungstoleranz sind feste Runtime-Invarianten.
+
 ## Safety-Alarme und Prioritätsabweichung
 
 Jeder Alarm besitzt eine globale Entity und Zielposition sowie eine Aktivierung pro Rollladen.
@@ -106,7 +116,7 @@ Der Referenzcode besitzt keine durchgehend feste Rangfolge für Nicht-Feuer-Alar
 
 Cover Control übernimmt deshalb bewusst die deterministische Zielinvariante `Fire > Rain > Wind 2 > Wind 1 > Frost` für Aktivierung, gleichzeitige Zustände, Restart und Fallback. Diese Abweichung beseitigt die eventreihenfolgeabhängige Referenzsemantik. Feuer bleibt nach Rücknahme verriegelt: der persistente `fire_latched`-Zustand blockiert normale Automation, bis der Feuer-Sensor inaktiv ist und der Nutzer den Reset-Button betätigt.
 
-Regen, Wind 2 und Wind 1 fahren bei Aktivierung auf ihre Profil-Zielposition. Nach Rücknahme wird kein separater Restore-Befehl erzeugt; die normale Cover-Control-Evaluation beziehungsweise der höchste verbleibende Alarm entscheidet unmittelbar neu.
+Regen, Wind 2 und Wind 1 fahren bei Aktivierung auf ihre Gruppen-Zielposition. Nach Rücknahme wird kein separater Restore-Befehl erzeugt; die normale Cover-Control-Evaluation beziehungsweise der höchste verbleibende Alarm entscheidet unmittelbar neu.
 
 Frost fährt einen bereits offenen Rollladen nicht präventiv. Er begrenzt eine spätere Schließfahrt auf die Frostposition und hebt nur einen bereits vollständig geschlossenen Rollladen bis dorthin an. Nach Rücknahme entscheidet die normale Evaluation neu; ein eigener Restore-Zustand wird nicht parallel aufgebaut.
 
@@ -118,9 +128,9 @@ Die Funktionen sind im aktuellen Quellcode aktiv und daher nicht historisch:
 - `XMasStart`/`XMasEnd` sind ebenfalls global und inklusiv. `useXmasLevel`/`XmasLevel` ersetzt je Rollladen das normale Ziel, die Zwischenposition und das Ziel von `shutterDownComplete`. `shutterDownLate` verwendet die Weihnachtsposition nicht.
 - `IsSummerTime()` behandelt `End < Start` als Jahreswechsel und verschiebt abhängig vom aktuellen Datum Start- oder Endjahr. Start- und Endtag gehören zum Zeitraum.
 
-Cover Control mappt die wiederkehrenden Grenzen ins Time-Profil; Teilnahme und physische Weihnachtsposition bleiben Room-Eigentum. Eine gemeinsame Datumsfunktion wertet lokale HA-Zeit ohne persistiertes Kalenderjahr aus. Sommer blockiert nur normale Komfort-Schließentscheidungen und meldet `summer_period`; Safety, Force, Frost, Ventilation und Lockout bleiben aktiv. Weihnachten modifiziert das gemeinsame Schließziel und läuft anschließend durch den bestehenden Fenster-/Ventilations- und Aktorpfad. Abweichend von der Referenz bleiben Safety und Frost auch gegenüber Christmas dominant.
+Cover Control mappt die wiederkehrenden Grenzen in der gewählten Gruppe; Teilnahme und physische Weihnachtsposition bleiben Room-Eigentum. Eine gemeinsame Datumsfunktion wertet lokale HA-Zeit ohne persistiertes Kalenderjahr aus. Sommer blockiert nur normale Komfort-Schließentscheidungen und meldet `summer_period`; Safety, Force, Frost, Ventilation und Lockout bleiben aktiv. Weihnachten modifiziert das gemeinsame Schließziel und läuft anschließend durch den bestehenden Fenster-/Ventilations- und Aktorpfad. Abweichend von der Referenz bleiben Safety und Frost auch gegenüber Christmas dominant.
 
-Golden Hour und Astro-Offsets sind nur fachlich gemappt: Die Referenz plant täglich konkrete SunCalc-Zeitpunkte (`goldenHourEnd`/`goldenHour`) und verschiebt sie um Minuten. Cover Control reagiert stattdessen auf fixe, dynamische oder hybride Elevationsschwellen innerhalb von Early-/Late-Fenstern. Das löst denselben Nutzerfall, garantiert aber insbesondere über Sommer und Winter weder denselben Zeitpunkt noch einen konstanten Minutenversatz.
+Cover Control bildet die Astro-Modi jetzt direkt ab: Sunrise/Sunset sind echte Astral-Ereignisse; Golden Hour verwendet morgens das Ende (`goldenHourEnd`-Semantik) und abends den Beginn (`goldenHour`-Semantik). `astro_open_offset_minutes` gilt für Sunrise und morgendliche Golden Hour, `astro_close_offset_minutes` für Sunset und abendliche Golden Hour. Alle Ereignisse werden durch Early/Late begrenzt. Elevation besitzt nur feste Gruppen-Schwellen; Dynamic/Hybrid, deren Sensoren, Sun-Duration, frei wählbarer Sun-Sensor und Brightness/Sun-Operator gehören nicht zum Zielmodell.
 
 ## Restart, manuelle Eingriffe und Edge Cases
 
@@ -149,16 +159,17 @@ Die gleichnamigen **per-Rollladen** Felder `heatProtection` und `useXmasLevel` w
 
 ## Konsequenzen für Cover Control
 
-- Controller/Global/Profile/Room/Runtime bleiben unverändert die Zielarchitektur.
-- Feste Referenzbereiche werden durch frei benennbare Profile abgebildet.
+- Controller/Global/Group/Room/Runtime bilden die Zielarchitektur.
+- Cover Control besitzt exakt die drei festen Gruppen `living`, `sleep` und `children`; diese Parität ist FULL.
 - Ferien-/Urlaubs-/Schulferienlogik wird ausschließlich auf den bestehenden Workday-/Non-Workday-Mechanismus gemappt.
-- Safety ist als eigene Profilfunktion umgesetzt: globale Quellen, Profil-Enabled/Zielwerte, Room-Teilnahme, Listener, eindeutige Trigger, Runtime-Priorität, Diagnose und Tests bilden die vollständige Kette.
-- Safety wird vor Force, Manual, Kontakten und Komfortautomation ausgewertet. Der Fire-Latch liegt ausschließlich im persistenten Laufzeitstatus, nicht im Profil.
+- Safety ist gruppenbezogen umgesetzt: globale Quellen, Gruppen-Enabled/Zielwerte, Room-Teilnahme, Listener, eindeutige Trigger, Runtime-Priorität, Diagnose und Tests bilden die vollständige Kette.
+- Safety wird vor Force, Manual, Kontakten und Komfortautomation ausgewertet. Der Fire-Latch liegt ausschließlich im persistenten Laufzeitstatus, nicht in der Gruppe.
 - Der 2.1.0-Fensterablauf ist umgesetzt: reguläre automatische Schließfahrten fahren bei offenem oder gekipptem Fenster zuerst das Schließziel an, warten die konfigurierte `drive_time`, lesen den Kontakt erneut und fahren erst danach die aktuelle Lockout-/Lüftungsposition an. Die Sequenz ist pro Cover und wird durch Safety, Force, Manual, Unload oder Reconfigure abgebrochen.
-- Heat Protection ist als Teil der bestehenden Shading-Kette umgesetzt: Profilaktivierung und Außentemperaturschwelle verwenden die vorhandene Outdoor-Quelle, alle normalen Shading-Gates bleiben erforderlich, das Ziel wird auf `close_position` gesetzt und Safety bleibt dominant. Diagnose und persistierter Hold unterscheiden aktive Heat Protection von normaler Beschattung ohne Positions-Churn.
+- Heat Protection ist als Teil der bestehenden Shading-Kette umgesetzt: Gruppenaktivierung und Außentemperaturschwelle verwenden die vorhandene Outdoor-Quelle, alle normalen Shading-Gates bleiben erforderlich, das Ziel wird auf `close_position` gesetzt und Safety bleibt dominant. Diagnose und persistierter Hold unterscheiden aktive Heat Protection von normaler Beschattung ohne Positions-Churn.
 - Die Runtime-Trigger sind fachlich eindeutig; neue Safety-Trigger müssen dieselbe Trennung von `trigger` (Evaluationsursache) und `reason` (Fahrentscheidung) beibehalten.
-- No-Go-Time ist als Behavior-Profilwert umgesetzt und verwendet ohne parallele Historie `State.last_changed`. Die gestufte Schließung verwendet ein Time-Profil, eine Room-Zwischenposition und den vorhandenen Schedule-/Movement-Pfad; Schlussfahrten respektieren Safety, Frost und die Fenstersequenz.
+- No-Go-Time ist als Gruppenwert umgesetzt und verwendet ohne parallele Historie `State.last_changed`. Die gestufte Schließung verwendet Gruppenzeiten, eine Room-Zwischenposition und den vorhandenen Schedule-/Movement-Pfad; Schlussfahrten respektieren Safety, Frost und die Fenstersequenz.
 - Schedule-Prognosen sind nach vollständiger Kandidatenauswahl zentral auf `microsecond=0` normalisiert. Unveränderte Eingänge müssen bei wiederholtem Refresh identische Vorhersagen liefern.
+- Jede Gruppe besitzt genau einen Öffnungs- und einen Schließmodus. Öffnen erlaubt `time`, `sunrise`, `golden_hour`, `elevation`, `brightness`; Schließen erlaubt `time`, `sunset`, `golden_hour`, `elevation`, `brightness`.
 - Die bestätigten saisonalen Sommer- und Weihnachtsregeln sind einschließlich Jahreswechsel, gestuftem Schließen, Safety-Priorität und Diagnose umgesetzt. Weitere Änderungen benötigen den separaten finalen Paritäts- und Reality-Check.
 
 Die vollständige Statuszuordnung und Priorisierung steht in [`../../docs/shuttercontrol-parity.md`](../../docs/shuttercontrol-parity.md).

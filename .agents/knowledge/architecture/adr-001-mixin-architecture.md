@@ -21,7 +21,7 @@ Die Controller-Logik ist strikt nach funktionalen Domänen auf spezialisierte Mi
 * `evaluation.py`: Berechnung der Zielposition und Auswertung der Bedingungen.
 * `events.py`: Home Assistant State-Listener und Event-Subscriptions.
 * `schedule.py`: Zeitpläne, Arbeitstag-Sensoren und Kalender-Ereignisse.
-* `shading.py`: Sonnengeometrie (Azimut/Elevation), Wetterbedingungen und Beschattungsregeln.
+* `shading.py`: Feste Shuttercontrol-Sonnenschutzmodi, Direction-Geometrie, Temperatur und optionale Helligkeit.
 * `status.py`: Zustände der Steuerungsentitäten, Diagnosesensoren und Statusgründe.
 
 Die Hauptklasse `CoverController` in `controller.py` erbt von diesen Mixins und dient als koordinierende Fassade.

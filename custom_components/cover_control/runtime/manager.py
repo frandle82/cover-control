@@ -15,11 +15,7 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.helpers.storage import Store
 from homeassistant.util import dt as dt_util
 
-from ..config_resolver import (
-    effective_profile_id,
-    ResolvedRoomConfig,
-    resolve_config_model,
-)
+from ..config_resolver import ResolvedRoomConfig, resolve_config_model
 from ..config_subentries import model_from_subentries
 from ..const import (
     CONF_AUTO_BRIGHTNESS,
@@ -30,14 +26,16 @@ from ..const import (
     CONF_AUTO_UP,
     CONF_AUTO_VENTILATE,
     CONF_COVERS,
+    CONF_CLOSE_MODE,
     CONF_HEAT_PROTECTION_ENABLED,
     CONF_HEAT_PROTECTION_THRESHOLD,
-    CONF_PROFILE_FUNCTIONS,
-    CONF_PROFILE_SELECTIONS,
+    CONF_GROUP,
+    CONF_OPEN_MODE,
     CONF_RESIDENT_STATUS,
     CONF_RESIDENT_SENSOR,
     CONF_ROOMS,
     CONF_ROOM_OVERRIDES,
+    CONF_SHADING_MODE,
     DOMAIN,
     SIGNAL_ENTRY_STATE_UPDATED,
 )
@@ -66,12 +64,9 @@ def _controls_for_reason(reason: str) -> set[str]:
         return {"time"}
     if reason in {"sun_open", "sun_close"}:
         return {"sun"}
-    if reason.startswith("force_"):
-        return {reason}
     if reason in {
         "manual_override",
         "window_lockout",
-        "force_pause",
         "no_go_time",
         "summer_period",
     }:
@@ -97,12 +92,9 @@ def _blocking_controls_for_reason(reason: str) -> set[str]:
     if reason in {
         "manual_override",
         "window_lockout",
-        "force_pause",
         "summer_period",
     }:
         return {reason}
-    if reason.startswith("additional_condition"):
-        return {"additional_condition"}
     return set()
 
 
@@ -184,7 +176,7 @@ class ControllerManager:
         self._entity_routes: dict[str, set[str]] = {}
         self._resolved_config: ResolvedRoomConfig | None = None
         self._config_model: dict = {}
-        self.profile_users: dict[tuple[str, str], set[str]] = {}
+        self.group_users: dict[str, set[str]] = {}
 
     async def async_setup(self) -> None:
         self._store = Store(
@@ -375,7 +367,7 @@ class ControllerManager:
         )
         hub = getattr(self, "hub", None)
         if hub is not None:
-            hub.refresh_profile_evaluations()
+            hub.refresh_group_evaluations()
 
     @callback
     def refresh_schedule_snapshot(self) -> bool:
@@ -516,6 +508,12 @@ class ControllerManager:
             else None
         )
         resident_state = self.hass.states.get(resident_entity) if resident_entity else None
+        first_status = getattr(first_controller, "_status", {})
+        shading_conditions = (
+            first_status.get("shading_conditions", {})
+            if isinstance(first_status, dict)
+            else {}
+        )
         self._entry_snapshot = {
             "covers": covers,
             "next_open": min(open_candidates) if open_candidates else None,
@@ -545,6 +543,8 @@ class ControllerManager:
             "safety_target": safety_target,
             "window_down_sequences": window_down_sequences,
             "heat_protection_active": heat_protection_active,
+            "shading_mode": first_controller.config.get(CONF_SHADING_MODE),
+            "shading_conditions": dict(shading_conditions),
         }
 
     def entry_snapshot(self) -> dict[str, object]:
@@ -553,14 +553,16 @@ class ControllerManager:
         return self._entry_snapshot
 
     def configuration_diagnostics(self) -> dict[str, object]:
-        """Return a bounded view of selected profiles and important origins."""
+        """Return a bounded view of the selected group and important origins."""
 
         resolved = self._resolved_config
         if resolved is None:
             return {}
         keys = (
+            CONF_OPEN_MODE,
+            CONF_CLOSE_MODE,
+            CONF_SHADING_MODE,
             "shading_position",
-            "shading_waitingtime_start",
             "shading_waitingtime_end",
             "temperature_threshold",
             CONF_HEAT_PROTECTION_ENABLED,
@@ -569,17 +571,8 @@ class ControllerManager:
         )
         def readable_source(key: str) -> str:
             source = resolved.sources.get(key, "unknown")
-            if source.startswith("profile:"):
-                profile_id = source.removeprefix("profile:")
-                name = next(
-                    (
-                        resolved.profile_names.get(kind, profile_id)
-                        for kind, selected in resolved.selected_profiles.items()
-                        if selected == profile_id
-                    ),
-                    profile_id,
-                )
-                return f'Profile "{name}"'
+            if source.startswith("group:"):
+                return f'Group "{source.removeprefix("group:")}"'
             return {
                 "system_default": "Default",
                 "global_default": "Global default",
@@ -593,7 +586,6 @@ class ControllerManager:
             resolved.room_id, {}
         )
         runtime_toggles = getattr(self, "_runtime_toggles", {})
-        profile_id = effective_profile_id(room)
         toggle_keys = (
             CONF_AUTO_TIME,
             CONF_AUTO_VENTILATE,
@@ -605,11 +597,7 @@ class ControllerManager:
         return {
             "room_id": resolved.room_id,
             "room_name": resolved.room_name,
-            "profile_id": profile_id,
-            "profiles": dict(resolved.profile_names),
-            "selected_profile_functions": sorted(
-                room.get(CONF_PROFILE_FUNCTIONS, ())
-            ),
+            "group": resolved.group,
             "configured_functions": sorted(resolved.configured_functions),
             "resolved": {
                 key: {
@@ -734,7 +722,7 @@ class ControllerManager:
             )
             resolved = resolve_config_model(self._config_model, room_id)
         self._resolved_config = resolved
-        self._index_profile_users()
+        self._index_group_users()
         return resolved
 
     @callback
@@ -744,7 +732,7 @@ class ControllerManager:
         """Apply a model edit only to rooms affected by the changed dependency."""
 
         self._config_model = model
-        self._index_profile_users()
+        self._index_group_users()
         room_id = getattr(self, "room_id", self.entry.entry_id)
         affected = affected_rooms or {room_id}
         if room_id not in affected:
@@ -760,15 +748,13 @@ class ControllerManager:
         self.refresh_schedule_snapshot()
         return {room_id}
 
-    def _index_profile_users(self) -> None:
-        """Build the runtime-only profile-to-room dependency index."""
+    def _index_group_users(self) -> None:
+        """Build the runtime-only group-to-room dependency index."""
 
-        users: dict[tuple[str, str], set[str]] = {}
+        users: dict[str, set[str]] = {}
         for room_id, room in self._config_model.get(CONF_ROOMS, {}).items():
-            profile_id = effective_profile_id(room)
-            if profile_id:
-                users.setdefault(("profile", profile_id), set()).add(room_id)
-        self.profile_users = users
+            users.setdefault(str(room.get(CONF_GROUP)), set()).add(room_id)
+        self.group_users = users
 
     def set_manual_override(self, cover: str, minutes: int) -> bool:
         controller = self.controllers.get(cover)
@@ -876,27 +862,6 @@ class ControllerManager:
 
         for controller in self.controllers.values():
             await controller.recalibrate(full_open)
-
-    async def force_action(self, cover: str, action: str) -> bool:
-        controller = self.controllers.get(cover)
-        if not controller:
-            return False
-
-        if action in {"open", "close"}:
-            await controller.force_move(action)
-            return True
-        if action in {"ventilate_start", "ventilate_stop"}:
-            await controller.force_ventilation(
-                "start" if action == "ventilate_start" else "stop"
-            )
-            return True
-        if action in {"shading_activate", "shading_deactivate"}:
-            await controller.force_shading(
-                "activate" if action == "shading_activate" else "deactivate"
-            )
-            return True
-
-        return False
 
     def state_snapshot(
         self,

@@ -19,7 +19,7 @@ Logik gehört in das zuständige Mixin, nicht in die Controller-Fassade:
 * `evaluation.py`: Berechnung der Zielposition und Auswertung der Bedingungen.
 * `events.py`: Home Assistant State-Listener und Event-Subscriptions.
 * `schedule.py`: Zeitpläne, Arbeitstag-Sensoren und Kalender-Ereignisse.
-* `shading.py`: Sonnengeometrie (Azimut/Elevation), Wetterbedingungen und Beschattungsregeln.
+* `shading.py`: Feste Sonnenschutzmodi, Sonnengeometrie, Temperatur- und optionale Helligkeitsbedingungen.
 * `status.py`: Zustände der Steuerungsentitäten, Diagnosesensoren und Statusgründe.
 
 Controller-Imports bleiben stabil über `controller.py`. Logik nicht ohne klaren architektonischen Grund zwischen Mixins verschieben.
@@ -34,34 +34,39 @@ Controller-Imports bleiben stabil über `controller.py`. Logik nicht ohne klaren
 * **Shared Logic:** Gemeinsame Normalisierung und Validierung für Config Flow und Options Flow verwenden. Keine redundanten Konfigurationsschlüssel für denselben logischen Parameter.
 * **Multi-Entry-Modell:**
   * Rooms sind eigenständige ConfigEntries (`ENTRY_TYPE_ROOM`), keine Subentries (`async_get_supported_subentry_types() == {}`).
-  * Profile liegen ausschließlich zentral in `controller.data[CONF_PROFILES]`.
-  * Ein Raum speichert nur die Profil-ID (`CONF_ROOM_PROFILE_ID`) und ausgewählte Profilfunktionen (`CONF_PROFILE_FUNCTIONS`). Details siehe Skill [`profile-model`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/profile-model/SKILL.md).
+  * Genau drei Gruppen liegen zentral in `controller.data[CONF_GROUPS]`: `living`, `sleep`, `children`.
+  * Ein Raum speichert genau eine Gruppenzuordnung (`CONF_GROUP`). Details siehe Skill [`profile-model`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/profile-model/SKILL.md).
 
 ### Strikte Grenzen der Verantwortlichkeit:
 * **GLOBAL:** Besitzt geteilte HA-Datenquellen (Arbeitstage, Kalender, Helligkeit, Außentemperatur, Wetter/Vorhersage, globale Bedingungen).
-* **PROFILE:** Besitzt Automationsverhalten und Schwellenwerte (Zeitpläne, Helligkeitsschwellen, Hysterese, Wartezeiten, Beschattungs- und Lüftungsregeln). Profile besitzen niemals raumeigene Entitäten oder Positionen.
-* **ROOM:** Besitzt Hardware, Cover-Entitäten, physische Positionen (Offen, Geschlossen, Beschattung, Kippung, Lüftung, Lockout), Fenstersensoren, Geometrie, Raumschalter und die Profilzuweisung.
+* **GROUP:** Besitzt Automationsverhalten und Schwellenwerte. Gruppen besitzen niemals raumeigene Entitäten oder Positionen.
+  * Öffnen verwendet genau einen Modus aus `time`, `sunrise`, `golden_hour`, `elevation`, `brightness`; Schließen genau einen aus `time`, `sunset`, `golden_hour`, `elevation`, `brightness`.
+  * Dynamic-/Hybrid-Elevation ist kein aktives Feature und wird nur als Legacy-Migrationsinput erkannt.
+* **ROOM:** Besitzt Hardware, Cover-Entitäten, physische Positionen, Fenstersensoren, Geometrie, Raumschalter und eine Gruppenzuordnung.
+  * Tilt ist eine bewusste HA-Erweiterung. Die capability-basierte UI zeigt nur die vier physischen Ziele für Öffnen, Schließen, Lüften und Beschatten; Sequenz, Wartezeit und Toleranz sind interne Runtime-Belange.
 * **SWITCH:** Steuert, ob eine konfigurierte Raumfunktion zur Laufzeit aktiv (enabled) ist.
 * **RUNTIME:** Entscheidet, ob eine aktive Funktion unter den aktuellen Bedingungen ausführungsberechtigt (eligible) ist.
+* Generische Zusatzbedingungen und CCA-spezifische Override-Schalter gehören nicht zum Zielmodell. Window-, Ventilation- und Shading-Konflikte folgen festen Shuttercontrol-Prioritäten.
 
 ### Zustandsmodell
-* **`configured`**: Funktion ist im gewählten Profil vorhanden **UND** vom Raum explizit ausgewählt (`profile_functions`).
+* **`configured`**: Funktion gehört zum festen Gruppenmodell.
 * **`enabled`**: Der zugehörige Laufzeitschalter steht auf **ON**.
 * **`eligible`**: Die aktuellen Bedingungen erlauben der Funktion eine Aktion.
 
-Ein Schalterzustand ändert niemals die Konfiguration. Das Ausschalten eines Schalters löscht keine Raum-/Profilkonfiguration.
+Ein Schalterzustand ändert niemals die Konfiguration oder Gruppenzuordnung.
 
-### Native Profilfunktionen & Schalter
-* Autonom schaltbare Profilfunktionen mit Laufzeitschalter: `time`, `brightness`, `sun`, `shading`, `ventilation`, `resident`.
+### Gruppenfunktionen & Schalter
+* Autonom schaltbare Gruppenfunktionen mit Laufzeitschalter: `time`, `brightness`, `sun`, `shading`, `ventilation`, `resident`.
 * Automationsverhalten ohne eigenständigen Laufzeitschalter: `behavior`.
 
 ---
 
 ## 3. UI-Struktur & Lokalisierung
 
-* **Raum-UI:** General, Cover & Hardware, Positions, Window contacts, Room sensors, Geometry, Profile & Automation, Local data sources, Controls, Diagnostics.
-* **Profil-UI:** General, Time, Brightness, Sun, Shading, Ventilation, Resident, Manual behavior.
-* Im Raum-Schritt `Profile & Automation` zuerst das Profil wählen und danach die gewünschten Profilfunktionen explizit selektieren (niemals automatisch alle Funktionen aktivieren).
+* **Raum-UI:** General, Group, Cover & Hardware, Positions, Window contacts, Room sensors, Local data sources, Controls, Diagnostics.
+* **Gruppen-UI:** Time, Brightness, Sun, Shading, Ventilation, Resident, Safety, Manual behavior.
+* Shading-Direction und -Schwellen gehören zur Gruppe; die physische `shading_position` bleibt Room-Eigentum.
+* Ein Raum wählt genau eine feste Gruppe; einzelne Gruppenfunktionen werden nicht selektiert.
 * Klare Trennung im UI: `Room name` (Konfigurationsobjekt) vs. `Home Assistant area` (zugeordnete physische HA-Area).
 * Übersetzungen immer synchron halten: `strings.json`, `translations/en.json`, `translations/de.json`.
 
@@ -70,15 +75,16 @@ Ein Schalterzustand ändert niemals die Konfiguration. Das Ausschalten eines Sch
 ## 4. Fahrbefehle, Beschattung & Manuelle Steuerung
 
 * **Fahrbefehle (`actuator.py`):** Sämtliche automatischen Fahrbefehle laufen über den Controller und `actuator.py`.
-* **Prioritätenhierarchie:** Lockout > Force > Manual Override > Ventilation > Shading > Resident.
+* **Prioritätenhierarchie:** Safety > Manual Override > Window / Ventilation / Lockout > Shading / Heat Protection > Resident > Time / Astro / Brightness.
+* **Manual Override:** Ein einzelner Automatik-Pausenzustand ohne Einzelblockaden oder Resetmodus. `0` Minuten bleibt bis zum Clear-Button aktiv; Safety bleibt dominant. Eine manuell erreichte normale Beschattungsposition wird innerhalb der Toleranz weiterhin als Shading adoptiert.
 * **Toleranz:** Keine doppelten Fahrbefehle senden, wenn sich die Position bereits innerhalb der konfigurierten Toleranz befindet.
+* **Fensterpriorität:** Offen fährt auf die Lockout-Position, gekippt auf die Lüftungsposition; beide Zustände gehen Komfort-Beschattung vor. Nach dem Schließen wird der gespeicherte Hintergrund wieder ausgewertet.
 * **Manuelle Steuerung:** Strikt trennen zwischen:
   1. Manueller Bewegungserkennung (`manual movement detection`)
   2. Manuellem Override-Zustand (`manual override state`)
   3. Geplanter Aktionshistorie (`scheduled action history`)
-  4. Erzwingungsaktionen (`force actions`)
 * Durch Cover Control initiierte Fahrten (auch Zwischenzustände wie `opening`/`closing`) dürfen niemals als manuelle Bedienung gewertet werden.
-* **Beschattungsregeln:** Sonnengeometrie in `shading.py`, Zielposition/Auswertung in `evaluation.py`. Hysterese und Wartezeiten zustandsbehaftet führen und zurücksetzen, sobald die Bedingung ungültig wird. Sofort-Ende- und Sicherheitslogik wahren.
+* **Beschattungsregeln:** Ausschließlich feste Shuttercontrol-Modi; keine frei kombinierbaren AND-/OR- oder Forecast-Bedingungen. Direction ist Mittelpunkt ± Bereich, Endgrenzen nutzen prozentuale Hysterese. Zielposition/Aktorpfad bleiben in `evaluation.py`/`actuator.py`.
 
 ---
 
@@ -88,7 +94,7 @@ Der Ordner `.agents/` fungiert als lokales Second Brain für das Projekt:
 * **Struktur:** Reines Markdown mit Frontmatter (`type`, `tags`, `status`), Querverweisen und zentralem Index ([`INDEX.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/INDEX.md)).
 * **Abruf vor Aufgaben (Retrieval):** Vor Anforderungsanalyse oder Implementierung immer relevante Notizen und ADRs aus `.agents/knowledge/` abrufen (Skill `knowledge`).
 * **Wissensaufnahme (Capture):** Neue architektonische Entscheidungen, gelöste Edge Cases und Best Practices werden nach Abschluss sofort strukturiert als Notiz festgehalten und im `INDEX.md` verlinkt.
-* **Pflicht bei fachlich relevanten Änderungen:** Änderungen an ConfigEntry-/Profil-/Room-Architektur, Resolver, Runtime-Lifecycle, Schedule/Time/Sun/Workday/Calendar, CCA-Parität, Aktivitäts-/Diagnose-Entitäten, Migrationen, Release-Prozess oder wichtigen Bugfixes mit neuer Root Cause/Invariante erfordern die Prüfung und gegebenenfalls Aktualisierung des Knowledge-Bestands im selben Auftrag.
+* **Pflicht bei fachlich relevanten Änderungen:** Änderungen an ConfigEntry-/Group-/Room-Architektur, Resolver, Runtime-Lifecycle, Schedule/Time/Sun/Workday/Calendar, CCA-Parität, Aktivitäts-/Diagnose-Entitäten, Migrationen, Release-Prozess oder wichtigen Bugfixes mit neuer Root Cause/Invariante erfordern die Prüfung und gegebenenfalls Aktualisierung des Knowledge-Bestands im selben Auftrag.
 * **Widerspruchsfreiheit:** Veraltete Aussagen sind zu korrigieren oder zu entfernen. Es dürfen nur bestätigte technische Fakten aufgenommen werden. Knowledge muss mit Code, Tests, `AGENTS.md`, `.agents/rules/` und `.agents/skills/` übereinstimmen.
 * **Keine externen Abhängigkeiten:** Reines lokales Markdown; keine MCP-Server oder proprietäre Cloud-Tools erforderlich.
 
@@ -106,7 +112,7 @@ Jede Entwicklungsaufgabe in `cover-control` folgt verbindlich diesem Phasenmodel
 2. **Architekturkonforme Implementierung:**
    * Domänenregeln beachten:
      * Gesamtübersicht: [`cover-control`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/cover-control/SKILL.md)
-     * Profile & Vererbung: [`profile-model`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/profile-model/SKILL.md)
+     * Groups & Resolver: [`profile-model`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/profile-model/SKILL.md)
      * Zeit- & Sonnenlogik: [`schedule-runtime`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/schedule-runtime/SKILL.md)
      * Datenfluss & Lifecycle: [`runtime-lifecycle`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/runtime-lifecycle/SKILL.md)
      * HA Core & Async: [`home-assistant`](file:///Users/andreasgrundke/Git/cover-control/.agents/skills/home-assistant/SKILL.md)

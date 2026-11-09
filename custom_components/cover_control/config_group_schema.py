@@ -1,4 +1,4 @@
-"""Reusable native Home Assistant schemas for profiles and room overrides."""
+"""Reusable Home Assistant schemas for fixed groups and room overrides."""
 
 from __future__ import annotations
 
@@ -14,39 +14,7 @@ from homeassistant.helpers import selector
 from homeassistant.util import dt as dt_util
 
 from . import const as c
-from .config_resolver import PROFILE_KEYS
-
-_SHADING_CONDITIONS = [
-    c.SHADING_CONDITION_AZIMUTH,
-    c.SHADING_CONDITION_ELEVATION,
-    c.SHADING_CONDITION_BRIGHTNESS,
-    c.SHADING_CONDITION_TEMP_1,
-    c.SHADING_CONDITION_TEMP_2,
-    c.SHADING_CONDITION_FORECAST_TEMP,
-    c.SHADING_CONDITION_FORECAST_WEATHER,
-]
-_SHADING_CONFIGS = [
-    c.SHADING_CONFIG_TEMP_INDEPENDENT,
-    c.SHADING_CONFIG_COMPARE_FORECAST_SENSOR2,
-]
-_WEATHER_CONDITIONS = [
-    "clear-night",
-    "clear",
-    "cloudy",
-    "fog",
-    "hail",
-    "lightning",
-    "lightning-rainy",
-    "partlycloudy",
-    "pouring",
-    "rainy",
-    "snowy",
-    "snowy-rainy",
-    "sunny",
-    "windy",
-    "windy-variant",
-    "exceptional",
-]
+from .config_resolver import GROUP_SECTION_KEYS
 
 _BOOLEAN_KEYS = frozenset(
     {
@@ -58,14 +26,10 @@ _BOOLEAN_KEYS = frozenset(
         c.CONF_INTERMEDIATE_CLOSE_ENABLED,
         c.CONF_USE_WORKDAY_SENSOR,
         c.CONF_USE_BRIGHTNESS_SENSOR,
-        c.CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
-        c.CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
         c.CONF_AUTO_SHADING,
-        c.CONF_USE_SHADING_FORECAST_SENSOR,
         c.CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
-        c.CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
-        c.CONF_SHADING_INDEPENDENT_HOLDS_END,
         c.CONF_HEAT_PROTECTION_ENABLED,
+        c.CONF_KEEP_SUN_PROTECTION,
         c.CONF_AUTO_VENTILATE,
         c.CONF_RESIDENT_STATUS,
         c.CONF_RESIDENT_OPEN_ENABLED,
@@ -73,29 +37,8 @@ _BOOLEAN_KEYS = frozenset(
         c.CONF_RESIDENT_ALLOW_SHADING,
         c.CONF_RESIDENT_ALLOW_OPEN,
         c.CONF_RESIDENT_ALLOW_VENTILATION,
-        c.CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
-        c.CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
-        c.CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
-        c.CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
-        c.CONF_MANUAL_SCHEDULE_ADOPTION,
+        c.CONF_MANUAL_CONTROL,
         c.CONF_ENABLE_LOGBOOK_COVER,
-        c.CONF_PREVENT_HIGHER_POSITION_CLOSING,
-        c.CONF_PREVENT_LOWERING_WHEN_CLOSING_IF_SHADED,
-        c.CONF_PREVENT_SHADING_END_IF_CLOSED,
-        c.CONF_PREVENT_OPENING_AFTER_SHADING_END,
-        c.CONF_PREVENT_OPENING_AFTER_VENTILATION_END,
-        c.CONF_PREVENT_OPENING_MULTIPLE_TIMES,
-        c.CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
-        c.CONF_PREVENT_SHADING_MULTIPLE_TIMES,
-        c.CONF_PREVENT_DEFAULT_COVER_ACTIONS,
-        c.CONF_VENTILATION_ALLOW_HIGHER_POSITION,
-        c.CONF_VENTILATION_USE_AFTER_SHADING,
-        c.CONF_VENTILATION_START_NO_DELAY,
-        c.CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT,
-        c.CONF_SHADING_OVER_VENTILATION,
-        c.CONF_LOCKOUT_TILT_CLOSE,
-        c.CONF_LOCKOUT_TILT_SHADING_START,
-        c.CONF_LOCKOUT_TILT_SHADING_END,
         *(
             enabled_key
             for _alarm, _entity, enabled_key, _target, _room, _default in c.SAFETY_ALARMS
@@ -113,7 +56,6 @@ _TIME_KEYS = frozenset(
         c.CONF_TIME_DOWN_LATE_WORKDAY,
         c.CONF_TIME_DOWN_EARLY_NON_WORKDAY,
         c.CONF_TIME_DOWN_LATE_NON_WORKDAY,
-        c.CONF_MANUAL_OVERRIDE_RESET_TIME,
         c.CONF_FINAL_CLOSE_TIME,
     }
 )
@@ -132,10 +74,6 @@ _POSITION_KEYS = frozenset(
         c.CONF_CLOSE_TILT_POSITION,
         c.CONF_VENTILATE_TILT_POSITION,
         c.CONF_SHADING_TILT_POSITION,
-        c.CONF_SHADING_TILT_POSITION_0,
-        c.CONF_SHADING_TILT_POSITION_1,
-        c.CONF_SHADING_TILT_POSITION_2,
-        c.CONF_SHADING_TILT_POSITION_3,
         c.CONF_FIRE_ALARM_TARGET,
         c.CONF_RAIN_ALARM_TARGET,
         c.CONF_WIND_ALARM_2_TARGET,
@@ -147,27 +85,19 @@ _POSITION_KEYS = frozenset(
 _DURATION_KEYS = frozenset(
     {
         c.CONF_BRIGHTNESS_TIME_DURATION,
-        c.CONF_SUN_TIME_DURATION,
-        c.CONF_SHADING_WAITINGTIME_START,
         c.CONF_SHADING_WAITINGTIME_END,
-        c.CONF_SHADING_START_MAX_DURATION,
-        c.CONF_SHADING_END_MAX_DURATION,
-        c.CONF_COVER_TILT_WAIT_TIMEOUT,
         c.CONF_CONTACT_TRIGGER_DELAY,
         c.CONF_CONTACT_STATUS_DELAY,
         c.CONF_VENTILATION_DELAY_AFTER_CLOSE,
         c.CONF_DRIVE_DELAY_FIXED,
-        c.CONF_DRIVE_DELAY_RANDOM,
     }
 )
 
 _TEMPERATURE_KEYS = frozenset(
     {
         c.CONF_COLD_PROTECTION_THRESHOLD,
-        c.CONF_SHADING_MIN_TEMPERATURE_1,
-        c.CONF_SHADING_MIN_TEMPERATURE_2,
-        c.CONF_SHADING_FORECAST_TEMP,
-        c.CONF_SHADING_INDEPENDENT_TEMP,
+        c.CONF_SHADING_INSIDE_TEMPERATURE_THRESHOLD,
+        c.CONF_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD,
         c.CONF_HEAT_PROTECTION_THRESHOLD,
         c.CONF_TEMPERATURE_THRESHOLD,
         c.CONF_TEMPERATURE_FORECAST_THRESHOLD,
@@ -176,9 +106,8 @@ _TEMPERATURE_KEYS = frozenset(
 
 _TEMPERATURE_HYSTERESIS_KEYS = frozenset(
     {
-        c.CONF_SHADING_TEMPERATURE_HYSTERESIS_1,
-        c.CONF_SHADING_TEMPERATURE_HYSTERESIS_2,
-        c.CONF_SHADING_FORECAST_TEMP_HYSTERESIS,
+        c.CONF_SHADING_INSIDE_TEMPERATURE_HYSTERESIS,
+        c.CONF_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS,
     }
 )
 
@@ -186,9 +115,8 @@ _ELEVATION_KEYS = frozenset(
     {
         c.CONF_SUN_ELEVATION_OPEN,
         c.CONF_SUN_ELEVATION_CLOSE,
-        c.CONF_SHADING_TILT_ELEVATION_1,
-        c.CONF_SHADING_TILT_ELEVATION_2,
-        c.CONF_SHADING_TILT_ELEVATION_3,
+        c.CONF_SUN_ELEVATION_MIN,
+        c.CONF_SUN_ELEVATION_MAX,
     }
 )
 
@@ -197,51 +125,24 @@ _BRIGHTNESS_KEYS = frozenset(
         c.CONF_BRIGHTNESS_OPEN_ABOVE,
         c.CONF_BRIGHTNESS_CLOSE_BELOW,
         c.CONF_BRIGHTNESS_HYSTERESIS,
-        c.CONF_SHADING_BRIGHTNESS_START,
-        c.CONF_SHADING_BRIGHTNESS_END,
-        c.CONF_SHADING_BRIGHTNESS_HYSTERESIS,
+        c.CONF_SHADING_BRIGHTNESS_THRESHOLD,
     }
 )
 
-_MULTI_SELECTS = {
-    c.CONF_SHADING_CONDITIONS_START_AND: (_SHADING_CONDITIONS, "shading_condition"),
-    c.CONF_SHADING_CONDITIONS_START_OR: (_SHADING_CONDITIONS, "shading_condition"),
-    c.CONF_SHADING_CONDITIONS_END_AND: (_SHADING_CONDITIONS, "shading_condition"),
-    c.CONF_SHADING_CONDITIONS_END_OR: (_SHADING_CONDITIONS, "shading_condition"),
-    c.CONF_SHADING_CONFIG: (_SHADING_CONFIGS, "shading_config"),
-    c.CONF_SHADING_WEATHER_CONDITIONS: (_WEATHER_CONDITIONS, "weather_condition"),
-}
+_SHADING_PERCENT_KEYS = frozenset(
+    {
+        c.CONF_SHADING_BRIGHTNESS_HYSTERESIS,
+        c.CONF_SHADING_INSIDE_TEMPERATURE_HYSTERESIS,
+        c.CONF_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS,
+    }
+)
+
+_MULTI_SELECTS = {}
 
 _SELECTS = {
-    c.CONF_SUN_ELEVATION_MODE: (["fixed", "dynamic", "hybrid"], "sun_elevation_mode"),
-    c.CONF_BRIGHTNESS_SUN_OPERATOR: (
-        [c.BRIGHTNESS_SUN_OPERATOR_OR, c.BRIGHTNESS_SUN_OPERATOR_AND],
-        "brightness_sun_operator",
-    ),
-    c.CONF_SHADING_FORECAST_TYPE: (
-        ["daily", "hourly", c.DEFAULT_SHADING_FORECAST_TYPE],
-        "forecast_type",
-    ),
-    c.CONF_MANUAL_OVERRIDE_RESET_MODE: (
-        [
-            c.MANUAL_OVERRIDE_RESET_NONE,
-            c.MANUAL_OVERRIDE_RESET_TIME,
-            c.MANUAL_OVERRIDE_RESET_TIMEOUT,
-        ],
-        "manual_override_reset_mode",
-    ),
-    c.CONF_RECOVERY_MODE: (
-        [c.RECOVERY_NEVER, c.RECOVERY_OUTAGE, c.RECOVERY_ALWAYS],
-        "recovery_mode",
-    ),
-    c.CONF_COVER_TILT_WAIT_MODE: (
-        [
-            c.COVER_TILT_WAIT_FIXED_DELAY,
-            c.COVER_TILT_WAIT_IDLE,
-            c.COVER_TILT_WAIT_BEFORE_POSITION,
-        ],
-        "cover_tilt_wait_mode",
-    ),
+    c.CONF_OPEN_MODE: (list(c.OPEN_MODES), "open_mode"),
+    c.CONF_CLOSE_MODE: (list(c.CLOSE_MODES), "close_mode"),
+    c.CONF_SHADING_MODE: (list(c.SHADING_MODES), "shading_mode"),
     c.CONF_COVER_TYPE: (
         [c.CONF_COVER_TYPE_BLIND, c.CONF_COVER_TYPE_AWNING],
         "cover_type",
@@ -259,8 +160,8 @@ _TEXT_KEYS = frozenset(
     }
 )
 
-_PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
-    c.PROFILE_TYPE_TIME: (
+_GROUP_FIELDS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
+    c.GROUP_SECTION_TIME: (
         (
             "time_features",
             (
@@ -272,8 +173,8 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_AUTO_BRIGHTNESS,
                 c.CONF_USE_WORKDAY_SENSOR,
                 c.CONF_USE_BRIGHTNESS_SENSOR,
-                c.CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
-                c.CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+                c.CONF_OPEN_MODE,
+                c.CONF_CLOSE_MODE,
             ),
         ),
         (
@@ -302,10 +203,10 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
         (
             "sun_settings",
             (
-                c.CONF_SUN_ELEVATION_MODE,
+                c.CONF_ASTRO_OPEN_OFFSET,
+                c.CONF_ASTRO_CLOSE_OFFSET,
                 c.CONF_SUN_ELEVATION_OPEN,
                 c.CONF_SUN_ELEVATION_CLOSE,
-                c.CONF_SUN_TIME_DURATION,
             ),
         ),
         (
@@ -315,7 +216,6 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_BRIGHTNESS_CLOSE_BELOW,
                 c.CONF_BRIGHTNESS_HYSTERESIS,
                 c.CONF_BRIGHTNESS_TIME_DURATION,
-                c.CONF_BRIGHTNESS_SUN_OPERATOR,
             ),
         ),
         (
@@ -323,84 +223,64 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
             (c.CONF_CALENDAR_OPEN_TITLE, c.CONF_CALENDAR_CLOSE_TITLE),
         ),
     ),
-    c.PROFILE_TYPE_SHADING: (
+    c.GROUP_SECTION_SHADING: (
         (
-            "shading_targets",
+            "shading_mode",
             (
                 c.CONF_AUTO_SHADING,
-                c.CONF_SHADING_TILT_ELEVATION_1,
-                c.CONF_SHADING_TILT_ELEVATION_2,
-                c.CONF_SHADING_TILT_ELEVATION_3,
+                c.CONF_SHADING_MODE,
             ),
         ),
         (
-            "shading_brightness",
+            "shading_direction",
             (
-                c.CONF_SHADING_BRIGHTNESS_START,
-                c.CONF_SHADING_BRIGHTNESS_END,
-                c.CONF_SHADING_BRIGHTNESS_HYSTERESIS,
+                c.CONF_SHADING_DIRECTION,
+                c.CONF_SHADING_DIRECTION_RANGE,
+                c.CONF_SUN_ELEVATION_MIN,
+                c.CONF_SUN_ELEVATION_MAX,
             ),
         ),
         (
             "shading_temperature",
             (
-                c.CONF_SHADING_MIN_TEMPERATURE_1,
-                c.CONF_SHADING_TEMPERATURE_HYSTERESIS_1,
-                c.CONF_SHADING_MIN_TEMPERATURE_2,
-                c.CONF_SHADING_TEMPERATURE_HYSTERESIS_2,
-                c.CONF_TEMPERATURE_THRESHOLD,
-                c.CONF_TEMPERATURE_FORECAST_THRESHOLD,
-                c.CONF_COLD_PROTECTION_THRESHOLD,
-                c.CONF_SHADING_INDEPENDENT_TEMP,
-                c.CONF_SHADING_INDEPENDENT_HOLDS_END,
+                c.CONF_SHADING_INSIDE_TEMPERATURE_THRESHOLD,
+                c.CONF_SHADING_INSIDE_TEMPERATURE_HYSTERESIS,
+                c.CONF_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD,
+                c.CONF_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS,
                 c.CONF_HEAT_PROTECTION_ENABLED,
                 c.CONF_HEAT_PROTECTION_THRESHOLD,
+                c.CONF_KEEP_SUN_PROTECTION,
             ),
         ),
         (
-            "shading_forecast",
+            "shading_brightness",
             (
-                c.CONF_USE_SHADING_FORECAST_SENSOR,
-                c.CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
-                c.CONF_SHADING_FORECAST_TYPE,
-                c.CONF_SHADING_FORECAST_TEMP,
-                c.CONF_SHADING_FORECAST_TEMP_HYSTERESIS,
-                c.CONF_SHADING_WEATHER_CONDITIONS,
-                c.CONF_SHADING_CONFIG,
-            ),
-        ),
-        (
-            "shading_conditions",
-            (
-                c.CONF_SHADING_CONDITIONS_START_AND,
-                c.CONF_SHADING_CONDITIONS_START_OR,
-                c.CONF_SHADING_CONDITIONS_END_AND,
-                c.CONF_SHADING_CONDITIONS_END_OR,
+                c.CONF_SHADING_BRIGHTNESS_THRESHOLD,
+                c.CONF_SHADING_BRIGHTNESS_HYSTERESIS,
             ),
         ),
         (
             "shading_waits",
             (
-                c.CONF_SHADING_WAITINGTIME_START,
                 c.CONF_SHADING_WAITINGTIME_END,
-                c.CONF_SHADING_START_MAX_DURATION,
-                c.CONF_SHADING_END_MAX_DURATION,
-                c.CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
+            ),
+        ),
+        (
+            "cold_protection",
+            (
+                c.CONF_COLD_PROTECTION_THRESHOLD,
+                c.CONF_TEMPERATURE_THRESHOLD,
+                c.CONF_TEMPERATURE_FORECAST_THRESHOLD,
+                c.CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
             ),
         ),
     ),
-    c.PROFILE_TYPE_BEHAVIOR: (
+    c.GROUP_SECTION_BEHAVIOR: (
         (
             "manual_override",
             (
+                c.CONF_MANUAL_CONTROL,
                 c.CONF_MANUAL_OVERRIDE_MINUTES,
-                c.CONF_MANUAL_OVERRIDE_RESET_MODE,
-                c.CONF_MANUAL_OVERRIDE_RESET_TIME,
-                c.CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
-                c.CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
-                c.CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
-                c.CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
-                c.CONF_MANUAL_SCHEDULE_ADOPTION,
                 c.CONF_NO_GO_TIME_MINUTES,
             ),
         ),
@@ -411,14 +291,6 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_CONTACT_TRIGGER_DELAY,
                 c.CONF_CONTACT_STATUS_DELAY,
                 c.CONF_VENTILATION_DELAY_AFTER_CLOSE,
-                c.CONF_VENTILATION_ALLOW_HIGHER_POSITION,
-                c.CONF_VENTILATION_USE_AFTER_SHADING,
-                c.CONF_VENTILATION_START_NO_DELAY,
-                c.CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT,
-                c.CONF_SHADING_OVER_VENTILATION,
-                c.CONF_LOCKOUT_TILT_CLOSE,
-                c.CONF_LOCKOUT_TILT_SHADING_START,
-                c.CONF_LOCKOUT_TILT_SHADING_END,
             ),
         ),
         (
@@ -439,23 +311,7 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
         (
             "runtime_control",
             (
-                c.CONF_RECOVERY_MODE,
                 c.CONF_DRIVE_DELAY_FIXED,
-                c.CONF_DRIVE_DELAY_RANDOM,
-            ),
-        ),
-        (
-            "prevention",
-            (
-                c.CONF_PREVENT_HIGHER_POSITION_CLOSING,
-                c.CONF_PREVENT_LOWERING_WHEN_CLOSING_IF_SHADED,
-                c.CONF_PREVENT_SHADING_END_IF_CLOSED,
-                c.CONF_PREVENT_OPENING_AFTER_SHADING_END,
-                c.CONF_PREVENT_OPENING_AFTER_VENTILATION_END,
-                c.CONF_PREVENT_OPENING_MULTIPLE_TIMES,
-                c.CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
-                c.CONF_PREVENT_SHADING_MULTIPLE_TIMES,
-                c.CONF_PREVENT_DEFAULT_COVER_ACTIONS,
             ),
         ),
     ),
@@ -463,8 +319,8 @@ _PROFILE_GROUPS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
 
 # A capability is the user-facing ownership boundary for a coherent group of
 # canonical runtime keys. Runtime code continues to consume only those keys.
-PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
-    c.PROFILE_TYPE_TIME: {
+GROUP_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
+    c.GROUP_SECTION_TIME: {
         "opening": frozenset(
             {
                 c.CONF_AUTO_TIME,
@@ -497,12 +353,12 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
         "sun": frozenset(
             {
                 c.CONF_AUTO_SUN,
-                c.CONF_USE_SUN_ELEVATION_DYNAMIC_OPEN_SENSOR,
-                c.CONF_USE_SUN_ELEVATION_DYNAMIC_CLOSE_SENSOR,
+                c.CONF_OPEN_MODE,
+                c.CONF_CLOSE_MODE,
+                c.CONF_ASTRO_OPEN_OFFSET,
+                c.CONF_ASTRO_CLOSE_OFFSET,
                 c.CONF_SUN_ELEVATION_OPEN,
                 c.CONF_SUN_ELEVATION_CLOSE,
-                c.CONF_SUN_ELEVATION_MODE,
-                c.CONF_SUN_TIME_DURATION,
             }
         ),
         "brightness": frozenset(
@@ -513,90 +369,47 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
                 c.CONF_BRIGHTNESS_CLOSE_BELOW,
                 c.CONF_BRIGHTNESS_HYSTERESIS,
                 c.CONF_BRIGHTNESS_TIME_DURATION,
-                c.CONF_BRIGHTNESS_SUN_OPERATOR,
             }
         ),
     },
-    c.PROFILE_TYPE_SHADING: {
-        "positioning": frozenset(
+    c.GROUP_SECTION_SHADING: {
+        "positioning": frozenset({c.CONF_AUTO_SHADING, c.CONF_SHADING_MODE}),
+        "direction": frozenset(
             {
-                c.CONF_AUTO_SHADING,
+                c.CONF_SHADING_DIRECTION,
+                c.CONF_SHADING_DIRECTION_RANGE,
+                c.CONF_SUN_ELEVATION_MIN,
+                c.CONF_SUN_ELEVATION_MAX,
             }
         ),
         "brightness": frozenset(
             {
-                c.CONF_SHADING_BRIGHTNESS_START,
-                c.CONF_SHADING_BRIGHTNESS_END,
+                c.CONF_SHADING_BRIGHTNESS_THRESHOLD,
                 c.CONF_SHADING_BRIGHTNESS_HYSTERESIS,
             }
         ),
         "temperature": frozenset(
             {
-                c.CONF_SHADING_MIN_TEMPERATURE_1,
-                c.CONF_SHADING_TEMPERATURE_HYSTERESIS_1,
-                c.CONF_SHADING_MIN_TEMPERATURE_2,
-                c.CONF_SHADING_TEMPERATURE_HYSTERESIS_2,
-                c.CONF_COLD_PROTECTION_THRESHOLD,
-                c.CONF_TEMPERATURE_THRESHOLD,
-                c.CONF_TEMPERATURE_FORECAST_THRESHOLD,
-                c.CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
+                c.CONF_SHADING_INSIDE_TEMPERATURE_THRESHOLD,
+                c.CONF_SHADING_INSIDE_TEMPERATURE_HYSTERESIS,
+                c.CONF_SHADING_OUTSIDE_TEMPERATURE_THRESHOLD,
+                c.CONF_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS,
                 c.CONF_HEAT_PROTECTION_ENABLED,
                 c.CONF_HEAT_PROTECTION_THRESHOLD,
-            }
-        ),
-        "forecast": frozenset(
-            {
-                c.CONF_USE_SHADING_FORECAST_SENSOR,
-                c.CONF_SHADING_FORECAST_TYPE,
-                c.CONF_SHADING_FORECAST_TEMP,
-                c.CONF_SHADING_FORECAST_TEMP_HYSTERESIS,
-            }
-        ),
-        "weather": frozenset(
-            {c.CONF_SHADING_WEATHER_CONDITIONS, c.CONF_SHADING_CONFIG}
-        ),
-        "conditions": frozenset(
-            {
-                c.CONF_SHADING_CONDITIONS_START_AND,
-                c.CONF_SHADING_CONDITIONS_START_OR,
-                c.CONF_SHADING_CONDITIONS_END_AND,
-                c.CONF_SHADING_CONDITIONS_END_OR,
+                c.CONF_KEEP_SUN_PROTECTION,
             }
         ),
         "waiting": frozenset(
             {
-                c.CONF_SHADING_WAITINGTIME_START,
                 c.CONF_SHADING_WAITINGTIME_END,
-                c.CONF_SHADING_START_MAX_DURATION,
-                c.CONF_SHADING_END_MAX_DURATION,
-                c.CONF_SHADING_END_IMMEDIATE_BY_SUN_POSITION,
-            }
-        ),
-        "tilt": frozenset(
-            {
-                c.CONF_SHADING_TILT_ELEVATION_1,
-                c.CONF_SHADING_TILT_ELEVATION_2,
-                c.CONF_SHADING_TILT_ELEVATION_3,
-            }
-        ),
-        "independent_temperature": frozenset(
-            {
-                c.CONF_SHADING_INDEPENDENT_TEMP,
-                c.CONF_SHADING_INDEPENDENT_HOLDS_END,
             }
         ),
     },
-    c.PROFILE_TYPE_BEHAVIOR: {
+    c.GROUP_SECTION_BEHAVIOR: {
         "manual_override": frozenset(
             {
+                c.CONF_MANUAL_CONTROL,
                 c.CONF_MANUAL_OVERRIDE_MINUTES,
-                c.CONF_MANUAL_OVERRIDE_RESET_MODE,
-                c.CONF_MANUAL_OVERRIDE_RESET_TIME,
-                c.CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
-                c.CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
-                c.CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
-                c.CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
-                c.CONF_MANUAL_SCHEDULE_ADOPTION,
             }
         ),
         "ventilation": frozenset(
@@ -605,14 +418,6 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
                 c.CONF_CONTACT_TRIGGER_DELAY,
                 c.CONF_CONTACT_STATUS_DELAY,
                 c.CONF_VENTILATION_DELAY_AFTER_CLOSE,
-                c.CONF_VENTILATION_ALLOW_HIGHER_POSITION,
-                c.CONF_VENTILATION_USE_AFTER_SHADING,
-                c.CONF_VENTILATION_START_NO_DELAY,
-                c.CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT,
-                c.CONF_SHADING_OVER_VENTILATION,
-                c.CONF_LOCKOUT_TILT_CLOSE,
-                c.CONF_LOCKOUT_TILT_SHADING_START,
-                c.CONF_LOCKOUT_TILT_SHADING_END,
             }
         ),
         "resident": frozenset(
@@ -628,23 +433,7 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
         "safety": frozenset(c.DEFAULT_SAFETY_SETTINGS),
         "runtime_control": frozenset(
             {
-                c.CONF_RECOVERY_MODE,
                 c.CONF_DRIVE_DELAY_FIXED,
-                c.CONF_DRIVE_DELAY_RANDOM,
-            }
-        ),
-        "movement_protection": frozenset(
-            {
-                c.CONF_PREVENT_HIGHER_POSITION_CLOSING,
-                c.CONF_PREVENT_LOWERING_WHEN_CLOSING_IF_SHADED,
-                c.CONF_PREVENT_SHADING_END_IF_CLOSED,
-                c.CONF_PREVENT_OPENING_AFTER_SHADING_END,
-                c.CONF_PREVENT_OPENING_AFTER_VENTILATION_END,
-                c.CONF_PREVENT_OPENING_MULTIPLE_TIMES,
-                c.CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
-                c.CONF_PREVENT_SHADING_MULTIPLE_TIMES,
-                c.CONF_PREVENT_DEFAULT_COVER_ACTIONS,
-                c.CONF_NO_GO_TIME_MINUTES,
             }
         ),
     },
@@ -652,25 +441,25 @@ PROFILE_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
 
 
 @dataclass(frozen=True)
-class ProfileFieldMetadata:
-    """Canonical ownership metadata shared by profile and override forms."""
+class GroupFieldMetadata:
+    """Canonical ownership metadata shared by group and override forms."""
 
     key: str
-    profile_type: str
+    section_type: str
     capability: str
     group: str
     value_type: str
     unit: str | None
     override_allowed: bool = True
-    owner: str = "PROFILE"
+    owner: str = "GROUP"
     feature: str | None = None
     ui_level: str = "advanced"
     selector: str | None = None
     default: Any = None
-    source_scope: str = "profile"
+    source_scope: str = "group"
 
 
-def _build_profile_field_metadata() -> dict[str, ProfileFieldMetadata]:
+def _build_group_field_metadata() -> dict[str, GroupFieldMetadata]:
     basic_fields = {
         c.CONF_AUTO_TIME,
         c.CONF_TIME_UP_EARLY_WORKDAY,
@@ -685,6 +474,8 @@ def _build_profile_field_metadata() -> dict[str, ProfileFieldMetadata]:
         c.CONF_BRIGHTNESS_OPEN_ABOVE,
         c.CONF_BRIGHTNESS_CLOSE_BELOW,
         c.CONF_AUTO_SUN,
+        c.CONF_OPEN_MODE,
+        c.CONF_CLOSE_MODE,
         c.CONF_SUN_ELEVATION_OPEN,
         c.CONF_SUN_ELEVATION_CLOSE,
         c.CONF_AUTO_SHADING,
@@ -701,14 +492,14 @@ def _build_profile_field_metadata() -> dict[str, ProfileFieldMetadata]:
         *c.DEFAULT_SAFETY_SETTINGS.keys(),
     }
     groups = {
-        profile_type: {
+        section_type: {
             key: group
-            for group, keys in profile_groups
+            for group, keys in group_fields
             for key in keys
         }
-        for profile_type, profile_groups in _PROFILE_GROUPS.items()
+        for section_type, group_fields in _GROUP_FIELDS.items()
     }
-    metadata: dict[str, ProfileFieldMetadata] = {}
+    metadata: dict[str, GroupFieldMetadata] = {}
 
     def value_type(key: str) -> str:
         if key in _BOOLEAN_KEYS:
@@ -724,60 +515,65 @@ def _build_profile_field_metadata() -> dict[str, ProfileFieldMetadata]:
         return "number"
 
     def unit(key: str) -> str | None:
-        if key in _POSITION_KEYS or key in {c.CONF_POSITION_TOLERANCE, c.CONF_TILT_POSITION_TOLERANCE}:
+        if key in _POSITION_KEYS or key == c.CONF_POSITION_TOLERANCE:
             return "%"
         if key in _DURATION_KEYS:
             return "s"
         if key == c.CONF_MANUAL_OVERRIDE_MINUTES:
             return "min"
-        if key in _TEMPERATURE_KEYS or key in _TEMPERATURE_HYSTERESIS_KEYS:
+        if key in _TEMPERATURE_KEYS:
             return "°C"
-        if key in _ELEVATION_KEYS:
+        if key in _SHADING_PERCENT_KEYS:
+            return "%"
+        if key in _ELEVATION_KEYS or key in {
+            c.CONF_SHADING_DIRECTION,
+            c.CONF_SHADING_DIRECTION_RANGE,
+        }:
             return "°"
         if key in _BRIGHTNESS_KEYS:
             return "lx"
         return None
 
-    for profile_type, capabilities in PROFILE_CAPABILITY_KEYS.items():
+    for section_type, capabilities in GROUP_CAPABILITY_KEYS.items():
         for capability, keys in capabilities.items():
             for key in keys:
                 selector_type = value_type(key)
-                metadata[key] = ProfileFieldMetadata(
+                metadata[key] = GroupFieldMetadata(
                     key=key,
-                    profile_type=profile_type,
+                    section_type=section_type,
                     capability=capability,
-                    group=groups[profile_type][key],
+                    group=groups[section_type][key],
                     value_type=selector_type,
                     unit=unit(key),
-                    feature=profile_type,
+                    feature=section_type,
                     ui_level="basic" if key in basic_fields else "advanced",
                     selector=selector_type,
                 )
     return metadata
 
 
-PROFILE_FIELD_METADATA = _build_profile_field_metadata()
+GROUP_FIELD_METADATA = _build_group_field_metadata()
 
 
-def capability_keys(profile_type: str, capabilities: Iterable[str]) -> frozenset[str]:
+def capability_keys(section_type: str, capabilities: Iterable[str]) -> frozenset[str]:
     """Return canonical keys owned by the selected capabilities."""
 
     selected = set(capabilities)
     return frozenset(
         key
-        for key, metadata in PROFILE_FIELD_METADATA.items()
-        if metadata.profile_type == profile_type
+        for key, metadata in GROUP_FIELD_METADATA.items()
+        if metadata.section_type == section_type
         and metadata.capability in selected
     )
 
 
-def infer_capabilities(profile_type: str, settings: Mapping[str, Any]) -> list[str]:
-    """Infer legacy profile metadata without changing effective values."""
+def infer_capabilities(section_type: str, settings: Mapping[str, Any]) -> list[str]:
+    """Infer legacy group metadata without changing effective values."""
 
     configured = set(settings)
     return [
         capability
-        for capability, keys in PROFILE_CAPABILITY_KEYS[profile_type].items()
+        for capability, keys in GROUP_CAPABILITY_KEYS[section_type].items()
         if configured & keys
     ]
 
@@ -822,16 +618,22 @@ def _field_validator(key: str, value: Any, *, stored: bool) -> tuple[Any, Any]:
         return marker(_time_default(value)), selector.TimeSelector()
     if key in _POSITION_KEYS:
         return marker(int(value or 0)), _number_selector(0, 100, 1, "%")
-    if key in {c.CONF_POSITION_TOLERANCE, c.CONF_TILT_POSITION_TOLERANCE}:
+    if key == c.CONF_POSITION_TOLERANCE:
         return marker(int(value or 0)), _number_selector(0, 20, 1, "%")
     if key in {c.CONF_MANUAL_OVERRIDE_MINUTES, c.CONF_NO_GO_TIME_MINUTES}:
         return marker(int(value or 0)), _number_selector(0, 10080, 1, "min")
+    if key in {c.CONF_ASTRO_OPEN_OFFSET, c.CONF_ASTRO_CLOSE_OFFSET}:
+        return marker(int(value or 0)), _number_selector(-1440, 1440, 1, "min")
     if key in _DURATION_KEYS:
         return marker(float(value or 0)), _number_selector(0, 86400, 1, "s")
     if key in _TEMPERATURE_KEYS:
         return marker(float(value or 0)), _number_selector(-50, 100, 0.1, "°C")
-    if key in _TEMPERATURE_HYSTERESIS_KEYS:
-        return marker(float(value or 0)), _number_selector(0, 20, 0.1, "°C")
+    if key in _SHADING_PERCENT_KEYS:
+        return marker(float(value or 0)), _number_selector(0, 100, 0.1, "%")
+    if key == c.CONF_SHADING_DIRECTION:
+        return marker(float(value or 0)), _number_selector(0, 359, 1, "°")
+    if key == c.CONF_SHADING_DIRECTION_RANGE:
+        return marker(float(value or 0)), _number_selector(0, 180, 1, "°")
     if key in _ELEVATION_KEYS:
         return marker(float(value or 0)), _number_selector(-90, 90, 0.1, "°")
     if key in _BRIGHTNESS_KEYS:
@@ -856,38 +658,50 @@ def _field_validator(key: str, value: Any, *, stored: bool) -> tuple[Any, Any]:
         )
     if key in _TEXT_KEYS:
         return marker(str(value or "")), selector.TextSelector()
-    raise ValueError(f"No native profile selector for {key}")
+    raise ValueError(f"No native group selector for {key}")
 
 
-def profile_groups(profile_type: str) -> tuple[tuple[str, tuple[str, ...]], ...]:
+def group_fields(section_type: str) -> tuple[tuple[str, tuple[str, ...]], ...]:
     """Return canonical UI groups, ensuring every supported key is reachable."""
 
-    groups = _PROFILE_GROUPS[profile_type]
+    groups = _GROUP_FIELDS[section_type]
     grouped = {key for _name, keys in groups for key in keys}
-    missing = PROFILE_KEYS[profile_type] - grouped
-    extra = grouped - PROFILE_KEYS[profile_type]
+    supported = (
+        GROUP_SECTION_KEYS[c.FUNCTION_TIME]
+        | GROUP_SECTION_KEYS[c.FUNCTION_BRIGHTNESS]
+        | GROUP_SECTION_KEYS[c.FUNCTION_SUN]
+        if section_type == c.GROUP_SECTION_TIME
+        else GROUP_SECTION_KEYS[c.FUNCTION_BEHAVIOR]
+        | GROUP_SECTION_KEYS[c.FUNCTION_VENTILATION]
+        | GROUP_SECTION_KEYS[c.FUNCTION_RESIDENT]
+        | GROUP_SECTION_KEYS[c.FUNCTION_SAFETY]
+        if section_type == c.GROUP_SECTION_BEHAVIOR
+        else GROUP_SECTION_KEYS[section_type]
+    )
+    missing = supported - grouped
+    extra = grouped - supported
     if missing or extra:
         raise ValueError(
-            f"Profile schema mismatch for {profile_type}: missing={missing}, extra={extra}"
+            f"Group schema mismatch for {section_type}: missing={missing}, extra={extra}"
         )
     return groups
 
 
-def build_profile_schema(
-    profile_type: str,
+def build_group_schema(
+    section_type: str,
     stored: Mapping[str, Any],
     fallbacks: Mapping[str, Any],
     *,
-    profile_name: str | None = None,
+    group_name: str | None = None,
     field_selection: str | None = None,
     allowed_keys: Iterable[str] | None = None,
 ) -> vol.Schema:
     """Build typed, grouped schema while keeping persistence sparse."""
 
-    allowed = frozenset(allowed_keys or PROFILE_KEYS[profile_type])
+    allowed = frozenset(allowed_keys or GROUP_SECTION_KEYS[section_type])
     schema: OrderedDict[Any, Any] = OrderedDict()
-    if profile_name is not None:
-        schema[vol.Required("profile_name", default=profile_name)] = selector.TextSelector()
+    if group_name is not None:
+        schema[vol.Required("group_name", default=group_name)] = selector.TextSelector()
     if field_selection is not None:
         schema[
             vol.Optional(
@@ -904,7 +718,7 @@ def build_profile_schema(
                 multiple=True,
             )
         )
-    for group_name, keys in profile_groups(profile_type):
+    for group_name, keys in group_fields(section_type):
         fields: OrderedDict[Any, Any] = OrderedDict()
         for key in keys:
             if key not in allowed:
@@ -925,7 +739,7 @@ def build_profile_schema(
 
 def extract_sparse_settings(
     user_input: Mapping[str, Any],
-    profile_type: str,
+    section_type: str,
     existing: Mapping[str, Any],
     *,
     field_selection: str | None = None,
@@ -933,7 +747,7 @@ def extract_sparse_settings(
 ) -> dict[str, Any]:
     """Keep selected known keys plus unknown legacy keys, never display defaults."""
 
-    allowed = frozenset(allowed_keys or PROFILE_KEYS[profile_type])
+    allowed = frozenset(allowed_keys or GROUP_SECTION_KEYS[section_type])
     selected = (
         set(user_input.get(field_selection, [])) & allowed
         if field_selection is not None
@@ -942,7 +756,7 @@ def extract_sparse_settings(
     values: dict[str, Any] = {
         key: value
         for key, value in existing.items()
-        if key not in PROFILE_KEYS[profile_type]
+        if key not in GROUP_SECTION_KEYS[section_type]
     }
     for key in selected:
         if key in user_input and user_input[key] is not None:
@@ -951,11 +765,11 @@ def extract_sparse_settings(
 
 
 def flatten_section_input(user_input: Mapping[str, Any]) -> dict[str, Any]:
-    """Flatten grouped profile form output for sparse extraction."""
+    """Flatten grouped group form output for sparse extraction."""
 
     flattened: dict[str, Any] = {}
     for key, value in user_input.items():
-        if key in {name for name, _keys in sum(_PROFILE_GROUPS.values(), ())} and isinstance(value, dict):
+        if key in {name for name, _keys in sum(_GROUP_FIELDS.values(), ())} and isinstance(value, dict):
             flattened.update(value)
         else:
             flattened[key] = value

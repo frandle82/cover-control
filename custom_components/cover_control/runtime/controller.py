@@ -28,7 +28,6 @@ from ..const import (
     CONF_AUTO_UP_ENTITY,
     CONF_AUTO_VENTILATE,
     CONF_AUTO_VENTILATE_ENTITY,
-    CONF_SUN_SENSOR,
     DEFAULT_SUN_SENSOR,
 )
 from .actuator import ActuatorMixin
@@ -84,7 +83,6 @@ class CoverController(
         self._local_listener_entities: set[str] = set()
         self._manual_until: datetime | None = None
         self._manual_active: bool = False
-        self._manual_scope_all: bool = False
         self._target: float | None = None
         self._last_position: float | None = None
         self._pre_ventilation_position: float | None = None
@@ -109,7 +107,6 @@ class CoverController(
         self._last_command_context_id: str | None = None
         self._manual_movement_pending = False
         self._logbook_dedupe: set[str] = set()
-        self._shading_forecast_cache: dict[str, object] | None = None
         self._reason: str | None = None
         self._decision_controls: set[str] = set()
         self._active_safety: str | None = None
@@ -153,8 +150,7 @@ class CoverController(
         return self.hass.states.get(entity_id)
 
     def _sun_entity(self) -> str:
-        value = self.config.get(CONF_SUN_SENSOR, DEFAULT_SUN_SENSOR)
-        return value if isinstance(value, str) and value else DEFAULT_SUN_SENSOR
+        return DEFAULT_SUN_SENSOR
 
     def _entity_active(self, config_key: str) -> bool:
         entity_id = self.config.get(config_key)

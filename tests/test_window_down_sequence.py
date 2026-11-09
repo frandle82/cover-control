@@ -7,6 +7,7 @@ from types import SimpleNamespace
 from unittest.mock import AsyncMock, Mock
 
 import pytest
+from homeassistant.util import dt as dt_util
 
 from custom_components.cover_control.const import (
     CONF_AUTO_VENTILATE,
@@ -14,6 +15,7 @@ from custom_components.cover_control.const import (
     CONF_DRIVE_TIME,
     CONF_LOCKOUT_POSITION,
     CONF_POSITION_TOLERANCE,
+    CONF_SHADING_POSITION,
     CONF_VENTILATE_POSITION,
     CONF_WINDOW_SENSOR_FULL,
     CONF_WINDOW_SENSOR_TILT,
@@ -138,6 +140,24 @@ async def test_auto_close_with_open_window_closes_then_ventilates() -> None:
     assert controller._reason == "ventilation_full"
 
 
+def test_open_window_uses_lockout_position() -> None:
+    controller = _controller(full_open=True)
+
+    assert controller._window_down_sequence_target("scheduled_close") == (
+        "open",
+        80,
+    )
+
+
+def test_tilted_window_uses_ventilation_position() -> None:
+    controller = _controller(tilted=True)
+
+    assert controller._window_down_sequence_target("scheduled_close") == (
+        "tilted",
+        25,
+    )
+
+
 @pytest.mark.asyncio
 async def test_final_close_respects_window_sequence() -> None:
     controller = _controller(full_open=True)
@@ -246,10 +266,92 @@ async def test_window_close_restores_original_close_target() -> None:
     ]
 
 
+@pytest.mark.asyncio
+async def test_reality_auto_close_window_ventilate_restore() -> None:
+    controller = _controller(full_open=True)
+
+    await controller._set_position_local(0, "scheduled_close")
+    await _finish_first_drive(controller)
+    _set_window_state(controller, full_open=False, tilted=False)
+    controller.hass.states.states[controller.cover] = _state("open", 80)
+    target, reason = controller._background_return_target(
+        controller._background_for("ventilation"),
+        fallback=controller._pre_ventilation_position,
+    )
+    await controller._set_position_local(target, reason)
+
+    assert [call.args[0] for call in controller._command_position.await_args_list] == [
+        0,
+        80,
+        0,
+    ]
+
+
+@pytest.mark.asyncio
+async def test_reality_window_priority_replaces_shading_then_restores() -> None:
+    controller = _controller()
+    controller.config[CONF_SHADING_POSITION] = 25
+    controller.hass.states.states[controller.cover] = _state("open", 25)
+    controller._reason = "shading"
+    controller._set_status_bucket("shading", True)
+    controller._remember_pre_ventilation_position()
+
+    await controller._set_position_local(80, "ventilation_full")
+    target, reason = controller._background_return_target(
+        controller._background_for("ventilation"),
+        fallback=controller._pre_ventilation_position,
+    )
+    controller.hass.states.states[controller.cover] = _state("open", 80)
+    await controller._set_position_local(target, reason)
+
+    assert (target, reason) == (25, "ventilation_end_shading")
+    assert [call.args[0] for call in controller._command_position.await_args_list] == [
+        80,
+        25,
+    ]
+
+
 def test_frost_does_not_use_window_ventilation_sequence() -> None:
     controller = _controller(tilted=True)
 
     assert controller._window_down_sequence_target("frost_alarm") is None
+
+
+@pytest.mark.asyncio
+async def test_frost_overrides_window_sequence() -> None:
+    controller = _controller(full_open=True)
+    controller._frost_target_if_active.return_value = 80
+
+    await controller._set_position(0, "scheduled_close")
+
+    controller._command_position.assert_awaited_once_with(80, reason="frost_alarm")
+    assert controller._window_down_sequence is None
+
+
+async def _assert_duplicate_target_is_suppressed(target: float, reason: str) -> None:
+    controller = _controller()
+    controller.hass.states.states[controller.cover] = _state("open", target)
+    controller._target = target
+    controller._last_command_at = dt_util.utcnow()
+
+    await controller._set_position_local(target, reason)
+
+    controller._command_position.assert_not_awaited()
+
+
+@pytest.mark.asyncio
+async def test_duplicate_open_command_is_suppressed_internally() -> None:
+    await _assert_duplicate_target_is_suppressed(100, "scheduled_open")
+
+
+@pytest.mark.asyncio
+async def test_duplicate_close_command_is_suppressed_internally() -> None:
+    await _assert_duplicate_target_is_suppressed(0, "scheduled_close")
+
+
+@pytest.mark.asyncio
+async def test_duplicate_shading_command_is_suppressed_internally() -> None:
+    await _assert_duplicate_target_is_suppressed(25, "shading")
 
 
 @pytest.mark.asyncio

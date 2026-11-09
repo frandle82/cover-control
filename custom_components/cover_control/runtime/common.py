@@ -21,17 +21,18 @@ TRIGGER_CALENDAR_CLOSE_START = "calendar_close_start"
 TRIGGER_CALENDAR_OPEN_END = "calendar_open_end"
 TRIGGER_CALENDAR_OPEN_START = "calendar_open_start"
 TRIGGER_COVER_POSITION_CHANGED = "cover_position_changed"
-TRIGGER_DYNAMIC_SUN_CLOSE_CHANGED = "dynamic_sun_close_changed"
-TRIGGER_DYNAMIC_SUN_OPEN_CHANGED = "dynamic_sun_open_changed"
 TRIGGER_RESIDENT_OFF = "resident_off"
 TRIGGER_RESIDENT_ON = "resident_on"
 TRIGGER_SCHEDULED_CLOSE = "scheduled_close"
 TRIGGER_SCHEDULED_FINAL_CLOSE = "scheduled_final_close"
 TRIGGER_SCHEDULED_OPEN = "scheduled_open"
+TRIGGER_SUNRISE_REACHED = "sunrise_reached"
+TRIGGER_SUNSET_REACHED = "sunset_reached"
+TRIGGER_GOLDEN_HOUR_OPEN_REACHED = "golden_hour_open_reached"
+TRIGGER_GOLDEN_HOUR_CLOSE_REACHED = "golden_hour_close_reached"
 TRIGGER_SHADING_END_CHANGED = "shading_end_condition_changed"
 TRIGGER_SHADING_END_TIMER = "shading_end_timer"
 TRIGGER_SHADING_START_CHANGED = "shading_start_condition_changed"
-TRIGGER_SHADING_START_TIMER = "shading_start_timer"
 TRIGGER_SUN_CHANGED = "sun_elevation_changed"
 TRIGGER_SUN_CLOSE_TIMER = "sun_close_duration_elapsed"
 TRIGGER_SUN_OPEN_TIMER = "sun_open_duration_elapsed"
@@ -58,6 +59,20 @@ TRIGGER_FIRE_LATCH_RESET = "fire_latch_reset"
 WINDOW_DOWN_SEQUENCE_REASONS = frozenset(
     {"scheduled_close", "scheduled_final_close", "sun_close", "brightness_close"}
 )
+
+
+def scheduled_trigger(kind: str, mode: str) -> str:
+    """Return a stable trigger identity for one scheduled mode event."""
+
+    return {
+        ("open", "sunrise"): TRIGGER_SUNRISE_REACHED,
+        ("close", "sunset"): TRIGGER_SUNSET_REACHED,
+        ("open", "golden_hour"): TRIGGER_GOLDEN_HOUR_OPEN_REACHED,
+        ("close", "golden_hour"): TRIGGER_GOLDEN_HOUR_CLOSE_REACHED,
+    }.get(
+        (kind, mode),
+        TRIGGER_SCHEDULED_OPEN if kind == "open" else TRIGGER_SCHEDULED_CLOSE,
+    )
 
 CONDITION_TIMER_TRIGGERS = {
     "sun_open": TRIGGER_SUN_OPEN_TIMER,
@@ -96,9 +111,12 @@ _TRIGGER_PRIORITY = {
     TRIGGER_CALENDAR_CLOSE_START: 1,
     TRIGGER_CALENDAR_CLOSE_END: 1,
     TRIGGER_SCHEDULED_OPEN: 2,
+    TRIGGER_SUNRISE_REACHED: 2,
+    TRIGGER_SUNSET_REACHED: 2,
+    TRIGGER_GOLDEN_HOUR_OPEN_REACHED: 2,
+    TRIGGER_GOLDEN_HOUR_CLOSE_REACHED: 2,
     TRIGGER_SCHEDULED_CLOSE: 2,
     TRIGGER_SCHEDULED_FINAL_CLOSE: 2,
-    TRIGGER_SHADING_START_TIMER: 4,
     TRIGGER_SHADING_END_TIMER: 4,
     "startup": 2,
     "config_updated": 3,
@@ -214,14 +232,8 @@ def _default_cover_status() -> dict:
             "background": {"open": False, "close": False, "shading": False},
             "ts": 0,
         },
-        "force": {
-            "active": False,
-            "restore_position": None,
-            "background": {"open": False, "close": False, "shading": False},
-            "ts": 0,
-        },
         "safety": {"fire_latched": False, "ts": 0},
-        "manual": {"active": False, "scope_all": False, "until": None, "ts": 0},
+        "manual": {"active": False, "until": None, "ts": 0},
         "reason": None,
         "target": None,
         "last_action_dates": {},
@@ -268,18 +280,6 @@ def _normalize_cover_status(raw: object) -> dict:
                 status["ventilation"]["background"][key] = bool(background.get(key))
         status["ventilation"]["ts"] = int(ventilation.get("ts") or 0)
 
-    force = raw.get("force")
-    if isinstance(force, dict):
-        status["force"]["active"] = bool(force.get("active", False))
-        status["force"]["restore_position"] = _coerce_float(
-            force.get("restore_position")
-        )
-        background = force.get("background")
-        if isinstance(background, dict):
-            for key in ("open", "close", "shading"):
-                status["force"]["background"][key] = bool(background.get(key))
-        status["force"]["ts"] = int(force.get("ts") or 0)
-
     safety = raw.get("safety")
     if isinstance(safety, dict):
         status["safety"]["fire_latched"] = bool(safety.get("fire_latched", False))
@@ -288,7 +288,6 @@ def _normalize_cover_status(raw: object) -> dict:
     manual = raw.get("manual")
     if isinstance(manual, dict):
         status["manual"]["active"] = bool(manual.get("active", False))
-        status["manual"]["scope_all"] = bool(manual.get("scope_all", False))
         until = manual.get("until")
         status["manual"]["until"] = until if isinstance(until, str) and until else None
         status["manual"]["ts"] = int(manual.get("ts") or 0)

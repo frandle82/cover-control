@@ -3,52 +3,44 @@
 from __future__ import annotations
 
 from copy import deepcopy
-from types import MappingProxyType
-from typing import Any, TYPE_CHECKING
+from typing import TYPE_CHECKING
 
 from homeassistant.config_entries import (
     ConfigEntryError,
     ConfigEntryNotReady,
     ConfigEntryState,
-    ConfigSubentry,
 )
 from homeassistant.core import HomeAssistant
-from homeassistant.helpers import device_registry as dr
 from homeassistant.helpers import entity_registry as er
 from homeassistant.helpers import issue_registry as ir
 from homeassistant.helpers.typing import ConfigType
 
-from .config_profiles import ConfigProfileModel
 from .const import (
-    CONF_GLOBAL,
     CONF_CONTROLLER_ENTRY_ID,
     CONF_ENTRY_TYPE,
+    CONF_GLOBAL,
+    CONF_GROUP,
+    CONF_GROUPS,
     CONF_NAME,
-    CONF_PROFILE_CAPABILITIES,
-    CONF_PROFILE_FUNCTIONS,
-    CONF_PROFILE_ID,
-    CONF_PROFILE_NAME,
-    CONF_PROFILE_SETTINGS,
-    CONF_PROFILES,
     CONF_ROOM_ID,
-    CONF_ROOM_PROFILE_ID,
+    CONF_ROOM_SETTINGS,
     CONF_ROOMS,
     DOMAIN,
     ENTRY_TYPE_CONTROLLER,
     ENTRY_TYPE_ROOM,
+    GROUPS,
     PLATFORMS,
-    PROFILE_TYPES,
 )
 from .config_migration import (
+    classify_legacy_profile,
+    cleanup_cca_settings,
+    cleanup_runtime_options,
     is_native_parent_entry,
-    migrate_entry_collection,
-    unify_profile_model,
+    migrate_profile_model,
 )
 from .config_subentries import (
-    legacy_model_to_subentry_data,
     model_from_entries,
     model_from_subentries,
-    room_entry_data_from_subentry,
 )
 from .hub import CoverControlHub
 from .runtime_data import CoverControlRuntime
@@ -122,7 +114,7 @@ def _room_entry_for_controller_room(
 def _controller_model_from_entries(
     hass: HomeAssistant, controller_entry: ConfigEntry
 ) -> dict:
-    """Build the v7 transient model from one controller and its room entries."""
+    """Build the transient model from one controller and its room entries."""
 
     if controller_entry.version < 7 and controller_entry.subentries:
         return model_from_subentries(
@@ -145,7 +137,7 @@ def _single_room_model(controller_model: dict, room_entry: ConfigEntry) -> dict:
     room[CONF_ROOM_ID] = room_id
     return {
         CONF_GLOBAL: deepcopy(controller_model.get(CONF_GLOBAL, {})),
-        CONF_PROFILES: deepcopy(controller_model.get(CONF_PROFILES, {})),
+        CONF_GROUPS: deepcopy(controller_model.get(CONF_GROUPS, {})),
         CONF_ROOMS: {room_id: room},
     }
 
@@ -287,573 +279,174 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 
 
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
-    """Migrate legacy entries to the standalone-room v11 model."""
+    """Migrate controller-owned profiles and standalone rooms to fixed groups."""
 
-    if entry.version >= 12:
+    if entry.version >= 19:
         return True
-
-    if entry.version == 10:
-        return await _async_migrate_v10_to_v11(hass, entry)
-
-    if entry.version == 11:
-        return await _async_migrate_v11_to_v12(hass, entry)
-
-    if entry.version == 9:
-        return await _async_migrate_v9_to_v10(hass, entry)
-
-    if entry.version == 8:
-        return await _async_migrate_v8_to_v9(hass, entry)
-
-    if entry.version == 7:
-        if not await _async_migrate_v7_to_v8(hass, entry):
-            return False
-        hass.config_entries.async_update_entry(entry, version=12)
-        return True
-
-    if entry.version == 6:
-        return await _async_migrate_subentries_to_room_entries(hass, entry)
-    if entry.version == 5:
-        if not await _async_migrate_parent_to_unified_profiles(hass, entry):
-            return False
-        return await _async_migrate_subentries_to_room_entries(hass, entry)
-    if entry.version == 4:
-        if not await _async_migrate_parent_profiles_to_data(hass, entry):
-            return False
-        if not await _async_migrate_parent_to_unified_profiles(hass, entry):
-            return False
-        return await _async_migrate_subentries_to_room_entries(hass, entry)
-    from homeassistant.util.ulid import ulid_now
-
-    entries = hass.config_entries.async_entries(DOMAIN)
-    native_parent = next(
-        (
-            candidate
-            for candidate in entries
-            if is_native_parent_entry(candidate.data)
-            and not candidate.data.get("hub_entry_id")
-        ),
-        None,
-    )
-    legacy_parents = [
-        candidate
-        for candidate in entries
-        if candidate is not native_parent
-        and candidate.version < 4
-        and not candidate.data.get("hub_entry_id")
-    ]
-
-    if native_parent is not None and not legacy_parents:
-        if not await _async_migrate_parent_profiles_to_data(hass, native_parent):
-            return False
-        if not await _async_migrate_parent_to_unified_profiles(hass, native_parent):
-            return False
-        return await _async_migrate_subentries_to_room_entries(hass, native_parent)
-
-    if native_parent is not None:
-        parent = native_parent
-        merged = model_from_subentries(
-            native_parent.data, native_parent.subentries.values()
-        )
-    elif legacy_parents:
-        parent = legacy_parents.pop(0)
-        migrated_entries = {
-            parent.entry_id: (parent.data, parent.options),
-            **{
-                legacy_entry.entry_id: (legacy_entry.data, legacy_entry.options)
-                for legacy_entry in legacy_parents
-            },
-        }
-        merged = migrate_entry_collection(migrated_entries)
-        legacy_parents = []
-    else:
-        parent = next(
-            (
-                candidate
-                for candidate in entries
-                if candidate.entry_id == entry.data.get("hub_entry_id")
-            ),
-            None,
-        )
-        if parent is None:
-            raise ConfigEntryError("Cover Control parent entry migration is incomplete")
-        hass.config_entries.async_update_entry(
-            entry,
-            data={"hub_entry_id": parent.entry_id},
-            options={},
-            version=7,
-        )
-        return True
-
-    for legacy_entry in legacy_parents:
-        merged = migrate_entry_collection(
-            {
-                "parent": ({CONF_GLOBAL: merged.get(CONF_GLOBAL, {}), CONF_PROFILES: merged.get(CONF_PROFILES, {}), CONF_ROOMS: merged.get(CONF_ROOMS, {})}, {}),
-                legacy_entry.entry_id: (legacy_entry.data, legacy_entry.options),
-            }
-        )
-
-    parent_data, payloads = legacy_model_to_subentry_data(merged, ulid_now)
-    parent_data["name"] = "Cover Control"
-    for subentry_id in tuple(parent.subentries):
-        hass.config_entries.async_remove_subentry(parent, subentry_id)
-    _add_subentries(hass, parent, payloads)
-    hass.config_entries.async_update_entry(
-        parent,
-        data=parent_data,
-        options={},
-        title="Cover Control",
-        unique_id=DOMAIN,
-        version=4,
-    )
-    for legacy_entry in entries:
-        if legacy_entry.entry_id == parent.entry_id:
-            continue
-        if legacy_entry.version >= 4 and not legacy_entry.data.get("hub_entry_id"):
-            continue
-        hass.config_entries.async_update_entry(
-            legacy_entry,
-            data={"hub_entry_id": parent.entry_id},
-            options={},
-            version=7,
-        )
-    if not await _async_migrate_parent_profiles_to_data(hass, parent):
-        return False
-    if not await _async_migrate_parent_to_unified_profiles(hass, parent):
-        return False
-    return await _async_migrate_subentries_to_room_entries(hass, parent)
-
-
-async def _async_migrate_v7_to_v8(
-    hass: HomeAssistant, entry: ConfigEntry
-) -> bool:
-    """Remove stale v7 subentries while preserving standalone rooms."""
-
-    if not _is_controller_entry(entry):
-        hass.config_entries.async_update_entry(entry, version=12)
-        return True
-
-    if not await _async_migrate_parent_profiles_to_data(hass, entry):
-        return False
-    if not await _async_migrate_parent_to_unified_profiles(hass, entry):
-        return False
-    if not await _async_migrate_subentries_to_room_entries(hass, entry):
-        return False
-
-    for subentry_id in tuple(entry.subentries):
-        hass.config_entries.async_remove_subentry(entry, subentry_id)
-    hass.config_entries.async_update_entry(entry, version=12)
-    return True
-
-
-async def _async_migrate_v8_to_v9(
-    hass: HomeAssistant, entry: ConfigEntry
-) -> bool:
-    """Remove all historical subentries and finish the v9 entry model."""
-
-    if not _is_controller_entry(entry):
-        hass.config_entries.async_update_entry(entry, version=12)
-        return True
-
-    if not await _async_migrate_parent_profiles_to_data(hass, entry):
-        return False
-    if not await _async_migrate_parent_to_unified_profiles(hass, entry):
-        return False
-    if not await _async_migrate_subentries_to_room_entries(hass, entry):
-        return False
-
-    for subentry_id in tuple(entry.subentries):
-        hass.config_entries.async_remove_subentry(entry, subentry_id)
-    hass.config_entries.async_update_entry(entry, version=12)
-    return True
-
-
-async def _async_migrate_v9_to_v10(
-    hass: HomeAssistant, entry: ConfigEntry
-) -> bool:
-    """Repair partially migrated v9 entries and remove all subentries."""
-
-    if not _is_controller_entry(entry):
-        hass.config_entries.async_update_entry(entry, version=12)
-        return True
-    if not await _async_migrate_parent_profiles_to_data(hass, entry):
-        return False
-    if not await _async_migrate_parent_to_unified_profiles(hass, entry):
-        return False
-    if not await _async_migrate_subentries_to_room_entries(hass, entry):
-        return False
-    for subentry_id in tuple(entry.subentries):
-        hass.config_entries.async_remove_subentry(entry, subentry_id)
-    hass.config_entries.async_update_entry(entry, version=12)
-    return True
-
-
-def _legacy_profile_entry(entry: ConfigEntry) -> bool:
-    """Identify the former standalone profile-entry schema structurally."""
-
-    data = entry.data
-    if data.get(CONF_ENTRY_TYPE) in {ENTRY_TYPE_CONTROLLER, ENTRY_TYPE_ROOM}:
-        return False
-    profile_type = data.get("profile_type")
-    return (
-        profile_type in PROFILE_TYPES
-        and CONF_PROFILE_SETTINGS in data
-        and bool(data.get(CONF_PROFILE_ID) or data.get(CONF_PROFILE_NAME))
-    )
-
-
-def _legacy_profile_to_unified_entry(
-    candidate: ConfigEntry,
-) -> tuple[str, dict[str, Any]]:
-    """Convert one historical profile entry to the unified profile shape."""
-
-    profile_id = str(
-        candidate.data.get(CONF_PROFILE_ID)
-        or candidate.data.get(CONF_PROFILE_NAME)
-    )
-    return profile_id, {
-        CONF_PROFILE_ID: profile_id,
-        CONF_PROFILE_NAME: str(candidate.data.get(CONF_PROFILE_NAME) or profile_id),
-        CONF_PROFILE_SETTINGS: deepcopy(candidate.data[CONF_PROFILE_SETTINGS]),
-        CONF_PROFILE_CAPABILITIES: deepcopy(
-            candidate.data.get(CONF_PROFILE_CAPABILITIES, [])
-        ),
-        CONF_PROFILE_FUNCTIONS: deepcopy(
-            candidate.data.get(CONF_PROFILE_FUNCTIONS, [])
-        ),
-    }
-
-
-async def _async_migrate_legacy_profile_entry(
-    hass: HomeAssistant, entry: ConfigEntry
-) -> bool:
-    """Persist and remove one legacy profile when its controller is available."""
-
-    parent_id = entry.data.get(CONF_CONTROLLER_ENTRY_ID) or entry.data.get("hub_entry_id")
-    controller = next(
-        (
-            candidate
-            for candidate in hass.config_entries.async_entries(DOMAIN)
-            if candidate.entry_id == parent_id and _is_controller_entry(candidate)
-        ),
-        None,
-    )
-    if controller is None:
-        return False
-    profile_id, profile = _legacy_profile_to_unified_entry(entry)
-    controller_data = deepcopy(dict(controller.data))
-    profiles = controller_data.setdefault(CONF_PROFILES, {})
-    existing = profiles.get(profile_id)
-    if existing is not None and existing != profile:
-        return False
-    if existing is None:
-        profiles[profile_id] = profile
-        hass.config_entries.async_update_entry(controller, data=controller_data)
-    await hass.config_entries.async_remove(entry.entry_id)
-    return True
-
-
-async def _async_cleanup_legacy_profile_entries_for_controller(
-    hass: HomeAssistant, controller: ConfigEntry
-) -> bool:
-    """Migrate and remove all legacy profiles assigned to a controller."""
-
-    for candidate in tuple(hass.config_entries.async_entries(DOMAIN)):
-        if not _legacy_profile_entry(candidate):
-            continue
-        parent_id = candidate.data.get(CONF_CONTROLLER_ENTRY_ID) or candidate.data.get(
-            "hub_entry_id"
-        )
-        if parent_id != controller.entry_id:
-            continue
-        if not await _async_migrate_legacy_profile_entry(hass, candidate):
-            return False
-    return True
-
-
-async def _async_migrate_v10_to_v11(
-    hass: HomeAssistant, entry: ConfigEntry
-) -> bool:
-    """Remove structurally identifiable legacy standalone profile entries."""
-
     if _is_room_entry(entry):
-        return await _async_migrate_v11_to_v12(hass, entry)
-    if not _is_controller_entry(entry):
-        if _legacy_profile_entry(entry):
-            return await _async_migrate_legacy_profile_entry(hass, entry)
-        hass.config_entries.async_update_entry(entry, version=12)
-        return True
-
-    if not await _async_cleanup_legacy_profile_entries_for_controller(hass, entry):
-        return False
-    return await _async_migrate_v11_to_v12(hass, entry)
-
-
-async def _async_migrate_v11_to_v12(
-    hass: HomeAssistant, entry: ConfigEntry
-) -> bool:
-    """Repair stale historical ConfigSubentries on v11 entries."""
-
-    from .config_subentries import PROFILE_SUBENTRY_TYPES
-
-    if _is_room_entry(entry):
-        for subentry_id, subentry in tuple(entry.subentries.items()):
-            if getattr(subentry, "subentry_type", None) not in {"room", *PROFILE_SUBENTRY_TYPES}:
-                return False
-            hass.config_entries.async_remove_subentry(entry, subentry_id)
-        hass.config_entries.async_update_entry(entry, version=12)
-        return True
-    if not _is_controller_entry(entry):
-        return False
-
-    known_types = {"room", *PROFILE_SUBENTRY_TYPES}
-    if any(
-        getattr(subentry, "subentry_type", None) not in known_types
-        for subentry in entry.subentries.values()
-    ):
-        return False
-    if not await _async_migrate_parent_profiles_to_data(hass, entry):
-        return False
-    if not await _async_migrate_parent_to_unified_profiles(hass, entry):
-        return False
-    if not await _async_migrate_subentries_to_room_entries(hass, entry):
-        return False
-    if not await _async_cleanup_legacy_profile_entries_for_controller(hass, entry):
-        return False
-    for subentry_id in tuple(entry.subentries):
-        hass.config_entries.async_remove_subentry(entry, subentry_id)
-    if entry.subentries:
-        return False
-    hass.config_entries.async_update_entry(entry, version=12)
-    return True
-
-
-async def _async_migrate_subentries_to_room_entries(
-    hass: HomeAssistant, entry: ConfigEntry
-) -> bool:
-    """Move legacy room subentries to standalone v9 Room ConfigEntries."""
-
-    if not _is_controller_entry(entry):
-        hass.config_entries.async_update_entry(entry, version=12)
-        return True
-
-    parent_data = deepcopy(dict(entry.data))
-    parent_data[CONF_ENTRY_TYPE] = ENTRY_TYPE_CONTROLLER
-    room_subentries = [
-        subentry
-        for subentry in entry.subentries.values()
-        if getattr(subentry, "subentry_type", None) == "room"
-    ]
-    for subentry in room_subentries:
-        room_id = str(subentry.subentry_id)
-        room_entry = _room_entry_for_controller_room(hass, entry.entry_id, room_id)
-        if room_entry is None:
-            result = await hass.config_entries.flow.async_init(
-                DOMAIN,
-                context={"source": "import"},
-                data=room_entry_data_from_subentry(
-                    entry.entry_id, room_id, subentry.data, subentry.title
-                ),
+        controller = _controller_entry(hass, entry.data.get(CONF_CONTROLLER_ENTRY_ID))
+        data = deepcopy(dict(entry.data))
+        if data.get(CONF_GROUP) not in GROUPS:
+            profiles = controller.data.get("profiles", {}) if controller else {}
+            profile = profiles.get(data.get("profile_id"), {}) if isinstance(profiles, dict) else {}
+            data[CONF_GROUP] = classify_legacy_profile(
+                str(profile.get("name", data.get("profile_id", ""))),
+                (str(data.get(CONF_NAME, entry.title)),),
             )
-            room_entry = _room_entry_for_controller_room(hass, entry.entry_id, room_id)
-            if result.get("type") == "abort" and room_entry is None:
-                return False
-        if room_entry is None:
-            return False
-        subentry_profile_id = subentry.data.get(CONF_ROOM_PROFILE_ID)
-        if subentry_profile_id and not room_entry.data.get(CONF_ROOM_PROFILE_ID):
-            room_data = deepcopy(dict(room_entry.data))
-            room_data[CONF_ROOM_PROFILE_ID] = subentry_profile_id
-            hass.config_entries.async_update_entry(room_entry, data=room_data)
-        _migrate_room_registries(hass, entry.entry_id, room_entry.entry_id, room_id)
-        if room_id in entry.subentries:
-            hass.config_entries.async_remove_subentry(entry, room_id)
-
-    if not await _async_cleanup_legacy_profile_entries_for_controller(hass, entry):
-        return False
-    hass.config_entries.async_update_entry(
-        entry,
-        data=parent_data,
-        options={},
-        title=entry.title or DEFAULT_NAME,
-        unique_id=entry.unique_id or DOMAIN,
-        version=12,
-    )
-    return True
-
-
-def _migrate_room_registries(
-    hass: HomeAssistant,
-    controller_entry_id: str,
-    room_entry_id: str,
-    room_id: str,
-) -> None:
-    """Move room devices and entities from controller subentry to room entry."""
-
-    device_registry = dr.async_get(hass)
-    migrated_device_ids: set[str] = set()
-    for device in dr.async_entries_for_config_entry(
-        device_registry, controller_entry_id
-    ):
-        if (
-            device.config_entry_id == controller_entry_id
-            and device.config_subentry_id == room_id
-        ):
-            device_registry.async_update_device(
-                device.id,
-                new_config_entry_id=room_entry_id,
-                new_config_subentry_id=None,
-            )
-            migrated_device_ids.add(device.id)
-            continue
-        if (
-            controller_entry_id in device.config_entries
-            and room_id in device.config_entries_subentries.get(controller_entry_id, set())
-        ):
-            device_registry.async_update_device(
-                device.id,
-                add_config_entry_id=room_entry_id,
-                remove_config_subentry_id=room_id,
-            )
-            migrated_device_ids.add(device.id)
-
-    entity_registry = er.async_get(hass)
-    for entity_entry in list(entity_registry.entities.values()):
-        if (
-            entity_entry.config_entry_id == controller_entry_id
-            and (
-                entity_entry.config_subentry_id == room_id
-                or entity_entry.device_id in migrated_device_ids
-                or str(entity_entry.unique_id or "").startswith(f"{room_id}-")
-            )
-        ):
-            kwargs = {
-                "config_entry_id": room_entry_id,
-                "config_subentry_id": None,
-            }
-            if entity_entry.device_id in migrated_device_ids:
-                kwargs["device_id"] = entity_entry.device_id
-            entity_registry.async_update_entity(entity_entry.entity_id, **kwargs)
-
-
-async def _async_migrate_parent_to_unified_profiles(
-    hass: HomeAssistant, entry: ConfigEntry
-) -> bool:
-    """Persist the v6 unified profile catalog and single room profile references."""
-
-    if not is_native_parent_entry(entry.data):
-        hass.config_entries.async_update_entry(entry, version=6)
-        return True
-
-    model = unify_profile_model(
-        model_from_subentries(entry.data, entry.subentries.values())
-    )
-    parent_data = deepcopy(dict(entry.data))
-    parent_data[CONF_PROFILES] = deepcopy(model.get(CONF_PROFILES, {}))
-    for subentry in entry.subentries.values():
-        if subentry.subentry_type != "room":
-            continue
-        room = model.get(CONF_ROOMS, {}).get(subentry.subentry_id)
-        if not isinstance(room, dict):
-            continue
-        room_data = deepcopy(room)
-        room_data.pop("room_id", None)
-        hass.config_entries.async_update_subentry(
-            entry,
-            subentry,
-            data=room_data,
-            title=str(room_data.get(CONF_NAME, subentry.title)),
-        )
-    hass.config_entries.async_update_entry(
-        entry,
-        data={**parent_data, CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER},
-        options={},
-        title=entry.title or "Cover Control",
-        unique_id=entry.unique_id or DOMAIN,
-        version=6,
-    )
-    return True
-
-
-async def _async_migrate_parent_profiles_to_data(
-    hass: HomeAssistant, entry: ConfigEntry
-) -> bool:
-    """Move legacy profile subentries into the parent profile catalog."""
-
-    from .config_subentries import PROFILE_SUBENTRY_TYPES, is_profile_subentry
-
-    if not is_native_parent_entry(entry.data):
-        hass.config_entries.async_update_entry(entry, version=5)
-        return True
-
-    parent_data = deepcopy(dict(entry.data))
-    profiles = parent_data.setdefault(
-        CONF_PROFILES, {profile_type: {} for profile_type in PROFILE_TYPES}
-    )
-    for profile_type in PROFILE_TYPES:
-        profiles.setdefault(profile_type, {})
-
-    legacy_profile_ids: list[str] = []
-    for subentry in entry.subentries.values():
-        if not is_profile_subentry(subentry):
-            continue
-        profile_type = PROFILE_SUBENTRY_TYPES[subentry.subentry_type]
-        profile_id = subentry.subentry_id
-        migrated = {
-            CONF_PROFILE_ID: profile_id,
-            CONF_PROFILE_NAME: subentry.title,
-            CONF_PROFILE_CAPABILITIES: deepcopy(
-                subentry.data.get(CONF_PROFILE_CAPABILITIES, [])
-            ),
-            CONF_PROFILE_SETTINGS: deepcopy(
-                subentry.data.get(CONF_PROFILE_SETTINGS, {})
-            ),
-        }
-        existing = profiles[profile_type].get(profile_id)
-        if existing is not None and existing != migrated:
+        if controller is not None and CONF_GROUPS in controller.data:
+            data.pop("profile_id", None)
+            data.pop("profile_functions", None)
+            data.pop("profiles", None)
+        settings, cca_changed = cleanup_cca_settings(data.get(CONF_ROOM_SETTINGS, {}))
+        settings, runtime_warnings = cleanup_runtime_options(settings)
+        data[CONF_ROOM_SETTINGS] = settings
+        data, top_level_warnings = cleanup_runtime_options(data)
+        runtime_warnings.update(top_level_warnings)
+        hass.config_entries.async_update_entry(entry, data=data, options={}, version=19)
+        if cca_changed:
             ir.async_create_issue(
                 hass,
                 DOMAIN,
-                f"profile_migration_conflict_{profile_id}",
+                "cca_cleanup_migration",
                 is_fixable=False,
-                severity=ir.IssueSeverity.ERROR,
-                translation_key="profile_migration_conflict",
-                translation_placeholders={
-                    "profile": str(existing.get(CONF_PROFILE_NAME, profile_id))
-                },
+                severity=ir.IssueSeverity.WARNING,
+                translation_key="cca_cleanup_migration",
             )
-            return False
-        profiles[profile_type][profile_id] = migrated
-        legacy_profile_ids.append(profile_id)
+        _create_runtime_option_issues(hass, runtime_warnings)
+        return True
+    if not _is_controller_entry(entry):
+        return False
 
-    candidate = model_from_subentries(parent_data, entry.subentries.values())
-    ConfigProfileModel(candidate)
+    rooms = _room_entries_for_controller(hass, entry.entry_id)
+    legacy_model = {
+        CONF_GLOBAL: deepcopy(entry.data.get(CONF_GLOBAL, {})),
+        CONF_ROOMS: {
+            str(room.data.get(CONF_ROOM_ID) or room.entry_id): deepcopy(dict(room.data))
+            for room in rooms
+        },
+    }
+    if CONF_GROUPS in entry.data:
+        legacy_model[CONF_GROUPS] = deepcopy(entry.data[CONF_GROUPS])
+    else:
+        legacy_model["profiles"] = deepcopy(entry.data.get("profiles", {}))
+    migrated, warnings = migrate_profile_model(legacy_model)
+    controller_data = deepcopy(dict(entry.data))
+    controller_data.pop("profiles", None)
+    controller_data[CONF_GLOBAL] = deepcopy(migrated[CONF_GLOBAL])
+    controller_data[CONF_GROUPS] = deepcopy(migrated[CONF_GROUPS])
+    controller_data[CONF_ENTRY_TYPE] = ENTRY_TYPE_CONTROLLER
     hass.config_entries.async_update_entry(
-        entry,
-        data=parent_data,
-        options={},
-        title=entry.title or "Cover Control",
-        unique_id=entry.unique_id or DOMAIN,
-        version=5,
+        entry, data=controller_data, options={}, version=19
     )
-    for subentry_id in legacy_profile_ids:
+    for room in rooms:
+        room_id = str(room.data.get(CONF_ROOM_ID) or room.entry_id)
+        migrated_room = migrated[CONF_ROOMS][room_id]
+        room_data = deepcopy(dict(room.data))
+        room_data[CONF_GROUP] = migrated_room[CONF_GROUP]
+        room_data[CONF_ROOM_SETTINGS] = deepcopy(
+            migrated_room.get(CONF_ROOM_SETTINGS, room_data.get(CONF_ROOM_SETTINGS, {}))
+        )
+        room_data.pop("profile_id", None)
+        room_data.pop("profile_functions", None)
+        room_data.pop("profiles", None)
+        hass.config_entries.async_update_entry(
+            room, data=room_data, options={}, version=19
+        )
+    sun_warnings = [warning for warning in warnings if "dynamic sun" in warning]
+    shading_warnings = [warning for warning in warnings if "shading rules" in warning]
+    cca_warnings = [warning for warning in warnings if "CCA behavior" in warning]
+    runtime_warnings = [
+        warning
+        for warning in warnings
+        if "was removed" in warning or "tilt shading was collapsed" in warning
+    ]
+    profile_warnings = [
+        warning
+        for warning in warnings
+        if warning not in sun_warnings
+        and warning not in shading_warnings
+        and warning not in cca_warnings
+        and warning not in runtime_warnings
+    ]
+    if profile_warnings:
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            "fixed_group_migration_conflict",
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key="fixed_group_migration_conflict",
+            translation_placeholders={"details": "; ".join(profile_warnings)},
+        )
+    if sun_warnings:
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            "sun_mode_migration",
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key="sun_mode_migration",
+            translation_placeholders={"details": "; ".join(sun_warnings)},
+        )
+    if shading_warnings:
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            "shading_mode_migration",
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key="shading_mode_migration",
+            translation_placeholders={"details": "; ".join(shading_warnings)},
+        )
+    if cca_warnings:
+        ir.async_create_issue(
+            hass,
+            DOMAIN,
+            "cca_cleanup_migration",
+            is_fixable=False,
+            severity=ir.IssueSeverity.WARNING,
+            translation_key="cca_cleanup_migration",
+        )
+    _create_runtime_option_issues(hass, set(runtime_warnings))
+    for subentry_id in tuple(entry.subentries):
         hass.config_entries.async_remove_subentry(entry, subentry_id)
     return True
 
 
-def _add_subentries(hass, entry, payloads) -> None:
-    """Add generated native subentries to one parent entry."""
+def _create_runtime_option_issues(hass: HomeAssistant, warnings: set[str]) -> None:
+    """Report user-visible behavior changes from retired runtime options."""
 
-    for subentry_id, subentry_type, title, subentry_data in payloads:
-        hass.config_entries.async_add_subentry(
-            entry,
-            ConfigSubentry(
-                data=MappingProxyType(subentry_data),
-                subentry_id=subentry_id,
-                subentry_type=subentry_type,
-                title=title,
-                unique_id=subentry_id,
-            ),
-        )
+    for warning, issue_id, translation_key in (
+        (
+            "custom position source was removed",
+            "custom_position_migration",
+            "custom_position_migration",
+        ),
+        (
+            "configurable recovery mode was removed",
+            "recovery_mode_migration",
+            "recovery_mode_migration",
+        ),
+        (
+            "manual override reset time was removed",
+            "manual_override_reset_time_migration",
+            "manual_override_reset_time_migration",
+        ),
+        (
+            "custom multistage tilt shading was collapsed",
+            "tilt_shading_migration",
+            "tilt_shading_migration",
+        ),
+    ):
+        if warning in warnings:
+            ir.async_create_issue(
+                hass,
+                DOMAIN,
+                issue_id,
+                is_fixable=False,
+                severity=ir.IssueSeverity.WARNING,
+                translation_key=translation_key,
+            )
 
 
 async def async_unload_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:

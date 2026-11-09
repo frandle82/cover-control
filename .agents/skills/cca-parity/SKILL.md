@@ -37,8 +37,8 @@ Das bloße Kopieren einer mathematischen Formel oder Bedingung in ein Mixin ohne
 
 ## 2. Die 7 Glieder der Kette
 
-### 1. UI & Schema (`config_flow.py`, `config_profile_schema.py`)
-* Alle Konfigurationsparameter müssen im passenden Flow-Schritt (Global, Profil oder Raum) über Voluptuous-Schemata und HA-Selektoren exponiert sein.
+### 1. UI & Schema (`config_flow.py`, `config_group_schema.py`)
+* Alle Konfigurationsparameter müssen im passenden Flow-Schritt (Global, Gruppe oder Raum) über Voluptuous-Schemata und HA-Selektoren exponiert sein.
 * Übersetzungsschlüssel in `strings.json`, `en.json` und `de.json` hinterlegt.
 
 ### 2. Persistenz & Defaults (`const.py`)
@@ -46,9 +46,9 @@ Das bloße Kopieren einer mathematischen Formel oder Bedingung in ein Mixin ohne
 * Sinnvolle, mit dem Blueprint übereinstimmende Defaultwerte in `const.py` bzw. `system_defaults()`.
 * Bei Schema-Erweiterungen Migrationspfad in `config_migration.py` beachten.
 
-### 3. Resolver & Modell (`config_resolver.py`, `config_profiles.py`)
-* Auflösung über Vererbungshierarchie: `System-Defaults` → `Global Sources` → `Profile Settings` → `Room Overrides`.
-* Die Funktion `effective_profile()` und `resolve_config_model()` müssen neue Parameter fehlerfrei propagieren.
+### 3. Resolver & Modell (`config_resolver.py`, `config_groups.py`)
+* Auflösung über Vererbungshierarchie: `System-Defaults` → `Global Sources` → `Group Settings` → `Room Overrides`.
+* `resolve_config_model()` muss neue Gruppenparameter fehlerfrei propagieren.
 
 ### 4. Listener & Subscriptions (`runtime/events.py`, `hub.py`)
 * Wenn ein Parameter auf Entity-Zustände (z. B. Helligkeitssensor, Kalender, Arbeitstag, Wetter) reagiert, muss er im State-Listener registriert sein.
@@ -56,11 +56,11 @@ Das bloße Kopieren einer mathematischen Formel oder Bedingung in ein Mixin ohne
 
 ### 5. Runtime-Logik (`runtime/`)
 * Logik gehört in das jeweilige Mixin (`schedule.py`, `shading.py`, `evaluation.py`, `actuator.py`).
-* Strikte Einhaltung der Prioritätenhierarchie (Lockout > Force > Manual Override > Ventilation > Shading > Resident).
+* Strikte Einhaltung der Prioritätenhierarchie (Safety > Manual Override > Window/Ventilation/Lockout > Shading/Heat Protection > Resident > Grundautomation).
 
 ### 6. Bewegung, Toleranz & Lamelle (`runtime/actuator.py`)
 * Prüfung auf Positionstoleranz (`CONF_POSITION_TOLERANCE`): Kein Fahrbefehl, wenn der Rollladen bereits am Ziel steht.
-* Lamellenkippung (Tilt) bei Jalousien mitberücksichtigen (`CONF_DRIVE_DELAY_FIXED`, `CONF_DRIVE_DELAY_RANDOM`).
+* Lamellenkippung (Tilt) bei Jalousien mitberücksichtigen; Fahrstaffelung ist ausschließlich `CONF_DRIVE_DELAY_FIXED`.
 * Zwischenzustände (`opening`, `closing`) dürfen nicht als manuelle Bedienung gewertet werden.
 
 ### 7. Deterministische Regressionstests (`tests/test_blueprint_parity.py`)

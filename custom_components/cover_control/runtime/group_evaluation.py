@@ -1,0 +1,76 @@
+"""Shared group-level calculations that deliberately exclude room state."""
+
+from __future__ import annotations
+
+from datetime import datetime
+from typing import Any, Mapping
+
+from homeassistant.util import dt as dt_util
+
+from ..const import (
+    CONF_AUTO_BRIGHTNESS,
+    CONF_AUTO_DOWN,
+    CONF_AUTO_SUN,
+    CONF_AUTO_TIME,
+    CONF_AUTO_UP,
+    DEFAULT_SUN_SENSOR,
+)
+from .schedule import ScheduleMixin
+
+
+class _TimeGroupProbe(ScheduleMixin):
+    """Reuse schedule logic without creating cover state or room timers."""
+
+    def __init__(self, hass, config: Mapping[str, Any]) -> None:
+        self.hass = hass
+        self.config = config
+        self._last_action_dates: dict[str, object] = {}
+        self._condition_since: dict[str, datetime] = {}
+        self._next_open: datetime | None = None
+        self._next_close: datetime | None = None
+
+    def _auto_enabled(self, config_key: str) -> bool:
+        return bool(self.config.get(config_key))
+
+    def _state_for(self, entity_id: str | None):
+        return self.hass.states.get(entity_id) if entity_id else None
+
+    def _sun_entity(self) -> str:
+        return DEFAULT_SUN_SENSOR
+
+    def _duration_value(self, key: str, default: int) -> int:
+        value = self.config.get(key, default)
+        try:
+            value = float(value)
+        except (TypeError, ValueError):
+            return default
+        return max(0, int(value))
+
+    def _reschedule_next_event_timers(self, now: datetime) -> None:
+        return None
+
+
+def evaluate_time_group(
+    hass,
+    config: Mapping[str, Any],
+    now: datetime | None = None,
+    *,
+    capabilities: list[str] | tuple[str, ...] | None = None,
+) -> tuple[datetime | None, datetime | None]:
+    """Return the next pure group opportunities using existing schedule logic."""
+
+    effective_config = dict(config)
+    capability_set = set(capabilities or ())
+    if capabilities is not None:
+        effective_config[CONF_AUTO_TIME] = "time" in capability_set
+        effective_config[CONF_AUTO_SUN] = "sun" in capability_set
+        effective_config[CONF_AUTO_BRIGHTNESS] = "brightness" in capability_set
+    if "opening" in capability_set:
+        effective_config[CONF_AUTO_TIME] = True
+        effective_config[CONF_AUTO_UP] = True
+    if "closing" in capability_set:
+        effective_config[CONF_AUTO_TIME] = True
+        effective_config[CONF_AUTO_DOWN] = True
+    probe = _TimeGroupProbe(hass, effective_config)
+    probe._refresh_next_events(now or dt_util.utcnow())
+    return probe._next_open, probe._next_close

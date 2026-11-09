@@ -19,37 +19,22 @@ from homeassistant.util import dt as dt_util
 from ..const import (
     CONF_AUTO_SHADING,
     CONF_CLOSE_POSITION,
-    CONF_CUSTOM_POSITION_SENSOR,
     CONF_DRIVE_TIME,
-    CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
-    CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
-    CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
-    CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
+    CONF_MANUAL_CONTROL,
     CONF_MANUAL_OVERRIDE_MINUTES,
-    CONF_MANUAL_OVERRIDE_RESET_MODE,
-    CONF_MANUAL_OVERRIDE_RESET_TIME,
     CONF_OPEN_POSITION,
-    CONF_POSITION_SOURCE,
-    CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR,
-    CONF_POSITION_SOURCE_CUSTOM_SENSOR,
     CONF_POSITION_TOLERANCE,
     CONF_RESIDENT_SENSOR,
     CONF_SHADING_WAITINGTIME_END,
-    CONF_SHADING_WAITINGTIME_START,
     CONF_VENTILATE_POSITION,
-    CONF_VENTILATION_START_NO_DELAY,
     DEFAULT_CLOSE_POSITION,
     DEFAULT_DRIVE_TIME,
-    DEFAULT_MANUAL_OVERRIDE_FLAGS,
+    DEFAULT_MANUAL_CONTROL,
     DEFAULT_MANUAL_OVERRIDE_MINUTES,
-    DEFAULT_MANUAL_OVERRIDE_RESET_TIME,
     DEFAULT_OPEN_POSITION,
     DEFAULT_TOLERANCE,
     DEFAULT_VENTILATE_POSITION,
     DOMAIN,
-    MANUAL_OVERRIDE_RESET_NONE,
-    MANUAL_OVERRIDE_RESET_TIME,
-    MANUAL_OVERRIDE_RESET_TIMEOUT,
 )
 from .common import (
     CALENDAR_BOUNDARY_TRIGGERS,
@@ -62,12 +47,11 @@ from .common import (
     TRIGGER_SCHEDULED_FINAL_CLOSE,
     TRIGGER_SCHEDULED_OPEN,
     TRIGGER_SHADING_END_TIMER,
-    TRIGGER_SHADING_START_TIMER,
     TRIGGER_WINDOW_CLOSED,
     TRIGGER_WINDOW_OPEN,
     TRIGGER_WINDOW_TILTED,
     _coerce_float,
-    _parse_time,
+    scheduled_trigger,
     _ts_now,
 )
 
@@ -107,15 +91,11 @@ class EventsMixin:
     def update_config(self, new_config: ConfigType) -> None:
         self._cancel_window_down_sequence()
         old_config = self.config
-        pending_started: dict[str, datetime] = {}
-        for kind, due_at in getattr(self, "_shading_pending", {}).items():
-            key = (
-                CONF_SHADING_WAITINGTIME_START
-                if kind == "start"
-                else CONF_SHADING_WAITINGTIME_END
-            )
-            old_wait = max(0.0, float(old_config.get(key, 0) or 0))
-            pending_started[kind] = due_at - timedelta(seconds=old_wait)
+        due_at = getattr(self, "_shading_pending", {}).get("end")
+        old_wait = max(
+            0.0, float(old_config.get(CONF_SHADING_WAITINGTIME_END, 0) or 0)
+        )
+        pending_started = due_at - timedelta(seconds=old_wait) if due_at else None
         self.config = new_config
         self._resubscribe_local_decision_entities()
         self._clear_runtime_condition_timers()
@@ -126,16 +106,14 @@ class EventsMixin:
         if self._last_position is None:
             self._last_position = self._current_position()
         now = dt_util.utcnow()
-        for kind, started_at in pending_started.items():
-            key = (
-                CONF_SHADING_WAITINGTIME_START
-                if kind == "start"
-                else CONF_SHADING_WAITINGTIME_END
+        if pending_started is not None:
+            new_wait = max(
+                0.0,
+                float(new_config.get(CONF_SHADING_WAITINGTIME_END, 0) or 0),
             )
-            new_wait = max(0.0, float(new_config.get(key, 0) or 0))
-            due_at = started_at + timedelta(seconds=new_wait)
+            due_at = pending_started + timedelta(seconds=new_wait)
             if new_wait > 0 and due_at > now:
-                self._set_shading_pending(kind, due_at, False)
+                self._set_shading_pending("end", due_at, False)
         self._refresh_next_events(now)
         self._schedule_manual_expiry()
         self.persist_status()
@@ -245,18 +223,15 @@ class EventsMixin:
                     "closing",
                 }
                 if movement_finished:
-                    action = self._manual_schedule_action_for_position(current)
                     self._manual_movement_pending = False
                     adopted_shading = self._adopt_manual_shading_position(current)
-                    if not adopted_shading and not self._manual_active:
+                    if (
+                        not adopted_shading
+                        and not self._manual_active
+                        and self._manual_detection_enabled()
+                    ):
                         self._clear_shading_for_manual_override()
-                        self._activate_manual_override(
-                            scope_all=True, reason="manual_override"
-                        )
-                    if action is not None:
-                        self.hass.async_create_task(
-                            self._async_adopt_manual_schedule(action, now)
-                        )
+                        self._activate_manual_override(reason="manual_override")
             self._last_position = current if current is not None else previous_position
         if entity_id in self._contact_entities():
             new_state = event.data.get("new_state")
@@ -265,15 +240,7 @@ class EventsMixin:
                 "true",
                 "1",
             )
-            no_delay_on_start = (
-                bool(self.config.get(CONF_VENTILATION_START_NO_DELAY, False))
-                and contact_now_active
-            )
-            delay = (
-                0
-                if no_delay_on_start
-                else (self._contact_trigger_delay() + self._contact_status_delay())
-            )
+            delay = self._contact_trigger_delay() + self._contact_status_delay()
             trigger = self._window_trigger(entity_id, contact_now_active)
             if delay > 0:
                 self._schedule_delayed_evaluate(
@@ -290,18 +257,7 @@ class EventsMixin:
         return TRIGGER_WINDOW_CLOSED
 
     def _is_position_state_event(self, entity_id: str | None) -> bool:
-        if entity_id == self.cover:
-            return True
-        source = str(
-            self.config.get(
-                CONF_POSITION_SOURCE, CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR
-            )
-            or CONF_POSITION_SOURCE_CURRENT_POSITION_ATTR
-        )
-        return (
-            source == CONF_POSITION_SOURCE_CUSTOM_SENSOR
-            and entity_id == self.config.get(CONF_CUSTOM_POSITION_SENSOR)
-        )
+        return entity_id == self.cover
 
     @callback
     def _handle_service_call(self, event) -> None:
@@ -361,8 +317,9 @@ class EventsMixin:
             and self._manual_shading_position_matches(position)
         )
         if not shading_adoption_pending:
-            self._clear_shading_for_manual_override()
-            self._activate_manual_override(scope_all=True, reason="manual_override")
+            if self._manual_detection_enabled():
+                self._clear_shading_for_manual_override()
+                self._activate_manual_override(reason="manual_override")
         self.async_request_evaluate("manual_service")
 
     @callback
@@ -385,16 +342,8 @@ class EventsMixin:
         )
 
     def _manual_detection_enabled(self) -> bool:
-        if self._manual_active:
-            return False
-        return any(
-            bool(self.config.get(flag, DEFAULT_MANUAL_OVERRIDE_FLAGS.get(flag, False)))
-            for flag in (
-                CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
-                CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
-                CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
-                CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
-            )
+        return not self._manual_active and bool(
+            self.config.get(CONF_MANUAL_CONTROL, DEFAULT_MANUAL_CONTROL)
         )
 
     def _manual_shading_position_matches(self, position: float | None) -> bool:
@@ -443,21 +392,15 @@ class EventsMixin:
     def _activate_manual_override(
         self,
         minutes: int | None = None,
-        scope_all: bool = False,
         reason: str | None = None,
     ) -> None:
         now = dt_util.utcnow()
         was_active = self._manual_active
         self._manual_active = True
-        self._manual_scope_all = self._manual_scope_all or scope_all
         self._manual_until = self._manual_reset_at(now, minutes)
-        if reason:
-            self._reason = reason
-        elif self._manual_scope_all:
-            self._reason = "manual_override"
+        self._reason = reason or "manual_override"
         manual = self._status.setdefault("manual", {})
         manual["active"] = True
-        manual["scope_all"] = self._manual_scope_all
         manual["until"] = self._manual_until.isoformat() if self._manual_until else None
         manual["ts"] = _ts_now()
         self.persist_status()
@@ -470,64 +413,34 @@ class EventsMixin:
     def _manual_reset_at(
         self, now: datetime, minutes: int | None = None
     ) -> datetime | None:
-        if minutes is not None:
-            return now + timedelta(minutes=minutes)
-        mode = self.config.get(
-            CONF_MANUAL_OVERRIDE_RESET_MODE, MANUAL_OVERRIDE_RESET_TIMEOUT
-        )
-        if mode == MANUAL_OVERRIDE_RESET_NONE:
-            return None
-        if mode == MANUAL_OVERRIDE_RESET_TIME:
-            reset_time = _parse_time(
-                self.config.get(CONF_MANUAL_OVERRIDE_RESET_TIME)
-            ) or _parse_time(DEFAULT_MANUAL_OVERRIDE_RESET_TIME)
-            return self._next_time_for_point(reset_time, now)
-        duration = self.config.get(
-            CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES
+        duration = (
+            minutes
+            if minutes is not None
+            else self.config.get(
+                CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES
+            )
         )
         try:
             minutes_value = int(duration)
         except (TypeError, ValueError):
             minutes_value = DEFAULT_MANUAL_OVERRIDE_MINUTES
-        return now + timedelta(minutes=minutes_value)
+        return now + timedelta(minutes=minutes_value) if minutes_value > 0 else None
 
-    def _manual_blocks_action(self, action: str) -> bool:
-        if not self._manual_active:
-            return False
-        if self._manual_scope_all:
-            return True
-        flag_map = {
-            "open": CONF_MANUAL_OVERRIDE_BLOCK_OPEN,
-            "close": CONF_MANUAL_OVERRIDE_BLOCK_CLOSE,
-            "ventilation": CONF_MANUAL_OVERRIDE_BLOCK_VENTILATE,
-            "shading": CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
-        }
-        flag = flag_map.get(action)
-        if not flag:
-            return False
-        return bool(
-            self.config.get(flag, DEFAULT_MANUAL_OVERRIDE_FLAGS.get(flag, False))
-        )
+    def _manual_blocks_action(self, _action: str) -> bool:
+        return self._manual_active
 
     def set_manual_override(self, minutes: int) -> None:
-        duration = minutes or self.config.get(
-            CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES
-        )
-        self._activate_manual_override(
-            minutes=duration, scope_all=True, reason="manual_override"
-        )
+        self._activate_manual_override(minutes=minutes, reason="manual_override")
 
     def clear_manual_override(self) -> None:
         was_active = self._manual_active
         self._manual_until = None
         self._manual_active = False
-        self._manual_scope_all = False
         self._clear_manual_expiry()
         if self._reason in {"manual_override", "manual_shading"}:
             self._reason = None
         manual = self._status.setdefault("manual", {})
         manual["active"] = False
-        manual["scope_all"] = False
         manual["until"] = None
         self.persist_status()
         if was_active:
@@ -548,35 +461,6 @@ class EventsMixin:
                 self._pre_ventilation_position
             )
             self.persist_status()
-
-    def _remember_force_background(self) -> None:
-        section = self._status.setdefault("force", {})
-        if not section.get("active"):
-            self._remember_status_background("force")
-        section["active"] = True
-        section["ts"] = _ts_now()
-        self.persist_status()
-
-    def _clear_force_background(self) -> None:
-        section = self._status.setdefault("force", {})
-        section["active"] = False
-        section["restore_position"] = None
-        section["background"] = {"open": False, "close": False, "shading": False}
-        section["ts"] = _ts_now()
-
-    def _force_return_target(
-        self, *, allow_open: bool = True, allow_shading: bool = True
-    ) -> tuple[float | None, str]:
-        section = self._status.get("force", {})
-        fallback = None
-        if isinstance(section, dict):
-            fallback = _coerce_float(section.get("restore_position"))
-        return self._background_return_target(
-            self._background_for("force"),
-            fallback=fallback,
-            allow_open=allow_open,
-            allow_shading=allow_shading,
-        )
 
     def publish_state(self) -> None:
         """Expose the current state via dispatcher for newly added entities."""
@@ -699,7 +583,7 @@ class EventsMixin:
             else:
                 self._scheduled_close_unsub = None
                 self._scheduled_close_at = None
-            trigger = TRIGGER_SCHEDULED_OPEN if kind == "open" else TRIGGER_SCHEDULED_CLOSE
+            trigger = scheduled_trigger(kind, self._control_mode(kind))
             if kind == "final_close":
                 trigger = TRIGGER_SCHEDULED_FINAL_CLOSE
             self.async_request_evaluate(trigger)
@@ -731,11 +615,7 @@ class EventsMixin:
         @callback
         def _handle_shading_timer(_now: datetime) -> None:
             self._shading_timer_unsubs.pop(kind, None)
-            self.async_request_evaluate(
-                TRIGGER_SHADING_START_TIMER
-                if kind == "start"
-                else TRIGGER_SHADING_END_TIMER
-            )
+            self.async_request_evaluate(TRIGGER_SHADING_END_TIMER)
 
         self._shading_timer_unsubs[kind] = async_track_point_in_time(
             self.hass, _handle_shading_timer, due_at
@@ -820,19 +700,7 @@ class EventsMixin:
             )
 
     def activate_shading(self, minutes: int | None = None) -> None:
-        duration = minutes or self.config.get(
-            CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES
-        )
-        self._manual_until = dt_util.utcnow() + timedelta(minutes=duration)
-        self._manual_active = True
-        self._manual_scope_all = True
-        manual = self._status.setdefault("manual", {})
-        manual["active"] = True
-        manual["scope_all"] = True
-        manual["until"] = self._manual_until.isoformat()
-        manual["ts"] = _ts_now()
-        self.persist_status()
-        self._schedule_manual_expiry()
+        self._activate_manual_override(minutes=minutes, reason="manual_shading")
         self.hass.async_create_task(
             self._set_position(self._effective_shading_position(), "manual_shading")
         )
@@ -847,7 +715,6 @@ class EventsMixin:
         manual_state = (
             self._manual_until,
             self._manual_active,
-            self._manual_scope_all,
             self._reason,
         )
 
@@ -855,7 +722,6 @@ class EventsMixin:
             minutes=self.config.get(
                 CONF_MANUAL_OVERRIDE_MINUTES, DEFAULT_MANUAL_OVERRIDE_MINUTES
             ),
-            scope_all=True,
             reason="manual_override",
         )
 
@@ -872,132 +738,20 @@ class EventsMixin:
             (
                 self._manual_until,
                 self._manual_active,
-                self._manual_scope_all,
                 self._reason,
             ) = manual_state
             self._refresh_next_events(dt_util.utcnow())
             self._publish_state()
 
-    async def force_move(self, action: str) -> None:
-        if action == "open":
-            target = self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)
-            reason = "force_open"
-        elif action == "close":
-            target = self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION)
-            reason = "force_close"
-        else:
-            return
-        if target is None:
-            return
-        self._remember_force_background()
-        await self._command_position(float(target), reason=reason)
-        tilt_position = self._tilt_position_value(reason)
-        if tilt_position is not None:
-            await self._send_tilt_after_position(float(tilt_position), reason=reason)
-        self._target = float(target)
-        self._reason = reason
-        self._record_action_status(reason, float(target))
-        self._refresh_next_events(dt_util.utcnow())
-        self._publish_state()
-
-    async def force_ventilation(self, action: str) -> None:
-        if action == "start":
-            self._remember_force_background()
-            self._remember_pre_ventilation_position()
-            target = self._position_value(
-                CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION
-            )
-            if target is None:
-                return
-            await self._command_position(float(target), reason="force_ventilate")
-            tilt_position = self._tilt_position_value("force_ventilate")
-            if tilt_position is not None:
-                await self._send_tilt_after_position(
-                    float(tilt_position), reason="force_ventilate"
-                )
-            self._target = float(target)
-            self._reason = "force_ventilate"
-            self._set_ventilation_status(True, False)
-            self.persist_status()
-            self._logbook_entry(
-                f"Force action · ventilation started at {float(target):g}%"
-            )
-        elif action == "stop":
-            target, reason = self._force_return_target()
-            if target is None:
-                target = self._pre_ventilation_position
-                reason = "ventilation_stop"
-            if target is None:
-                target = self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)
-            if target is None:
-                return
-            await self._command_position(float(target), reason=reason)
-            tilt_position = self._tilt_position_value(reason)
-            if tilt_position is not None:
-                await self._send_tilt_after_position(
-                    float(tilt_position), reason=reason
-                )
-            self._target = float(target)
-            self._reason = reason
-            self._pre_ventilation_position = None
-            self._set_ventilation_status(False, False)
-            self._record_action_status(reason, float(target))
-            self._logbook_entry("Force action · ventilation stopped")
-            self._clear_force_background()
-            self.persist_status()
-        else:
-            return
-        self._refresh_next_events(dt_util.utcnow())
-        self._publish_state()
-
-    async def force_shading(self, action: str) -> None:
-        if action == "activate":
-            self._remember_force_background()
-            target = self._effective_shading_position()
-            if target is None:
-                return
-            await self._command_position(float(target), reason="force_shading")
-            tilt_position = self._tilt_position_value("force_shading")
-            if tilt_position is not None:
-                await self._send_tilt_after_position(
-                    float(tilt_position), reason="force_shading"
-                )
-            self._target = float(target)
-            self._reason = "force_shading"
-            self._record_action_status("force_shading", float(target))
-        elif action == "deactivate":
-            target, reason = self._force_return_target()
-            if target is None:
-                target = self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)
-                reason = "manual_shading_end"
-            if target is None:
-                return
-            await self._command_position(float(target), reason=reason)
-            tilt_position = self._tilt_position_value(reason)
-            if tilt_position is not None:
-                await self._send_tilt_after_position(
-                    float(tilt_position), reason=reason
-                )
-            self._target = float(target)
-            self._reason = reason
-            self._record_action_status(reason, float(target))
-            self._clear_force_background()
-        else:
-            return
-        self._refresh_next_events(dt_util.utcnow())
-        self._publish_state()
-
     def _expire_manual_override(self, now: datetime) -> None:
         if self._manual_until and now >= self._manual_until:
             self._manual_until = None
             self._manual_active = False
-            self._manual_scope_all = False
             self._clear_manual_expiry()
             if self._reason in {"manual_override", "manual_shading"}:
                 self._reason = None
             manual = self._status.setdefault("manual", {})
             manual["active"] = False
-            manual["scope_all"] = False
             manual["until"] = None
             self.persist_status()
             self._logbook_entry("Manual override ended")
@@ -1035,13 +789,11 @@ class EventsMixin:
     def _handle_manual_expiry(self, _) -> None:
         self._manual_until = None
         self._manual_active = False
-        self._manual_scope_all = False
         self._manual_expire_unsub = None
         if self._reason in {"manual_override", "manual_shading"}:
             self._reason = None
         manual = self._status.setdefault("manual", {})
         manual["active"] = False
-        manual["scope_all"] = False
         manual["until"] = None
         self.persist_status()
         self._logbook_entry("Manual override ended")
