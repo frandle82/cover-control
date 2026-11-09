@@ -99,8 +99,6 @@ def _blocking_controls_for_reason(reason: str) -> set[str]:
         "summer_period",
     }:
         return {reason}
-    if reason.startswith("additional_condition"):
-        return {"additional_condition"}
     return set()
 
 

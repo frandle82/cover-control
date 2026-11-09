@@ -9,7 +9,6 @@ from datetime import (
     timedelta,
 )
 from importlib import import_module
-from inspect import isawaitable
 
 from homeassistant.const import (
     STATE_ON,
@@ -26,15 +25,6 @@ from homeassistant.helpers.event import async_track_state_change_event
 from homeassistant.util import dt as dt_util
 
 from ..const import (
-    CONF_ADDITIONAL_CONDITION_CLOSE,
-    CONF_ADDITIONAL_CONDITION_GLOBAL,
-    CONF_ADDITIONAL_CONDITION_OPEN,
-    CONF_ADDITIONAL_CONDITION_SHADING,
-    CONF_ADDITIONAL_CONDITION_SHADING_END,
-    CONF_ADDITIONAL_CONDITION_SHADING_TILT,
-    CONF_ADDITIONAL_CONDITION_VENTILATE,
-    CONF_ADDITIONAL_CONDITION_VENTILATE_END,
-    CONF_ADDITIONAL_CONDITIONS_ENABLED,
     CONF_AUTO_BRIGHTNESS,
     CONF_AUTO_SHADING,
     CONF_AUTO_SUN,
@@ -64,7 +54,6 @@ from ..const import (
     CONF_DRIVE_DELAY_FIXED,
     CONF_DRIVE_DELAY_RANDOM,
     CONF_FORCE_PAUSE_ENTITY,
-    CONF_PREVENT_DEFAULT_COVER_ACTIONS,
     CONF_RESIDENT_SENSOR,
     CONF_RESIDENT_STATUS,
     CONF_SHADING_BRIGHTNESS_SENSOR,
@@ -145,8 +134,6 @@ from .common import (
 from .safety import SAFETY_REASONS
 
 _COVER_ENTITY_FEATURE = None
-_CONDITION_API = None
-_CONDITION_ERROR = None
 
 
 async def _async_cover_entity_feature(hass):
@@ -159,27 +146,6 @@ async def _async_cover_entity_feature(hass):
         )
         _COVER_ENTITY_FEATURE = cover_module.CoverEntityFeature
     return _COVER_ENTITY_FEATURE
-
-
-async def _async_condition_api(hass):
-    """Load optional condition support off the event loop on first use."""
-
-    global _CONDITION_API, _CONDITION_ERROR
-    if _CONDITION_API is None:
-
-        def _load_condition_api():
-            condition_api = import_module("homeassistant.helpers.condition")
-            exceptions = import_module("homeassistant.exceptions")
-            return condition_api, exceptions.ConditionError
-
-        async_add_executor_job = getattr(hass, "async_add_executor_job", None)
-        if async_add_executor_job is None:
-            _CONDITION_API, _CONDITION_ERROR = _load_condition_api()
-        else:
-            _CONDITION_API, _CONDITION_ERROR = await async_add_executor_job(
-                _load_condition_api
-            )
-    return _CONDITION_API, _CONDITION_ERROR
 
 
 class ActuatorMixin:
@@ -222,97 +188,6 @@ class ActuatorMixin:
             if entity_id and self.hass.states.get(entity_id) is not None:
                 return self.hass.states.is_state(entity_id, STATE_ON)
         return bool(self.config.get(config_key))
-
-    async def _condition_allows(self, config_key: str) -> bool:
-        condition_config = self.config.get(config_key)
-        if condition_config in (None, "", []):
-            return True
-
-        if isinstance(condition_config, bool):
-            return condition_config
-
-        if isinstance(condition_config, str):
-            state = self.hass.states.get(condition_config)
-            if state is None:
-                return False
-            return self.hass.states.is_state(condition_config, STATE_ON)
-
-        if not isinstance(condition_config, (list, dict)):
-            _LOGGER.error(
-                "Invalid additional condition '%s': unsupported type %s",
-                config_key,
-                type(condition_config).__name__,
-            )
-            return False
-
-        condition, condition_error = await _async_condition_api(self.hass)
-
-        try:
-            config: dict = (
-                {"condition": "and", "conditions": condition_config}
-                if isinstance(condition_config, list)
-                else condition_config
-            )
-            normalized_config = self._normalize_condition_config(config)
-            validated_config = await condition.async_validate_condition_config(
-                self.hass, normalized_config
-            )
-            checker = await condition.async_from_config(self.hass, validated_config)
-            async_check = getattr(checker, "async_check", None)
-            if async_check is None:
-                # Home Assistant before the condition checker API returned a
-                # callable instead. Keep supporting the HACS minimum version.
-                result = checker(self.hass)
-                if isawaitable(result):
-                    result = await result
-                return bool(result)
-            try:
-                return bool(async_check())
-            finally:
-                checker.async_unload()
-        except (
-            condition_error
-        ) as err:  # pragma: no cover - defensive for invalid config
-            _LOGGER.error(
-                "Invalid additional condition '%s': %s (config=%s)",
-                config_key,
-                err,
-                condition_config,
-            )
-            return False
-        except Exception:  # pragma: no cover - defensive for runtime errors
-            _LOGGER.exception("Failed to evaluate additional condition: %s", config_key)
-            return False
-
-    def _normalize_condition_config(self, config: dict | list) -> dict | list:
-        """Normalize condition configuration to match Home Assistant expectations.
-
-        Converts string-based time values into ``datetime.time`` objects so they are
-        not misinterpreted as entity IDs during validation. Nested condition blocks
-        are processed recursively.
-        """
-
-        if isinstance(config, list):
-            return [self._normalize_condition_config(item) for item in config]
-
-        normalized = dict(config)
-        condition_type = normalized.get("condition")
-
-        if condition_type == "time":
-            for key in ("after", "before"):
-                value = normalized.get(key)
-                if isinstance(value, str):
-                    parsed = dt_util.parse_time(value)
-                    if parsed is not None:
-                        normalized[key] = parsed
-
-        if condition_type in {"and", "or", "not"}:
-            normalized["conditions"] = [
-                self._normalize_condition_config(item)
-                for item in normalized.get("conditions", [])
-            ]
-
-        return normalized
 
     def _master_enabled(self) -> bool:
         return bool(
@@ -678,14 +553,13 @@ class ActuatorMixin:
             ctx = Context()
             self._last_command_context_id = ctx.id
             self._last_command_at = dt_util.utcnow()
-            if not self._config_bool(CONF_PREVENT_DEFAULT_COVER_ACTIONS):
-                await self.hass.services.async_call(
-                    "cover",
-                    "close_cover",
-                    {"entity_id": self.cover},
-                    blocking=True,
-                    context=ctx,
-                )
+            await self.hass.services.async_call(
+                "cover",
+                "close_cover",
+                {"entity_id": self.cover},
+                blocking=True,
+                context=ctx,
+            )
             await self._async_wait_for_state_change(
                 lambda: (
                     (state := self.hass.states.get(self.cover)) is not None
@@ -881,23 +755,6 @@ class ActuatorMixin:
             )
             if isinstance(entity_id, str) and entity_id
         )
-        if self.config.get(
-            CONF_ADDITIONAL_CONDITIONS_ENABLED,
-            DEFAULT_AUTOMATION_FLAGS.get(CONF_ADDITIONAL_CONDITIONS_ENABLED, False),
-        ):
-            for key in (
-                CONF_ADDITIONAL_CONDITION_GLOBAL,
-                CONF_ADDITIONAL_CONDITION_OPEN,
-                CONF_ADDITIONAL_CONDITION_CLOSE,
-                CONF_ADDITIONAL_CONDITION_VENTILATE,
-                CONF_ADDITIONAL_CONDITION_VENTILATE_END,
-                CONF_ADDITIONAL_CONDITION_SHADING,
-                CONF_ADDITIONAL_CONDITION_SHADING_TILT,
-                CONF_ADDITIONAL_CONDITION_SHADING_END,
-            ):
-                entity_id = self.config.get(key)
-                if isinstance(entity_id, str) and entity_id:
-                    entities.add(entity_id)
         return entities
 
     def _local_decision_entities(self) -> set[str]:
@@ -937,17 +794,6 @@ class ActuatorMixin:
                 TRIGGER_SHADING_START_CHANGED,
                 TRIGGER_SHADING_END_CHANGED,
             )
-        for key in (
-            CONF_ADDITIONAL_CONDITION_GLOBAL,
-            CONF_ADDITIONAL_CONDITION_OPEN,
-            CONF_ADDITIONAL_CONDITION_CLOSE,
-            CONF_ADDITIONAL_CONDITION_VENTILATE,
-            CONF_ADDITIONAL_CONDITION_VENTILATE_END,
-            CONF_ADDITIONAL_CONDITION_SHADING,
-            CONF_ADDITIONAL_CONDITION_SHADING_TILT,
-            CONF_ADDITIONAL_CONDITION_SHADING_END,
-        ):
-            role_triggers[key] = (f"{key}_changed",)
         for key, values in role_triggers.items():
             if self.config.get(key) == entity_id:
                 triggers.update(values)
@@ -1178,10 +1024,9 @@ class ActuatorMixin:
                 "target_position": self._target,
             },
         )
-        if not self._config_bool(CONF_PREVENT_DEFAULT_COVER_ACTIONS):
-            await self.hass.services.async_call(
-                "cover", service, service_data, blocking=True, context=ctx
-            )
+        await self.hass.services.async_call(
+            "cover", service, service_data, blocking=True, context=ctx
+        )
 
     async def _command_tilt_position(
         self, tilt_position: float, *, reason: str | None = None
@@ -1212,14 +1057,13 @@ class ActuatorMixin:
                 "target_tilt_position": float(tilt_position),
             },
         )
-        if not self._config_bool(CONF_PREVENT_DEFAULT_COVER_ACTIONS):
-            await self.hass.services.async_call(
-                "cover",
-                "set_cover_tilt_position",
-                {"entity_id": self.cover, "tilt_position": float(tilt_position)},
-                blocking=True,
-                context=ctx,
-            )
+        await self.hass.services.async_call(
+            "cover",
+            "set_cover_tilt_position",
+            {"entity_id": self.cover, "tilt_position": float(tilt_position)},
+            blocking=True,
+            context=ctx,
+        )
 
     async def _wait_for_position(
         self, target: float, tolerance: float, timeout: int = 30

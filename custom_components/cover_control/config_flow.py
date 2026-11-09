@@ -28,8 +28,6 @@ from .config_resolver import (
     system_defaults,
 )
 from .const import (
-    CONF_ADDITIONAL_CONDITIONS_ENABLED,
-    CONF_ADDITIONAL_CONDITION_GLOBAL,
     CONF_AUTO_BRIGHTNESS,
     CONF_AUTO_DOWN,
     CONF_AUTO_SHADING,
@@ -63,6 +61,7 @@ from .const import (
     CONF_FORCE_SHADING_ENTITY,
     CONF_HEAT_PROTECTION_ENABLED,
     CONF_HEAT_PROTECTION_THRESHOLD,
+    CONF_KEEP_SUN_PROTECTION,
     CONF_FORCE_VENTILATE_ENTITY,
     CONF_GLOBAL,
     CONF_GLOBAL_DEFAULTS,
@@ -279,7 +278,6 @@ INITIAL_FEATURE_KEYS = (
     CONF_AUTO_SUN,
     CONF_AUTO_SHADING,
     CONF_RESIDENT_STATUS,
-    CONF_ADDITIONAL_CONDITIONS_ENABLED,
 )
 
 
@@ -516,10 +514,8 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
             )
         fields = {}
         for key in sorted(GLOBAL_SOURCE_KEYS):
-            fields[vol.Optional(key)] = (
-                selector.ConditionSelector()
-                if key == CONF_ADDITIONAL_CONDITION_GLOBAL
-                else selector.EntitySelector(selector.EntitySelectorConfig())
+            fields[vol.Optional(key)] = selector.EntitySelector(
+                selector.EntitySelectorConfig()
             )
         return self.async_show_form(
             step_id="global_sources", data_schema=vol.Schema(fields)
@@ -716,16 +712,12 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 )
             fields = {}
             for key in sorted(GLOBAL_SOURCE_KEYS):
-                fields[vol.Optional(key)] = (
-                    selector.ConditionSelector()
-                    if key == CONF_ADDITIONAL_CONDITION_GLOBAL
-                    else selector.EntitySelector(
-                        selector.EntitySelectorConfig(
-                            domain=["binary_sensor", "input_boolean", "switch"]
-                        )
-                        if key in {alarm[1] for alarm in SAFETY_ALARMS}
-                        else selector.EntitySelectorConfig()
+                fields[vol.Optional(key)] = selector.EntitySelector(
+                    selector.EntitySelectorConfig(
+                        domain=["binary_sensor", "input_boolean", "switch"]
                     )
+                    if key in {alarm[1] for alarm in SAFETY_ALARMS}
+                    else selector.EntitySelectorConfig()
                 )
             return self.async_show_form(
                 step_id="global_sources", data_schema=vol.Schema(fields)
@@ -757,16 +749,12 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 key,
                 description={"suggested_value": current} if current else None,
             )
-            schema[marker] = (
-                selector.ConditionSelector()
-                if key == CONF_ADDITIONAL_CONDITION_GLOBAL
-                else selector.EntitySelector(
-                    selector.EntitySelectorConfig(
-                        domain=["binary_sensor", "input_boolean", "switch"]
-                    )
-                    if key in {alarm[1] for alarm in SAFETY_ALARMS}
-                    else selector.EntitySelectorConfig()
+            schema[marker] = selector.EntitySelector(
+                selector.EntitySelectorConfig(
+                    domain=["binary_sensor", "input_boolean", "switch"]
                 )
+                if key in {alarm[1] for alarm in SAFETY_ALARMS}
+                else selector.EntitySelectorConfig()
             )
         return self.async_show_form(
             step_id="global_sources", data_schema=vol.Schema(schema)
@@ -1069,6 +1057,7 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         )
         allowed = {
             CONF_SHADING_WAITINGTIME_END,
+            CONF_KEEP_SUN_PROTECTION,
             CONF_SHADING_TILT_ELEVATION_1,
             CONF_SHADING_TILT_ELEVATION_2,
             CONF_SHADING_TILT_ELEVATION_3,

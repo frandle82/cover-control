@@ -36,7 +36,6 @@ from ..const import (
     CONF_RESIDENT_SENSOR,
     CONF_SHADING_WAITINGTIME_END,
     CONF_VENTILATE_POSITION,
-    CONF_VENTILATION_START_NO_DELAY,
     DEFAULT_CLOSE_POSITION,
     DEFAULT_DRIVE_TIME,
     DEFAULT_MANUAL_OVERRIDE_FLAGS,
@@ -258,15 +257,7 @@ class EventsMixin:
                 "true",
                 "1",
             )
-            no_delay_on_start = (
-                bool(self.config.get(CONF_VENTILATION_START_NO_DELAY, False))
-                and contact_now_active
-            )
-            delay = (
-                0
-                if no_delay_on_start
-                else (self._contact_trigger_delay() + self._contact_status_delay())
-            )
+            delay = self._contact_trigger_delay() + self._contact_status_delay()
             trigger = self._window_trigger(entity_id, contact_now_active)
             if delay > 0:
                 self._schedule_delayed_evaluate(

@@ -29,7 +29,7 @@ CONTROL_STATE_OPTIONS = [
     "ventilation", "shading", "heat_protection", "manual_override",
     "force_open",
     "force_close", "force_ventilate", "force_shading", "force_pause",
-    "window_lockout", "additional_condition", "no_go_time", "summer_period",
+    "window_lockout", "no_go_time", "summer_period",
     "recovery", "multiple",
     "safety", "fire_alarm", "rain_alarm", "wind_alarm_2", "wind_alarm_1",
     "frost_alarm", "fire_latched",

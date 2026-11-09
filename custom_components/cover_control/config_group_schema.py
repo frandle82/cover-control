@@ -29,6 +29,7 @@ _BOOLEAN_KEYS = frozenset(
         c.CONF_AUTO_SHADING,
         c.CONF_USE_COLD_PROTECTION_FORECAST_SENSOR,
         c.CONF_HEAT_PROTECTION_ENABLED,
+        c.CONF_KEEP_SUN_PROTECTION,
         c.CONF_AUTO_VENTILATE,
         c.CONF_RESIDENT_STATUS,
         c.CONF_RESIDENT_OPEN_ENABLED,
@@ -42,23 +43,6 @@ _BOOLEAN_KEYS = frozenset(
         c.CONF_MANUAL_OVERRIDE_BLOCK_SHADING,
         c.CONF_MANUAL_SCHEDULE_ADOPTION,
         c.CONF_ENABLE_LOGBOOK_COVER,
-        c.CONF_PREVENT_HIGHER_POSITION_CLOSING,
-        c.CONF_PREVENT_LOWERING_WHEN_CLOSING_IF_SHADED,
-        c.CONF_PREVENT_SHADING_END_IF_CLOSED,
-        c.CONF_PREVENT_OPENING_AFTER_SHADING_END,
-        c.CONF_PREVENT_OPENING_AFTER_VENTILATION_END,
-        c.CONF_PREVENT_OPENING_MULTIPLE_TIMES,
-        c.CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
-        c.CONF_PREVENT_SHADING_MULTIPLE_TIMES,
-        c.CONF_PREVENT_DEFAULT_COVER_ACTIONS,
-        c.CONF_VENTILATION_ALLOW_HIGHER_POSITION,
-        c.CONF_VENTILATION_USE_AFTER_SHADING,
-        c.CONF_VENTILATION_START_NO_DELAY,
-        c.CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT,
-        c.CONF_SHADING_OVER_VENTILATION,
-        c.CONF_LOCKOUT_TILT_CLOSE,
-        c.CONF_LOCKOUT_TILT_SHADING_START,
-        c.CONF_LOCKOUT_TILT_SHADING_END,
         *(
             enabled_key
             for _alarm, _entity, enabled_key, _target, _room, _default in c.SAFETY_ALARMS
@@ -299,6 +283,7 @@ _GROUP_FIELDS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS,
                 c.CONF_HEAT_PROTECTION_ENABLED,
                 c.CONF_HEAT_PROTECTION_THRESHOLD,
+                c.CONF_KEEP_SUN_PROTECTION,
             ),
         ),
         (
@@ -354,14 +339,6 @@ _GROUP_FIELDS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_CONTACT_TRIGGER_DELAY,
                 c.CONF_CONTACT_STATUS_DELAY,
                 c.CONF_VENTILATION_DELAY_AFTER_CLOSE,
-                c.CONF_VENTILATION_ALLOW_HIGHER_POSITION,
-                c.CONF_VENTILATION_USE_AFTER_SHADING,
-                c.CONF_VENTILATION_START_NO_DELAY,
-                c.CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT,
-                c.CONF_SHADING_OVER_VENTILATION,
-                c.CONF_LOCKOUT_TILT_CLOSE,
-                c.CONF_LOCKOUT_TILT_SHADING_START,
-                c.CONF_LOCKOUT_TILT_SHADING_END,
             ),
         ),
         (
@@ -385,20 +362,6 @@ _GROUP_FIELDS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_RECOVERY_MODE,
                 c.CONF_DRIVE_DELAY_FIXED,
                 c.CONF_DRIVE_DELAY_RANDOM,
-            ),
-        ),
-        (
-            "prevention",
-            (
-                c.CONF_PREVENT_HIGHER_POSITION_CLOSING,
-                c.CONF_PREVENT_LOWERING_WHEN_CLOSING_IF_SHADED,
-                c.CONF_PREVENT_SHADING_END_IF_CLOSED,
-                c.CONF_PREVENT_OPENING_AFTER_SHADING_END,
-                c.CONF_PREVENT_OPENING_AFTER_VENTILATION_END,
-                c.CONF_PREVENT_OPENING_MULTIPLE_TIMES,
-                c.CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
-                c.CONF_PREVENT_SHADING_MULTIPLE_TIMES,
-                c.CONF_PREVENT_DEFAULT_COVER_ACTIONS,
             ),
         ),
     ),
@@ -483,6 +446,7 @@ GROUP_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
                 c.CONF_SHADING_OUTSIDE_TEMPERATURE_HYSTERESIS,
                 c.CONF_HEAT_PROTECTION_ENABLED,
                 c.CONF_HEAT_PROTECTION_THRESHOLD,
+                c.CONF_KEEP_SUN_PROTECTION,
             }
         ),
         "waiting": frozenset(
@@ -517,14 +481,6 @@ GROUP_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
                 c.CONF_CONTACT_TRIGGER_DELAY,
                 c.CONF_CONTACT_STATUS_DELAY,
                 c.CONF_VENTILATION_DELAY_AFTER_CLOSE,
-                c.CONF_VENTILATION_ALLOW_HIGHER_POSITION,
-                c.CONF_VENTILATION_USE_AFTER_SHADING,
-                c.CONF_VENTILATION_START_NO_DELAY,
-                c.CONF_VENTILATION_KEEP_OPEN_ON_FULL_TO_TILT,
-                c.CONF_SHADING_OVER_VENTILATION,
-                c.CONF_LOCKOUT_TILT_CLOSE,
-                c.CONF_LOCKOUT_TILT_SHADING_START,
-                c.CONF_LOCKOUT_TILT_SHADING_END,
             }
         ),
         "resident": frozenset(
@@ -543,20 +499,6 @@ GROUP_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
                 c.CONF_RECOVERY_MODE,
                 c.CONF_DRIVE_DELAY_FIXED,
                 c.CONF_DRIVE_DELAY_RANDOM,
-            }
-        ),
-        "movement_protection": frozenset(
-            {
-                c.CONF_PREVENT_HIGHER_POSITION_CLOSING,
-                c.CONF_PREVENT_LOWERING_WHEN_CLOSING_IF_SHADED,
-                c.CONF_PREVENT_SHADING_END_IF_CLOSED,
-                c.CONF_PREVENT_OPENING_AFTER_SHADING_END,
-                c.CONF_PREVENT_OPENING_AFTER_VENTILATION_END,
-                c.CONF_PREVENT_OPENING_MULTIPLE_TIMES,
-                c.CONF_PREVENT_CLOSING_MULTIPLE_TIMES,
-                c.CONF_PREVENT_SHADING_MULTIPLE_TIMES,
-                c.CONF_PREVENT_DEFAULT_COVER_ACTIONS,
-                c.CONF_NO_GO_TIME_MINUTES,
             }
         ),
     },
@@ -794,6 +736,11 @@ def group_fields(section_type: str) -> tuple[tuple[str, tuple[str, ...]], ...]:
         | GROUP_SECTION_KEYS[c.FUNCTION_BRIGHTNESS]
         | GROUP_SECTION_KEYS[c.FUNCTION_SUN]
         if section_type == c.GROUP_SECTION_TIME
+        else GROUP_SECTION_KEYS[c.FUNCTION_BEHAVIOR]
+        | GROUP_SECTION_KEYS[c.FUNCTION_VENTILATION]
+        | GROUP_SECTION_KEYS[c.FUNCTION_RESIDENT]
+        | GROUP_SECTION_KEYS[c.FUNCTION_SAFETY]
+        if section_type == c.GROUP_SECTION_BEHAVIOR
         else GROUP_SECTION_KEYS[section_type]
     )
     missing = supported - grouped
