@@ -82,6 +82,13 @@ LEGACY_RUNTIME_OPTION_KEYS = {
     "custom_position_sensor",
     "recovery_mode",
     "drive_delay_random",
+    "manual_override_block_open",
+    "manual_override_block_close",
+    "manual_override_block_ventilate",
+    "manual_override_block_shading",
+    "manual_override_reset_mode",
+    "manual_override_reset_time",
+    "manual_schedule_adoption",
 }
 
 
@@ -96,6 +103,12 @@ def cleanup_runtime_options(settings: Mapping[str, Any]) -> tuple[dict[str, Any]
         warnings.add("custom position source was removed")
     if result.get("recovery_mode") in {"never", "always"}:
         warnings.add("configurable recovery mode was removed")
+    reset_mode = result.get("manual_override_reset_mode")
+    if reset_mode == "time":
+        result[CONF_MANUAL_OVERRIDE_MINUTES] = 0  # noqa: F405
+        warnings.add("manual override reset time was removed")
+    elif reset_mode == "none":
+        result[CONF_MANUAL_OVERRIDE_MINUTES] = 0  # noqa: F405
     for key in LEGACY_RUNTIME_OPTION_KEYS:
         result.pop(key, None)
     return result, warnings
