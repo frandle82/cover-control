@@ -37,6 +37,10 @@ result = await hass.async_add_executor_job(blocking_function, arg1, arg2)
 * Alle `async_track_*`-Listener müssen bei `async_unload_entry` deregistriert werden.
 * Hintergrund-Tasks (`async_create_task`) müssen getrackt und bei Unload abgebrochen (`task.cancel()`) werden.
 
+### 5. Storage-Migration und leere Rooms
+* Änderungen an `Store`-Versionen benötigen eine explizite `Store`-Subclass mit `_async_migrate_func`; ein unveränderter `Store` führt bei älteren Dateien zu `NotImplementedError`.
+* Entry-Snapshots dürfen nicht vom ersten Cover-Controller abhängen. Ein Room ohne Cover muss mit leerem `covers`-Mapping und `None`-Zeitpunkten gültig bleiben.
+
 ---
 Verwandte Notizen:
 * [`../architecture/adr-001-mixin-architecture.md`](../architecture/adr-001-mixin-architecture.md)
