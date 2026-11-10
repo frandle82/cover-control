@@ -109,6 +109,9 @@ TIME_GROUP_KEYS = frozenset(
         CONF_TIME_DOWN_LATE_NON_WORKDAY,
         CONF_INTERMEDIATE_CLOSE_ENABLED,
         CONF_FINAL_CLOSE_TIME,
+        CONF_FINAL_CLOSE_TIME_ENABLED,
+        CONF_FINAL_CLOSE_ELEVATION_ENABLED,
+        CONF_FINAL_CLOSE_ELEVATION,
         CONF_SUMMER_START,
         CONF_SUMMER_END,
         CONF_CHRISTMAS_START,
@@ -341,13 +344,22 @@ def resolve_room_config(
     merge(source_overrides or {}, "room_source_override")
     values[CONF_ROOM_ID] = room_id
     values[CONF_ROOM] = room_name
+    configured_keys = set(group_settings) | set(room_settings)
+    for overrides in room_overrides.values():
+        if isinstance(overrides, Mapping):
+            configured_keys.update(overrides)
+    configured_functions = frozenset(
+        function
+        for function, keys in GROUP_SECTION_KEYS.items()
+        if configured_keys & keys
+    )
     return ResolvedRoomConfig(
         room_id,
         room_name,
         values,
         sources,
         group,
-        frozenset(GROUP_FUNCTIONS),
+        configured_functions,
     )
 
 

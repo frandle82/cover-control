@@ -38,6 +38,9 @@ from ..const import (
     CONF_ASTRO_OPEN_OFFSET,
     CONF_CLOSE_MODE,
     CONF_FINAL_CLOSE_TIME,
+    CONF_FINAL_CLOSE_TIME_ENABLED,
+    CONF_FINAL_CLOSE_ELEVATION_ENABLED,
+    CONF_FINAL_CLOSE_ELEVATION,
     CONF_INTERMEDIATE_CLOSE_ENABLED,
     CONF_OPEN_POSITION,
     CONF_OPEN_MODE,
@@ -67,6 +70,9 @@ from ..const import (
     DEFAULT_CHRISTMAS_POSITION,
     DEFAULT_CHRISTMAS_START,
     DEFAULT_FINAL_CLOSE_TIME,
+    DEFAULT_FINAL_CLOSE_TIME_ENABLED,
+    DEFAULT_FINAL_CLOSE_ELEVATION_ENABLED,
+    DEFAULT_FINAL_CLOSE_ELEVATION,
     DEFAULT_OPEN_MODE,
     DEFAULT_OPEN_POSITION,
     DEFAULT_SUN_ELEVATION_CLOSE,
@@ -614,19 +620,33 @@ class ScheduleMixin:
             self._next_close = self._next_close.replace(microsecond=0)
 
         self._next_final_close = None
-        if (
-            self.config.get(CONF_INTERMEDIATE_CLOSE_ENABLED, False)
-            and self._auto_enabled(CONF_AUTO_DOWN)
-        ):
-            final_time = _parse_time(
-                str(self.config.get(CONF_FINAL_CLOSE_TIME, DEFAULT_FINAL_CLOSE_TIME))
-            )
-            final_today = self._today_at(now, final_time)
-            if final_today is not None:
-                self._next_final_close = final_today
-                if self._next_final_close <= dt_util.as_local(now):
-                    self._next_final_close += timedelta(days=1)
-                self._next_final_close = self._next_final_close.replace(microsecond=0)
+        self._next_final_close_trigger = "scheduled_final_close"
+        if self.config.get(CONF_INTERMEDIATE_CLOSE_ENABLED, False) and self._auto_enabled(CONF_AUTO_DOWN):
+            candidates = []
+            if self.config.get(CONF_FINAL_CLOSE_TIME_ENABLED, DEFAULT_FINAL_CLOSE_TIME_ENABLED):
+                final_time = _parse_time(str(self.config.get(CONF_FINAL_CLOSE_TIME, DEFAULT_FINAL_CLOSE_TIME)))
+                final_today = self._today_at(now, final_time)
+                if final_today is not None:
+                    if final_today <= dt_util.as_local(now):
+                        final_today += timedelta(days=1)
+                    candidates.append(final_today)
+            if self.config.get(CONF_FINAL_CLOSE_ELEVATION_ENABLED, DEFAULT_FINAL_CLOSE_ELEVATION_ENABLED):
+                elevation_time = self._next_sun_time_for_elevation(
+                    self.config.get(CONF_FINAL_CLOSE_ELEVATION, DEFAULT_FINAL_CLOSE_ELEVATION),
+                    SunDirection.SETTING,
+                    now,
+                )
+                if elevation_time is not None:
+                    candidates.append(elevation_time)
+            if candidates:
+                self._next_final_close = min(candidates).replace(microsecond=0)
+                elevation_time = self._next_sun_time_for_elevation(
+                    self.config.get(CONF_FINAL_CLOSE_ELEVATION, DEFAULT_FINAL_CLOSE_ELEVATION),
+                    SunDirection.SETTING,
+                    now,
+                )
+                if elevation_time is not None and elevation_time == min(candidates):
+                    self._next_final_close_trigger = "scheduled_final_close_elevation"
 
         self._reschedule_next_event_timers(now)
 

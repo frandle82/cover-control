@@ -40,6 +40,7 @@ Cover Control ist eine benutzerfreundlich konfigurierbare Home-Assistant-Integra
 - Öffnen oberhalb und Schließen unterhalb frei wählbarer Helligkeitswerte.
 - Hysterese und Mindestdauer verhindern häufige Aktionen bei schwankenden Sensorwerten.
 - Sonnenhöhen-Grenzen für Öffnen und Schließen mit separater Mindestdauer.
+- Die endgültige Schließung kann zusätzlich zur Uhrzeit beim Erreichen einer fallenden Abend-Sonnenhöhe auslösen; der erste Auslöser gewinnt.
 - Feste Sonnenhöhen oder dynamische Grenzwerte aus eigenen Sensoren.
 - Separate Offsets für die dynamischen Öffnungs- und Schließwerte.
 - Helligkeit und Sonnenstand lassen sich per UND- oder ODER-Verknüpfung kombinieren.
