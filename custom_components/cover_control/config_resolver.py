@@ -245,6 +245,48 @@ TOGGLE_FUNCTION_KEYS = {
 }
 
 
+def configured_functions_for_layers(
+    group_settings: Mapping[str, Any],
+    room_settings: Mapping[str, Any],
+    room_overrides: Mapping[str, Mapping[str, Any]],
+) -> frozenset[str]:
+    """Return functions explicitly configured by persisted model layers."""
+
+    layers = tuple(
+        layer
+        for layer in (group_settings, room_settings, *room_overrides.values())
+        if isinstance(layer, Mapping)
+    )
+    configured_keys = {key for layer in layers for key in layer}
+    functions = {
+        function
+        for function, keys in GROUP_SECTION_KEYS.items()
+        if configured_keys & keys
+    }
+    modes = {
+        layer.get(key)
+        for layer in layers
+        for key in (CONF_OPEN_MODE, CONF_CLOSE_MODE)
+    }
+    solar_modes = {MODE_SUNRISE, MODE_SUNSET, MODE_GOLDEN_HOUR, MODE_ELEVATION}
+    if not (
+        modes & solar_modes
+        or any(layer.get(CONF_AUTO_SUN) is True for layer in layers)
+        or configured_keys
+        & (SUN_GROUP_KEYS - {CONF_AUTO_SUN, CONF_OPEN_MODE, CONF_CLOSE_MODE})
+    ):
+        functions.discard(FUNCTION_SUN)
+    if not (
+        MODE_BRIGHTNESS in modes
+        or any(layer.get(CONF_AUTO_BRIGHTNESS) is True for layer in layers)
+        or configured_keys & (BRIGHTNESS_GROUP_KEYS - {CONF_AUTO_BRIGHTNESS})
+    ):
+        functions.discard(FUNCTION_BRIGHTNESS)
+    if CONF_RESIDENT_SENSOR in room_settings:
+        functions.add(FUNCTION_RESIDENT)
+    return frozenset(functions)
+
+
 GROUP_BLOCKED_KEYS = (
     ROOM_HARDWARE_KEYS
     | ROOM_POSITION_KEYS
@@ -344,22 +386,15 @@ def resolve_room_config(
     merge(source_overrides or {}, "room_source_override")
     values[CONF_ROOM_ID] = room_id
     values[CONF_ROOM] = room_name
-    configured_keys = set(group_settings) | set(room_settings)
-    for overrides in room_overrides.values():
-        if isinstance(overrides, Mapping):
-            configured_keys.update(overrides)
-    configured_functions = frozenset(
-        function
-        for function, keys in GROUP_SECTION_KEYS.items()
-        if configured_keys & keys
-    )
     return ResolvedRoomConfig(
         room_id,
         room_name,
         values,
         sources,
         group,
-        configured_functions,
+        configured_functions_for_layers(
+            group_settings, room_settings, room_overrides
+        ),
     )
 
 
