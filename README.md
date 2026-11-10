@@ -6,271 +6,153 @@
 
 ![Cover Control – Rollladensteuerung für Home Assistant](custom_components/cover_control/brand/icon.png)
 
-Cover Control ist eine benutzerfreundlich konfigurierbare Home-Assistant-Integration zur automatischen Steuerung von Rollläden, Jalousien und Markisen. Sie koordiniert mehrere Cover eines Raums und verbindet Zeitpläne, Helligkeit, Sonnenstand, Beschattung, Fensterkontakte und Bewohnerstatus mit frei wählbaren Zielpositionen und Sicherheitsregeln.
+Cover Control automatisiert Rollläden, Jalousien und Markisen in Home Assistant. Eine zentrale Instanz verwaltet gemeinsam genutzte Datenquellen und drei feste Gruppen. Jeder Raum bleibt ein eigenständiger Konfigurationseintrag mit seinen Covern, Fensterkontakten, Sensoren und physischen Zielpositionen.
 
 ## Funktionen
 
-### Zentrale Steuerung mehrerer Cover
+### Räume und feste Gruppen
 
-- Eine Konfigurationsinstanz steuert ein oder mehrere Cover gemeinsam.
-- Öffnen, Schließen und Beschatten werden innerhalb einer Instanz koordiniert ausgeführt.
-- Lüftung kann je nach Fensterstatus für einzelne Cover abweichend gesteuert werden.
-- Unterstützt Rollläden und Jalousien sowie ein angepasstes Verhalten für Markisen.
-- Verwendet wahlweise `current_position`, `position` oder einen eigenen Positionssensor als Positionsquelle.
-- Cover ohne freie Positionssteuerung werden an den Endlagen über `open_cover` und `close_cover` angesteuert.
+- Genau drei wiederverwendbare Gruppen: **Wohnbereich**, **Schlafbereich** und **Kinderbereich**.
+- Gruppen enthalten Zeit-, Helligkeits-, Sonnen-, Sonnenschutz-, Lüftungs-, Bewohner- und Verhaltensregeln.
+- Räume enthalten Hardware, Fensterkontakte, Geometrie, lokale Sensoren und Zielpositionen.
+- Ein Raum gehört genau einer Gruppe.
+- Laufzeitschalter werden nur für tatsächlich konfigurierte Funktionen angelegt. Ein ausgeschalteter Schalter entfernt die Konfiguration nicht.
+
+### Öffnen und Schließen
+
+- Separate Zeitfenster für Arbeits- und Nichtarbeitstage.
+- Optionaler Home-Assistant-Arbeitstag-Sensor für heute und morgen.
+- Öffnen nach Uhrzeit, Sonnenaufgang, Golden Hour, Sonnenhöhe oder Helligkeit.
+- Schließen nach Uhrzeit, Sonnenuntergang, Golden Hour, Sonnenhöhe oder Helligkeit.
+- Früheste und späteste Zeit begrenzen auch sonnen- und helligkeitsabhängige Fahrten.
+- Kalenderereignisse können anhand konfigurierter Titel Öffnen oder Schließen auslösen.
+
+Die späteste Öffnungszeit hebt Schutz- und Sperrbedingungen nicht auf. Blockieren Bewohnerstatus, manuelle Übersteuerung, Fensterzustand oder eine Sicherheitsregel die Öffnung, bleibt das Cover geschlossen. Sobald sich der blockierende Zustand ändert, wertet Cover Control die Situation neu aus und öffnet nur, wenn alle Bedingungen erfüllt sind.
+
+### Zwischenposition und vollständiges Schließen
+
+Beim normalen Schließereignis kann das Cover zunächst eine raumeigene Zwischenposition anfahren. Das anschließende vollständige Schließen lässt sich unabhängig auslösen durch:
+
+- eine feste Uhrzeit,
+- eine fallende Sonnenhöhe.
+
+Sind beide Auslöser aktiviert, gewinnt der zuerst erfüllte Auslöser. Morgens löst dieselbe Sonnenhöhe keine Fahrt aus. Bei einem Neustart am Abend wertet Cover Control die aktuelle Sonnenhöhe und ihre tatsächliche Fallrichtung sofort aus.
+
+Beispiel:
+
+```text
+18:00 normales Schließereignis
+→ 50 % Zwischenposition
+
+Vollständig schließen:
+→ um 22:00 Uhr oder bei Sonnenhöhe ≤ -6°
+
+18:42 Sonnenhöhe erreicht -6° auf dem fallenden Ast
+→ vollständig schließen
+
+22:00
+→ keine zweite Fahrt
+```
+
+Sommerunterdrückung, Weihnachtsposition, Fensterfolgen und die allgemeinen Prioritäten gelten auch für das vollständige Schließen.
+
+### Sonnenschutz
+
+- Feste Sonnenschutzmodi auf Basis von Sonnenazimut und Sonnenhöhe.
+- Optionale Helligkeits- sowie Innen- und Außentemperaturschwellen.
+- Hitzeschutz und Kälteschutz mit festen, nachvollziehbaren Regeln.
+- Konfigurierbare Hysterese und Wartezeit für das Ende des Sonnenschutzes.
+- Sofortiges Ende, sobald die Sonne den konfigurierten Geometriebereich verlässt.
+- Normale und alternative raumeigene Sonnenschutzposition.
+
+### Fenster, Lüftung und Aussperrschutz
+
+- Pro Cover getrennte Kontakte für gekippte und vollständig geöffnete Fenster.
+- Gekippte Fenster verwenden die Lüftungsposition.
+- Vollständig geöffnete Fenster verwenden die Aussperrschutzposition.
+- Nach dem Schließen eines Fensters wird die im Hintergrund erforderliche Position neu ausgewertet.
+- Fenster- und Lüftungsentscheidungen haben Vorrang vor Komfortautomation und Sonnenschutz.
+
+### Bewohnerstatus und manuelle Übersteuerung
+
+- Optionaler Bewohner-, Schlaf- oder Ruhemodus über eine Home-Assistant-Entität.
+- Aktivierung kann schließen; Deaktivierung kann eine erneute Öffnungsprüfung auslösen.
+- Öffnen, Lüften und Sonnenschutz können während des aktiven Bewohnerstatus getrennt erlaubt werden.
+- Erkannte manuelle Fahrten pausieren die normale Automatik einheitlich.
+- Bei einer Dauer von `0` bleibt die manuelle Übersteuerung bis zum Betätigen des Lösch-Buttons aktiv.
+- Sicherheitsaktionen bleiben auch während einer manuellen Übersteuerung wirksam.
 
 ### Positionen und Lamellen
 
-- Separate Zielpositionen für vollständig geöffnet, geschlossen, Lüftung, Aussperrschutz und Beschattung.
-- Alternative Beschattungsposition, die über eine zusätzliche Entität aktiviert werden kann.
-- Eigene Lamellenpositionen für Öffnen, Schließen, Lüften und Beschatten.
-- Einstellbare Positionstoleranz und Fahrzeit zur Erkennung eigener beziehungsweise manueller Bewegungen.
-- Lamellenfelder erscheinen nur für Cover mit Tilt-Unterstützung; Fahrsequenz und Toleranz regelt die Runtime intern.
+- Raumeigene Positionen für geöffnet, geschlossen, Zwischenposition, Sonnenschutz, Lüftung und Aussperrschutz.
+- Vier Lamellenziele für Öffnen, Schließen, Lüften und Sonnenschutz, sofern das Cover Tilt unterstützt.
+- Positionstoleranz verhindert überflüssige Fahrbefehle.
+- Cover ohne Positionssteuerung werden an den Endlagen mit `open_cover` und `close_cover` angesteuert.
 
-### Zeitsteuerung
+### Sicherheit und Prioritäten
 
-- Getrennte Öffnungs- und Schließzeitfenster für Arbeits- und Nichtarbeitstage.
-- Frühe und späte Zeitgrenzen ermöglichen eine Berechnung innerhalb eines zulässigen Zeitfensters.
-- Optionaler Arbeitstag-Sensor für heute und morgen.
-- Kalenderereignisse können über frei definierbare Titel das Öffnen oder Schließen auslösen.
-- Zeitsteuerung lässt sich während des Betriebs über eine eigene Schalter-Entität aktivieren oder deaktivieren.
+Die feste Prioritätsreihenfolge lautet:
 
-### Helligkeits- und Sonnensteuerung
+1. Feuer-, Regen-, Wind- und Frostschutz
+2. Manuelle Übersteuerung
+3. Fenster, Lüftung und Aussperrschutz
+4. Sonnenschutz und Hitzeschutz
+5. Bewohnerstatus
+6. Zeit-, Sonnen- und Helligkeitssteuerung
 
-- Öffnen oberhalb und Schließen unterhalb frei wählbarer Helligkeitswerte.
-- Hysterese und Mindestdauer verhindern häufige Aktionen bei schwankenden Sensorwerten.
-- Sonnenhöhen-Grenzen für Öffnen und Schließen mit separater Mindestdauer.
-- Die endgültige Schließung kann zusätzlich zur Uhrzeit beim Erreichen einer fallenden Abend-Sonnenhöhe auslösen; der erste Auslöser gewinnt.
-- Feste Sonnenhöhen oder dynamische Grenzwerte aus eigenen Sensoren.
-- Separate Offsets für die dynamischen Öffnungs- und Schließwerte.
-- Helligkeit und Sonnenstand lassen sich per UND- oder ODER-Verknüpfung kombinieren.
-- Beide Funktionen besitzen eigene Laufzeitschalter.
-
-### Beschattung
-
-- Beschattung anhand von Sonnenazimut und Sonnenhöhe.
-- Optional zusätzliche Bedingungen aus Helligkeit, zwei Temperatursensoren, Wettervorhersage, Vorhersagetemperatur und frei konfigurierbaren Home-Assistant-Bedingungen.
-- UND- und ODER-Gruppen für Start- und Endbedingungen.
-- Separate Start- und Endschwellen sowie Hysteresen für Helligkeit und Temperatur.
-- Wettervorhersage wahlweise aus Wetterattributen oder eigenen Sensoren.
-- Einstellbare Wartezeiten und maximale Wartezeiten für Start und Ende. Die End-Wartezeit muss dabei kontinuierlich erfüllt sein und beginnt nach jeder Unterbrechung vollständig neu.
-- Sofortiges Beschattungsende, wenn die Sonne den konfigurierten Bereich verlässt.
-- Regeln für das Zusammenspiel mit geöffneten Fenstern, Lüftung und anschließendem Öffnen.
-- Optional temperaturunabhängige Beschattung sowie Vergleich von Vorhersage- und Messwerten. Mit `shading_independent_holds_end` bleibt eine aktive Beschattung an Hitzetagen bestehen, solange dieselbe unabhängige Temperaturbedingung erfüllt ist.
-- Eigener Laufzeitschalter für die komplette Beschattungsfunktion.
-
-### Fensterkontakte, Lüftung und Aussperrschutz
-
-- Pro Cover getrennte Kontakte für gekippte und vollständig geöffnete Fenster.
-- Ein gekipptes Fenster kann das Cover auf eine Lüftungsposition fahren.
-- Ein vollständig geöffnetes Fenster kann eine Aussperrschutzposition erzwingen.
-- Konfigurierbare Trigger-, Status- und Nachlaufverzögerungen vermeiden Reaktionen auf kurze Zustandswechsel.
-- Optionale sofortige Lüftung sowie Beibehaltung der geöffneten Position beim Wechsel von vollständig geöffnet zu gekippt.
-- Wahlweise höhere Cover-Positionen während der Lüftung zulassen.
-- Die Position vor Beginn der Lüftung wird gespeichert und kann anschließend wiederhergestellt werden.
-- Einstellbare Sperren verhindern Schließen sowie Beginn oder Ende der Beschattung bei bestimmten Kontaktzuständen.
-- Beschattung kann bei Bedarf Vorrang vor der Lüftung erhalten.
-- Eigener Laufzeitschalter für Kontakt- und Lüftungssteuerung.
-
-### Bewohnerstatus
-
-- Optionaler Bewohner-, Schlaf- oder Ruhemodus über `binary_sensor`, `input_boolean` oder `switch`.
-- Aktivierung kann ein sofortiges Schließen auslösen.
-- Deaktivierung kann das normale Öffnen erneut prüfen.
-- Öffnen, Lüften und Beschatten können während des aktiven Bewohnerstatus getrennt erlaubt werden.
-- Optionaler Diagnosesensor zeigt den aktuellen Bewohnerstatus und die verwendete Entität.
-
-### Zusätzliche Bedingungen
-
-Home-Assistant-Bedingungen können für folgende Ebenen hinterlegt werden:
-
-- gesamte Automatisierung,
-- Öffnen und Schließen,
-- Beginn und Ende der Lüftung,
-- Beginn und Ende der Beschattung,
-- Lamellensteuerung während der Beschattung.
-
-Eine Aktion wird nur ausgeführt, wenn ihre jeweilige Bedingung erfüllt ist und alle übrigen Schutzregeln sie zulassen.
-
-### Manueller Override
-
-- Manuelle Cover-Bewegungen werden erkannt und pausieren die betroffenen Automatikfunktionen.
-- Während eines erkannten manuellen Eingriffs werden automatische Fahrbefehle blockiert.
-- Der Override blockiert einheitlich alle normalen Automatikfahrten. Bei `0` Minuten bleibt er bis zum manuellen Löschen aktiv, sonst endet er nach der konfigurierten Dauer.
-- Die konfigurierte Fahrzeit verhindert, dass Rückmeldungen einer eigenen Fahrt als manueller Eingriff gewertet werden.
-- Der Button **Manuellen Override löschen** entfernt den Override für alle Cover der Instanz und wertet die Steuerung sofort neu aus. Dadurch wird die aktuell erforderliche Zielposition wieder angefahren.
-
-### Diagnose und Logbuch
-
-- `cover_control_event`, Statussensoren und Python-Logging bleiben unabhängig voneinander verfügbar.
-- Mit `enable_logbook_cover` können wichtige Fahrten, Beschattungs- und Lüftungswechsel sowie Manual Overrides direkt am betroffenen Cover protokolliert werden.
-- Wiederholte identische Blockierungsentscheidungen werden zur Laufzeit dedupliziert; ist das Home-Assistant-Logbuch nicht verfügbar, läuft die Steuerung unverändert weiter.
-
-### Verhaltens- und Sicherheitsregeln
-
-- Verhindern einer höheren Zielposition beim Schließen.
-- Ein beschattetes Cover muss beim Schließen nicht weiter abgesenkt werden.
-- Beschattungsende kann bei bereits geschlossenem Cover unterdrückt werden.
-- Öffnen nach Beschattungs- oder Lüftungsende kann verhindert werden.
-- Mehrfaches Öffnen, Schließen oder Beschatten am selben Tag kann blockiert werden.
-- Standardmäßige Cover-Serviceaufrufe lassen sich zu Diagnosezwecken unterdrücken.
-- Nicht verfügbare Cover oder entscheidungsrelevante Sensoren führen zu einem sicheren Abbruch statt zu einer unkontrollierten Fahrt.
-
-### Rekalibrierung
-
-Der optionale Button **Cover neu kalibrieren** öffnet alle Cover der Instanz vollständig, wartet auf die Zielposition und stellt anschließend die vorherige Position wieder her. Die vollständig geöffnete Position kann separat konfiguriert werden.
+Nicht verfügbare Cover oder entscheidungsrelevante Sensoren führen zu einem sicheren Abbruch statt zu einer unkontrollierten Fahrt.
 
 ## Erzeugte Entitäten
 
-Nur aktivierte Funktionen erzeugen ihre optionalen Entitäten.
-
 | Entität | Funktion |
 | --- | --- |
-| **Nächste Öffnung** | Frühester berechneter Öffnungszeitpunkt und zugehöriges Cover |
-| **Nächste Schließung** | Frühester berechneter Schließzeitpunkt und zugehöriges Cover |
-| **Aktive Steuerung** | Aktueller Grund sowie Position, Ziel, Override-, Beschattungs- und Lüftungsstatus aller Cover |
-| **Bewohnerstatus** | Zustand und Quellentität des optionalen Bewohnermodus |
-| **Zeitsteuerung** | Laufzeitumschaltung für zeitgesteuertes Öffnen und Schließen |
-| **Helligkeitsautomatik** | Laufzeitumschaltung für die Helligkeitssteuerung |
-| **Sonnenautomatik** | Laufzeitumschaltung für die Sonnenhöhensteuerung |
-| **Kontaktsensoren** | Laufzeitumschaltung für Lüftung und Aussperrschutz |
-| **Beschattung** | Laufzeitumschaltung für die Beschattungsautomatik |
-| **Cover neu kalibrieren** | Startet die Rekalibrierung aller Cover der Instanz |
-| **Manuellen Override löschen** | Löscht den Override und startet sofort eine neue Steuerungsauswertung |
-
-Die Laufzeitschalter ändern die gespeicherte Konfiguration nicht. Nach einem Neustart gelten wieder die Einstellungen aus dem Konfigurationsdialog.
-
-## Ereignisse
-
-Die Integration sendet `cover_control_event` auf dem Home-Assistant-Event-Bus. Ereignisse enthalten unter anderem:
-
-- `kind`: beispielsweise `evaluate` oder `command`,
-- `entry_id` und `cover`,
-- Auslöser und Aktionsgrund,
-- Zielposition beziehungsweise Lamellenposition,
-- verwendeten Cover-Service,
-- Zeitstempel und gegebenenfalls den Grund einer übersprungenen Aktion.
-
-Das Ereignis kann für Diagnose, Protokollierung und eigene Automationen verwendet werden.
-
-## Voraussetzungen
-
-- Home Assistant 2025.2.0 oder neuer.
-- Mindestens eine Cover-Entität.
-- Für Positionsziele wird ein Cover mit Positionsunterstützung empfohlen.
-- Sensoren, Kontakte, Kalender, Arbeitstag- und Bedingungsentitäten sind optional.
+| **Nächste Öffnung** | Nächster berechneter Öffnungszeitpunkt |
+| **Nächste Schließung** | Nächster normaler oder vollständiger Schließzeitpunkt |
+| **Aktive Steuerung** | Aktueller Entscheidungsgrund und Laufzeitstatus |
+| **Zeitsteuerung** | Zeitabhängige Automation ein- oder ausschalten |
+| **Helligkeitsautomatik** | Helligkeitsabhängige Automation ein- oder ausschalten |
+| **Sonnenautomatik** | Sonnenabhängige Automation ein- oder ausschalten |
+| **Sonnenschutz** | Sonnenschutz ein- oder ausschalten |
+| **Lüftung** | Lüftungsautomation ein- oder ausschalten |
 
 ## Installation
 
 ### HACS (empfohlen)
 
 1. In HACS **Integrationen** öffnen.
-2. Über das Menü **Benutzerdefinierte Repositories** auswählen.
+2. **Benutzerdefinierte Repositories** auswählen.
 3. `https://github.com/frandle82/cover-control` als Repository der Kategorie **Integration** hinzufügen.
 4. **Cover Control** installieren und Home Assistant neu starten.
 
-Veröffentlichte Versionen werden als `cover_control.zip` bereitgestellt und von HACS automatisch verarbeitet.
-
 ### Manuell
 
-1. `cover_control.zip` aus dem neuesten [GitHub-Release](https://github.com/frandle82/cover-control/releases) herunterladen.
-2. Den Ordner `config/custom_components/cover_control` anlegen.
-3. Den Inhalt des ZIP-Archivs direkt in diesen Ordner entpacken. `manifest.json` muss danach unmittelbar in `cover_control` liegen.
-4. Home Assistant neu starten.
+1. `cover_control.zip` aus dem aktuellen [GitHub-Release](https://github.com/frandle82/cover-control/releases) herunterladen.
+2. Den Inhalt nach `config/custom_components/cover_control/` entpacken.
+3. Home Assistant neu starten.
 
 ## Konfiguration
 
 1. In Home Assistant **Einstellungen → Geräte & Dienste → Integration hinzufügen** öffnen.
-2. Nach **Cover Control** suchen.
-3. Namen, Raum und die gemeinsam zu steuernden Cover auswählen.
-4. Die benötigten Automatikfunktionen aktivieren.
-5. Über **Konfigurieren** globale Quellen, Profile und Raumeinstellungen verwalten.
+2. Nach **Cover Control** suchen und die zentrale Instanz anlegen.
+3. Globale Datenquellen und die drei festen Gruppen konfigurieren.
+4. Räume als eigene Einträge hinzufügen, Cover und Sensoren zuordnen und eine Gruppe auswählen.
+5. Nur die benötigten Gruppenfunktionen konfigurieren.
 
-### Globale Datenquellen
+## Voraussetzungen
 
-Globale Quellen beschreiben die technische Umgebung des Hauses. Dazu gehören
-beispielsweise Außenhelligkeit und -temperatur, Wetter/Vorhersage, Arbeitstag,
-Kalender, Bewohnerstatus und dynamische Sonnenhöhen. Diese Entity-IDs werden
-einmal zentral gehalten und nicht in fachliche Profile kopiert. Ein Raum kann
-für ausgewählte Quellen, etwa die Helligkeit eines Wintergartens, eine eigene
-Quelle wählen.
-
-### Profile
-
-Cover Control kennt genau drei wiederverwendbare Profiltypen:
-
-- **Zeitprofile** bündeln Öffnungs-/Schließfenster, Arbeits- und freie Tage,
-  Helligkeits- und Sonnenzeitbedingungen.
-- **Beschattungsprofile** bündeln Schwellen, Hysteresen, Wartezeiten,
-  Beschattungspositionen und fachliche Wetterregeln.
-- **Verhaltensprofile** bündeln wiederverwendbare Regeln für manuellen
-  Override, Lüftung, Bewohnerstatus, Positionen und Fahrverhalten.
-
-Profile besitzen eine stabile interne ID und einen frei änderbaren Anzeigenamen.
-Ein Raum speichert nur die Profilreferenz. Profile erben nicht voneinander, und
-ein noch verwendetes Profil kann nicht gelöscht werden.
-
-### Räume und Abweichungen
-
-Physische Eigenschaften bleiben am Raum: Cover, Fensterkontakte, eigener
-Positionssensor, Raumtemperatur, Azimut/Sonnengeometrie und Zuordnungen je
-Cover. Unter **Raumprofile und Abweichungen** werden die drei Profile gewählt.
-Abweichungen speichern nur den veränderten Wert, zum Beispiel:
-
-```json
-{"shading": {"shading_position": 25}}
-```
-
-Alle übrigen Werte folgen weiterhin dem Profil. Wird eine Abweichung entfernt,
-gilt sofort wieder der Profilwert. Die Diagnose zeigt für wichtige effektive
-Werte zusätzlich deren Herkunft (Systemstandard, globaler Standard, Profil,
-Raumwert oder Raumabweichung).
-
-### Migration
-
-Bestehende flache Konfigurationen werden automatisch und verlustfrei in ein
-stabiles Raum-Modell mit je einem Legacy-Zeit-, Beschattungs- und
-Verhaltensprofil überführt. Mehrere Cover und ihre individuellen Kontakte
-bleiben erhalten. Die Migration ist idempotent; Profile können danach bewusst
-zusammengeführt oder neu zugewiesen werden.
-
-Der kompakte Optionsdialog trennt gemeinsame Quellen, fachliche Profile und
-physische Raumeinstellungen. Selten benötigte Detailseiten liegen unter
-**Erweiterte Raumeinstellungen**. Änderungen werden durch ein sauberes
-Neuladen des Konfigurationseintrags übernommen.
-
-## Fehlersuche
-
-- Im Sensor **Aktive Steuerung** Zielposition, Grund, Override und abhängige Cover prüfen.
-- Kontrollieren, ob alle verwendeten Cover, Kontakte und Entscheidungssensoren verfügbar sind.
-- Zusätzliche Bedingungen müssen für die jeweilige Aktion erfüllt sein.
-- Prüfen, ob ein manueller Override, Bewohnerstatus oder eine Kontaktregel die Aktion blockiert.
-- Die Laufzeitschalter müssen eingeschaltet sein; ihre Zustände können von den gespeicherten Optionen abweichen.
-- Für eine detaillierte Analyse `custom_components.cover_control` auf Debug-Protokollierung setzen oder `cover_control_event` unter **Entwicklerwerkzeuge → Ereignisse** beobachten.
+- Home Assistant 2025.2.0 oder neuer.
+- Mindestens eine Cover-Entität pro Raum.
+- Für frei wählbare Zwischenpositionen wird ein Cover mit Positionssteuerung empfohlen.
+- Arbeitstag-, Kalender-, Helligkeits-, Temperatur-, Bewohner- und Fenstersensoren sind optional.
 
 ## Entwicklung und Tests
 
-Die Tests verwenden Home Assistant 2026.9 und `pytest-homeassistant-custom-component`.
-
-```sh
-python -m venv .venv
-source .venv/bin/activate
-pip install pytest-homeassistant-custom-component==0.13.365
-python -m pytest -q --asyncio-mode=auto
-python -m compileall -q custom_components tests scripts
+```bash
+.venv/bin/pytest -q --asyncio-mode=auto
+.venv/bin/python -m compileall -q custom_components tests scripts
 git diff --check
 ```
 
-## Releases
+## Lizenz
 
-Commits und Pull-Request-Titel folgen Conventional Commits. Release Drafter ordnet Pull Requests automatisch Kategorien zu und hält einen Release-Entwurf mit semantisch aufgelöster Folgeversion aktuell.
-
-Ein Maintainer startet den manuellen Workflow **Create Release** auf `main` und gibt eine Version ohne führendes `v` sowie `draft`, `prerelease` oder `release` an. Der Workflow validiert die Version, aktualisiert `manifest.json`, erstellt den Commit `chore(release): <version>`, baut und prüft `cover_control.zip` und erzeugt den GitHub Release. Das Archiv wird vor einer möglichen Veröffentlichung angehängt.
-
-- `fix:` bzw. die Labels `fix`, `hotfix`, `bug` oder `patch` ergeben eine Patch-Version.
-- `feat:` bzw. `feature`, `enhancement` oder `minor` ergeben eine Minor-Version.
-- Breaking Changes bzw. `breaking` oder `major` ergeben eine Major-Version.
-- Tags werden ohne führendes `v` erstellt.
-- **Release Build** repariert ausschließlich das HACS-Archiv eines bereits veröffentlichten Releases.
-
-Weitere verbindliche Entwicklungs- und Release-Regeln stehen in [AGENTS.md](AGENTS.md).
+[MIT](LICENSE)
