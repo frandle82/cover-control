@@ -19,6 +19,9 @@ from custom_components.cover_control.const import (
     CONF_AUTO_TIME,
     CONF_AUTO_UP,
     CONF_FINAL_CLOSE_TIME,
+    CONF_FINAL_CLOSE_ELEVATION,
+    CONF_FINAL_CLOSE_ELEVATION_ENABLED,
+    CONF_FINAL_CLOSE_TIME_ENABLED,
     CONF_INTERMEDIATE_CLOSE_ENABLED,
     CONF_INTERMEDIATE_CLOSE_POSITION,
     CONF_NO_GO_TIME_MINUTES,
@@ -54,6 +57,9 @@ from custom_components.cover_control.runtime.group_evaluation import (
 from custom_components.cover_control.config_resolver import resolve_config_model
 from custom_components.cover_control.controller import ControllerManager, CoverController
 from custom_components.cover_control.runtime.events import EventsMixin
+from custom_components.cover_control.runtime.common import (
+    TRIGGER_SCHEDULED_FINAL_CLOSE_ELEVATION,
+)
 from custom_components.cover_control.sensor import (
     CONTROL_STATE_OPTIONS,
     ControlStateSensor,
@@ -478,6 +484,91 @@ def test_final_close_forecast_uses_existing_schedule_timer() -> None:
 
     assert controller._next_final_close.date().isoformat() == "2026-11-08"
     assert controller._next_final_close.timetz().replace(tzinfo=None) == time(22, 0)
+
+
+def test_legacy_final_close_keeps_time_behavior_and_disables_elevation() -> None:
+    resolved = resolve_config_model(
+        {
+            CONF_GROUPS: {
+                GROUP_LIVING: {
+                    CONF_INTERMEDIATE_CLOSE_ENABLED: True,
+                    CONF_FINAL_CLOSE_TIME: "21:30:00",
+                }
+            },
+            CONF_ROOMS: {
+                "room": {
+                    CONF_GROUP: GROUP_LIVING,
+                    CONF_ROOM_SETTINGS: {},
+                }
+            },
+        },
+        "room",
+    )
+
+    assert resolved[CONF_FINAL_CLOSE_TIME_ENABLED] is True
+    assert resolved[CONF_FINAL_CLOSE_ELEVATION_ENABLED] is False
+    assert resolved[CONF_FINAL_CLOSE_TIME] == "21:30:00"
+
+
+def test_next_close_uses_earliest_final_close_candidate() -> None:
+    controller = object.__new__(CoverController)
+    controller.config = {
+        CONF_INTERMEDIATE_CLOSE_ENABLED: True,
+        CONF_FINAL_CLOSE_TIME_ENABLED: True,
+        CONF_FINAL_CLOSE_TIME: "22:00:00",
+        CONF_FINAL_CLOSE_ELEVATION_ENABLED: True,
+        CONF_FINAL_CLOSE_ELEVATION: -6,
+    }
+    controller._auto_enabled = Mock(return_value=True)
+    controller._state_for = Mock(return_value=None)
+    controller._sun_entity = Mock(return_value="sun.sun")
+    controller._is_workday = Mock(return_value=True)
+    controller._is_workday_tomorrow = Mock(return_value=True)
+    controller._last_action_dates = {}
+    controller._condition_since = {}
+    controller._reschedule_next_event_timers = Mock()
+    elevation_close = datetime(2026, 11, 8, 18, 15, tzinfo=timezone.utc)
+    controller._next_sun_time_for_elevation = Mock(return_value=elevation_close)
+
+    controller._refresh_next_events(
+        datetime(2026, 11, 8, 17, 0, tzinfo=timezone.utc)
+    )
+
+    assert controller._next_final_close == elevation_close
+    assert (
+        controller._next_final_close_trigger
+        == TRIGGER_SCHEDULED_FINAL_CLOSE_ELEVATION
+    )
+
+
+def test_completed_final_close_advances_both_candidates_to_tomorrow() -> None:
+    controller = object.__new__(CoverController)
+    controller.config = {
+        CONF_INTERMEDIATE_CLOSE_ENABLED: True,
+        CONF_FINAL_CLOSE_TIME_ENABLED: True,
+        CONF_FINAL_CLOSE_TIME: "22:00:00",
+        CONF_FINAL_CLOSE_ELEVATION_ENABLED: True,
+        CONF_FINAL_CLOSE_ELEVATION: -6,
+    }
+    controller._auto_enabled = Mock(return_value=True)
+    controller._state_for = Mock(return_value=None)
+    controller._sun_entity = Mock(return_value="sun.sun")
+    controller._is_workday = Mock(return_value=True)
+    controller._is_workday_tomorrow = Mock(return_value=True)
+    now = datetime(2026, 11, 8, 19, 0, tzinfo=timezone.utc)
+    controller._last_action_dates = {"final_close": dt_util.as_local(now).date()}
+    controller._condition_since = {}
+    controller._reschedule_next_event_timers = Mock()
+    controller._next_sun_time_for_elevation = Mock(
+        return_value=datetime(2026, 11, 9, 18, 15, tzinfo=timezone.utc)
+    )
+
+    controller._refresh_next_events(now)
+
+    assert controller._next_final_close.date().isoformat() == "2026-11-09"
+    search_from = controller._next_sun_time_for_elevation.call_args.args[2]
+    assert dt_util.as_local(search_from).date().isoformat() == "2026-11-08"
+    assert dt_util.as_local(search_from).time() == time(23, 59, 59, 999999)
 
 
 def test_intermediate_close_never_raises_cover_below_target() -> None:
