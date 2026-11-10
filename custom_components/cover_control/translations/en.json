@@ -41,13 +41,13 @@
         "title": "Configure Cover Control",
         "description": "Configure global sources and the three fixed groups.",
         "menu_options": {
-          "global_sources": "Global sources",
-          "group_living": "Living area",
-          "group_sleep": "Sleeping area",
-          "group_children": "Children's area",
-          "diagnostics": "Diagnostics",
-          "recovery": "Recovery",
-          "finish": "Done"
+          "global_sources": "Choose Home Assistant entities shared by all rooms.",
+          "group_living": "Configure opening, closing, shading, and behavior for living areas.",
+          "group_sleep": "Configure opening, closing, shading, and behavior for sleeping areas.",
+          "group_children": "Configure opening, closing, shading, and behavior for children's areas.",
+          "diagnostics": "Review the resolved controller structure and configuration.",
+          "recovery": "Restore the last valid configuration when recovery data is available.",
+          "finish": "Save the configuration and return to Home Assistant."
         },
         "menu_option_descriptions": {
           "global_sources": "Global sources",
@@ -368,7 +368,7 @@
         "data_description": {}
       },
       "group_time": {
-        "title": "Group - e time",
+        "title": "Group – Time",
         "description": "Edit settings for {group_name}. Used by: {group_usage}",
         "sections": {
           "time_features": {
@@ -376,8 +376,11 @@
             "data": {
               "auto_brightness_enabled": "Brightness automation",
               "auto_down_enabled": "Automatic closing",
-              "intermediate_close_enabled": "Use intermediate closing position",
-              "final_close_time": "Final close time",
+              "intermediate_close_enabled": "Use intermediate position",
+              "final_close_time": "Time for full closing",
+              "final_close_time_enabled": "Fully close at a set time",
+              "final_close_elevation_enabled": "Fully close at a solar elevation",
+              "final_close_elevation": "Solar elevation for full closing",
               "summer_start": "Summer period start (DD.MM.)",
               "summer_end": "Summer period end (DD.MM.)",
               "christmas_start": "Christmas period start (DD.MM.)",
@@ -391,19 +394,22 @@
               "close_mode": "Closing control mode"
             },
             "data_description": {
-              "auto_brightness_enabled": "Value for Brightness automation in this group or default.",
-              "auto_down_enabled": "Value for Automatic closing in this group or default.",
-              "intermediate_close_enabled": "Use the room-owned intermediate position before the final close time.",
-              "final_close_time": "Time for the final full closing movement.",
+              "auto_brightness_enabled": "Configures “Brightness automation” for this group.",
+              "auto_down_enabled": "Configures “Automatic closing” for this group.",
+              "intermediate_close_enabled": "Move to the room's intermediate position on the normal closing event.",
+              "final_close_time": "Time at which the cover is fully closed.",
+              "final_close_time_enabled": "Use the configured time for full closing. If time and solar elevation are enabled, the first condition reached wins.",
+              "final_close_elevation_enabled": "Use falling solar elevation for full closing. If time and solar elevation are enabled, the first condition reached wins.",
+              "final_close_elevation": "Solar elevation at which the cover is fully closed. This threshold is evaluated only while the sun is falling.",
               "summer_start": "First inclusive day of the recurring summer period.",
               "summer_end": "Last inclusive day of the recurring summer period.",
               "christmas_start": "First inclusive day of the recurring Christmas period.",
               "christmas_end": "Last inclusive day of the recurring Christmas period.",
-              "auto_sun_enabled": "Value for Sun automation in this group or default.",
-              "auto_time_enabled": "Value for Time automation in this group or default.",
-              "auto_up_enabled": "Value for Automatic opening in this group or default.",
-              "use_brightness_sensor": "Value for Use brightness source in this group or default.",
-              "use_workday_sensor": "Value for Use workday source in this group or default.",
+              "auto_sun_enabled": "Configures “Sun automation” for this group.",
+              "auto_time_enabled": "Configures “Time automation” for this group.",
+              "auto_up_enabled": "Configures “Automatic opening” for this group.",
+              "use_brightness_sensor": "Controls whether this group uses the brightness source.",
+              "use_workday_sensor": "Controls whether this group uses the workday source.",
               "open_mode": "Opening control mode",
               "close_mode": "Closing control mode"
             }
@@ -417,10 +423,10 @@
               "time_up_late_workday": "Latest workday opening"
             },
             "data_description": {
-              "time_down_early_workday": "Value for Earliest workday closing in this group or default.",
-              "time_down_late_workday": "Value for Latest workday closing in this group or default.",
-              "time_up_early_workday": "Value for Earliest workday opening in this group or default.",
-              "time_up_late_workday": "Value for Latest workday opening in this group or default."
+              "time_down_early_workday": "Configures “Earliest workday closing” for this group.",
+              "time_down_late_workday": "Configures “Latest workday closing” for this group.",
+              "time_up_early_workday": "Configures “Earliest workday opening” for this group.",
+              "time_up_late_workday": "Configures “Latest workday opening” for this group."
             }
           },
           "non_workday_times": {
@@ -432,10 +438,10 @@
               "time_up_late_non_workday": "Latest non-workday opening"
             },
             "data_description": {
-              "time_down_early_non_workday": "Value for Earliest non-workday closing in this group or default.",
-              "time_down_late_non_workday": "Value for Latest non-workday closing in this group or default.",
-              "time_up_early_non_workday": "Value for Earliest non-workday opening in this group or default.",
-              "time_up_late_non_workday": "Value for Latest non-workday opening in this group or default."
+              "time_down_early_non_workday": "Configures “Earliest non-workday closing” for this group.",
+              "time_down_late_non_workday": "Configures “Latest non-workday closing” for this group.",
+              "time_up_early_non_workday": "Configures “Earliest non-workday opening” for this group.",
+              "time_up_late_non_workday": "Configures “Latest non-workday opening” for this group."
             }
           },
           "calendar_behavior": {
@@ -445,14 +451,14 @@
               "calendar_open_title": "Calendar opening title"
             },
             "data_description": {
-              "calendar_close_title": "Value for Calendar closing title in this group or default.",
-              "calendar_open_title": "Value for Calendar opening title in this group or default."
+              "calendar_close_title": "Configures “Calendar closing title” for this group.",
+              "calendar_open_title": "Configures “Calendar opening title” for this group."
             }
           }
         }
       },
       "group_brightness": {
-        "title": "Group - e brightness",
+        "title": "Group – Brightness",
         "description": "Edit settings for {group_name}. Used by: {group_usage}",
         "sections": {
           "time_features": {
@@ -460,8 +466,11 @@
             "data": {
               "auto_brightness_enabled": "Brightness automation",
               "auto_down_enabled": "Automatic closing",
-              "intermediate_close_enabled": "Use intermediate closing position",
-              "final_close_time": "Final close time",
+              "intermediate_close_enabled": "Use intermediate position",
+              "final_close_time": "Time for full closing",
+              "final_close_time_enabled": "Fully close at a set time",
+              "final_close_elevation_enabled": "Fully close at a solar elevation",
+              "final_close_elevation": "Solar elevation for full closing",
               "summer_start": "Summer period start (DD.MM.)",
               "summer_end": "Summer period end (DD.MM.)",
               "christmas_start": "Christmas period start (DD.MM.)",
@@ -475,19 +484,22 @@
               "close_mode": "Closing control mode"
             },
             "data_description": {
-              "auto_brightness_enabled": "Value for Brightness automation in this group or default.",
-              "auto_down_enabled": "Value for Automatic closing in this group or default.",
-              "intermediate_close_enabled": "Use the room-owned intermediate position before the final close time.",
-              "final_close_time": "Time for the final full closing movement.",
+              "auto_brightness_enabled": "Configures “Brightness automation” for this group.",
+              "auto_down_enabled": "Configures “Automatic closing” for this group.",
+              "intermediate_close_enabled": "Move to the room's intermediate position on the normal closing event.",
+              "final_close_time": "Time at which the cover is fully closed.",
+              "final_close_time_enabled": "Use the configured time for full closing. If time and solar elevation are enabled, the first condition reached wins.",
+              "final_close_elevation_enabled": "Use falling solar elevation for full closing. If time and solar elevation are enabled, the first condition reached wins.",
+              "final_close_elevation": "Solar elevation at which the cover is fully closed. This threshold is evaluated only while the sun is falling.",
               "summer_start": "First inclusive day of the recurring summer period.",
               "summer_end": "Last inclusive day of the recurring summer period.",
               "christmas_start": "First inclusive day of the recurring Christmas period.",
               "christmas_end": "Last inclusive day of the recurring Christmas period.",
-              "auto_sun_enabled": "Value for Sun automation in this group or default.",
-              "auto_time_enabled": "Value for Time automation in this group or default.",
-              "auto_up_enabled": "Value for Automatic opening in this group or default.",
-              "use_brightness_sensor": "Value for Use brightness source in this group or default.",
-              "use_workday_sensor": "Value for Use workday source in this group or default.",
+              "auto_sun_enabled": "Configures “Sun automation” for this group.",
+              "auto_time_enabled": "Configures “Time automation” for this group.",
+              "auto_up_enabled": "Configures “Automatic opening” for this group.",
+              "use_brightness_sensor": "Controls whether this group uses the brightness source.",
+              "use_workday_sensor": "Controls whether this group uses the workday source.",
               "open_mode": "Opening control mode",
               "close_mode": "Closing control mode"
             }
@@ -501,16 +513,16 @@
               "brightness_time_duration": "Brightness duration"
             },
             "data_description": {
-              "brightness_close_below": "Value for Brightness close threshold in this group or default.",
-              "brightness_hysteresis": "Value for Brightness hysteresis in this group or default.",
-              "brightness_open_above": "Value for Brightness open threshold in this group or default.",
-              "brightness_time_duration": "Value for Brightness duration in this group or default."
+              "brightness_close_below": "Configures “Brightness close threshold” for this group.",
+              "brightness_hysteresis": "Configures “Brightness hysteresis” for this group.",
+              "brightness_open_above": "Configures “Brightness open threshold” for this group.",
+              "brightness_time_duration": "Configures “Brightness duration” for this group."
             }
           }
         }
       },
       "group_sun": {
-        "title": "Group - e sun position",
+        "title": "Group – Sun position",
         "description": "Edit settings for {group_name}. Used by: {group_usage}",
         "sections": {
           "time_features": {
@@ -518,8 +530,11 @@
             "data": {
               "auto_brightness_enabled": "Brightness automation",
               "auto_down_enabled": "Automatic closing",
-              "intermediate_close_enabled": "Use intermediate closing position",
-              "final_close_time": "Final close time",
+              "intermediate_close_enabled": "Use intermediate position",
+              "final_close_time": "Time for full closing",
+              "final_close_time_enabled": "Fully close at a set time",
+              "final_close_elevation_enabled": "Fully close at a solar elevation",
+              "final_close_elevation": "Solar elevation for full closing",
               "summer_start": "Summer period start (DD.MM.)",
               "summer_end": "Summer period end (DD.MM.)",
               "christmas_start": "Christmas period start (DD.MM.)",
@@ -533,19 +548,22 @@
               "close_mode": "Closing control mode"
             },
             "data_description": {
-              "auto_brightness_enabled": "Value for Brightness automation in this group or default.",
-              "auto_down_enabled": "Value for Automatic closing in this group or default.",
-              "intermediate_close_enabled": "Use the room-owned intermediate position before the final close time.",
-              "final_close_time": "Time for the final full closing movement.",
+              "auto_brightness_enabled": "Configures “Brightness automation” for this group.",
+              "auto_down_enabled": "Configures “Automatic closing” for this group.",
+              "intermediate_close_enabled": "Move to the room's intermediate position on the normal closing event.",
+              "final_close_time": "Time at which the cover is fully closed.",
+              "final_close_time_enabled": "Use the configured time for full closing. If time and solar elevation are enabled, the first condition reached wins.",
+              "final_close_elevation_enabled": "Use falling solar elevation for full closing. If time and solar elevation are enabled, the first condition reached wins.",
+              "final_close_elevation": "Solar elevation at which the cover is fully closed. This threshold is evaluated only while the sun is falling.",
               "summer_start": "First inclusive day of the recurring summer period.",
               "summer_end": "Last inclusive day of the recurring summer period.",
               "christmas_start": "First inclusive day of the recurring Christmas period.",
               "christmas_end": "Last inclusive day of the recurring Christmas period.",
-              "auto_sun_enabled": "Value for Sun automation in this group or default.",
-              "auto_time_enabled": "Value for Time automation in this group or default.",
-              "auto_up_enabled": "Value for Automatic opening in this group or default.",
-              "use_brightness_sensor": "Value for Use brightness source in this group or default.",
-              "use_workday_sensor": "Value for Use workday source in this group or default.",
+              "auto_sun_enabled": "Configures “Sun automation” for this group.",
+              "auto_time_enabled": "Configures “Time automation” for this group.",
+              "auto_up_enabled": "Configures “Automatic opening” for this group.",
+              "use_brightness_sensor": "Controls whether this group uses the brightness source.",
+              "use_workday_sensor": "Controls whether this group uses the workday source.",
               "open_mode": "Opening control mode",
               "close_mode": "Closing control mode"
             }
@@ -559,8 +577,8 @@
               "astro_close_offset_minutes": "Closing astro offset (minutes)"
             },
             "data_description": {
-              "sun_elevation_close": "Value for Closing sun elevation in this group or default.",
-              "sun_elevation_open": "Value for Opening sun elevation in this group or default.",
+              "sun_elevation_close": "Configures “Closing sun elevation” for this group.",
+              "sun_elevation_open": "Configures “Opening sun elevation” for this group.",
               "astro_open_offset_minutes": "Opening astro offset (minutes)",
               "astro_close_offset_minutes": "Closing astro offset (minutes)"
             }
@@ -583,7 +601,7 @@
         }
       },
       "group_ventilation": {
-        "title": "Group - e ventilation",
+        "title": "Group – Ventilation",
         "description": "Edit settings for {group_name}. Used by: {group_usage}",
         "sections": {
           "ventilation": {
@@ -595,16 +613,16 @@
               "ventilation_delay_after_close": "Ventilation delay after closing"
             },
             "data_description": {
-              "auto_ventilate_enabled": "Value for Ventilation enabled in this group or default.",
-              "contact_status_delay": "Value for Contact status delay in this group or default.",
-              "contact_trigger_delay": "Value for Contact trigger delay in this group or default.",
-              "ventilation_delay_after_close": "Value for Ventilation delay after closing in this group or default."
+              "auto_ventilate_enabled": "Configures “Ventilation enabled” for this group.",
+              "contact_status_delay": "Configures “Contact status delay” for this group.",
+              "contact_trigger_delay": "Configures “Contact trigger delay” for this group.",
+              "ventilation_delay_after_close": "Configures “Ventilation delay after closing” for this group."
             }
           }
         }
       },
       "group_resident": {
-        "title": "Group - e resident behavior",
+        "title": "Group – Resident behavior",
         "description": "Edit settings for {group_name}. Used by: {group_usage}",
         "sections": {
           "resident_behavior": {
@@ -618,18 +636,18 @@
               "resident_status_enabled": "Resident behavior enabled"
             },
             "data_description": {
-              "resident_allow_open": "Value for Resident allows opening in this group or default.",
-              "resident_allow_shading": "Value for Resident allows shading in this group or default.",
-              "resident_allow_ventilation": "Value for Resident allows ventilation in this group or default.",
-              "resident_close_enabled": "Value for Close on resident start in this group or default.",
-              "resident_open_enabled": "Value for Open on resident end in this group or default.",
-              "resident_status_enabled": "Value for Resident behavior enabled in this group or default."
+              "resident_allow_open": "Configures “Resident allows opening” for this group.",
+              "resident_allow_shading": "Configures “Resident allows shading” for this group.",
+              "resident_allow_ventilation": "Configures “Resident allows ventilation” for this group.",
+              "resident_close_enabled": "Configures “Close on resident start” for this group.",
+              "resident_open_enabled": "Configures “Open on resident end” for this group.",
+              "resident_status_enabled": "Configures “Resident behavior enabled” for this group."
             }
           }
         }
       },
       "group_behavior": {
-        "title": "Group - e manual behavior",
+        "title": "Group – Manual behavior",
         "description": "Edit settings for {group_name}. Used by: {group_usage}",
         "sections": {
           "manual_override": {
@@ -648,7 +666,7 @@
         }
       },
       "group_safety": {
-        "title": "Group - e safety",
+        "title": "Group – Safety",
         "description": "Edit settings for {group_name}. Used by: {group_usage}",
         "sections": {
           "safety": {
@@ -684,14 +702,14 @@
         "title": "Group settings",
         "description": "Settings for {group_name}. Used by: {group_usage}",
         "menu_options": {
-          "group_time": "Time",
-          "group_brightness": "Brightness",
-          "group_sun": "Sun position",
-          "group_shading": "Shading",
-          "group_ventilation": "Ventilation",
-          "group_resident": "Resident behavior",
-          "group_behavior": "Manual behavior",
-          "group_safety": "Safety",
+          "group_time": "Configure opening and closing schedules and final closing.",
+          "group_brightness": "Configure brightness thresholds and delays.",
+          "group_sun": "Configure sunrise, sunset, and solar-elevation control.",
+          "group_shading": "Configure sun shading and heat-protection rules.",
+          "group_ventilation": "Configure window-contact and ventilation behavior.",
+          "group_resident": "Configure behavior while resident mode is active.",
+          "group_behavior": "Configure manual override and movement behavior.",
+          "group_safety": "Configure alarm-based safety actions.",
           "group_back": "Back"
         },
         "menu_option_descriptions": {
@@ -717,7 +735,7 @@
         }
       },
       "group_sun_details": {
-        "title": "Group - e sun position",
+        "title": "Group – Sun position",
         "description": "Edit settings for {group_name}. Used by: {group_usage}",
         "sections": {
           "time_features": {
@@ -740,19 +758,19 @@
               "close_mode": "Closing control mode"
             },
             "data_description": {
-              "auto_brightness_enabled": "Value for Brightness automation in this group or default.",
-              "auto_down_enabled": "Value for Automatic closing in this group or default.",
+              "auto_brightness_enabled": "Configures “Brightness automation” for this group.",
+              "auto_down_enabled": "Configures “Automatic closing” for this group.",
               "intermediate_close_enabled": "Use the room-owned intermediate position before the final close time.",
               "final_close_time": "Time for the final full closing movement.",
               "summer_start": "First inclusive day of the recurring summer period.",
               "summer_end": "Last inclusive day of the recurring summer period.",
               "christmas_start": "First inclusive day of the recurring Christmas period.",
               "christmas_end": "Last inclusive day of the recurring Christmas period.",
-              "auto_sun_enabled": "Value for Sun automation in this group or default.",
-              "auto_time_enabled": "Value for Time automation in this group or default.",
-              "auto_up_enabled": "Value for Automatic opening in this group or default.",
-              "use_brightness_sensor": "Value for Use brightness source in this group or default.",
-              "use_workday_sensor": "Value for Use workday source in this group or default.",
+              "auto_sun_enabled": "Configures “Sun automation” for this group.",
+              "auto_time_enabled": "Configures “Time automation” for this group.",
+              "auto_up_enabled": "Configures “Automatic opening” for this group.",
+              "use_brightness_sensor": "Controls whether this group uses the brightness source.",
+              "use_workday_sensor": "Controls whether this group uses the workday source.",
               "open_mode": "Opening control mode",
               "close_mode": "Closing control mode"
             }
@@ -766,8 +784,8 @@
               "astro_close_offset_minutes": "Closing astro offset (minutes)"
             },
             "data_description": {
-              "sun_elevation_close": "Value for Closing sun elevation in this group or default.",
-              "sun_elevation_open": "Value for Opening sun elevation in this group or default.",
+              "sun_elevation_close": "Configures “Closing sun elevation” for this group.",
+              "sun_elevation_open": "Configures “Opening sun elevation” for this group.",
               "astro_open_offset_minutes": "Opening astro offset (minutes)",
               "astro_close_offset_minutes": "Closing astro offset (minutes)"
             }
@@ -890,13 +908,13 @@
         "title": "Configure Cover Control",
         "description": "Configure global sources and the three fixed groups.",
         "menu_options": {
-          "global_sources": "Global sources",
-          "group_living": "Living area",
-          "group_sleep": "Sleeping area",
-          "group_children": "Children's area",
-          "diagnostics": "Diagnostics",
-          "recovery": "Recovery",
-          "finish": "Done"
+          "global_sources": "Choose Home Assistant entities shared by all rooms.",
+          "group_living": "Configure opening, closing, shading, and behavior for living areas.",
+          "group_sleep": "Configure opening, closing, shading, and behavior for sleeping areas.",
+          "group_children": "Configure opening, closing, shading, and behavior for children's areas.",
+          "diagnostics": "Review the resolved controller structure and configuration.",
+          "recovery": "Restore the last valid configuration when recovery data is available.",
+          "finish": "Save the configuration and return to Home Assistant."
         },
         "menu_option_descriptions": {
           "global_sources": "Global sources",
@@ -1217,7 +1235,7 @@
         "data_description": {}
       },
       "group_time": {
-        "title": "Group - e time",
+        "title": "Group – Time",
         "description": "Edit settings for {group_name}. Used by: {group_usage}",
         "sections": {
           "time_features": {
@@ -1225,8 +1243,11 @@
             "data": {
               "auto_brightness_enabled": "Brightness automation",
               "auto_down_enabled": "Automatic closing",
-              "intermediate_close_enabled": "Use intermediate closing position",
-              "final_close_time": "Final close time",
+              "intermediate_close_enabled": "Use intermediate position",
+              "final_close_time": "Time for full closing",
+              "final_close_time_enabled": "Fully close at a set time",
+              "final_close_elevation_enabled": "Fully close at a solar elevation",
+              "final_close_elevation": "Solar elevation for full closing",
               "summer_start": "Summer period start (DD.MM.)",
               "summer_end": "Summer period end (DD.MM.)",
               "christmas_start": "Christmas period start (DD.MM.)",
@@ -1240,19 +1261,22 @@
               "close_mode": "Closing control mode"
             },
             "data_description": {
-              "auto_brightness_enabled": "Value for Brightness automation in this group or default.",
-              "auto_down_enabled": "Value for Automatic closing in this group or default.",
-              "intermediate_close_enabled": "Use the room-owned intermediate position before the final close time.",
-              "final_close_time": "Time for the final full closing movement.",
+              "auto_brightness_enabled": "Configures “Brightness automation” for this group.",
+              "auto_down_enabled": "Configures “Automatic closing” for this group.",
+              "intermediate_close_enabled": "Move to the room's intermediate position on the normal closing event.",
+              "final_close_time": "Time at which the cover is fully closed.",
+              "final_close_time_enabled": "Use the configured time for full closing. If time and solar elevation are enabled, the first condition reached wins.",
+              "final_close_elevation_enabled": "Use falling solar elevation for full closing. If time and solar elevation are enabled, the first condition reached wins.",
+              "final_close_elevation": "Solar elevation at which the cover is fully closed. This threshold is evaluated only while the sun is falling.",
               "summer_start": "First inclusive day of the recurring summer period.",
               "summer_end": "Last inclusive day of the recurring summer period.",
               "christmas_start": "First inclusive day of the recurring Christmas period.",
               "christmas_end": "Last inclusive day of the recurring Christmas period.",
-              "auto_sun_enabled": "Value for Sun automation in this group or default.",
-              "auto_time_enabled": "Value for Time automation in this group or default.",
-              "auto_up_enabled": "Value for Automatic opening in this group or default.",
-              "use_brightness_sensor": "Value for Use brightness source in this group or default.",
-              "use_workday_sensor": "Value for Use workday source in this group or default.",
+              "auto_sun_enabled": "Configures “Sun automation” for this group.",
+              "auto_time_enabled": "Configures “Time automation” for this group.",
+              "auto_up_enabled": "Configures “Automatic opening” for this group.",
+              "use_brightness_sensor": "Controls whether this group uses the brightness source.",
+              "use_workday_sensor": "Controls whether this group uses the workday source.",
               "open_mode": "Opening control mode",
               "close_mode": "Closing control mode"
             }
@@ -1266,10 +1290,10 @@
               "time_up_late_workday": "Latest workday opening"
             },
             "data_description": {
-              "time_down_early_workday": "Value for Earliest workday closing in this group or default.",
-              "time_down_late_workday": "Value for Latest workday closing in this group or default.",
-              "time_up_early_workday": "Value for Earliest workday opening in this group or default.",
-              "time_up_late_workday": "Value for Latest workday opening in this group or default."
+              "time_down_early_workday": "Configures “Earliest workday closing” for this group.",
+              "time_down_late_workday": "Configures “Latest workday closing” for this group.",
+              "time_up_early_workday": "Configures “Earliest workday opening” for this group.",
+              "time_up_late_workday": "Configures “Latest workday opening” for this group."
             }
           },
           "non_workday_times": {
@@ -1281,10 +1305,10 @@
               "time_up_late_non_workday": "Latest non-workday opening"
             },
             "data_description": {
-              "time_down_early_non_workday": "Value for Earliest non-workday closing in this group or default.",
-              "time_down_late_non_workday": "Value for Latest non-workday closing in this group or default.",
-              "time_up_early_non_workday": "Value for Earliest non-workday opening in this group or default.",
-              "time_up_late_non_workday": "Value for Latest non-workday opening in this group or default."
+              "time_down_early_non_workday": "Configures “Earliest non-workday closing” for this group.",
+              "time_down_late_non_workday": "Configures “Latest non-workday closing” for this group.",
+              "time_up_early_non_workday": "Configures “Earliest non-workday opening” for this group.",
+              "time_up_late_non_workday": "Configures “Latest non-workday opening” for this group."
             }
           },
           "calendar_behavior": {
@@ -1294,14 +1318,14 @@
               "calendar_open_title": "Calendar opening title"
             },
             "data_description": {
-              "calendar_close_title": "Value for Calendar closing title in this group or default.",
-              "calendar_open_title": "Value for Calendar opening title in this group or default."
+              "calendar_close_title": "Configures “Calendar closing title” for this group.",
+              "calendar_open_title": "Configures “Calendar opening title” for this group."
             }
           }
         }
       },
       "group_brightness": {
-        "title": "Group - e brightness",
+        "title": "Group – Brightness",
         "description": "Edit settings for {group_name}. Used by: {group_usage}",
         "sections": {
           "time_features": {
@@ -1324,19 +1348,19 @@
               "close_mode": "Closing control mode"
             },
             "data_description": {
-              "auto_brightness_enabled": "Value for Brightness automation in this group or default.",
-              "auto_down_enabled": "Value for Automatic closing in this group or default.",
+              "auto_brightness_enabled": "Configures “Brightness automation” for this group.",
+              "auto_down_enabled": "Configures “Automatic closing” for this group.",
               "intermediate_close_enabled": "Use the room-owned intermediate position before the final close time.",
               "final_close_time": "Time for the final full closing movement.",
               "summer_start": "First inclusive day of the recurring summer period.",
               "summer_end": "Last inclusive day of the recurring summer period.",
               "christmas_start": "First inclusive day of the recurring Christmas period.",
               "christmas_end": "Last inclusive day of the recurring Christmas period.",
-              "auto_sun_enabled": "Value for Sun automation in this group or default.",
-              "auto_time_enabled": "Value for Time automation in this group or default.",
-              "auto_up_enabled": "Value for Automatic opening in this group or default.",
-              "use_brightness_sensor": "Value for Use brightness source in this group or default.",
-              "use_workday_sensor": "Value for Use workday source in this group or default.",
+              "auto_sun_enabled": "Configures “Sun automation” for this group.",
+              "auto_time_enabled": "Configures “Time automation” for this group.",
+              "auto_up_enabled": "Configures “Automatic opening” for this group.",
+              "use_brightness_sensor": "Controls whether this group uses the brightness source.",
+              "use_workday_sensor": "Controls whether this group uses the workday source.",
               "open_mode": "Opening control mode",
               "close_mode": "Closing control mode"
             }
@@ -1350,16 +1374,16 @@
               "brightness_time_duration": "Brightness duration"
             },
             "data_description": {
-              "brightness_close_below": "Value for Brightness close threshold in this group or default.",
-              "brightness_hysteresis": "Value for Brightness hysteresis in this group or default.",
-              "brightness_open_above": "Value for Brightness open threshold in this group or default.",
-              "brightness_time_duration": "Value for Brightness duration in this group or default."
+              "brightness_close_below": "Configures “Brightness close threshold” for this group.",
+              "brightness_hysteresis": "Configures “Brightness hysteresis” for this group.",
+              "brightness_open_above": "Configures “Brightness open threshold” for this group.",
+              "brightness_time_duration": "Configures “Brightness duration” for this group."
             }
           }
         }
       },
       "group_sun": {
-        "title": "Group - e sun position",
+        "title": "Group – Sun position",
         "description": "Edit settings for {group_name}. Used by: {group_usage}",
         "sections": {
           "time_features": {
@@ -1382,19 +1406,19 @@
               "close_mode": "Closing control mode"
             },
             "data_description": {
-              "auto_brightness_enabled": "Value for Brightness automation in this group or default.",
-              "auto_down_enabled": "Value for Automatic closing in this group or default.",
+              "auto_brightness_enabled": "Configures “Brightness automation” for this group.",
+              "auto_down_enabled": "Configures “Automatic closing” for this group.",
               "intermediate_close_enabled": "Use the room-owned intermediate position before the final close time.",
               "final_close_time": "Time for the final full closing movement.",
               "summer_start": "First inclusive day of the recurring summer period.",
               "summer_end": "Last inclusive day of the recurring summer period.",
               "christmas_start": "First inclusive day of the recurring Christmas period.",
               "christmas_end": "Last inclusive day of the recurring Christmas period.",
-              "auto_sun_enabled": "Value for Sun automation in this group or default.",
-              "auto_time_enabled": "Value for Time automation in this group or default.",
-              "auto_up_enabled": "Value for Automatic opening in this group or default.",
-              "use_brightness_sensor": "Value for Use brightness source in this group or default.",
-              "use_workday_sensor": "Value for Use workday source in this group or default.",
+              "auto_sun_enabled": "Configures “Sun automation” for this group.",
+              "auto_time_enabled": "Configures “Time automation” for this group.",
+              "auto_up_enabled": "Configures “Automatic opening” for this group.",
+              "use_brightness_sensor": "Controls whether this group uses the brightness source.",
+              "use_workday_sensor": "Controls whether this group uses the workday source.",
               "open_mode": "Opening control mode",
               "close_mode": "Closing control mode"
             }
@@ -1408,8 +1432,8 @@
               "astro_close_offset_minutes": "Closing astro offset (minutes)"
             },
             "data_description": {
-              "sun_elevation_close": "Value for Closing sun elevation in this group or default.",
-              "sun_elevation_open": "Value for Opening sun elevation in this group or default.",
+              "sun_elevation_close": "Configures “Closing sun elevation” for this group.",
+              "sun_elevation_open": "Configures “Opening sun elevation” for this group.",
               "astro_open_offset_minutes": "Opening astro offset (minutes)",
               "astro_close_offset_minutes": "Closing astro offset (minutes)"
             }
@@ -1432,7 +1456,7 @@
         }
       },
       "group_ventilation": {
-        "title": "Group - e ventilation",
+        "title": "Group – Ventilation",
         "description": "Edit settings for {group_name}. Used by: {group_usage}",
         "sections": {
           "ventilation": {
@@ -1444,16 +1468,16 @@
               "ventilation_delay_after_close": "Ventilation delay after closing"
             },
             "data_description": {
-              "auto_ventilate_enabled": "Value for Ventilation enabled in this group or default.",
-              "contact_status_delay": "Value for Contact status delay in this group or default.",
-              "contact_trigger_delay": "Value for Contact trigger delay in this group or default.",
-              "ventilation_delay_after_close": "Value for Ventilation delay after closing in this group or default."
+              "auto_ventilate_enabled": "Configures “Ventilation enabled” for this group.",
+              "contact_status_delay": "Configures “Contact status delay” for this group.",
+              "contact_trigger_delay": "Configures “Contact trigger delay” for this group.",
+              "ventilation_delay_after_close": "Configures “Ventilation delay after closing” for this group."
             }
           }
         }
       },
       "group_resident": {
-        "title": "Group - e resident behavior",
+        "title": "Group – Resident behavior",
         "description": "Edit settings for {group_name}. Used by: {group_usage}",
         "sections": {
           "resident_behavior": {
@@ -1467,18 +1491,18 @@
               "resident_status_enabled": "Resident behavior enabled"
             },
             "data_description": {
-              "resident_allow_open": "Value for Resident allows opening in this group or default.",
-              "resident_allow_shading": "Value for Resident allows shading in this group or default.",
-              "resident_allow_ventilation": "Value for Resident allows ventilation in this group or default.",
-              "resident_close_enabled": "Value for Close on resident start in this group or default.",
-              "resident_open_enabled": "Value for Open on resident end in this group or default.",
-              "resident_status_enabled": "Value for Resident behavior enabled in this group or default."
+              "resident_allow_open": "Configures “Resident allows opening” for this group.",
+              "resident_allow_shading": "Configures “Resident allows shading” for this group.",
+              "resident_allow_ventilation": "Configures “Resident allows ventilation” for this group.",
+              "resident_close_enabled": "Configures “Close on resident start” for this group.",
+              "resident_open_enabled": "Configures “Open on resident end” for this group.",
+              "resident_status_enabled": "Configures “Resident behavior enabled” for this group."
             }
           }
         }
       },
       "group_behavior": {
-        "title": "Group - e manual behavior",
+        "title": "Group – Manual behavior",
         "description": "Edit settings for {group_name}. Used by: {group_usage}",
         "sections": {
           "manual_override": {
@@ -1497,7 +1521,7 @@
         }
       },
       "group_safety": {
-        "title": "Group - e safety",
+        "title": "Group – Safety",
         "description": "Edit settings for {group_name}. Used by: {group_usage}",
         "sections": {
           "safety": {
@@ -1533,14 +1557,14 @@
         "title": "Group settings",
         "description": "Settings for {group_name}. Used by: {group_usage}",
         "menu_options": {
-          "group_time": "Time",
-          "group_brightness": "Brightness",
-          "group_sun": "Sun position",
-          "group_shading": "Shading",
-          "group_ventilation": "Ventilation",
-          "group_resident": "Resident behavior",
-          "group_behavior": "Manual behavior",
-          "group_safety": "Safety",
+          "group_time": "Configure opening and closing schedules and final closing.",
+          "group_brightness": "Configure brightness thresholds and delays.",
+          "group_sun": "Configure sunrise, sunset, and solar-elevation control.",
+          "group_shading": "Configure sun shading and heat-protection rules.",
+          "group_ventilation": "Configure window-contact and ventilation behavior.",
+          "group_resident": "Configure behavior while resident mode is active.",
+          "group_behavior": "Configure manual override and movement behavior.",
+          "group_safety": "Configure alarm-based safety actions.",
           "group_back": "Back"
         },
         "menu_option_descriptions": {
@@ -1566,7 +1590,7 @@
         }
       },
       "group_sun_details": {
-        "title": "Group - e sun position",
+        "title": "Group – Sun position",
         "description": "Edit settings for {group_name}. Used by: {group_usage}",
         "sections": {
           "time_features": {
@@ -1589,19 +1613,19 @@
               "close_mode": "Closing control mode"
             },
             "data_description": {
-              "auto_brightness_enabled": "Value for Brightness automation in this group or default.",
-              "auto_down_enabled": "Value for Automatic closing in this group or default.",
+              "auto_brightness_enabled": "Configures “Brightness automation” for this group.",
+              "auto_down_enabled": "Configures “Automatic closing” for this group.",
               "intermediate_close_enabled": "Use the room-owned intermediate position before the final close time.",
               "final_close_time": "Time for the final full closing movement.",
               "summer_start": "First inclusive day of the recurring summer period.",
               "summer_end": "Last inclusive day of the recurring summer period.",
               "christmas_start": "First inclusive day of the recurring Christmas period.",
               "christmas_end": "Last inclusive day of the recurring Christmas period.",
-              "auto_sun_enabled": "Value for Sun automation in this group or default.",
-              "auto_time_enabled": "Value for Time automation in this group or default.",
-              "auto_up_enabled": "Value for Automatic opening in this group or default.",
-              "use_brightness_sensor": "Value for Use brightness source in this group or default.",
-              "use_workday_sensor": "Value for Use workday source in this group or default.",
+              "auto_sun_enabled": "Configures “Sun automation” for this group.",
+              "auto_time_enabled": "Configures “Time automation” for this group.",
+              "auto_up_enabled": "Configures “Automatic opening” for this group.",
+              "use_brightness_sensor": "Controls whether this group uses the brightness source.",
+              "use_workday_sensor": "Controls whether this group uses the workday source.",
               "open_mode": "Opening control mode",
               "close_mode": "Closing control mode"
             }
@@ -1615,8 +1639,8 @@
               "astro_close_offset_minutes": "Closing astro offset (minutes)"
             },
             "data_description": {
-              "sun_elevation_close": "Value for Closing sun elevation in this group or default.",
-              "sun_elevation_open": "Value for Opening sun elevation in this group or default.",
+              "sun_elevation_close": "Configures “Closing sun elevation” for this group.",
+              "sun_elevation_open": "Configures “Opening sun elevation” for this group.",
               "astro_open_offset_minutes": "Opening astro offset (minutes)",
               "astro_close_offset_minutes": "Closing astro offset (minutes)"
             }

@@ -29,6 +29,9 @@ from ..const import (
     CONF_CLOSE_POSITION,
     CONF_CLOSE_MODE,
     CONF_FINAL_CLOSE_TIME,
+    CONF_FINAL_CLOSE_TIME_ENABLED,
+    CONF_FINAL_CLOSE_ELEVATION_ENABLED,
+    CONF_FINAL_CLOSE_ELEVATION,
     CONF_INTERMEDIATE_CLOSE_ENABLED,
     CONF_INTERMEDIATE_CLOSE_POSITION,
     CONF_COVER_TYPE,
@@ -57,6 +60,7 @@ from ..const import (
     DEFAULT_CLOSE_MODE,
     DEFAULT_CLOSE_POSITION,
     DEFAULT_FINAL_CLOSE_TIME,
+    DEFAULT_FINAL_CLOSE_ELEVATION,
     DEFAULT_INTERMEDIATE_CLOSE_POSITION,
     DEFAULT_OPEN_MODE,
     DEFAULT_OPEN_POSITION,
@@ -77,6 +81,7 @@ from .common import (
     TRIGGER_GOLDEN_HOUR_OPEN_REACHED,
     TRIGGER_SCHEDULED_CLOSE,
     TRIGGER_SCHEDULED_FINAL_CLOSE,
+    TRIGGER_SCHEDULED_FINAL_CLOSE_ELEVATION,
     TRIGGER_SCHEDULED_OPEN,
     TRIGGER_SUNRISE_REACHED,
     TRIGGER_SUNSET_REACHED,
@@ -84,6 +89,32 @@ from .common import (
 
 
 class EvaluationMixin:
+    def _elevation_final_close_due(
+        self,
+        now: datetime,
+        sun_elevation: float | None,
+        triggers: frozenset[str],
+    ) -> bool:
+        """Return whether falling sun requires the final close now."""
+
+        if not (
+            self.config.get(CONF_INTERMEDIATE_CLOSE_ENABLED, False)
+            and self.config.get(CONF_FINAL_CLOSE_ELEVATION_ENABLED, False)
+            and sun_elevation is not None
+            and sun_elevation
+            <= float(
+                self.config.get(
+                    CONF_FINAL_CLOSE_ELEVATION, DEFAULT_FINAL_CLOSE_ELEVATION
+                )
+            )
+            and triggers
+            & frozenset({"startup", "config_updated", "sun_elevation_changed"})
+        ):
+            return False
+        return self._last_action_dates.get("final_close") != dt_util.as_local(
+            now
+        ).date() and self._sun_is_falling(now)
+
     def _seasonal_close_target(
         self, now: datetime, current_position: float | None, final_close_due: bool
     ) -> tuple[bool, float | None, bool]:
@@ -121,10 +152,15 @@ class EvaluationMixin:
         final_time = _parse_time(
             str(self.config.get(CONF_FINAL_CLOSE_TIME, DEFAULT_FINAL_CLOSE_TIME))
         )
+        if not self.config.get(CONF_FINAL_CLOSE_TIME_ENABLED, True):
+            final_time = None
         active = bool(
             self.config.get(CONF_INTERMEDIATE_CLOSE_ENABLED, False)
-            and final_time
-            and dt_util.as_local(now).timetz().replace(tzinfo=None) < final_time
+            and (final_time or self.config.get(CONF_FINAL_CLOSE_ELEVATION_ENABLED, False))
+            and (
+                final_time is None
+                or dt_util.as_local(now).timetz().replace(tzinfo=None) < final_time
+            )
             and not final_close_due
         )
         if not active:
@@ -379,7 +415,14 @@ class EvaluationMixin:
         )
 
         current_position = self._current_position()
-        final_close_due = TRIGGER_SCHEDULED_FINAL_CLOSE in self._current_evaluation_triggers
+        final_close_due = bool(
+            {TRIGGER_SCHEDULED_FINAL_CLOSE, TRIGGER_SCHEDULED_FINAL_CLOSE_ELEVATION}
+            & self._current_evaluation_triggers
+        ) and self._last_action_dates.get("final_close") != dt_util.as_local(now).date()
+        if not final_close_due:
+            final_close_due = self._elevation_final_close_due(
+                now, sun_elevation, self._current_evaluation_triggers
+            )
         summer_close_suppressed, close_target, uses_intermediate = (
             self._seasonal_close_target(now, current_position, final_close_due)
         )

@@ -9,7 +9,14 @@ from datetime import (
 )
 
 from astral import LocationInfo
-from astral.sun import SunDirection, golden_hour, sunrise, sunset, time_at_elevation
+from astral.sun import (
+    SunDirection,
+    elevation as solar_elevation,
+    golden_hour,
+    sunrise,
+    sunset,
+    time_at_elevation,
+)
 from homeassistant.const import (
     STATE_ON,
     STATE_UNAVAILABLE,
@@ -38,6 +45,9 @@ from ..const import (
     CONF_ASTRO_OPEN_OFFSET,
     CONF_CLOSE_MODE,
     CONF_FINAL_CLOSE_TIME,
+    CONF_FINAL_CLOSE_TIME_ENABLED,
+    CONF_FINAL_CLOSE_ELEVATION_ENABLED,
+    CONF_FINAL_CLOSE_ELEVATION,
     CONF_INTERMEDIATE_CLOSE_ENABLED,
     CONF_OPEN_POSITION,
     CONF_OPEN_MODE,
@@ -67,6 +77,9 @@ from ..const import (
     DEFAULT_CHRISTMAS_POSITION,
     DEFAULT_CHRISTMAS_START,
     DEFAULT_FINAL_CLOSE_TIME,
+    DEFAULT_FINAL_CLOSE_TIME_ENABLED,
+    DEFAULT_FINAL_CLOSE_ELEVATION_ENABLED,
+    DEFAULT_FINAL_CLOSE_ELEVATION,
     DEFAULT_OPEN_MODE,
     DEFAULT_OPEN_POSITION,
     DEFAULT_SUN_ELEVATION_CLOSE,
@@ -85,6 +98,8 @@ from .common import (
     _LOGGER,
     _coerce_float,
     _parse_time,
+    TRIGGER_SCHEDULED_FINAL_CLOSE,
+    TRIGGER_SCHEDULED_FINAL_CLOSE_ELEVATION,
 )
 
 
@@ -614,19 +629,47 @@ class ScheduleMixin:
             self._next_close = self._next_close.replace(microsecond=0)
 
         self._next_final_close = None
-        if (
-            self.config.get(CONF_INTERMEDIATE_CLOSE_ENABLED, False)
-            and self._auto_enabled(CONF_AUTO_DOWN)
-        ):
-            final_time = _parse_time(
-                str(self.config.get(CONF_FINAL_CLOSE_TIME, DEFAULT_FINAL_CLOSE_TIME))
-            )
-            final_today = self._today_at(now, final_time)
-            if final_today is not None:
-                self._next_final_close = final_today
-                if self._next_final_close <= dt_util.as_local(now):
-                    self._next_final_close += timedelta(days=1)
-                self._next_final_close = self._next_final_close.replace(microsecond=0)
+        self._next_final_close_trigger = TRIGGER_SCHEDULED_FINAL_CLOSE
+        if self.config.get(
+            CONF_INTERMEDIATE_CLOSE_ENABLED, False
+        ) and self._auto_enabled(CONF_AUTO_DOWN):
+            candidates: list[tuple[datetime, str]] = []
+            if self.config.get(
+                CONF_FINAL_CLOSE_TIME_ENABLED, DEFAULT_FINAL_CLOSE_TIME_ENABLED
+            ):
+                final_time = _parse_time(
+                    str(
+                        self.config.get(
+                            CONF_FINAL_CLOSE_TIME, DEFAULT_FINAL_CLOSE_TIME
+                        )
+                    )
+                )
+                final_today = self._today_at(now, final_time)
+                if final_today is not None:
+                    if final_today <= dt_util.as_local(now):
+                        final_today += timedelta(days=1)
+                    candidates.append((final_today, TRIGGER_SCHEDULED_FINAL_CLOSE))
+            if self.config.get(
+                CONF_FINAL_CLOSE_ELEVATION_ENABLED,
+                DEFAULT_FINAL_CLOSE_ELEVATION_ENABLED,
+            ):
+                elevation_time = self._next_sun_time_for_elevation(
+                    self.config.get(
+                        CONF_FINAL_CLOSE_ELEVATION, DEFAULT_FINAL_CLOSE_ELEVATION
+                    ),
+                    SunDirection.SETTING,
+                    now,
+                )
+                if elevation_time is not None:
+                    candidates.append(
+                        (elevation_time, TRIGGER_SCHEDULED_FINAL_CLOSE_ELEVATION)
+                    )
+            if candidates:
+                next_close, trigger = min(
+                    candidates, key=lambda candidate: candidate[0]
+                )
+                self._next_final_close = next_close.replace(microsecond=0)
+                self._next_final_close_trigger = trigger
 
         self._reschedule_next_event_timers(now)
 
@@ -780,6 +823,22 @@ class ScheduleMixin:
                 return event_utc
 
         return None
+
+    def _sun_is_falling(self, now: datetime) -> bool:
+        """Return whether the astronomical sun elevation is decreasing."""
+
+        if self.hass.config.latitude is None or self.hass.config.longitude is None:
+            return False
+        observer = LocationInfo(
+            latitude=self.hass.config.latitude,
+            longitude=self.hass.config.longitude,
+        ).observer
+        try:
+            return solar_elevation(observer, now + timedelta(minutes=1)) < solar_elevation(
+                observer, now
+            )
+        except (TypeError, ValueError):
+            return False
 
     def _next_time_for_point(
         self, scheduled: time | None, now: datetime

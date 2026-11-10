@@ -24,6 +24,8 @@ _BOOLEAN_KEYS = frozenset(
         c.CONF_AUTO_BRIGHTNESS,
         c.CONF_AUTO_SUN,
         c.CONF_INTERMEDIATE_CLOSE_ENABLED,
+        c.CONF_FINAL_CLOSE_TIME_ENABLED,
+        c.CONF_FINAL_CLOSE_ELEVATION_ENABLED,
         c.CONF_USE_WORKDAY_SENSOR,
         c.CONF_USE_BRIGHTNESS_SENSOR,
         c.CONF_AUTO_SHADING,
@@ -57,6 +59,7 @@ _TIME_KEYS = frozenset(
         c.CONF_TIME_DOWN_EARLY_NON_WORKDAY,
         c.CONF_TIME_DOWN_LATE_NON_WORKDAY,
         c.CONF_FINAL_CLOSE_TIME,
+        c.CONF_FINAL_CLOSE_ELEVATION,
     }
 )
 
@@ -194,6 +197,9 @@ _GROUP_FIELDS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_TIME_DOWN_EARLY_NON_WORKDAY,
                 c.CONF_TIME_DOWN_LATE_NON_WORKDAY,
                 c.CONF_FINAL_CLOSE_TIME,
+                c.CONF_FINAL_CLOSE_TIME_ENABLED,
+                c.CONF_FINAL_CLOSE_ELEVATION_ENABLED,
+                c.CONF_FINAL_CLOSE_ELEVATION,
                 c.CONF_SUMMER_START,
                 c.CONF_SUMMER_END,
                 c.CONF_CHRISTMAS_START,
@@ -340,6 +346,9 @@ GROUP_CAPABILITY_KEYS: dict[str, dict[str, frozenset[str]]] = {
                 c.CONF_TIME_DOWN_LATE_NON_WORKDAY,
                 c.CONF_INTERMEDIATE_CLOSE_ENABLED,
                 c.CONF_FINAL_CLOSE_TIME,
+                c.CONF_FINAL_CLOSE_TIME_ENABLED,
+                c.CONF_FINAL_CLOSE_ELEVATION_ENABLED,
+                c.CONF_FINAL_CLOSE_ELEVATION,
                 c.CONF_SUMMER_START,
                 c.CONF_SUMMER_END,
                 c.CONF_CHRISTMAS_START,

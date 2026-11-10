@@ -2,7 +2,7 @@
 
 from __future__ import annotations
 
-from datetime import datetime, time, timezone
+from datetime import datetime, time, timedelta, timezone
 from types import SimpleNamespace
 from unittest.mock import patch
 
@@ -22,8 +22,11 @@ from custom_components.cover_control.const import (
     CONF_BRIGHTNESS_CLOSE_BELOW,
     CONF_BRIGHTNESS_OPEN_ABOVE,
     CONF_CLOSE_MODE,
+    CONF_FINAL_CLOSE_ELEVATION,
+    CONF_FINAL_CLOSE_ELEVATION_ENABLED,
     CONF_GROUP,
     CONF_GROUPS,
+    CONF_INTERMEDIATE_CLOSE_ENABLED,
     CONF_OPEN_MODE,
     CONF_RESIDENT_ALLOW_OPEN,
     CONF_RESIDENT_STATUS,
@@ -183,6 +186,66 @@ def test_close_mode_brightness() -> None:
     now = datetime(2026, 1, 15, 12, tzinfo=timezone.utc)
     _, next_close = _events(_config(MODE_TIME, MODE_BRIGHTNESS), now)
     assert next_close.astimezone(LOCAL_TZ).time() == time(14)
+
+
+@pytest.mark.parametrize(
+    ("direction", "trigger", "offset", "expected"),
+    [
+        (SunDirection.RISING, "sun_elevation_changed", timedelta(), False),
+        (SunDirection.SETTING, "sun_elevation_changed", timedelta(), True),
+        (SunDirection.RISING, "startup", -timedelta(minutes=30), False),
+        (SunDirection.SETTING, "startup", timedelta(minutes=30), True),
+    ],
+)
+def test_final_close_elevation_requires_falling_sun(
+    direction: SunDirection,
+    trigger: str,
+    offset: timedelta,
+    expected: bool,
+) -> None:
+    controller = object.__new__(CoverController)
+    controller.hass = _hass()
+    controller.config = {
+        CONF_INTERMEDIATE_CLOSE_ENABLED: True,
+        CONF_FINAL_CLOSE_ELEVATION_ENABLED: True,
+        CONF_FINAL_CLOSE_ELEVATION: -6,
+    }
+    controller._last_action_dates = {}
+    crossing = time_at_elevation(
+        LOCATION.observer,
+        -6,
+        date=datetime(2026, 1, 15).date(),
+        direction=direction,
+        tzinfo=LOCAL_TZ,
+    )
+    now = dt_util.as_utc(crossing + offset)
+
+    assert controller._elevation_final_close_due(
+        now, -6 if not offset else -9, frozenset({trigger})
+    ) is expected
+
+
+def test_final_close_elevation_only_fires_once_per_day() -> None:
+    controller = object.__new__(CoverController)
+    controller.hass = _hass()
+    controller.config = {
+        CONF_INTERMEDIATE_CLOSE_ENABLED: True,
+        CONF_FINAL_CLOSE_ELEVATION_ENABLED: True,
+        CONF_FINAL_CLOSE_ELEVATION: -6,
+    }
+    crossing = time_at_elevation(
+        LOCATION.observer,
+        -6,
+        date=datetime(2026, 1, 15).date(),
+        direction=SunDirection.SETTING,
+        tzinfo=LOCAL_TZ,
+    )
+    now = dt_util.as_utc(crossing)
+    controller._last_action_dates = {"final_close": dt_util.as_local(now).date()}
+
+    assert not controller._elevation_final_close_due(
+        now, -6, frozenset({"sun_elevation_changed"})
+    )
 
 
 @pytest.mark.parametrize(

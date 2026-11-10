@@ -585,7 +585,9 @@ class EventsMixin:
                 self._scheduled_close_at = None
             trigger = scheduled_trigger(kind, self._control_mode(kind))
             if kind == "final_close":
-                trigger = TRIGGER_SCHEDULED_FINAL_CLOSE
+                trigger = getattr(
+                    self, "_next_final_close_trigger", TRIGGER_SCHEDULED_FINAL_CLOSE
+                )
             self.async_request_evaluate(trigger)
 
         return (
