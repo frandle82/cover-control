@@ -226,6 +226,8 @@ class StatusMixin:
             self._set_ventilation_status(False, False, ts)
         elif "close" in reason or reason == "resident_asleep":
             self._last_action_dates["close"] = today
+            if reason == "scheduled_final_close":
+                self._last_action_dates["final_close"] = today
             self._set_status_bucket("open", False, ts)
             self._set_status_bucket("close", True, ts)
             self._set_status_bucket("shading", False, ts)

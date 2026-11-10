@@ -45,7 +45,6 @@ from .common import (
     TRIGGER_RESIDENT_ON,
     TRIGGER_SCHEDULED_CLOSE,
     TRIGGER_SCHEDULED_FINAL_CLOSE,
-    TRIGGER_SCHEDULED_FINAL_CLOSE_ELEVATION,
     TRIGGER_SCHEDULED_OPEN,
     TRIGGER_SHADING_END_TIMER,
     TRIGGER_WINDOW_CLOSED,
@@ -586,9 +585,9 @@ class EventsMixin:
                 self._scheduled_close_at = None
             trigger = scheduled_trigger(kind, self._control_mode(kind))
             if kind == "final_close":
-                trigger = getattr(self, "_next_final_close_trigger", TRIGGER_SCHEDULED_FINAL_CLOSE)
-                if trigger == "scheduled_final_close_elevation":
-                    trigger = TRIGGER_SCHEDULED_FINAL_CLOSE_ELEVATION
+                trigger = getattr(
+                    self, "_next_final_close_trigger", TRIGGER_SCHEDULED_FINAL_CLOSE
+                )
             self.async_request_evaluate(trigger)
 
         return (
