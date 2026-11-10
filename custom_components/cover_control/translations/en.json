@@ -457,6 +457,23 @@
           }
         }
       },
+      "group_final_close": {
+        "title": "Group – Full closing",
+        "description": "Configure full closing for {group_name}. If both triggers are enabled, the first condition reached wins.",
+        "sections": {
+          "non_workday_times": {
+            "name": "Full closing",
+            "data": {
+              "final_close_time": "Time for full closing",
+              "final_close_elevation": "Solar elevation for full closing"
+            },
+            "data_description": {
+              "final_close_time": "Time at which the cover is fully closed.",
+              "final_close_elevation": "Solar elevation at which the cover is fully closed. This threshold is evaluated only while the sun is falling."
+            }
+          }
+        }
+      },
       "group_brightness": {
         "title": "Group – Brightness",
         "description": "Edit settings for {group_name}. Used by: {group_usage}",
@@ -1320,6 +1337,23 @@
             "data_description": {
               "calendar_close_title": "Configures “Calendar closing title” for this group.",
               "calendar_open_title": "Configures “Calendar opening title” for this group."
+            }
+          }
+        }
+      },
+      "group_final_close": {
+        "title": "Group – Full closing",
+        "description": "Configure full closing for {group_name}. If both triggers are enabled, the first condition reached wins.",
+        "sections": {
+          "non_workday_times": {
+            "name": "Full closing",
+            "data": {
+              "final_close_time": "Time for full closing",
+              "final_close_elevation": "Solar elevation for full closing"
+            },
+            "data_description": {
+              "final_close_time": "Time at which the cover is fully closed.",
+              "final_close_elevation": "Solar elevation at which the cover is fully closed. This threshold is evaluated only while the sun is falling."
             }
           }
         }

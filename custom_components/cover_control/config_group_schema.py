@@ -59,7 +59,6 @@ _TIME_KEYS = frozenset(
         c.CONF_TIME_DOWN_EARLY_NON_WORKDAY,
         c.CONF_TIME_DOWN_LATE_NON_WORKDAY,
         c.CONF_FINAL_CLOSE_TIME,
-        c.CONF_FINAL_CLOSE_ELEVATION,
     }
 )
 
@@ -120,6 +119,7 @@ _ELEVATION_KEYS = frozenset(
         c.CONF_SUN_ELEVATION_CLOSE,
         c.CONF_SUN_ELEVATION_MIN,
         c.CONF_SUN_ELEVATION_MAX,
+        c.CONF_FINAL_CLOSE_ELEVATION,
     }
 )
 

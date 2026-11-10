@@ -457,6 +457,23 @@
           }
         }
       },
+      "group_final_close": {
+        "title": "Gruppe – Vollständiges Schließen",
+        "description": "Vollständiges Schließen für {group_name} konfigurieren. Sind beide Auslöser aktiviert, wird bei der zuerst erfüllten Bedingung geschlossen.",
+        "sections": {
+          "non_workday_times": {
+            "name": "Vollständiges Schließen",
+            "data": {
+              "final_close_time": "Uhrzeit für vollständiges Schließen",
+              "final_close_elevation": "Sonnenhöhe für vollständiges Schließen"
+            },
+            "data_description": {
+              "final_close_time": "Uhrzeit, zu der das Cover vollständig geschlossen wird.",
+              "final_close_elevation": "Sonnenhöhe, bei der das Cover vollständig geschlossen wird. Der Grenzwert wird nur während der fallenden Sonnenphase ausgewertet."
+            }
+          }
+        }
+      },
       "group_brightness": {
         "title": "Gruppe – Helligkeit",
         "description": "Einstellungen für {group_name} bearbeiten. Verwendet von: {group_usage}",
@@ -1320,6 +1337,23 @@
             "data_description": {
               "calendar_close_title": "Konfiguriert „Kalendertitel zum Schließen“ für diese Gruppe.",
               "calendar_open_title": "Konfiguriert „Kalendertitel zum Öffnen“ für diese Gruppe."
+            }
+          }
+        }
+      },
+      "group_final_close": {
+        "title": "Gruppe – Vollständiges Schließen",
+        "description": "Vollständiges Schließen für {group_name} konfigurieren. Sind beide Auslöser aktiviert, wird bei der zuerst erfüllten Bedingung geschlossen.",
+        "sections": {
+          "non_workday_times": {
+            "name": "Vollständiges Schließen",
+            "data": {
+              "final_close_time": "Uhrzeit für vollständiges Schließen",
+              "final_close_elevation": "Sonnenhöhe für vollständiges Schließen"
+            },
+            "data_description": {
+              "final_close_time": "Uhrzeit, zu der das Cover vollständig geschlossen wird.",
+              "final_close_elevation": "Sonnenhöhe, bei der das Cover vollständig geschlossen wird. Der Grenzwert wird nur während der fallenden Sonnenphase ausgewertet."
             }
           }
         }

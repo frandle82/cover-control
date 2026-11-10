@@ -53,6 +53,10 @@ from .const import (
     CONF_ENABLE_LOGBOOK_COVER,
     CONF_ENABLE_RECALIBRATE_BUTTON,
     CONF_ENTRY_TYPE,
+    CONF_FINAL_CLOSE_ELEVATION,
+    CONF_FINAL_CLOSE_ELEVATION_ENABLED,
+    CONF_FINAL_CLOSE_TIME,
+    CONF_FINAL_CLOSE_TIME_ENABLED,
     CONF_HEAT_PROTECTION_ENABLED,
     CONF_HEAT_PROTECTION_THRESHOLD,
     CONF_KEEP_SUN_PROTECTION,
@@ -810,13 +814,19 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         user_input,
         *,
         capabilities: tuple[str, ...],
+        excluded_keys: frozenset[str] = frozenset(),
+        next_step: str | None = None,
     ) -> FlowResult:
         group = getattr(self, "_editing_group", None)
         if group not in GROUPS:
             return await self.async_step_controller_reconfigure()
         model = self._model()
         existing = dict(model.data[CONF_GROUPS][group])
-        allowed = capability_keys(section_name, capabilities) - GROUP_BLOCKED_KEYS
+        allowed = (
+            capability_keys(section_name, capabilities)
+            - GROUP_BLOCKED_KEYS
+            - excluded_keys
+        )
         if user_input is not None:
             selected = extract_sparse_settings(
                 flatten_section_input(user_input),
@@ -830,6 +840,8 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
                 **selected,
             }
             self._save_parent_model(model)
+            if next_step is not None:
+                return await getattr(self, f"async_step_{next_step}")()
             return await self.async_step_group_sections()
         return self.async_show_form(
             step_id=step_id,
@@ -857,6 +869,47 @@ class CoverControlFlow(config_entries.ConfigFlow, domain=DOMAIN):
         return await self._async_group_section_step(
             GROUP_SECTION_TIME, "group_time", user_input,
             capabilities=("opening", "closing", "workday", "calendar"),
+            excluded_keys=frozenset(
+                {CONF_FINAL_CLOSE_TIME, CONF_FINAL_CLOSE_ELEVATION}
+            ),
+            next_step="group_final_close",
+        )
+
+    async def async_step_group_final_close(self, user_input=None) -> FlowResult:
+        group = getattr(self, "_editing_group", None)
+        if group not in GROUPS:
+            return await self.async_step_controller_reconfigure()
+        model = self._model()
+        existing = dict(model.data[CONF_GROUPS][group])
+        allowed = set()
+        if existing.get(CONF_FINAL_CLOSE_TIME_ENABLED, True):
+            allowed.add(CONF_FINAL_CLOSE_TIME)
+        if existing.get(CONF_FINAL_CLOSE_ELEVATION_ENABLED, False):
+            allowed.add(CONF_FINAL_CLOSE_ELEVATION)
+        if not allowed:
+            return await self.async_step_group_sections()
+        if user_input is not None:
+            selected = extract_sparse_settings(
+                flatten_section_input(user_input),
+                GROUP_SECTION_TIME,
+                {key: value for key, value in existing.items() if key in allowed},
+                allowed_keys=allowed,
+            )
+            model.data[CONF_GROUPS][group] = {
+                **{key: value for key, value in existing.items() if key not in allowed},
+                **selected,
+            }
+            self._save_parent_model(model)
+            return await self.async_step_group_sections()
+        return self.async_show_form(
+            step_id="group_final_close",
+            data_schema=build_group_schema(
+                GROUP_SECTION_TIME,
+                existing,
+                system_defaults(),
+                allowed_keys=allowed,
+            ),
+            description_placeholders=self._group_context_placeholders(),
         )
 
     async def async_step_group_brightness(self, user_input=None) -> FlowResult:

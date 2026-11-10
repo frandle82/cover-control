@@ -5,12 +5,16 @@ import pytest
 from homeassistant import config_entries
 from homeassistant.components.cover import CoverEntityFeature
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import selector
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.cover_control.config_flow import CoverControlFlow
 from custom_components.cover_control.const import (
     CONF_CONTROLLER_ENTRY_ID, CONF_COVERS, CONF_ENTRY_TYPE, CONF_GLOBAL, CONF_GROUP,
     CONF_GROUPS, CONF_NAME, CONF_ROOM, CONF_ROOM_ID, CONF_ROOM_SETTINGS,
     CONF_CLOSE_MODE, CONF_OPEN_MODE, CONF_SUN_ELEVATION_OPEN,
+    CONF_FINAL_CLOSE_ELEVATION, CONF_FINAL_CLOSE_ELEVATION_ENABLED,
+    CONF_FINAL_CLOSE_TIME, CONF_FINAL_CLOSE_TIME_ENABLED,
+    CONF_INTERMEDIATE_CLOSE_ENABLED,
     CONF_SHADING_DIRECTION, CONF_SHADING_INSIDE_TEMPERATURE_THRESHOLD,
     CONF_KEEP_SUN_PROTECTION,
     CONF_OPEN_TILT_POSITION,
@@ -201,6 +205,71 @@ async def test_group_sun_only_shows_fields_for_selected_modes(hass) -> None:
         for field in schema.schema.schema
     }
     assert fields == {CONF_SUN_ELEVATION_OPEN, CONF_ASTRO_CLOSE_OFFSET}
+
+
+@pytest.mark.parametrize(
+    ("time_enabled", "elevation_enabled", "expected_fields"),
+    [
+        (True, False, {CONF_FINAL_CLOSE_TIME}),
+        (False, True, {CONF_FINAL_CLOSE_ELEVATION}),
+        (
+            True,
+            True,
+            {CONF_FINAL_CLOSE_TIME, CONF_FINAL_CLOSE_ELEVATION},
+        ),
+        (False, False, None),
+    ],
+)
+async def test_final_close_only_shows_values_for_enabled_triggers(
+    hass, time_enabled, elevation_enabled, expected_fields
+) -> None:
+    entry = _controller(hass)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_RECONFIGURE, "entry_id": entry.entry_id},
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "group_living"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "group_time"}
+    )
+    main_fields = {
+        field.schema
+        for section_field, schema in result["data_schema"].schema.items()
+        for field in schema.schema.schema
+    }
+    assert CONF_FINAL_CLOSE_TIME not in main_fields
+    assert CONF_FINAL_CLOSE_ELEVATION not in main_fields
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            "time_features": {
+                CONF_INTERMEDIATE_CLOSE_ENABLED: True,
+            },
+            "non_workday_times": {
+                CONF_FINAL_CLOSE_TIME_ENABLED: time_enabled,
+                CONF_FINAL_CLOSE_ELEVATION_ENABLED: elevation_enabled,
+            }
+        },
+    )
+    if expected_fields is None:
+        assert result["step_id"] == "group_sections"
+        return
+    assert result["step_id"] == "group_final_close"
+    detail_fields = {
+        field.schema: validator
+        for section_field, schema in result["data_schema"].schema.items()
+        for field, validator in schema.schema.schema.items()
+    }
+    assert set(detail_fields) == expected_fields
+    if CONF_FINAL_CLOSE_TIME in detail_fields:
+        assert isinstance(detail_fields[CONF_FINAL_CLOSE_TIME], selector.TimeSelector)
+    if CONF_FINAL_CLOSE_ELEVATION in detail_fields:
+        assert isinstance(
+            detail_fields[CONF_FINAL_CLOSE_ELEVATION], selector.NumberSelector
+        )
 
 
 @pytest.mark.parametrize(
