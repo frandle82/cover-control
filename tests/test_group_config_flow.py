@@ -126,6 +126,50 @@ def test_translation_structure_is_synchronized() -> None:
     assert "profile_action" not in documents[0]["selector"]
 
 
+def test_menu_descriptions_differ_from_menu_labels() -> None:
+    for path in (
+        Path("custom_components/cover_control/strings.json"),
+        Path("custom_components/cover_control/translations/en.json"),
+        Path("custom_components/cover_control/translations/de.json"),
+    ):
+        document = json.loads(path.read_text())
+
+        def check(value) -> None:
+            if not isinstance(value, dict):
+                return
+            labels = value.get("menu_options", {})
+            descriptions = value.get("menu_option_descriptions", {})
+            for key, label in labels.items():
+                if key in descriptions:
+                    assert descriptions[key] != label, f"{path}: {key}"
+            for child in value.values():
+                check(child)
+
+        check(document)
+
+
+def test_final_close_translations_are_complete_and_user_facing() -> None:
+    internal_keys = {
+        "final_close_elevation",
+        "final_close_elevation_enabled",
+        "final_close_time_enabled",
+        "intermediate_close_enabled",
+    }
+    for path in (
+        Path("custom_components/cover_control/strings.json"),
+        Path("custom_components/cover_control/translations/en.json"),
+        Path("custom_components/cover_control/translations/de.json"),
+    ):
+        document = json.loads(path.read_text())
+        for namespace in ("config", "options"):
+            fields = document[namespace]["step"]["group_time"]["sections"][
+                "time_features"
+            ]
+            assert internal_keys <= fields["data"].keys()
+            assert internal_keys <= fields["data_description"].keys()
+            assert not internal_keys & set(fields["data"].values())
+
+
 async def test_group_sun_only_shows_fields_for_selected_modes(hass) -> None:
     entry = _controller(hass)
     result = await hass.config_entries.flow.async_init(
