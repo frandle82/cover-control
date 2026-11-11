@@ -476,7 +476,6 @@ class EvaluationMixin:
             auto_ventilate
             and full_contact_active
             and self._active_safety != "frost"
-            and regular_close_event is None
         ):
             has_tilt_sensor = bool(self._tilt_sensors())
             open_position = self._position_value(
@@ -507,7 +506,6 @@ class EvaluationMixin:
             auto_ventilate
             and tilt_contact_active
             and self._active_safety != "frost"
-            and regular_close_event is None
             and not resident_blocks_ventilation
         ):
             if not self._manual_blocks_action("ventilation"):
