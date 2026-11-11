@@ -26,6 +26,7 @@ from ..const import (
     CONF_POSITION_TOLERANCE,
     CONF_RESIDENT_SENSOR,
     CONF_SHADING_WAITINGTIME_END,
+    CONF_VENTILATION_DELAY_AFTER_CLOSE,
     CONF_VENTILATE_POSITION,
     DEFAULT_CLOSE_POSITION,
     DEFAULT_DRIVE_TIME,
@@ -242,6 +243,11 @@ class EventsMixin:
             )
             delay = self._contact_trigger_delay() + self._contact_status_delay()
             trigger = self._window_trigger(entity_id, contact_now_active)
+            if (
+                not contact_now_active
+                and entity_id in self._tilt_sensors()
+            ):
+                delay += self._duration_value(CONF_VENTILATION_DELAY_AFTER_CLOSE, 0)
             if delay > 0:
                 self._schedule_delayed_evaluate(
                     trigger, delay, timer_key=f"contact:{entity_id}"

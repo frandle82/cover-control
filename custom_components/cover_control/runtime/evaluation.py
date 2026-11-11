@@ -13,6 +13,7 @@ from homeassistant.const import (
 )
 from homeassistant.util import dt as dt_util
 
+from ..config_resolver import normalize_final_close_elevation
 from ..const import (
     CONF_AUTO_BRIGHTNESS,
     CONF_AUTO_DOWN,
@@ -60,7 +61,6 @@ from ..const import (
     DEFAULT_CLOSE_MODE,
     DEFAULT_CLOSE_POSITION,
     DEFAULT_FINAL_CLOSE_TIME,
-    DEFAULT_FINAL_CLOSE_ELEVATION,
     DEFAULT_INTERMEDIATE_CLOSE_POSITION,
     DEFAULT_OPEN_MODE,
     DEFAULT_OPEN_POSITION,
@@ -102,10 +102,8 @@ class EvaluationMixin:
             and self.config.get(CONF_FINAL_CLOSE_ELEVATION_ENABLED, False)
             and sun_elevation is not None
             and sun_elevation
-            <= float(
-                self.config.get(
-                    CONF_FINAL_CLOSE_ELEVATION, DEFAULT_FINAL_CLOSE_ELEVATION
-                )
+            <= normalize_final_close_elevation(
+                self.config.get(CONF_FINAL_CLOSE_ELEVATION)
             )
             and triggers
             & frozenset({"startup", "config_updated", "sun_elevation_changed"})

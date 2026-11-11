@@ -14,6 +14,8 @@ from custom_components.cover_control.const import (
     CONF_GROUPS,
     CONF_OPEN_MODE,
     CONF_RESIDENT_STATUS,
+    CONF_AUTO_VENTILATE,
+    CONF_WINDOW_SENSOR_FULL,
     CONF_ROOMS,
     CONF_ROOM_OVERRIDES,
     CONF_ROOM_SETTINGS,
@@ -44,6 +46,40 @@ def test_configured_but_disabled_feature_keeps_switch() -> None:
         CONF_ROOMS: {"room": {CONF_GROUP: "living", CONF_ROOM_SETTINGS: {}}},
     }
     assert feature_configured(model, "room", CONF_AUTO_TIME)
+
+
+def test_room_contacts_configure_ventilation_switch_without_enabling_it() -> None:
+    model = {
+        CONF_GROUPS: {"living": {}},
+        CONF_ROOMS: {
+            "room": {
+                CONF_GROUP: "living",
+                CONF_ROOM_SETTINGS: {
+                    CONF_WINDOW_SENSOR_FULL: {
+                        "cover.room": ["binary_sensor.window"]
+                    }
+                },
+            }
+        },
+    }
+
+    assert feature_configured(model, "room", CONF_AUTO_VENTILATE)
+
+
+def test_empty_room_contact_maps_do_not_create_ventilation_switch() -> None:
+    model = {
+        CONF_GROUPS: {"living": {}},
+        CONF_ROOMS: {
+            "room": {
+                CONF_GROUP: "living",
+                CONF_ROOM_SETTINGS: {
+                    CONF_WINDOW_SENSOR_FULL: {"cover.room": []}
+                },
+            }
+        },
+    }
+
+    assert not feature_configured(model, "room", CONF_AUTO_VENTILATE)
 
 
 @pytest.mark.asyncio

@@ -4,6 +4,7 @@ from homeassistant.helpers import issue_registry as ir
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.cover_control import async_migrate_entry
 from custom_components.cover_control.config_migration import cleanup_runtime_options, migrate_profile_model
+from custom_components.cover_control.config_resolver import resolve_config_model
 from custom_components.cover_control.const import *  # noqa: F403
 
 def _legacy(name: str, rooms: dict, settings: dict | None = None, extra_profiles: dict | None = None):
@@ -26,6 +27,62 @@ def test_migrate_named_profile(name, expected) -> None:
 def test_migrate_multiple_rooms_using_same_profile() -> None:
     model, _ = migrate_profile_model(_legacy("Sleep", {"a": ("A", "selected", {}), "b": ("B", "selected", {})}))
     assert {model[CONF_ROOMS][room][CONF_GROUP] for room in ("a", "b")} == {GROUP_SLEEP}
+
+
+@pytest.mark.parametrize(
+    ("stored", "expected"),
+    [(-6, -6.0), ("-6.5", -6.5), ("-6,5", -6.5), ("00:00:00", -6.0), (None, -6.0)],
+)
+def test_legacy_time_elevation_value_is_normalized(stored, expected) -> None:
+    source = {
+        CONF_GROUPS: {
+            group: (
+                {CONF_FINAL_CLOSE_ELEVATION: stored}
+                if group == GROUP_LIVING
+                else {}
+            )
+            for group in GROUPS
+        },
+        CONF_ROOMS: {
+            "room": {CONF_GROUP: GROUP_LIVING, CONF_ROOM_SETTINGS: {}}
+        },
+    }
+
+    model, _warnings = migrate_profile_model(source)
+    resolved = resolve_config_model(model, "room")
+
+    assert model[CONF_GROUPS][GROUP_LIVING][CONF_FINAL_CLOSE_ELEVATION] == expected
+    assert resolved[CONF_FINAL_CLOSE_ELEVATION] == expected
+    assert isinstance(resolved[CONF_FINAL_CLOSE_ELEVATION], float)
+
+
+async def test_v19_upgrade_repairs_legacy_time_elevation_value(hass) -> None:
+    controller = MockConfigEntry(
+        domain=DOMAIN,
+        version=19,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_CONTROLLER,
+            CONF_GLOBAL: {CONF_GLOBAL_SOURCES: {}, CONF_GLOBAL_DEFAULTS: {}},
+            CONF_GROUPS: {
+                group: (
+                    {CONF_FINAL_CLOSE_ELEVATION: "00:00:00"}
+                    if group == GROUP_LIVING
+                    else {}
+                )
+                for group in GROUPS
+            },
+        },
+    )
+    controller.add_to_hass(hass)
+
+    assert await async_migrate_entry(hass, controller)
+
+    repaired = controller.data[CONF_GROUPS][GROUP_LIVING][
+        CONF_FINAL_CLOSE_ELEVATION
+    ]
+    assert repaired == DEFAULT_FINAL_CLOSE_ELEVATION
+    assert isinstance(repaired, float)
+    assert controller.version == 20
 
 def test_migrate_multiple_profiles_deterministically() -> None:
     legacy = _legacy("Living A", {
@@ -283,7 +340,7 @@ async def test_entry_migration_updates_controller_and_rooms(hass) -> None:
     controller.add_to_hass(hass)
     room.add_to_hass(hass)
     assert await async_migrate_entry(hass, controller)
-    assert controller.version == room.version == 19
+    assert controller.version == room.version == 20
     assert set(controller.data[CONF_GROUPS]) == set(GROUPS)
     assert room.data[CONF_GROUP] == GROUP_SLEEP
     assert "profile_id" not in room.data
@@ -425,7 +482,7 @@ async def test_migration_warns_for_removed_dynamic_mode(hass) -> None:
     )
     controller.add_to_hass(hass)
     assert await async_migrate_entry(hass, controller)
-    assert controller.version == 19
+    assert controller.version == 20
     assert (DOMAIN, "sun_mode_migration") in ir.async_get(hass).issues
 
 
@@ -449,7 +506,7 @@ async def test_complex_shading_rules_create_repair_warning(hass) -> None:
     )
     controller.add_to_hass(hass)
     assert await async_migrate_entry(hass, controller)
-    assert controller.version == 19
+    assert controller.version == 20
     assert (DOMAIN, "shading_mode_migration") in ir.async_get(hass).issues
 
 
@@ -503,7 +560,7 @@ async def test_removed_cca_behavior_creates_single_repair_warning(hass) -> None:
 
     assert await async_migrate_entry(hass, controller)
 
-    assert controller.version == 19
+    assert controller.version == 20
     assert (DOMAIN, "cca_cleanup_migration") in ir.async_get(hass).issues
 
 
@@ -522,6 +579,6 @@ async def test_room_cleanup_creates_same_single_repair_warning(hass) -> None:
 
     assert await async_migrate_entry(hass, room)
 
-    assert room.version == 19
+    assert room.version == 20
     assert "lockout_tilt_shading_start" not in room.data[CONF_ROOM_SETTINGS]
     assert (DOMAIN, "cca_cleanup_migration") in ir.async_get(hass).issues

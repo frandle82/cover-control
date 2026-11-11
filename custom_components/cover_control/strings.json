@@ -377,10 +377,6 @@
               "auto_brightness_enabled": "Brightness automation",
               "auto_down_enabled": "Automatic closing",
               "intermediate_close_enabled": "Use intermediate position",
-              "final_close_time": "Time for full closing",
-              "final_close_time_enabled": "Fully close at a set time",
-              "final_close_elevation_enabled": "Fully close at a solar elevation",
-              "final_close_elevation": "Solar elevation for full closing",
               "summer_start": "Summer period start (DD.MM.)",
               "summer_end": "Summer period end (DD.MM.)",
               "christmas_start": "Christmas period start (DD.MM.)",
@@ -397,10 +393,6 @@
               "auto_brightness_enabled": "Enables brightness-based control for this group.",
               "auto_down_enabled": "Enables automatic closing for this group.",
               "intermediate_close_enabled": "Move to the room's intermediate position on the normal closing event.",
-              "final_close_time": "Time at which the cover is fully closed.",
-              "final_close_time_enabled": "Use the configured time for full closing. If time and solar elevation are enabled, the first condition reached wins.",
-              "final_close_elevation_enabled": "Use falling solar elevation for full closing. If time and solar elevation are enabled, the first condition reached wins.",
-              "final_close_elevation": "Solar elevation at which the cover is fully closed. This threshold is evaluated only while the sun is falling.",
               "summer_start": "First inclusive day of the recurring summer period.",
               "summer_end": "Last inclusive day of the recurring summer period.",
               "christmas_start": "First inclusive day of the recurring Christmas period.",
@@ -435,13 +427,28 @@
               "time_down_early_non_workday": "Earliest non-workday closing",
               "time_down_late_non_workday": "Latest non-workday closing",
               "time_up_early_non_workday": "Earliest non-workday opening",
-              "time_up_late_non_workday": "Latest non-workday opening"
+              "time_up_late_non_workday": "Latest non-workday opening",
+              "final_close_time_enabled": "Fully close at a set time",
+              "final_close_time": "Time for full closing"
             },
             "data_description": {
               "time_down_early_non_workday": "Earliest time at which closing is allowed on non-workdays.",
               "time_down_late_non_workday": "Latest time at which closing is allowed on non-workdays.",
               "time_up_early_non_workday": "Earliest time at which opening is allowed on non-workdays.",
-              "time_up_late_non_workday": "Latest time at which opening is allowed on non-workdays."
+              "time_up_late_non_workday": "Latest time at which opening is allowed on non-workdays.",
+              "final_close_time_enabled": "Use the configured time for full closing. If time and solar elevation are enabled, the first condition reached wins.",
+              "final_close_time": "Time at which the cover is fully closed."
+            }
+          },
+          "sun_settings": {
+            "name": "Solar elevation",
+            "data": {
+              "final_close_elevation_enabled": "Fully close at a solar elevation",
+              "final_close_elevation": "Solar elevation for full closing"
+            },
+            "data_description": {
+              "final_close_elevation_enabled": "Use falling solar elevation for full closing. If time and solar elevation are enabled, the first condition reached wins.",
+              "final_close_elevation": "When an intermediate position is enabled, fully close once the falling sun reaches or drops below this elevation."
             }
           },
           "calendar_behavior": {
@@ -464,12 +471,19 @@
           "non_workday_times": {
             "name": "Full closing",
             "data": {
-              "final_close_time": "Time for full closing",
+              "final_close_time": "Time for full closing"
+            },
+            "data_description": {
+              "final_close_time": "Time at which the cover is fully closed."
+            }
+          },
+          "sun_settings": {
+            "name": "Solar elevation",
+            "data": {
               "final_close_elevation": "Solar elevation for full closing"
             },
             "data_description": {
-              "final_close_time": "Time at which the cover is fully closed.",
-              "final_close_elevation": "Solar elevation at which the cover is fully closed. This threshold is evaluated only while the sun is falling."
+              "final_close_elevation": "When an intermediate position is enabled, fully close once the falling sun reaches or drops below this elevation."
             }
           }
         }
@@ -484,10 +498,6 @@
               "auto_brightness_enabled": "Brightness automation",
               "auto_down_enabled": "Automatic closing",
               "intermediate_close_enabled": "Use intermediate position",
-              "final_close_time": "Time for full closing",
-              "final_close_time_enabled": "Fully close at a set time",
-              "final_close_elevation_enabled": "Fully close at a solar elevation",
-              "final_close_elevation": "Solar elevation for full closing",
               "summer_start": "Summer period start (DD.MM.)",
               "summer_end": "Summer period end (DD.MM.)",
               "christmas_start": "Christmas period start (DD.MM.)",
@@ -504,10 +514,6 @@
               "auto_brightness_enabled": "Enables brightness-based control for this group.",
               "auto_down_enabled": "Enables automatic closing for this group.",
               "intermediate_close_enabled": "Move to the room's intermediate position on the normal closing event.",
-              "final_close_time": "Time at which the cover is fully closed.",
-              "final_close_time_enabled": "Use the configured time for full closing. If time and solar elevation are enabled, the first condition reached wins.",
-              "final_close_elevation_enabled": "Use falling solar elevation for full closing. If time and solar elevation are enabled, the first condition reached wins.",
-              "final_close_elevation": "Solar elevation at which the cover is fully closed. This threshold is evaluated only while the sun is falling.",
               "summer_start": "First inclusive day of the recurring summer period.",
               "summer_end": "Last inclusive day of the recurring summer period.",
               "christmas_start": "First inclusive day of the recurring Christmas period.",
@@ -1261,10 +1267,6 @@
               "auto_brightness_enabled": "Brightness automation",
               "auto_down_enabled": "Automatic closing",
               "intermediate_close_enabled": "Use intermediate position",
-              "final_close_time": "Time for full closing",
-              "final_close_time_enabled": "Fully close at a set time",
-              "final_close_elevation_enabled": "Fully close at a solar elevation",
-              "final_close_elevation": "Solar elevation for full closing",
               "summer_start": "Summer period start (DD.MM.)",
               "summer_end": "Summer period end (DD.MM.)",
               "christmas_start": "Christmas period start (DD.MM.)",
@@ -1281,10 +1283,6 @@
               "auto_brightness_enabled": "Enables brightness-based control for this group.",
               "auto_down_enabled": "Enables automatic closing for this group.",
               "intermediate_close_enabled": "Move to the room's intermediate position on the normal closing event.",
-              "final_close_time": "Time at which the cover is fully closed.",
-              "final_close_time_enabled": "Use the configured time for full closing. If time and solar elevation are enabled, the first condition reached wins.",
-              "final_close_elevation_enabled": "Use falling solar elevation for full closing. If time and solar elevation are enabled, the first condition reached wins.",
-              "final_close_elevation": "Solar elevation at which the cover is fully closed. This threshold is evaluated only while the sun is falling.",
               "summer_start": "First inclusive day of the recurring summer period.",
               "summer_end": "Last inclusive day of the recurring summer period.",
               "christmas_start": "First inclusive day of the recurring Christmas period.",
@@ -1319,13 +1317,28 @@
               "time_down_early_non_workday": "Earliest non-workday closing",
               "time_down_late_non_workday": "Latest non-workday closing",
               "time_up_early_non_workday": "Earliest non-workday opening",
-              "time_up_late_non_workday": "Latest non-workday opening"
+              "time_up_late_non_workday": "Latest non-workday opening",
+              "final_close_time_enabled": "Fully close at a set time",
+              "final_close_time": "Time for full closing"
             },
             "data_description": {
               "time_down_early_non_workday": "Earliest time at which closing is allowed on non-workdays.",
               "time_down_late_non_workday": "Latest time at which closing is allowed on non-workdays.",
               "time_up_early_non_workday": "Earliest time at which opening is allowed on non-workdays.",
-              "time_up_late_non_workday": "Latest time at which opening is allowed on non-workdays."
+              "time_up_late_non_workday": "Latest time at which opening is allowed on non-workdays.",
+              "final_close_time_enabled": "Use the configured time for full closing. If time and solar elevation are enabled, the first condition reached wins.",
+              "final_close_time": "Time at which the cover is fully closed."
+            }
+          },
+          "sun_settings": {
+            "name": "Solar elevation",
+            "data": {
+              "final_close_elevation_enabled": "Fully close at a solar elevation",
+              "final_close_elevation": "Solar elevation for full closing"
+            },
+            "data_description": {
+              "final_close_elevation_enabled": "Use falling solar elevation for full closing. If time and solar elevation are enabled, the first condition reached wins.",
+              "final_close_elevation": "When an intermediate position is enabled, fully close once the falling sun reaches or drops below this elevation."
             }
           },
           "calendar_behavior": {
@@ -1348,12 +1361,19 @@
           "non_workday_times": {
             "name": "Full closing",
             "data": {
-              "final_close_time": "Time for full closing",
+              "final_close_time": "Time for full closing"
+            },
+            "data_description": {
+              "final_close_time": "Time at which the cover is fully closed."
+            }
+          },
+          "sun_settings": {
+            "name": "Solar elevation",
+            "data": {
               "final_close_elevation": "Solar elevation for full closing"
             },
             "data_description": {
-              "final_close_time": "Time at which the cover is fully closed.",
-              "final_close_elevation": "Solar elevation at which the cover is fully closed. This threshold is evaluated only while the sun is falling."
+              "final_close_elevation": "When an intermediate position is enabled, fully close once the falling sun reaches or drops below this elevation."
             }
           }
         }

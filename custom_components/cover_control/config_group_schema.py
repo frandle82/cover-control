@@ -198,8 +198,6 @@ _GROUP_FIELDS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_TIME_DOWN_LATE_NON_WORKDAY,
                 c.CONF_FINAL_CLOSE_TIME,
                 c.CONF_FINAL_CLOSE_TIME_ENABLED,
-                c.CONF_FINAL_CLOSE_ELEVATION_ENABLED,
-                c.CONF_FINAL_CLOSE_ELEVATION,
                 c.CONF_SUMMER_START,
                 c.CONF_SUMMER_END,
                 c.CONF_CHRISTMAS_START,
@@ -213,6 +211,8 @@ _GROUP_FIELDS: dict[str, tuple[tuple[str, tuple[str, ...]], ...]] = {
                 c.CONF_ASTRO_CLOSE_OFFSET,
                 c.CONF_SUN_ELEVATION_OPEN,
                 c.CONF_SUN_ELEVATION_CLOSE,
+                c.CONF_FINAL_CLOSE_ELEVATION_ENABLED,
+                c.CONF_FINAL_CLOSE_ELEVATION,
             ),
         ),
         (

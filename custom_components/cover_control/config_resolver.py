@@ -4,6 +4,7 @@ from __future__ import annotations
 
 from collections.abc import Iterator, Mapping
 from dataclasses import dataclass, field
+from math import isfinite
 from typing import Any
 
 from .const import *  # noqa: F403
@@ -245,6 +246,35 @@ TOGGLE_FUNCTION_KEYS = {
 }
 
 
+def normalize_final_close_elevation(value: Any) -> float:
+    """Return a valid final-close elevation in degrees."""
+
+    try:
+        normalized = float(str(value).replace(",", "."))
+    except (TypeError, ValueError):
+        return float(DEFAULT_FINAL_CLOSE_ELEVATION)
+    if not isfinite(normalized) or not -90.0 <= normalized <= 90.0:
+        return float(DEFAULT_FINAL_CLOSE_ELEVATION)
+    return normalized
+
+
+def _has_contacts(settings: Mapping[str, Any]) -> bool:
+    """Return whether a room owns at least one mapped contact."""
+
+    for key in (CONF_WINDOW_SENSOR_FULL, CONF_WINDOW_SENSOR_TILT):
+        mapping = settings.get(key)
+        if not isinstance(mapping, Mapping):
+            continue
+        for sensors in mapping.values():
+            if isinstance(sensors, str) and sensors:
+                return True
+            if isinstance(sensors, list) and any(
+                isinstance(sensor, str) and sensor for sensor in sensors
+            ):
+                return True
+    return False
+
+
 def configured_functions_for_layers(
     group_settings: Mapping[str, Any],
     room_settings: Mapping[str, Any],
@@ -284,6 +314,8 @@ def configured_functions_for_layers(
         functions.discard(FUNCTION_BRIGHTNESS)
     if CONF_RESIDENT_SENSOR in room_settings:
         functions.add(FUNCTION_RESIDENT)
+    if _has_contacts(room_settings):
+        functions.add(FUNCTION_VENTILATION)
     return frozenset(functions)
 
 
@@ -384,6 +416,9 @@ def resolve_room_config(
             merge(overrides, "room_override")
     merge(global_sources, "global_source")
     merge(source_overrides or {}, "room_source_override")
+    values[CONF_FINAL_CLOSE_ELEVATION] = normalize_final_close_elevation(
+        values.get(CONF_FINAL_CLOSE_ELEVATION)
+    )
     values[CONF_ROOM_ID] = room_id
     values[CONF_ROOM] = room_name
     return ResolvedRoomConfig(
