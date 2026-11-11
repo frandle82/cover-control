@@ -14,11 +14,16 @@ tags:
 ## Bestätigte Invarianten
 
 - Automationsschalter existieren nur, wenn die zugehörige Funktion durch Gruppen-, Raum- oder Override-Schlüssel konfiguriert ist. Ein zur Laufzeit ausgeschalteter Schalter entfernt die Konfiguration nicht.
+- Bei Sonne und Helligkeit bestimmen die gewählten Öffnungs-/Schließmodi die konfigurierte Funktion. Abgeleitete `auto_sun = false`- oder `auto_brightness = false`-Werte allein konfigurieren keine zusätzliche Funktion.
 - Das vollständige Schließen unterstützt unabhängige Auslöser für Uhrzeit und fallende Sonnenhöhe. Der früheste gültige Auslöser gewinnt.
 - Die Sonnenrichtung wird astronomisch aus der aktuellen Sonnenhöhe und ihrer unmittelbar folgenden Entwicklung bestimmt. Lokale Uhrzeiten sind kein Richtungsersatz.
 - Beim Start wertet Cover Control den aktuellen Sonnenzustand aus. Liegt die Sonne abends bereits unter der Schwelle und fällt weiter, erfolgt das vollständige Schließen ohne vorheriges State-Change-Ereignis.
 - Ein vollständiges Schließen wird pro Kalendertag nur einmal ausgelöst. Sommer-, Weihnachts-, Fenster- und Sicherheitsregeln bleiben im normalen Auswertungspfad erhalten.
+- Nach einem vollständigen Schließen zeigen Zeitplan und `Next Close` erst wieder einen Kandidaten des Folgetags; ein zweiter Auslöser desselben Tags bleibt unsichtbar und wirkungslos.
+- Die Werte für Uhrzeit und Sonnenhöhe erscheinen im Config Flow nur bei aktiviertem Auslöser. Sonnenhöhe verwendet einen Grad-Zahlen-Selector, keine Zeiteingabe.
 - Menüpunkte benennen eine Funktion; ihre Beschreibungen erklären den konfigurierbaren Inhalt und dürfen den Titel nicht nur wiederholen.
+- Home Assistant erwartet kurze Bezeichnungen unter `menu_options` und erklärende Texte unter `menu_option_descriptions`; vertauschte Inhalte machen das Menü unlesbar.
+- Sichtbare deutsche Texte verwenden einheitlich „Arbeitstag“, „Bewohnerstatus“ und „manuelle Übersteuerung“. Technische Config-Keys dürfen nicht als UI-Bezeichnungen erscheinen.
 
 ---
 Verwandte Notizen:

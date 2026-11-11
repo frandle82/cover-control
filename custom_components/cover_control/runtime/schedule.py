@@ -633,6 +633,7 @@ class ScheduleMixin:
         if self.config.get(
             CONF_INTERMEDIATE_CLOSE_ENABLED, False
         ) and self._auto_enabled(CONF_AUTO_DOWN):
+            final_close_done_today = action_dates.get("final_close") == today
             candidates: list[tuple[datetime, str]] = []
             if self.config.get(
                 CONF_FINAL_CLOSE_TIME_ENABLED, DEFAULT_FINAL_CLOSE_TIME_ENABLED
@@ -646,19 +647,26 @@ class ScheduleMixin:
                 )
                 final_today = self._today_at(now, final_time)
                 if final_today is not None:
-                    if final_today <= dt_util.as_local(now):
+                    if final_close_done_today or final_today <= dt_util.as_local(now):
                         final_today += timedelta(days=1)
                     candidates.append((final_today, TRIGGER_SCHEDULED_FINAL_CLOSE))
             if self.config.get(
                 CONF_FINAL_CLOSE_ELEVATION_ENABLED,
                 DEFAULT_FINAL_CLOSE_ELEVATION_ENABLED,
             ):
+                elevation_search_from = now
+                if final_close_done_today:
+                    tomorrow = self._today_at(now, time.min)
+                    if tomorrow is not None:
+                        elevation_search_from = dt_util.as_utc(
+                            tomorrow + timedelta(days=1, microseconds=-1)
+                        )
                 elevation_time = self._next_sun_time_for_elevation(
                     self.config.get(
                         CONF_FINAL_CLOSE_ELEVATION, DEFAULT_FINAL_CLOSE_ELEVATION
                     ),
                     SunDirection.SETTING,
-                    now,
+                    elevation_search_from,
                 )
                 if elevation_time is not None:
                     candidates.append(

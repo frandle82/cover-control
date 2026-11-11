@@ -79,7 +79,7 @@ Sommerunterdrückung, Weihnachtsposition, Fensterfolgen und die allgemeinen Prio
 - Aktivierung kann schließen; Deaktivierung kann eine erneute Öffnungsprüfung auslösen.
 - Öffnen, Lüften und Sonnenschutz können während des aktiven Bewohnerstatus getrennt erlaubt werden.
 - Erkannte manuelle Fahrten pausieren die normale Automatik einheitlich.
-- Bei einer Dauer von `0` bleibt die manuelle Übersteuerung bis zum Betätigen des Lösch-Buttons aktiv.
+- Bei einer Dauer von `0` bleibt die manuelle Übersteuerung bis zum Betätigen der Löschschaltfläche aktiv.
 - Sicherheitsaktionen bleiben auch während einer manuellen Übersteuerung wirksam.
 
 ### Positionen und Lamellen
@@ -111,9 +111,10 @@ Nicht verfügbare Cover oder entscheidungsrelevante Sensoren führen zu einem si
 | **Aktive Steuerung** | Aktueller Entscheidungsgrund und Laufzeitstatus |
 | **Zeitsteuerung** | Zeitabhängige Automation ein- oder ausschalten |
 | **Helligkeitsautomatik** | Helligkeitsabhängige Automation ein- oder ausschalten |
-| **Sonnenautomatik** | Sonnenabhängige Automation ein- oder ausschalten |
-| **Sonnenschutz** | Sonnenschutz ein- oder ausschalten |
-| **Lüftung** | Lüftungsautomation ein- oder ausschalten |
+| **Sonnenstandsautomatik** | Sonnenabhängige Automation ein- oder ausschalten |
+| **Sonnenschutzautomatik** | Sonnenschutz ein- oder ausschalten |
+| **Lüftungsautomatik** | Kontaktabhängige Lüftung ein- oder ausschalten |
+| **Bewohnerautomatik** | Bewohnerverhalten ein- oder ausschalten |
 
 ## Installation
 

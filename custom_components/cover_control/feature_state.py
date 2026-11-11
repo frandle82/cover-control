@@ -2,8 +2,8 @@
 from __future__ import annotations
 from dataclasses import dataclass
 from typing import Any, Mapping
-from .config_resolver import GROUP_SECTION_KEYS, TOGGLE_FUNCTION_KEYS
-from .const import CONF_GROUP, CONF_GROUPS, CONF_RESIDENT_SENSOR, CONF_ROOM_OVERRIDES, CONF_ROOM_SETTINGS, CONF_ROOMS, DEFAULT_GROUP
+from .config_resolver import configured_functions_for_layers, TOGGLE_FUNCTION_KEYS
+from .const import CONF_GROUP, CONF_GROUPS, CONF_ROOM_OVERRIDES, CONF_ROOM_SETTINGS, CONF_ROOMS, DEFAULT_GROUP
 
 @dataclass(frozen=True, slots=True)
 class FeatureState:
@@ -15,12 +15,14 @@ def feature_configured(model: Mapping[str, Any], room_id: str, key: str) -> bool
     """Return whether a runtime key belongs to the room's group model."""
     room = model.get(CONF_ROOMS, {}).get(room_id, {})
     group = model.get(CONF_GROUPS, {}).get(room.get(CONF_GROUP, DEFAULT_GROUP), {})
-    layers = [group, room.get(CONF_ROOM_SETTINGS, {})]
-    layers.extend(room.get(CONF_ROOM_OVERRIDES, {}).values())
-    configured_keys = {key for layer in layers if isinstance(layer, Mapping) for key in layer}
+    room_settings = room.get(CONF_ROOM_SETTINGS, {})
+    room_overrides = room.get(CONF_ROOM_OVERRIDES, {})
     function = TOGGLE_FUNCTION_KEYS.get(key)
-    if function == "resident" and CONF_RESIDENT_SENSOR in room.get(CONF_ROOM_SETTINGS, {}):
-        return True
     if function is not None:
-        return bool(configured_keys & GROUP_SECTION_KEYS[function])
-    return key in configured_keys
+        return function in configured_functions_for_layers(
+            group, room_settings, room_overrides
+        )
+    return key in group or key in room_settings or any(
+        isinstance(values, Mapping) and key in values
+        for values in room_overrides.values()
+    )

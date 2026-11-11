@@ -41,22 +41,22 @@
         "title": "Cover Control konfigurieren",
         "description": "Globale Quellen und die drei festen Gruppen konfigurieren.",
         "menu_options": {
-          "global_sources": "Home-Assistant-Entitäten auswählen, die von allen Räumen gemeinsam verwendet werden.",
-          "group_living": "Öffnungs-, Schließ-, Beschattungs- und Verhaltensregeln für Wohnbereiche konfigurieren.",
-          "group_sleep": "Öffnungs-, Schließ-, Beschattungs- und Verhaltensregeln für Schlafbereiche konfigurieren.",
-          "group_children": "Öffnungs-, Schließ-, Beschattungs- und Verhaltensregeln für Kinderbereiche konfigurieren.",
-          "diagnostics": "Aufgelöste Konfiguration und Gruppenverwendung prüfen.",
-          "recovery": "Den zuletzt gültigen Konfigurationsstand wiederherstellen.",
-          "finish": "Konfiguration speichern und schließen."
-        },
-        "menu_option_descriptions": {
-          "global_sources": "Globale Quellen",
+          "global_sources": "Globale Datenquellen",
           "group_living": "Wohnbereich",
           "group_sleep": "Schlafbereich",
           "group_children": "Kinderbereich",
           "diagnostics": "Diagnose",
           "recovery": "Wiederherstellung",
           "finish": "Fertig"
+        },
+        "menu_option_descriptions": {
+          "global_sources": "Gemeinsam verwendete Sensoren für Helligkeit, Temperatur, Arbeitstage und Sicherheitsfunktionen auswählen.",
+          "group_living": "Öffnungs-, Schließ-, Beschattungs- und Verhaltensregeln für Räume des Wohnbereichs konfigurieren.",
+          "group_sleep": "Öffnungs-, Schließ-, Beschattungs- und Verhaltensregeln für Räume des Schlafbereichs konfigurieren.",
+          "group_children": "Öffnungs-, Schließ-, Beschattungs- und Verhaltensregeln für Räume des Kinderbereichs konfigurieren.",
+          "diagnostics": "Aufgelöste Konfiguration und Gruppenverwendung prüfen.",
+          "recovery": "Den zuletzt gültigen Konfigurationsstand wiederherstellen.",
+          "finish": "Konfiguration speichern und schließen."
         }
       },
       "global_sources": {
@@ -65,25 +65,25 @@
         "data": {
           "brightness_sensor": "Globale Helligkeit",
           "calendar_entity": "Kalender",
-          "cold_protection_forecast_sensor": "Prognose-Quelle für Kälteschutz",
+          "cold_protection_forecast_sensor": "Prognosequelle für Kälteschutz",
           "fire_alarm_entity": "Feueralarm-Entität",
           "frost_alarm_entity": "Frostalarm-Entität",
           "rain_alarm_entity": "Regenalarm-Entität",
-          "shading_brightness_sensor": "Globale Beschattungshelligkeit",
+          "shading_brightness_sensor": "Globale Sonnenschutzhelligkeit",
           "temperature_sensor_outdoor": "Außentemperatursensor",
           "wind_alarm_1_entity": "Windalarm-1-Entität",
           "wind_alarm_2_entity": "Windalarm-2-Entität",
-          "workday_sensor": "Workday heute",
-          "workday_tomorrow_sensor": "Workday morgen"
+          "workday_sensor": "Arbeitstag heute",
+          "workday_tomorrow_sensor": "Arbeitstag morgen"
         },
         "data_description": {
           "brightness_sensor": "Gemeinsamer Helligkeitssensor für Räume ohne lokale Helligkeitsquelle.",
-          "calendar_entity": "Gemeinsamer Kalender für Group, die Kalendertitel auswerten.",
-          "cold_protection_forecast_sensor": "Gemeinsame Wetter- oder Sensorquelle für Prognose-Werte des Kälteschutzes.",
+          "calendar_entity": "Gemeinsamer Kalender für Gruppen, die Kalendertitel auswerten.",
+          "cold_protection_forecast_sensor": "Gemeinsame Wetter- oder Sensorquelle für Prognosewerte des Kälteschutzes.",
           "fire_alarm_entity": "Gemeinsame binäre Entität, die die persistente Feueralarm-Verriegelung aktiviert.",
           "frost_alarm_entity": "Gemeinsame binäre Entität, die den Frostschutz aktiviert.",
           "rain_alarm_entity": "Gemeinsame binäre Entität, die den Regenschutz aktiviert.",
-          "shading_brightness_sensor": "Gemeinsamer Helligkeitssensor für Beschattungsentscheidungen.",
+          "shading_brightness_sensor": "Gemeinsamer Helligkeitssensor für Sonnenschutzentscheidungen.",
           "temperature_sensor_outdoor": "Gemeinsamer Außentemperatursensor für Beschattungs- und Schutzregeln.",
           "wind_alarm_1_entity": "Gemeinsame binäre Entität, die Windalarmstufe 1 aktiviert.",
           "wind_alarm_2_entity": "Gemeinsame binäre Entität, die Windalarmstufe 2 aktiviert.",
@@ -102,7 +102,7 @@
           "confirm": "Letzten gültigen Stand wiederherstellen"
         },
         "data_description": {
-          "confirm": "Stellt Parent-Konfiguration und Raum-Subentries aus dem letzten gültigen Stand wieder her, sofern einer vorhanden ist."
+          "confirm": "Stellt die übergeordnete Konfiguration und die Raumeinträge aus dem letzten gültigen Stand wieder her, sofern einer vorhanden ist."
         }
       },
       "positions": {
@@ -114,7 +114,7 @@
             "data": {
               "open_position": "Öffnungsposition",
               "close_position": "Schließposition",
-              "intermediate_close_position": "Zwischenschließposition",
+              "intermediate_close_position": "Zwischenposition",
               "christmas_position": "Weihnachtsposition",
               "summer_skip_close_enabled": "Normales Schließen im Sommer auslassen",
               "christmas_position_enabled": "Weihnachtsposition verwenden",
@@ -127,7 +127,7 @@
             "data_description": {
               "open_position": "Öffnungsposition dieses Raums festlegen.",
               "close_position": "Schließposition dieses Raums festlegen.",
-              "intermediate_close_position": "Zwischenschließposition dieses Raums festlegen.",
+              "intermediate_close_position": "Zwischenposition dieses Raums festlegen.",
               "christmas_position": "Weihnachts-Schließposition dieses Raums festlegen.",
               "summer_skip_close_enabled": "Normale Schließentscheidungen im konfigurierten Sommerzeitraum unterdrücken.",
               "christmas_position_enabled": "Im konfigurierten Weihnachtszeitraum die raumeigene Weihnachtsposition verwenden.",
@@ -163,7 +163,7 @@
           "room": "Bereich"
         },
         "data_description": {
-          "name": "Lesbarer Raumname; er aktualisiert auch den Titel des Room-Entries.",
+          "name": "Lesbarer Raumname; er aktualisiert auch den Titel des Raumeintrags.",
           "room": "Home-Assistant-Bereich des physischen Raums."
         }
       },
@@ -177,8 +177,8 @@
         "title": "Raum – Bedienelemente",
         "description": "Lege fest, welche optionalen Bedienelemente und Raumfunktionen Cover Control für diesen Raum bereitstellt.",
         "data": {
-          "enable_recalibrate_button": "Rekalibrierungs-Schaltfläche aktivieren",
-          "enable_clear_manual_override_button": "Schaltfläche zum Löschen des manuellen Overrides aktivieren",
+          "enable_recalibrate_button": "Schaltfläche zur Neukalibrierung aktivieren",
+          "enable_clear_manual_override_button": "Schaltfläche zum Löschen der manuellen Übersteuerung aktivieren",
           "enable_logbook_cover": "Cover-Aktionen im Logbuch protokollieren"
         }
       },
@@ -198,15 +198,15 @@
         "description": "Wähle hier nur eine andere Datenquelle, wenn dieser Raum bewusst von der globalen Quelle abweichen soll.",
         "data": {
           "brightness_sensor": "Helligkeitsquelle",
-          "cold_protection_forecast_sensor": "Prognose-Quelle für Kälteschutz",
-          "shading_brightness_sensor": "Beschattungshelligkeit",
+          "cold_protection_forecast_sensor": "Prognosequelle für Kälteschutz",
+          "shading_brightness_sensor": "Sonnenschutzhelligkeit",
           "temperature_sensor_outdoor": "Außentemperaturquelle"
         },
         "data_description": {
-          "brightness_sensor": "Raumlokale Quelle, die die globale Quelle für helligkeitsquelle nur in diesem Raum überschreibt.",
-          "cold_protection_forecast_sensor": "Raumlokale Quelle, die die globale Quelle für forecast-quelle für kälteschutz nur in diesem Raum überschreibt.",
-          "shading_brightness_sensor": "Raumlokale Quelle, die die globale Quelle für beschattungshelligkeit nur in diesem Raum überschreibt.",
-          "temperature_sensor_outdoor": "Raumlokale Quelle, die die globale Quelle für außentemperaturquelle nur in diesem Raum überschreibt."
+          "brightness_sensor": "Raumlokale Helligkeitsquelle, die nur in diesem Raum die globale Quelle ersetzt.",
+          "cold_protection_forecast_sensor": "Raumlokale Prognosequelle für den Kälteschutz, die nur in diesem Raum die globale Quelle ersetzt.",
+          "shading_brightness_sensor": "Raumlokale Helligkeitsquelle für den Sonnenschutz, die nur in diesem Raum die globale Quelle ersetzt.",
+          "temperature_sensor_outdoor": "Raumlokale Außentemperaturquelle, die nur in diesem Raum die globale Quelle ersetzt."
         }
       },
       "room_diagnostics": {
@@ -389,13 +389,13 @@
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
               "use_brightness_sensor": "Helligkeitsquelle verwenden",
-              "use_workday_sensor": "Werktagsquelle verwenden",
+              "use_workday_sensor": "Arbeitstagsquelle verwenden",
               "open_mode": "Steuerungsart Öffnen",
               "close_mode": "Steuerungsart Schließen"
             },
             "data_description": {
-              "auto_brightness_enabled": "Konfiguriert „Helligkeitsautomatik“ für diese Gruppe.",
-              "auto_down_enabled": "Konfiguriert „Automatisches Schließen“ für diese Gruppe.",
+              "auto_brightness_enabled": "Aktiviert die helligkeitsabhängige Steuerung für diese Gruppe.",
+              "auto_down_enabled": "Aktiviert das automatische Schließen für diese Gruppe.",
               "intermediate_close_enabled": "Beim normalen Schließereignis die raumeigene Zwischenposition anfahren.",
               "final_close_time": "Uhrzeit, zu der das Cover vollständig geschlossen wird.",
               "final_close_time_enabled": "Die konfigurierte Uhrzeit zum vollständigen Schließen verwenden. Sind Uhrzeit und Sonnenhöhe aktiviert, wird bei der zuerst erfüllten Bedingung geschlossen.",
@@ -405,9 +405,9 @@
               "summer_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
               "christmas_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
               "christmas_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
-              "auto_sun_enabled": "Konfiguriert „Sonnenautomatik“ für diese Gruppe.",
-              "auto_time_enabled": "Konfiguriert „Zeitautomatik“ für diese Gruppe.",
-              "auto_up_enabled": "Konfiguriert „Automatisches Öffnen“ für diese Gruppe.",
+              "auto_sun_enabled": "Aktiviert die sonnenstandsabhängige Steuerung für diese Gruppe.",
+              "auto_time_enabled": "Aktiviert die zeitabhängige Steuerung für diese Gruppe.",
+              "auto_up_enabled": "Aktiviert das automatische Öffnen für diese Gruppe.",
               "use_brightness_sensor": "Legt fest, ob diese Gruppe die Helligkeitsquelle verwendet.",
               "use_workday_sensor": "Legt fest, ob diese Gruppe die Arbeitstagsquelle verwendet.",
               "open_mode": "Steuerungsart Öffnen",
@@ -415,33 +415,33 @@
             }
           },
           "workday_times": {
-            "name": "Werktagszeiten",
+            "name": "Zeiten an Arbeitstagen",
             "data": {
-              "time_down_early_workday": "Früheste Schließung an Werktagen",
-              "time_down_late_workday": "Späteste Schließung an Werktagen",
-              "time_up_early_workday": "Früheste Öffnung an Werktagen",
-              "time_up_late_workday": "Späteste Öffnung an Werktagen"
+              "time_down_early_workday": "Früheste Schließung an Arbeitstagen",
+              "time_down_late_workday": "Späteste Schließung an Arbeitstagen",
+              "time_up_early_workday": "Früheste Öffnung an Arbeitstagen",
+              "time_up_late_workday": "Späteste Öffnung an Arbeitstagen"
             },
             "data_description": {
-              "time_down_early_workday": "Konfiguriert „Früheste Schließung an Werktagen“ für diese Gruppe.",
-              "time_down_late_workday": "Konfiguriert „Späteste Schließung an Werktagen“ für diese Gruppe.",
-              "time_up_early_workday": "Konfiguriert „Früheste Öffnung an Werktagen“ für diese Gruppe.",
-              "time_up_late_workday": "Konfiguriert „Späteste Öffnung an Werktagen“ für diese Gruppe."
+              "time_down_early_workday": "Früheste Uhrzeit für das Schließen an Arbeitstagen.",
+              "time_down_late_workday": "Späteste Uhrzeit für das Schließen an Arbeitstagen.",
+              "time_up_early_workday": "Früheste Uhrzeit für das Öffnen an Arbeitstagen.",
+              "time_up_late_workday": "Späteste Uhrzeit für das Öffnen an Arbeitstagen."
             }
           },
           "non_workday_times": {
-            "name": "Nicht-Werktagszeiten",
+            "name": "Zeiten an Nichtarbeitstagen",
             "data": {
-              "time_down_early_non_workday": "Früheste Schließung an freien Tagen",
-              "time_down_late_non_workday": "Späteste Schließung an freien Tagen",
-              "time_up_early_non_workday": "Früheste Öffnung an freien Tagen",
-              "time_up_late_non_workday": "Späteste Öffnung an freien Tagen"
+              "time_down_early_non_workday": "Früheste Schließung an Nichtarbeitstagen",
+              "time_down_late_non_workday": "Späteste Schließung an Nichtarbeitstagen",
+              "time_up_early_non_workday": "Früheste Öffnung an Nichtarbeitstagen",
+              "time_up_late_non_workday": "Späteste Öffnung an Nichtarbeitstagen"
             },
             "data_description": {
-              "time_down_early_non_workday": "Konfiguriert „Früheste Schließung an freien Tagen“ für diese Gruppe.",
-              "time_down_late_non_workday": "Konfiguriert „Späteste Schließung an freien Tagen“ für diese Gruppe.",
-              "time_up_early_non_workday": "Konfiguriert „Früheste Öffnung an freien Tagen“ für diese Gruppe.",
-              "time_up_late_non_workday": "Konfiguriert „Späteste Öffnung an freien Tagen“ für diese Gruppe."
+              "time_down_early_non_workday": "Früheste Uhrzeit für das Schließen an Nichtarbeitstagen.",
+              "time_down_late_non_workday": "Späteste Uhrzeit für das Schließen an Nichtarbeitstagen.",
+              "time_up_early_non_workday": "Früheste Uhrzeit für das Öffnen an Nichtarbeitstagen.",
+              "time_up_late_non_workday": "Späteste Uhrzeit für das Öffnen an Nichtarbeitstagen."
             }
           },
           "calendar_behavior": {
@@ -451,8 +451,25 @@
               "calendar_open_title": "Kalendertitel zum Öffnen"
             },
             "data_description": {
-              "calendar_close_title": "Konfiguriert „Kalendertitel zum Schließen“ für diese Gruppe.",
-              "calendar_open_title": "Konfiguriert „Kalendertitel zum Öffnen“ für diese Gruppe."
+              "calendar_close_title": "Kalendertitel, der das Schließen auslöst.",
+              "calendar_open_title": "Kalendertitel, der das Öffnen auslöst."
+            }
+          }
+        }
+      },
+      "group_final_close": {
+        "title": "Gruppe – Vollständiges Schließen",
+        "description": "Vollständiges Schließen für {group_name} konfigurieren. Sind beide Auslöser aktiviert, wird bei der zuerst erfüllten Bedingung geschlossen.",
+        "sections": {
+          "non_workday_times": {
+            "name": "Vollständiges Schließen",
+            "data": {
+              "final_close_time": "Uhrzeit für vollständiges Schließen",
+              "final_close_elevation": "Sonnenhöhe für vollständiges Schließen"
+            },
+            "data_description": {
+              "final_close_time": "Uhrzeit, zu der das Cover vollständig geschlossen wird.",
+              "final_close_elevation": "Sonnenhöhe, bei der das Cover vollständig geschlossen wird. Der Grenzwert wird nur während der fallenden Sonnenphase ausgewertet."
             }
           }
         }
@@ -479,13 +496,13 @@
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
               "use_brightness_sensor": "Helligkeitsquelle verwenden",
-              "use_workday_sensor": "Werktagsquelle verwenden",
+              "use_workday_sensor": "Arbeitstagsquelle verwenden",
               "open_mode": "Steuerungsart Öffnen",
               "close_mode": "Steuerungsart Schließen"
             },
             "data_description": {
-              "auto_brightness_enabled": "Konfiguriert „Helligkeitsautomatik“ für diese Gruppe.",
-              "auto_down_enabled": "Konfiguriert „Automatisches Schließen“ für diese Gruppe.",
+              "auto_brightness_enabled": "Aktiviert die helligkeitsabhängige Steuerung für diese Gruppe.",
+              "auto_down_enabled": "Aktiviert das automatische Schließen für diese Gruppe.",
               "intermediate_close_enabled": "Beim normalen Schließereignis die raumeigene Zwischenposition anfahren.",
               "final_close_time": "Uhrzeit, zu der das Cover vollständig geschlossen wird.",
               "final_close_time_enabled": "Die konfigurierte Uhrzeit zum vollständigen Schließen verwenden. Sind Uhrzeit und Sonnenhöhe aktiviert, wird bei der zuerst erfüllten Bedingung geschlossen.",
@@ -495,9 +512,9 @@
               "summer_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
               "christmas_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
               "christmas_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
-              "auto_sun_enabled": "Konfiguriert „Sonnenautomatik“ für diese Gruppe.",
-              "auto_time_enabled": "Konfiguriert „Zeitautomatik“ für diese Gruppe.",
-              "auto_up_enabled": "Konfiguriert „Automatisches Öffnen“ für diese Gruppe.",
+              "auto_sun_enabled": "Aktiviert die sonnenstandsabhängige Steuerung für diese Gruppe.",
+              "auto_time_enabled": "Aktiviert die zeitabhängige Steuerung für diese Gruppe.",
+              "auto_up_enabled": "Aktiviert das automatische Öffnen für diese Gruppe.",
               "use_brightness_sensor": "Legt fest, ob diese Gruppe die Helligkeitsquelle verwendet.",
               "use_workday_sensor": "Legt fest, ob diese Gruppe die Arbeitstagsquelle verwendet.",
               "open_mode": "Steuerungsart Öffnen",
@@ -513,10 +530,10 @@
               "brightness_time_duration": "Helligkeitsdauer"
             },
             "data_description": {
-              "brightness_close_below": "Konfiguriert „Helligkeitsschwelle zum Schließen“ für diese Gruppe.",
-              "brightness_hysteresis": "Konfiguriert „Helligkeitshysterese“ für diese Gruppe.",
-              "brightness_open_above": "Konfiguriert „Helligkeitsschwelle zum Öffnen“ für diese Gruppe.",
-              "brightness_time_duration": "Konfiguriert „Helligkeitsdauer“ für diese Gruppe."
+              "brightness_close_below": "Helligkeitswert, unterhalb dessen geschlossen werden darf.",
+              "brightness_hysteresis": "Abstand zur Helligkeitsschwelle, bevor die Bedingung wieder aufgehoben wird.",
+              "brightness_open_above": "Helligkeitswert, oberhalb dessen geöffnet werden darf.",
+              "brightness_time_duration": "Dauer, für die eine Helligkeitsbedingung erfüllt sein muss."
             }
           }
         }
@@ -543,13 +560,13 @@
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
               "use_brightness_sensor": "Helligkeitsquelle verwenden",
-              "use_workday_sensor": "Werktagsquelle verwenden",
+              "use_workday_sensor": "Arbeitstagsquelle verwenden",
               "open_mode": "Steuerungsart Öffnen",
               "close_mode": "Steuerungsart Schließen"
             },
             "data_description": {
-              "auto_brightness_enabled": "Konfiguriert „Helligkeitsautomatik“ für diese Gruppe.",
-              "auto_down_enabled": "Konfiguriert „Automatisches Schließen“ für diese Gruppe.",
+              "auto_brightness_enabled": "Aktiviert die helligkeitsabhängige Steuerung für diese Gruppe.",
+              "auto_down_enabled": "Aktiviert das automatische Schließen für diese Gruppe.",
               "intermediate_close_enabled": "Beim normalen Schließereignis die raumeigene Zwischenposition anfahren.",
               "final_close_time": "Uhrzeit, zu der das Cover vollständig geschlossen wird.",
               "final_close_time_enabled": "Die konfigurierte Uhrzeit zum vollständigen Schließen verwenden. Sind Uhrzeit und Sonnenhöhe aktiviert, wird bei der zuerst erfüllten Bedingung geschlossen.",
@@ -559,9 +576,9 @@
               "summer_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
               "christmas_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
               "christmas_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
-              "auto_sun_enabled": "Konfiguriert „Sonnenautomatik“ für diese Gruppe.",
-              "auto_time_enabled": "Konfiguriert „Zeitautomatik“ für diese Gruppe.",
-              "auto_up_enabled": "Konfiguriert „Automatisches Öffnen“ für diese Gruppe.",
+              "auto_sun_enabled": "Aktiviert die sonnenstandsabhängige Steuerung für diese Gruppe.",
+              "auto_time_enabled": "Aktiviert die zeitabhängige Steuerung für diese Gruppe.",
+              "auto_up_enabled": "Aktiviert das automatische Öffnen für diese Gruppe.",
               "use_brightness_sensor": "Legt fest, ob diese Gruppe die Helligkeitsquelle verwendet.",
               "use_workday_sensor": "Legt fest, ob diese Gruppe die Arbeitstagsquelle verwendet.",
               "open_mode": "Steuerungsart Öffnen",
@@ -573,14 +590,14 @@
             "data": {
               "sun_elevation_close": "Sonnenhöhe zum Schließen",
               "sun_elevation_open": "Sonnenhöhe zum Öffnen",
-              "astro_open_offset_minutes": "Astro-Offset Öffnen (Minuten)",
-              "astro_close_offset_minutes": "Astro-Offset Schließen (Minuten)"
+              "astro_open_offset_minutes": "Zeitversatz zum Öffnen (Minuten)",
+              "astro_close_offset_minutes": "Zeitversatz zum Schließen (Minuten)"
             },
             "data_description": {
-              "sun_elevation_close": "Konfiguriert „Sonnenhöhe zum Schließen“ für diese Gruppe.",
-              "sun_elevation_open": "Konfiguriert „Sonnenhöhe zum Öffnen“ für diese Gruppe.",
-              "astro_open_offset_minutes": "Astro-Offset Öffnen (Minuten)",
-              "astro_close_offset_minutes": "Astro-Offset Schließen (Minuten)"
+              "sun_elevation_close": "Sonnenhöhe, bei der geschlossen werden darf.",
+              "sun_elevation_open": "Sonnenhöhe, bei der geöffnet werden darf.",
+              "astro_open_offset_minutes": "Zeitversatz zum Öffnen (Minuten)",
+              "astro_close_offset_minutes": "Zeitversatz zum Schließen (Minuten)"
             }
           }
         }
@@ -595,7 +612,7 @@
               "shading_mode": "Art des Sonnenschutzes"
             },
             "data_description": {
-              "shading_mode": "Feste Shuttercontrol-Sonnenschutzart."
+              "shading_mode": "Wählt eine feste Sonnenschutzart für diese Gruppe."
             }
           }
         }
@@ -607,16 +624,16 @@
           "ventilation": {
             "name": "Lüftung",
             "data": {
-              "auto_ventilate_enabled": "Lüftung aktiv",
-              "contact_status_delay": "Kontakt-Statusverzögerung",
-              "contact_trigger_delay": "Kontakt-Triggerverzögerung",
+              "auto_ventilate_enabled": "Lüftungssteuerung aktivieren",
+              "contact_status_delay": "Kontaktstatusverzögerung",
+              "contact_trigger_delay": "Kontaktauslöseverzögerung",
               "ventilation_delay_after_close": "Lüftungsverzögerung nach Schließen"
             },
             "data_description": {
-              "auto_ventilate_enabled": "Konfiguriert „Lüftung aktiv“ für diese Gruppe.",
-              "contact_status_delay": "Konfiguriert „Kontakt-Statusverzögerung“ für diese Gruppe.",
-              "contact_trigger_delay": "Konfiguriert „Kontakt-Triggerverzögerung“ für diese Gruppe.",
-              "ventilation_delay_after_close": "Konfiguriert „Lüftungsverzögerung nach Schließen“ für diese Gruppe."
+              "auto_ventilate_enabled": "Aktiviert die kontaktabhängige Lüftungssteuerung für diese Gruppe.",
+              "contact_status_delay": "Dauer, für die ein Kontaktzustand stabil sein muss.",
+              "contact_trigger_delay": "Verzögerung, bevor eine Kontaktänderung eine Aktion auslöst.",
+              "ventilation_delay_after_close": "Wartezeit vor der Lüftungsfahrt nach dem Schließen eines Fensters."
             }
           }
         }
@@ -628,20 +645,20 @@
           "resident_behavior": {
             "name": "Bewohnerverhalten",
             "data": {
-              "resident_allow_open": "Bewohnerstatus erlaubt Öffnen",
-              "resident_allow_shading": "Bewohnerstatus erlaubt Beschattung",
-              "resident_allow_ventilation": "Bewohnerstatus erlaubt Lüftung",
-              "resident_close_enabled": "Bei Bewohnerstatus schließen",
-              "resident_open_enabled": "Nach Bewohnerstatus öffnen",
-              "resident_status_enabled": "Bewohnerverhalten aktiv"
+              "resident_allow_open": "Öffnen bei aktivem Bewohnerstatus erlauben",
+              "resident_allow_shading": "Sonnenschutz bei aktivem Bewohnerstatus erlauben",
+              "resident_allow_ventilation": "Lüftung bei aktivem Bewohnerstatus erlauben",
+              "resident_close_enabled": "Bei aktivem Bewohnerstatus schließen",
+              "resident_open_enabled": "Öffnen nach Ende des Bewohnerstatus prüfen",
+              "resident_status_enabled": "Bewohnerverhalten aktivieren"
             },
             "data_description": {
-              "resident_allow_open": "Konfiguriert „Bewohnerstatus erlaubt Öffnen“ für diese Gruppe.",
-              "resident_allow_shading": "Konfiguriert „Bewohnerstatus erlaubt Beschattung“ für diese Gruppe.",
-              "resident_allow_ventilation": "Konfiguriert „Bewohnerstatus erlaubt Lüftung“ für diese Gruppe.",
-              "resident_close_enabled": "Konfiguriert „Bei Bewohnerstatus schließen“ für diese Gruppe.",
-              "resident_open_enabled": "Konfiguriert „Nach Bewohnerstatus öffnen“ für diese Gruppe.",
-              "resident_status_enabled": "Konfiguriert „Bewohnerverhalten aktiv“ für diese Gruppe."
+              "resident_allow_open": "Erlaubt automatisches Öffnen, während der Bewohnerstatus aktiv ist.",
+              "resident_allow_shading": "Erlaubt Sonnenschutz, während der Bewohnerstatus aktiv ist.",
+              "resident_allow_ventilation": "Erlaubt Lüftung, während der Bewohnerstatus aktiv ist.",
+              "resident_close_enabled": "Schließt, sobald der Bewohnerstatus aktiv wird.",
+              "resident_open_enabled": "Prüft erneut, ob geöffnet werden darf, sobald der Bewohnerstatus endet.",
+              "resident_status_enabled": "Berücksichtigt den Bewohnerstatus bei automatischen Entscheidungen."
             }
           }
         }
@@ -653,9 +670,9 @@
           "manual_override": {
             "name": "Manuelles Verhalten",
             "data": {
-              "manual_override_minutes": "Dauer des Manual Override",
-              "no_go_time_minutes": "Öffnungs-Sperrzeit",
-              "manual_control_enabled": "Manual Override aktiviert"
+              "manual_override_minutes": "Dauer der manuellen Übersteuerung",
+              "no_go_time_minutes": "Öffnungssperrzeit",
+              "manual_control_enabled": "Manuelle Übersteuerung aktivieren"
             },
             "data_description": {
               "manual_override_minutes": "Dauer der Automatikpause in Minuten. Bei 0 bleibt sie bis zum manuellen Zurücksetzen aktiv.",
@@ -684,15 +701,15 @@
               "frost_alarm_target": "Frostschutzposition"
             },
             "data_description": {
-              "fire_alarm_enabled": "Diesen Alarm im Gruppe aktivieren oder deaktivieren.",
+              "fire_alarm_enabled": "Diesen Alarm für die Gruppe aktivieren oder deaktivieren.",
               "fire_alarm_target": "Zielposition von 0 bis 100.",
-              "rain_alarm_enabled": "Diesen Alarm im Gruppe aktivieren oder deaktivieren.",
+              "rain_alarm_enabled": "Diesen Alarm für die Gruppe aktivieren oder deaktivieren.",
               "rain_alarm_target": "Zielposition von 0 bis 100.",
-              "wind_alarm_2_enabled": "Diesen Alarm im Gruppe aktivieren oder deaktivieren.",
+              "wind_alarm_2_enabled": "Diesen Alarm für die Gruppe aktivieren oder deaktivieren.",
               "wind_alarm_2_target": "Zielposition von 0 bis 100.",
-              "wind_alarm_1_enabled": "Diesen Alarm im Gruppe aktivieren oder deaktivieren.",
+              "wind_alarm_1_enabled": "Diesen Alarm für die Gruppe aktivieren oder deaktivieren.",
               "wind_alarm_1_target": "Zielposition von 0 bis 100.",
-              "frost_alarm_enabled": "Diesen Alarm im Gruppe aktivieren oder deaktivieren.",
+              "frost_alarm_enabled": "Diesen Alarm für die Gruppe aktivieren oder deaktivieren.",
               "frost_alarm_target": "Mindestposition bei aktivem Frostschutz."
             }
           }
@@ -702,7 +719,18 @@
         "title": "Gruppeneinstellungen",
         "description": "Einstellungen für {group_name}. Verwendet von: {group_usage}",
         "menu_options": {
-          "group_time": "Zeitpläne sowie Zwischenposition und vollständiges Schließen konfigurieren.",
+          "group_time": "Zeitsteuerung",
+          "group_brightness": "Helligkeit",
+          "group_sun": "Sonnenstand",
+          "group_shading": "Sonnenschutz",
+          "group_ventilation": "Lüftung",
+          "group_resident": "Bewohnerstatus",
+          "group_behavior": "Manuelles Verhalten",
+          "group_safety": "Sicherheit",
+          "group_back": "Zurück"
+        },
+        "menu_option_descriptions": {
+          "group_time": "Zeitpläne, Zwischenposition und vollständiges Schließen konfigurieren.",
           "group_brightness": "Helligkeitsschwellen und Verzögerungen konfigurieren.",
           "group_sun": "Steuerung nach Sonnenaufgang, Sonnenuntergang und Sonnenhöhe konfigurieren.",
           "group_shading": "Sonnenschutz und Hitzeschutz konfigurieren.",
@@ -710,17 +738,6 @@
           "group_resident": "Verhalten bei aktivem Bewohnerstatus konfigurieren.",
           "group_behavior": "Manuelle Übersteuerung und Fahrverhalten konfigurieren.",
           "group_safety": "Alarmabhängige Sicherheitsaktionen konfigurieren.",
-          "group_back": "Zurück"
-        },
-        "menu_option_descriptions": {
-          "group_time": "Zeit",
-          "group_brightness": "Helligkeit",
-          "group_sun": "Sonnenstand",
-          "group_shading": "Beschattung",
-          "group_ventilation": "Lüftung",
-          "group_resident": "Bewohner",
-          "group_behavior": "Manuelles Verhalten",
-          "group_safety": "Sicherheit",
           "group_back": "Zurück zum Hauptmenü"
         }
       },
@@ -743,8 +760,8 @@
             "data": {
               "auto_brightness_enabled": "Helligkeitsautomatik",
               "auto_down_enabled": "Automatisches Schließen",
-              "intermediate_close_enabled": "Zwischenschließposition verwenden",
-              "final_close_time": "Zeit der vollständigen Schließung",
+              "intermediate_close_enabled": "Zwischenposition verwenden",
+              "final_close_time": "Uhrzeit für vollständiges Schließen",
               "summer_start": "Beginn Sommerzeitraum (TT.MM.)",
               "summer_end": "Ende Sommerzeitraum (TT.MM.)",
               "christmas_start": "Beginn Weihnachtszeitraum (TT.MM.)",
@@ -753,22 +770,22 @@
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
               "use_brightness_sensor": "Helligkeitsquelle verwenden",
-              "use_workday_sensor": "Werktagsquelle verwenden",
+              "use_workday_sensor": "Arbeitstagsquelle verwenden",
               "open_mode": "Steuerungsart Öffnen",
               "close_mode": "Steuerungsart Schließen"
             },
             "data_description": {
-              "auto_brightness_enabled": "Konfiguriert „Helligkeitsautomatik“ für diese Gruppe.",
-              "auto_down_enabled": "Konfiguriert „Automatisches Schließen“ für diese Gruppe.",
+              "auto_brightness_enabled": "Aktiviert die helligkeitsabhängige Steuerung für diese Gruppe.",
+              "auto_down_enabled": "Aktiviert das automatische Schließen für diese Gruppe.",
               "intermediate_close_enabled": "Vor der vollständigen Schließung die raumeigene Zwischenposition verwenden.",
-              "final_close_time": "Zeitpunkt der abschließenden vollständigen Schließfahrt.",
+              "final_close_time": "Uhrzeit, zu der vollständig geschlossen wird.",
               "summer_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
               "summer_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
               "christmas_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
               "christmas_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
-              "auto_sun_enabled": "Konfiguriert „Sonnenautomatik“ für diese Gruppe.",
-              "auto_time_enabled": "Konfiguriert „Zeitautomatik“ für diese Gruppe.",
-              "auto_up_enabled": "Konfiguriert „Automatisches Öffnen“ für diese Gruppe.",
+              "auto_sun_enabled": "Aktiviert die sonnenstandsabhängige Steuerung für diese Gruppe.",
+              "auto_time_enabled": "Aktiviert die zeitabhängige Steuerung für diese Gruppe.",
+              "auto_up_enabled": "Aktiviert das automatische Öffnen für diese Gruppe.",
               "use_brightness_sensor": "Legt fest, ob diese Gruppe die Helligkeitsquelle verwendet.",
               "use_workday_sensor": "Legt fest, ob diese Gruppe die Arbeitstagsquelle verwendet.",
               "open_mode": "Steuerungsart Öffnen",
@@ -780,14 +797,14 @@
             "data": {
               "sun_elevation_close": "Sonnenhöhe zum Schließen",
               "sun_elevation_open": "Sonnenhöhe zum Öffnen",
-              "astro_open_offset_minutes": "Astro-Offset Öffnen (Minuten)",
-              "astro_close_offset_minutes": "Astro-Offset Schließen (Minuten)"
+              "astro_open_offset_minutes": "Zeitversatz zum Öffnen (Minuten)",
+              "astro_close_offset_minutes": "Zeitversatz zum Schließen (Minuten)"
             },
             "data_description": {
-              "sun_elevation_close": "Konfiguriert „Sonnenhöhe zum Schließen“ für diese Gruppe.",
-              "sun_elevation_open": "Konfiguriert „Sonnenhöhe zum Öffnen“ für diese Gruppe.",
-              "astro_open_offset_minutes": "Astro-Offset Öffnen (Minuten)",
-              "astro_close_offset_minutes": "Astro-Offset Schließen (Minuten)"
+              "sun_elevation_close": "Sonnenhöhe, bei der geschlossen werden darf.",
+              "sun_elevation_open": "Sonnenhöhe, bei der geöffnet werden darf.",
+              "astro_open_offset_minutes": "Zeitversatz zum Öffnen (Minuten)",
+              "astro_close_offset_minutes": "Zeitversatz zum Schließen (Minuten)"
             }
           }
         }
@@ -799,7 +816,7 @@
           "shading_direction": {
             "name": "Himmelsrichtung",
             "data": {
-              "shading_direction": "Ausrichtung Fenster",
+              "shading_direction": "Fensterausrichtung",
               "shading_direction_range": "Bereich (+/−)",
               "shading_elevation_min": "Minimale Sonnenhöhe",
               "shading_elevation_max": "Sonnenhöhe zum Beenden"
@@ -815,29 +832,29 @@
             "name": "Temperaturen",
             "data": {
               "shading_inside_temperature_threshold": "Innentemperaturgrenze",
-              "shading_inside_temperature_hysteresis": "Innentemperatur-Hysterese",
+              "shading_inside_temperature_hysteresis": "Innentemperaturhysterese",
               "shading_outside_temperature_threshold": "Außentemperaturgrenze",
-              "shading_outside_temperature_hysteresis": "Außentemperatur-Hysterese",
+              "shading_outside_temperature_hysteresis": "Außentemperaturhysterese",
               "heat_protection_enabled": "Hitzeschutz aktiviert",
               "heat_protection_threshold": "Hitzeschutzschwelle"
             },
             "data_description": {
-              "shading_inside_temperature_threshold": "Strikte Startgrenze der vorhandenen Innenquelle.",
+              "shading_inside_temperature_threshold": "Innentemperatur, ab der der Sonnenschutz aktiv werden kann.",
               "shading_inside_temperature_hysteresis": "Prozentuale Endhysterese.",
-              "shading_outside_temperature_threshold": "Strikte Startgrenze der vorhandenen Außenquelle.",
+              "shading_outside_temperature_threshold": "Außentemperatur, ab der der Sonnenschutz aktiv werden kann.",
               "shading_outside_temperature_hysteresis": "Prozentuale Endhysterese.",
-              "heat_protection_enabled": "Bei gültigem Sonnenschutz oberhalb der Schwelle vollständig schließen.",
-              "heat_protection_threshold": "Außentemperaturgrenze für vollständiges Schließen."
+              "heat_protection_enabled": "Schließt bei aktivem Sonnenschutz vollständig, sobald die Hitzeschutzschwelle überschritten wird.",
+              "heat_protection_threshold": "Außentemperaturgrenze für den Hitzeschutz."
             }
           },
           "shading_brightness": {
-            "name": "Optionale Helligkeit",
+            "name": "Optionale Helligkeitsbedingung",
             "data": {
               "shading_brightness_threshold": "Helligkeitsgrenze",
-              "shading_sun_brightness_hysteresis": "Helligkeits-Hysterese"
+              "shading_sun_brightness_hysteresis": "Helligkeitshysterese"
             },
             "data_description": {
-              "shading_brightness_threshold": "Nur mit konfigurierter Sonnenschutz-Helligkeitsquelle.",
+              "shading_brightness_threshold": "Helligkeitsgrenze für den Sonnenschutz; benötigt eine konfigurierte Helligkeitsquelle.",
               "shading_sun_brightness_hysteresis": "Prozentuale Endhysterese."
             }
           },
@@ -848,7 +865,7 @@
               "keep_sun_protection": "Sonnenschutzposition beibehalten"
             },
             "data_description": {
-              "shading_waitingtime_end": "Endbedingung muss so lange bestehen bleiben.",
+              "shading_waitingtime_end": "Dauer, für die die Endbedingung bestehen muss.",
               "keep_sun_protection": "Nach Ende des Sonnenschutzes nicht automatisch öffnen."
             }
           },
@@ -861,10 +878,10 @@
               "use_cold_protection_forecast_sensor": "Kälteschutzvorhersage verwenden"
             },
             "data_description": {
-              "cold_protection_temperature": "Bestehende Kälteschutzoption.",
-              "temperature_threshold": "Bestehende Temperaturoption.",
-              "temperature_forecast_threshold": "Bestehende Kälteschutzvorhersage.",
-              "use_cold_protection_forecast_sensor": "Bestehende Kälteschutzvorhersage verwenden."
+              "cold_protection_temperature": "Temperaturgrenze für den Kälteschutz.",
+              "temperature_threshold": "Temperaturgrenze für die zugehörige Schutzbedingung.",
+              "temperature_forecast_threshold": "Temperaturgrenze für prognosebasierte Kälteschutzentscheidungen.",
+              "use_cold_protection_forecast_sensor": "Bezieht die konfigurierte Prognosequelle in Kälteschutzentscheidungen ein."
             }
           }
         }
@@ -908,22 +925,22 @@
         "title": "Cover Control konfigurieren",
         "description": "Globale Quellen und die drei festen Gruppen konfigurieren.",
         "menu_options": {
-          "global_sources": "Home-Assistant-Entitäten auswählen, die von allen Räumen gemeinsam verwendet werden.",
-          "group_living": "Öffnungs-, Schließ-, Beschattungs- und Verhaltensregeln für Wohnbereiche konfigurieren.",
-          "group_sleep": "Öffnungs-, Schließ-, Beschattungs- und Verhaltensregeln für Schlafbereiche konfigurieren.",
-          "group_children": "Öffnungs-, Schließ-, Beschattungs- und Verhaltensregeln für Kinderbereiche konfigurieren.",
-          "diagnostics": "Aufgelöste Konfiguration und Gruppenverwendung prüfen.",
-          "recovery": "Den zuletzt gültigen Konfigurationsstand wiederherstellen.",
-          "finish": "Konfiguration speichern und schließen."
-        },
-        "menu_option_descriptions": {
-          "global_sources": "Globale Quellen",
+          "global_sources": "Globale Datenquellen",
           "group_living": "Wohnbereich",
           "group_sleep": "Schlafbereich",
           "group_children": "Kinderbereich",
           "diagnostics": "Diagnose",
           "recovery": "Wiederherstellung",
           "finish": "Fertig"
+        },
+        "menu_option_descriptions": {
+          "global_sources": "Gemeinsam verwendete Sensoren für Helligkeit, Temperatur, Arbeitstage und Sicherheitsfunktionen auswählen.",
+          "group_living": "Öffnungs-, Schließ-, Beschattungs- und Verhaltensregeln für Räume des Wohnbereichs konfigurieren.",
+          "group_sleep": "Öffnungs-, Schließ-, Beschattungs- und Verhaltensregeln für Räume des Schlafbereichs konfigurieren.",
+          "group_children": "Öffnungs-, Schließ-, Beschattungs- und Verhaltensregeln für Räume des Kinderbereichs konfigurieren.",
+          "diagnostics": "Aufgelöste Konfiguration und Gruppenverwendung prüfen.",
+          "recovery": "Den zuletzt gültigen Konfigurationsstand wiederherstellen.",
+          "finish": "Konfiguration speichern und schließen."
         }
       },
       "global_sources": {
@@ -932,25 +949,25 @@
         "data": {
           "brightness_sensor": "Globale Helligkeit",
           "calendar_entity": "Kalender",
-          "cold_protection_forecast_sensor": "Prognose-Quelle für Kälteschutz",
+          "cold_protection_forecast_sensor": "Prognosequelle für Kälteschutz",
           "fire_alarm_entity": "Feueralarm-Entität",
           "frost_alarm_entity": "Frostalarm-Entität",
           "rain_alarm_entity": "Regenalarm-Entität",
-          "shading_brightness_sensor": "Globale Beschattungshelligkeit",
+          "shading_brightness_sensor": "Globale Sonnenschutzhelligkeit",
           "temperature_sensor_outdoor": "Außentemperatursensor",
           "wind_alarm_1_entity": "Windalarm-1-Entität",
           "wind_alarm_2_entity": "Windalarm-2-Entität",
-          "workday_sensor": "Workday heute",
-          "workday_tomorrow_sensor": "Workday morgen"
+          "workday_sensor": "Arbeitstag heute",
+          "workday_tomorrow_sensor": "Arbeitstag morgen"
         },
         "data_description": {
           "brightness_sensor": "Gemeinsamer Helligkeitssensor für Räume ohne lokale Helligkeitsquelle.",
-          "calendar_entity": "Gemeinsamer Kalender für Group, die Kalendertitel auswerten.",
-          "cold_protection_forecast_sensor": "Gemeinsame Wetter- oder Sensorquelle für Prognose-Werte des Kälteschutzes.",
+          "calendar_entity": "Gemeinsamer Kalender für Gruppen, die Kalendertitel auswerten.",
+          "cold_protection_forecast_sensor": "Gemeinsame Wetter- oder Sensorquelle für Prognosewerte des Kälteschutzes.",
           "fire_alarm_entity": "Gemeinsame binäre Entität, die die persistente Feueralarm-Verriegelung aktiviert.",
           "frost_alarm_entity": "Gemeinsame binäre Entität, die den Frostschutz aktiviert.",
           "rain_alarm_entity": "Gemeinsame binäre Entität, die den Regenschutz aktiviert.",
-          "shading_brightness_sensor": "Gemeinsamer Helligkeitssensor für Beschattungsentscheidungen.",
+          "shading_brightness_sensor": "Gemeinsamer Helligkeitssensor für Sonnenschutzentscheidungen.",
           "temperature_sensor_outdoor": "Gemeinsamer Außentemperatursensor für Beschattungs- und Schutzregeln.",
           "wind_alarm_1_entity": "Gemeinsame binäre Entität, die Windalarmstufe 1 aktiviert.",
           "wind_alarm_2_entity": "Gemeinsame binäre Entität, die Windalarmstufe 2 aktiviert.",
@@ -969,7 +986,7 @@
           "confirm": "Letzten gültigen Stand wiederherstellen"
         },
         "data_description": {
-          "confirm": "Stellt Parent-Konfiguration und Raum-Subentries aus dem letzten gültigen Stand wieder her, sofern einer vorhanden ist."
+          "confirm": "Stellt die übergeordnete Konfiguration und die Raumeinträge aus dem letzten gültigen Stand wieder her, sofern einer vorhanden ist."
         }
       },
       "positions": {
@@ -981,7 +998,7 @@
             "data": {
               "open_position": "Öffnungsposition",
               "close_position": "Schließposition",
-              "intermediate_close_position": "Zwischenschließposition",
+              "intermediate_close_position": "Zwischenposition",
               "christmas_position": "Weihnachtsposition",
               "summer_skip_close_enabled": "Normales Schließen im Sommer auslassen",
               "christmas_position_enabled": "Weihnachtsposition verwenden",
@@ -994,7 +1011,7 @@
             "data_description": {
               "open_position": "Öffnungsposition dieses Raums festlegen.",
               "close_position": "Schließposition dieses Raums festlegen.",
-              "intermediate_close_position": "Zwischenschließposition dieses Raums festlegen.",
+              "intermediate_close_position": "Zwischenposition dieses Raums festlegen.",
               "christmas_position": "Weihnachts-Schließposition dieses Raums festlegen.",
               "summer_skip_close_enabled": "Normale Schließentscheidungen im konfigurierten Sommerzeitraum unterdrücken.",
               "christmas_position_enabled": "Im konfigurierten Weihnachtszeitraum die raumeigene Weihnachtsposition verwenden.",
@@ -1030,7 +1047,7 @@
           "room": "Bereich"
         },
         "data_description": {
-          "name": "Lesbarer Raumname; er aktualisiert auch den Titel des Room-Entries.",
+          "name": "Lesbarer Raumname; er aktualisiert auch den Titel des Raumeintrags.",
           "room": "Home-Assistant-Bereich des physischen Raums."
         }
       },
@@ -1044,8 +1061,8 @@
         "title": "Raum – Bedienelemente",
         "description": "Lege fest, welche optionalen Bedienelemente und Raumfunktionen Cover Control für diesen Raum bereitstellt.",
         "data": {
-          "enable_recalibrate_button": "Rekalibrierungs-Schaltfläche aktivieren",
-          "enable_clear_manual_override_button": "Schaltfläche zum Löschen des manuellen Overrides aktivieren",
+          "enable_recalibrate_button": "Schaltfläche zur Neukalibrierung aktivieren",
+          "enable_clear_manual_override_button": "Schaltfläche zum Löschen der manuellen Übersteuerung aktivieren",
           "enable_logbook_cover": "Cover-Aktionen im Logbuch protokollieren"
         }
       },
@@ -1065,15 +1082,15 @@
         "description": "Wähle hier nur eine andere Datenquelle, wenn dieser Raum bewusst von der globalen Quelle abweichen soll.",
         "data": {
           "brightness_sensor": "Helligkeitsquelle",
-          "cold_protection_forecast_sensor": "Prognose-Quelle für Kälteschutz",
-          "shading_brightness_sensor": "Beschattungshelligkeit",
+          "cold_protection_forecast_sensor": "Prognosequelle für Kälteschutz",
+          "shading_brightness_sensor": "Sonnenschutzhelligkeit",
           "temperature_sensor_outdoor": "Außentemperaturquelle"
         },
         "data_description": {
-          "brightness_sensor": "Raumlokale Quelle, die die globale Quelle für helligkeitsquelle nur in diesem Raum überschreibt.",
-          "cold_protection_forecast_sensor": "Raumlokale Quelle, die die globale Quelle für forecast-quelle für kälteschutz nur in diesem Raum überschreibt.",
-          "shading_brightness_sensor": "Raumlokale Quelle, die die globale Quelle für beschattungshelligkeit nur in diesem Raum überschreibt.",
-          "temperature_sensor_outdoor": "Raumlokale Quelle, die die globale Quelle für außentemperaturquelle nur in diesem Raum überschreibt."
+          "brightness_sensor": "Raumlokale Helligkeitsquelle, die nur in diesem Raum die globale Quelle ersetzt.",
+          "cold_protection_forecast_sensor": "Raumlokale Prognosequelle für den Kälteschutz, die nur in diesem Raum die globale Quelle ersetzt.",
+          "shading_brightness_sensor": "Raumlokale Helligkeitsquelle für den Sonnenschutz, die nur in diesem Raum die globale Quelle ersetzt.",
+          "temperature_sensor_outdoor": "Raumlokale Außentemperaturquelle, die nur in diesem Raum die globale Quelle ersetzt."
         }
       },
       "room_diagnostics": {
@@ -1256,13 +1273,13 @@
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
               "use_brightness_sensor": "Helligkeitsquelle verwenden",
-              "use_workday_sensor": "Werktagsquelle verwenden",
+              "use_workday_sensor": "Arbeitstagsquelle verwenden",
               "open_mode": "Steuerungsart Öffnen",
               "close_mode": "Steuerungsart Schließen"
             },
             "data_description": {
-              "auto_brightness_enabled": "Konfiguriert „Helligkeitsautomatik“ für diese Gruppe.",
-              "auto_down_enabled": "Konfiguriert „Automatisches Schließen“ für diese Gruppe.",
+              "auto_brightness_enabled": "Aktiviert die helligkeitsabhängige Steuerung für diese Gruppe.",
+              "auto_down_enabled": "Aktiviert das automatische Schließen für diese Gruppe.",
               "intermediate_close_enabled": "Beim normalen Schließereignis die raumeigene Zwischenposition anfahren.",
               "final_close_time": "Uhrzeit, zu der das Cover vollständig geschlossen wird.",
               "final_close_time_enabled": "Die konfigurierte Uhrzeit zum vollständigen Schließen verwenden. Sind Uhrzeit und Sonnenhöhe aktiviert, wird bei der zuerst erfüllten Bedingung geschlossen.",
@@ -1272,9 +1289,9 @@
               "summer_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
               "christmas_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
               "christmas_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
-              "auto_sun_enabled": "Konfiguriert „Sonnenautomatik“ für diese Gruppe.",
-              "auto_time_enabled": "Konfiguriert „Zeitautomatik“ für diese Gruppe.",
-              "auto_up_enabled": "Konfiguriert „Automatisches Öffnen“ für diese Gruppe.",
+              "auto_sun_enabled": "Aktiviert die sonnenstandsabhängige Steuerung für diese Gruppe.",
+              "auto_time_enabled": "Aktiviert die zeitabhängige Steuerung für diese Gruppe.",
+              "auto_up_enabled": "Aktiviert das automatische Öffnen für diese Gruppe.",
               "use_brightness_sensor": "Legt fest, ob diese Gruppe die Helligkeitsquelle verwendet.",
               "use_workday_sensor": "Legt fest, ob diese Gruppe die Arbeitstagsquelle verwendet.",
               "open_mode": "Steuerungsart Öffnen",
@@ -1282,33 +1299,33 @@
             }
           },
           "workday_times": {
-            "name": "Werktagszeiten",
+            "name": "Zeiten an Arbeitstagen",
             "data": {
-              "time_down_early_workday": "Früheste Schließung an Werktagen",
-              "time_down_late_workday": "Späteste Schließung an Werktagen",
-              "time_up_early_workday": "Früheste Öffnung an Werktagen",
-              "time_up_late_workday": "Späteste Öffnung an Werktagen"
+              "time_down_early_workday": "Früheste Schließung an Arbeitstagen",
+              "time_down_late_workday": "Späteste Schließung an Arbeitstagen",
+              "time_up_early_workday": "Früheste Öffnung an Arbeitstagen",
+              "time_up_late_workday": "Späteste Öffnung an Arbeitstagen"
             },
             "data_description": {
-              "time_down_early_workday": "Konfiguriert „Früheste Schließung an Werktagen“ für diese Gruppe.",
-              "time_down_late_workday": "Konfiguriert „Späteste Schließung an Werktagen“ für diese Gruppe.",
-              "time_up_early_workday": "Konfiguriert „Früheste Öffnung an Werktagen“ für diese Gruppe.",
-              "time_up_late_workday": "Konfiguriert „Späteste Öffnung an Werktagen“ für diese Gruppe."
+              "time_down_early_workday": "Früheste Uhrzeit für das Schließen an Arbeitstagen.",
+              "time_down_late_workday": "Späteste Uhrzeit für das Schließen an Arbeitstagen.",
+              "time_up_early_workday": "Früheste Uhrzeit für das Öffnen an Arbeitstagen.",
+              "time_up_late_workday": "Späteste Uhrzeit für das Öffnen an Arbeitstagen."
             }
           },
           "non_workday_times": {
-            "name": "Nicht-Werktagszeiten",
+            "name": "Zeiten an Nichtarbeitstagen",
             "data": {
-              "time_down_early_non_workday": "Früheste Schließung an freien Tagen",
-              "time_down_late_non_workday": "Späteste Schließung an freien Tagen",
-              "time_up_early_non_workday": "Früheste Öffnung an freien Tagen",
-              "time_up_late_non_workday": "Späteste Öffnung an freien Tagen"
+              "time_down_early_non_workday": "Früheste Schließung an Nichtarbeitstagen",
+              "time_down_late_non_workday": "Späteste Schließung an Nichtarbeitstagen",
+              "time_up_early_non_workday": "Früheste Öffnung an Nichtarbeitstagen",
+              "time_up_late_non_workday": "Späteste Öffnung an Nichtarbeitstagen"
             },
             "data_description": {
-              "time_down_early_non_workday": "Konfiguriert „Früheste Schließung an freien Tagen“ für diese Gruppe.",
-              "time_down_late_non_workday": "Konfiguriert „Späteste Schließung an freien Tagen“ für diese Gruppe.",
-              "time_up_early_non_workday": "Konfiguriert „Früheste Öffnung an freien Tagen“ für diese Gruppe.",
-              "time_up_late_non_workday": "Konfiguriert „Späteste Öffnung an freien Tagen“ für diese Gruppe."
+              "time_down_early_non_workday": "Früheste Uhrzeit für das Schließen an Nichtarbeitstagen.",
+              "time_down_late_non_workday": "Späteste Uhrzeit für das Schließen an Nichtarbeitstagen.",
+              "time_up_early_non_workday": "Früheste Uhrzeit für das Öffnen an Nichtarbeitstagen.",
+              "time_up_late_non_workday": "Späteste Uhrzeit für das Öffnen an Nichtarbeitstagen."
             }
           },
           "calendar_behavior": {
@@ -1318,8 +1335,25 @@
               "calendar_open_title": "Kalendertitel zum Öffnen"
             },
             "data_description": {
-              "calendar_close_title": "Konfiguriert „Kalendertitel zum Schließen“ für diese Gruppe.",
-              "calendar_open_title": "Konfiguriert „Kalendertitel zum Öffnen“ für diese Gruppe."
+              "calendar_close_title": "Kalendertitel, der das Schließen auslöst.",
+              "calendar_open_title": "Kalendertitel, der das Öffnen auslöst."
+            }
+          }
+        }
+      },
+      "group_final_close": {
+        "title": "Gruppe – Vollständiges Schließen",
+        "description": "Vollständiges Schließen für {group_name} konfigurieren. Sind beide Auslöser aktiviert, wird bei der zuerst erfüllten Bedingung geschlossen.",
+        "sections": {
+          "non_workday_times": {
+            "name": "Vollständiges Schließen",
+            "data": {
+              "final_close_time": "Uhrzeit für vollständiges Schließen",
+              "final_close_elevation": "Sonnenhöhe für vollständiges Schließen"
+            },
+            "data_description": {
+              "final_close_time": "Uhrzeit, zu der das Cover vollständig geschlossen wird.",
+              "final_close_elevation": "Sonnenhöhe, bei der das Cover vollständig geschlossen wird. Der Grenzwert wird nur während der fallenden Sonnenphase ausgewertet."
             }
           }
         }
@@ -1333,8 +1367,8 @@
             "data": {
               "auto_brightness_enabled": "Helligkeitsautomatik",
               "auto_down_enabled": "Automatisches Schließen",
-              "intermediate_close_enabled": "Zwischenschließposition verwenden",
-              "final_close_time": "Zeit der vollständigen Schließung",
+              "intermediate_close_enabled": "Zwischenposition verwenden",
+              "final_close_time": "Uhrzeit für vollständiges Schließen",
               "summer_start": "Beginn Sommerzeitraum (TT.MM.)",
               "summer_end": "Ende Sommerzeitraum (TT.MM.)",
               "christmas_start": "Beginn Weihnachtszeitraum (TT.MM.)",
@@ -1343,22 +1377,22 @@
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
               "use_brightness_sensor": "Helligkeitsquelle verwenden",
-              "use_workday_sensor": "Werktagsquelle verwenden",
+              "use_workday_sensor": "Arbeitstagsquelle verwenden",
               "open_mode": "Steuerungsart Öffnen",
               "close_mode": "Steuerungsart Schließen"
             },
             "data_description": {
-              "auto_brightness_enabled": "Konfiguriert „Helligkeitsautomatik“ für diese Gruppe.",
-              "auto_down_enabled": "Konfiguriert „Automatisches Schließen“ für diese Gruppe.",
+              "auto_brightness_enabled": "Aktiviert die helligkeitsabhängige Steuerung für diese Gruppe.",
+              "auto_down_enabled": "Aktiviert das automatische Schließen für diese Gruppe.",
               "intermediate_close_enabled": "Vor der vollständigen Schließung die raumeigene Zwischenposition verwenden.",
-              "final_close_time": "Zeitpunkt der abschließenden vollständigen Schließfahrt.",
+              "final_close_time": "Uhrzeit, zu der vollständig geschlossen wird.",
               "summer_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
               "summer_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
               "christmas_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
               "christmas_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
-              "auto_sun_enabled": "Konfiguriert „Sonnenautomatik“ für diese Gruppe.",
-              "auto_time_enabled": "Konfiguriert „Zeitautomatik“ für diese Gruppe.",
-              "auto_up_enabled": "Konfiguriert „Automatisches Öffnen“ für diese Gruppe.",
+              "auto_sun_enabled": "Aktiviert die sonnenstandsabhängige Steuerung für diese Gruppe.",
+              "auto_time_enabled": "Aktiviert die zeitabhängige Steuerung für diese Gruppe.",
+              "auto_up_enabled": "Aktiviert das automatische Öffnen für diese Gruppe.",
               "use_brightness_sensor": "Legt fest, ob diese Gruppe die Helligkeitsquelle verwendet.",
               "use_workday_sensor": "Legt fest, ob diese Gruppe die Arbeitstagsquelle verwendet.",
               "open_mode": "Steuerungsart Öffnen",
@@ -1374,10 +1408,10 @@
               "brightness_time_duration": "Helligkeitsdauer"
             },
             "data_description": {
-              "brightness_close_below": "Konfiguriert „Helligkeitsschwelle zum Schließen“ für diese Gruppe.",
-              "brightness_hysteresis": "Konfiguriert „Helligkeitshysterese“ für diese Gruppe.",
-              "brightness_open_above": "Konfiguriert „Helligkeitsschwelle zum Öffnen“ für diese Gruppe.",
-              "brightness_time_duration": "Konfiguriert „Helligkeitsdauer“ für diese Gruppe."
+              "brightness_close_below": "Helligkeitswert, unterhalb dessen geschlossen werden darf.",
+              "brightness_hysteresis": "Abstand zur Helligkeitsschwelle, bevor die Bedingung wieder aufgehoben wird.",
+              "brightness_open_above": "Helligkeitswert, oberhalb dessen geöffnet werden darf.",
+              "brightness_time_duration": "Dauer, für die eine Helligkeitsbedingung erfüllt sein muss."
             }
           }
         }
@@ -1391,8 +1425,8 @@
             "data": {
               "auto_brightness_enabled": "Helligkeitsautomatik",
               "auto_down_enabled": "Automatisches Schließen",
-              "intermediate_close_enabled": "Zwischenschließposition verwenden",
-              "final_close_time": "Zeit der vollständigen Schließung",
+              "intermediate_close_enabled": "Zwischenposition verwenden",
+              "final_close_time": "Uhrzeit für vollständiges Schließen",
               "summer_start": "Beginn Sommerzeitraum (TT.MM.)",
               "summer_end": "Ende Sommerzeitraum (TT.MM.)",
               "christmas_start": "Beginn Weihnachtszeitraum (TT.MM.)",
@@ -1401,22 +1435,22 @@
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
               "use_brightness_sensor": "Helligkeitsquelle verwenden",
-              "use_workday_sensor": "Werktagsquelle verwenden",
+              "use_workday_sensor": "Arbeitstagsquelle verwenden",
               "open_mode": "Steuerungsart Öffnen",
               "close_mode": "Steuerungsart Schließen"
             },
             "data_description": {
-              "auto_brightness_enabled": "Konfiguriert „Helligkeitsautomatik“ für diese Gruppe.",
-              "auto_down_enabled": "Konfiguriert „Automatisches Schließen“ für diese Gruppe.",
+              "auto_brightness_enabled": "Aktiviert die helligkeitsabhängige Steuerung für diese Gruppe.",
+              "auto_down_enabled": "Aktiviert das automatische Schließen für diese Gruppe.",
               "intermediate_close_enabled": "Vor der vollständigen Schließung die raumeigene Zwischenposition verwenden.",
-              "final_close_time": "Zeitpunkt der abschließenden vollständigen Schließfahrt.",
+              "final_close_time": "Uhrzeit, zu der vollständig geschlossen wird.",
               "summer_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
               "summer_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
               "christmas_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
               "christmas_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
-              "auto_sun_enabled": "Konfiguriert „Sonnenautomatik“ für diese Gruppe.",
-              "auto_time_enabled": "Konfiguriert „Zeitautomatik“ für diese Gruppe.",
-              "auto_up_enabled": "Konfiguriert „Automatisches Öffnen“ für diese Gruppe.",
+              "auto_sun_enabled": "Aktiviert die sonnenstandsabhängige Steuerung für diese Gruppe.",
+              "auto_time_enabled": "Aktiviert die zeitabhängige Steuerung für diese Gruppe.",
+              "auto_up_enabled": "Aktiviert das automatische Öffnen für diese Gruppe.",
               "use_brightness_sensor": "Legt fest, ob diese Gruppe die Helligkeitsquelle verwendet.",
               "use_workday_sensor": "Legt fest, ob diese Gruppe die Arbeitstagsquelle verwendet.",
               "open_mode": "Steuerungsart Öffnen",
@@ -1428,14 +1462,14 @@
             "data": {
               "sun_elevation_close": "Sonnenhöhe zum Schließen",
               "sun_elevation_open": "Sonnenhöhe zum Öffnen",
-              "astro_open_offset_minutes": "Astro-Offset Öffnen (Minuten)",
-              "astro_close_offset_minutes": "Astro-Offset Schließen (Minuten)"
+              "astro_open_offset_minutes": "Zeitversatz zum Öffnen (Minuten)",
+              "astro_close_offset_minutes": "Zeitversatz zum Schließen (Minuten)"
             },
             "data_description": {
-              "sun_elevation_close": "Konfiguriert „Sonnenhöhe zum Schließen“ für diese Gruppe.",
-              "sun_elevation_open": "Konfiguriert „Sonnenhöhe zum Öffnen“ für diese Gruppe.",
-              "astro_open_offset_minutes": "Astro-Offset Öffnen (Minuten)",
-              "astro_close_offset_minutes": "Astro-Offset Schließen (Minuten)"
+              "sun_elevation_close": "Sonnenhöhe, bei der geschlossen werden darf.",
+              "sun_elevation_open": "Sonnenhöhe, bei der geöffnet werden darf.",
+              "astro_open_offset_minutes": "Zeitversatz zum Öffnen (Minuten)",
+              "astro_close_offset_minutes": "Zeitversatz zum Schließen (Minuten)"
             }
           }
         }
@@ -1450,7 +1484,7 @@
               "shading_mode": "Art des Sonnenschutzes"
             },
             "data_description": {
-              "shading_mode": "Feste Shuttercontrol-Sonnenschutzart."
+              "shading_mode": "Wählt eine feste Sonnenschutzart für diese Gruppe."
             }
           }
         }
@@ -1462,16 +1496,16 @@
           "ventilation": {
             "name": "Lüftung",
             "data": {
-              "auto_ventilate_enabled": "Lüftung aktiv",
-              "contact_status_delay": "Kontakt-Statusverzögerung",
-              "contact_trigger_delay": "Kontakt-Triggerverzögerung",
+              "auto_ventilate_enabled": "Lüftungssteuerung aktivieren",
+              "contact_status_delay": "Kontaktstatusverzögerung",
+              "contact_trigger_delay": "Kontaktauslöseverzögerung",
               "ventilation_delay_after_close": "Lüftungsverzögerung nach Schließen"
             },
             "data_description": {
-              "auto_ventilate_enabled": "Konfiguriert „Lüftung aktiv“ für diese Gruppe.",
-              "contact_status_delay": "Konfiguriert „Kontakt-Statusverzögerung“ für diese Gruppe.",
-              "contact_trigger_delay": "Konfiguriert „Kontakt-Triggerverzögerung“ für diese Gruppe.",
-              "ventilation_delay_after_close": "Konfiguriert „Lüftungsverzögerung nach Schließen“ für diese Gruppe."
+              "auto_ventilate_enabled": "Aktiviert die kontaktabhängige Lüftungssteuerung für diese Gruppe.",
+              "contact_status_delay": "Dauer, für die ein Kontaktzustand stabil sein muss.",
+              "contact_trigger_delay": "Verzögerung, bevor eine Kontaktänderung eine Aktion auslöst.",
+              "ventilation_delay_after_close": "Wartezeit vor der Lüftungsfahrt nach dem Schließen eines Fensters."
             }
           }
         }
@@ -1483,20 +1517,20 @@
           "resident_behavior": {
             "name": "Bewohnerverhalten",
             "data": {
-              "resident_allow_open": "Bewohnerstatus erlaubt Öffnen",
-              "resident_allow_shading": "Bewohnerstatus erlaubt Beschattung",
-              "resident_allow_ventilation": "Bewohnerstatus erlaubt Lüftung",
-              "resident_close_enabled": "Bei Bewohnerstatus schließen",
-              "resident_open_enabled": "Nach Bewohnerstatus öffnen",
-              "resident_status_enabled": "Bewohnerverhalten aktiv"
+              "resident_allow_open": "Öffnen bei aktivem Bewohnerstatus erlauben",
+              "resident_allow_shading": "Sonnenschutz bei aktivem Bewohnerstatus erlauben",
+              "resident_allow_ventilation": "Lüftung bei aktivem Bewohnerstatus erlauben",
+              "resident_close_enabled": "Bei aktivem Bewohnerstatus schließen",
+              "resident_open_enabled": "Öffnen nach Ende des Bewohnerstatus prüfen",
+              "resident_status_enabled": "Bewohnerverhalten aktivieren"
             },
             "data_description": {
-              "resident_allow_open": "Konfiguriert „Bewohnerstatus erlaubt Öffnen“ für diese Gruppe.",
-              "resident_allow_shading": "Konfiguriert „Bewohnerstatus erlaubt Beschattung“ für diese Gruppe.",
-              "resident_allow_ventilation": "Konfiguriert „Bewohnerstatus erlaubt Lüftung“ für diese Gruppe.",
-              "resident_close_enabled": "Konfiguriert „Bei Bewohnerstatus schließen“ für diese Gruppe.",
-              "resident_open_enabled": "Konfiguriert „Nach Bewohnerstatus öffnen“ für diese Gruppe.",
-              "resident_status_enabled": "Konfiguriert „Bewohnerverhalten aktiv“ für diese Gruppe."
+              "resident_allow_open": "Erlaubt automatisches Öffnen, während der Bewohnerstatus aktiv ist.",
+              "resident_allow_shading": "Erlaubt Sonnenschutz, während der Bewohnerstatus aktiv ist.",
+              "resident_allow_ventilation": "Erlaubt Lüftung, während der Bewohnerstatus aktiv ist.",
+              "resident_close_enabled": "Schließt, sobald der Bewohnerstatus aktiv wird.",
+              "resident_open_enabled": "Prüft erneut, ob geöffnet werden darf, sobald der Bewohnerstatus endet.",
+              "resident_status_enabled": "Berücksichtigt den Bewohnerstatus bei automatischen Entscheidungen."
             }
           }
         }
@@ -1508,9 +1542,9 @@
           "manual_override": {
             "name": "Manuelles Verhalten",
             "data": {
-              "manual_override_minutes": "Dauer des Manual Override",
-              "no_go_time_minutes": "Öffnungs-Sperrzeit",
-              "manual_control_enabled": "Manual Override aktiviert"
+              "manual_override_minutes": "Dauer der manuellen Übersteuerung",
+              "no_go_time_minutes": "Öffnungssperrzeit",
+              "manual_control_enabled": "Manuelle Übersteuerung aktivieren"
             },
             "data_description": {
               "manual_override_minutes": "Dauer der Automatikpause in Minuten. Bei 0 bleibt sie bis zum manuellen Zurücksetzen aktiv.",
@@ -1539,15 +1573,15 @@
               "frost_alarm_target": "Frostschutzposition"
             },
             "data_description": {
-              "fire_alarm_enabled": "Diesen Alarm im Gruppe aktivieren oder deaktivieren.",
+              "fire_alarm_enabled": "Diesen Alarm für die Gruppe aktivieren oder deaktivieren.",
               "fire_alarm_target": "Zielposition von 0 bis 100.",
-              "rain_alarm_enabled": "Diesen Alarm im Gruppe aktivieren oder deaktivieren.",
+              "rain_alarm_enabled": "Diesen Alarm für die Gruppe aktivieren oder deaktivieren.",
               "rain_alarm_target": "Zielposition von 0 bis 100.",
-              "wind_alarm_2_enabled": "Diesen Alarm im Gruppe aktivieren oder deaktivieren.",
+              "wind_alarm_2_enabled": "Diesen Alarm für die Gruppe aktivieren oder deaktivieren.",
               "wind_alarm_2_target": "Zielposition von 0 bis 100.",
-              "wind_alarm_1_enabled": "Diesen Alarm im Gruppe aktivieren oder deaktivieren.",
+              "wind_alarm_1_enabled": "Diesen Alarm für die Gruppe aktivieren oder deaktivieren.",
               "wind_alarm_1_target": "Zielposition von 0 bis 100.",
-              "frost_alarm_enabled": "Diesen Alarm im Gruppe aktivieren oder deaktivieren.",
+              "frost_alarm_enabled": "Diesen Alarm für die Gruppe aktivieren oder deaktivieren.",
               "frost_alarm_target": "Mindestposition bei aktivem Frostschutz."
             }
           }
@@ -1557,7 +1591,18 @@
         "title": "Gruppeneinstellungen",
         "description": "Einstellungen für {group_name}. Verwendet von: {group_usage}",
         "menu_options": {
-          "group_time": "Zeitpläne sowie Zwischenposition und vollständiges Schließen konfigurieren.",
+          "group_time": "Zeitsteuerung",
+          "group_brightness": "Helligkeit",
+          "group_sun": "Sonnenstand",
+          "group_shading": "Sonnenschutz",
+          "group_ventilation": "Lüftung",
+          "group_resident": "Bewohnerstatus",
+          "group_behavior": "Manuelles Verhalten",
+          "group_safety": "Sicherheit",
+          "group_back": "Zurück"
+        },
+        "menu_option_descriptions": {
+          "group_time": "Zeitpläne, Zwischenposition und vollständiges Schließen konfigurieren.",
           "group_brightness": "Helligkeitsschwellen und Verzögerungen konfigurieren.",
           "group_sun": "Steuerung nach Sonnenaufgang, Sonnenuntergang und Sonnenhöhe konfigurieren.",
           "group_shading": "Sonnenschutz und Hitzeschutz konfigurieren.",
@@ -1565,17 +1610,6 @@
           "group_resident": "Verhalten bei aktivem Bewohnerstatus konfigurieren.",
           "group_behavior": "Manuelle Übersteuerung und Fahrverhalten konfigurieren.",
           "group_safety": "Alarmabhängige Sicherheitsaktionen konfigurieren.",
-          "group_back": "Zurück"
-        },
-        "menu_option_descriptions": {
-          "group_time": "Zeit",
-          "group_brightness": "Helligkeit",
-          "group_sun": "Sonnenstand",
-          "group_shading": "Beschattung",
-          "group_ventilation": "Lüftung",
-          "group_resident": "Bewohner",
-          "group_behavior": "Manuelles Verhalten",
-          "group_safety": "Sicherheit",
           "group_back": "Zurück zum Hauptmenü"
         }
       },
@@ -1598,8 +1632,8 @@
             "data": {
               "auto_brightness_enabled": "Helligkeitsautomatik",
               "auto_down_enabled": "Automatisches Schließen",
-              "intermediate_close_enabled": "Zwischenschließposition verwenden",
-              "final_close_time": "Zeit der vollständigen Schließung",
+              "intermediate_close_enabled": "Zwischenposition verwenden",
+              "final_close_time": "Uhrzeit für vollständiges Schließen",
               "summer_start": "Beginn Sommerzeitraum (TT.MM.)",
               "summer_end": "Ende Sommerzeitraum (TT.MM.)",
               "christmas_start": "Beginn Weihnachtszeitraum (TT.MM.)",
@@ -1608,22 +1642,22 @@
               "auto_time_enabled": "Zeitautomatik",
               "auto_up_enabled": "Automatisches Öffnen",
               "use_brightness_sensor": "Helligkeitsquelle verwenden",
-              "use_workday_sensor": "Werktagsquelle verwenden",
+              "use_workday_sensor": "Arbeitstagsquelle verwenden",
               "open_mode": "Steuerungsart Öffnen",
               "close_mode": "Steuerungsart Schließen"
             },
             "data_description": {
-              "auto_brightness_enabled": "Konfiguriert „Helligkeitsautomatik“ für diese Gruppe.",
-              "auto_down_enabled": "Konfiguriert „Automatisches Schließen“ für diese Gruppe.",
+              "auto_brightness_enabled": "Aktiviert die helligkeitsabhängige Steuerung für diese Gruppe.",
+              "auto_down_enabled": "Aktiviert das automatische Schließen für diese Gruppe.",
               "intermediate_close_enabled": "Vor der vollständigen Schließung die raumeigene Zwischenposition verwenden.",
-              "final_close_time": "Zeitpunkt der abschließenden vollständigen Schließfahrt.",
+              "final_close_time": "Uhrzeit, zu der vollständig geschlossen wird.",
               "summer_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
               "summer_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
               "christmas_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
               "christmas_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
-              "auto_sun_enabled": "Konfiguriert „Sonnenautomatik“ für diese Gruppe.",
-              "auto_time_enabled": "Konfiguriert „Zeitautomatik“ für diese Gruppe.",
-              "auto_up_enabled": "Konfiguriert „Automatisches Öffnen“ für diese Gruppe.",
+              "auto_sun_enabled": "Aktiviert die sonnenstandsabhängige Steuerung für diese Gruppe.",
+              "auto_time_enabled": "Aktiviert die zeitabhängige Steuerung für diese Gruppe.",
+              "auto_up_enabled": "Aktiviert das automatische Öffnen für diese Gruppe.",
               "use_brightness_sensor": "Legt fest, ob diese Gruppe die Helligkeitsquelle verwendet.",
               "use_workday_sensor": "Legt fest, ob diese Gruppe die Arbeitstagsquelle verwendet.",
               "open_mode": "Steuerungsart Öffnen",
@@ -1635,14 +1669,14 @@
             "data": {
               "sun_elevation_close": "Sonnenhöhe zum Schließen",
               "sun_elevation_open": "Sonnenhöhe zum Öffnen",
-              "astro_open_offset_minutes": "Astro-Offset Öffnen (Minuten)",
-              "astro_close_offset_minutes": "Astro-Offset Schließen (Minuten)"
+              "astro_open_offset_minutes": "Zeitversatz zum Öffnen (Minuten)",
+              "astro_close_offset_minutes": "Zeitversatz zum Schließen (Minuten)"
             },
             "data_description": {
-              "sun_elevation_close": "Konfiguriert „Sonnenhöhe zum Schließen“ für diese Gruppe.",
-              "sun_elevation_open": "Konfiguriert „Sonnenhöhe zum Öffnen“ für diese Gruppe.",
-              "astro_open_offset_minutes": "Astro-Offset Öffnen (Minuten)",
-              "astro_close_offset_minutes": "Astro-Offset Schließen (Minuten)"
+              "sun_elevation_close": "Sonnenhöhe, bei der geschlossen werden darf.",
+              "sun_elevation_open": "Sonnenhöhe, bei der geöffnet werden darf.",
+              "astro_open_offset_minutes": "Zeitversatz zum Öffnen (Minuten)",
+              "astro_close_offset_minutes": "Zeitversatz zum Schließen (Minuten)"
             }
           }
         }
@@ -1654,7 +1688,7 @@
           "shading_direction": {
             "name": "Himmelsrichtung",
             "data": {
-              "shading_direction": "Ausrichtung Fenster",
+              "shading_direction": "Fensterausrichtung",
               "shading_direction_range": "Bereich (+/−)",
               "shading_elevation_min": "Minimale Sonnenhöhe",
               "shading_elevation_max": "Sonnenhöhe zum Beenden"
@@ -1670,29 +1704,29 @@
             "name": "Temperaturen",
             "data": {
               "shading_inside_temperature_threshold": "Innentemperaturgrenze",
-              "shading_inside_temperature_hysteresis": "Innentemperatur-Hysterese",
+              "shading_inside_temperature_hysteresis": "Innentemperaturhysterese",
               "shading_outside_temperature_threshold": "Außentemperaturgrenze",
-              "shading_outside_temperature_hysteresis": "Außentemperatur-Hysterese",
+              "shading_outside_temperature_hysteresis": "Außentemperaturhysterese",
               "heat_protection_enabled": "Hitzeschutz aktiviert",
               "heat_protection_threshold": "Hitzeschutzschwelle"
             },
             "data_description": {
-              "shading_inside_temperature_threshold": "Strikte Startgrenze der vorhandenen Innenquelle.",
+              "shading_inside_temperature_threshold": "Innentemperatur, ab der der Sonnenschutz aktiv werden kann.",
               "shading_inside_temperature_hysteresis": "Prozentuale Endhysterese.",
-              "shading_outside_temperature_threshold": "Strikte Startgrenze der vorhandenen Außenquelle.",
+              "shading_outside_temperature_threshold": "Außentemperatur, ab der der Sonnenschutz aktiv werden kann.",
               "shading_outside_temperature_hysteresis": "Prozentuale Endhysterese.",
-              "heat_protection_enabled": "Bei gültigem Sonnenschutz oberhalb der Schwelle vollständig schließen.",
-              "heat_protection_threshold": "Außentemperaturgrenze für vollständiges Schließen."
+              "heat_protection_enabled": "Schließt bei aktivem Sonnenschutz vollständig, sobald die Hitzeschutzschwelle überschritten wird.",
+              "heat_protection_threshold": "Außentemperaturgrenze für den Hitzeschutz."
             }
           },
           "shading_brightness": {
-            "name": "Optionale Helligkeit",
+            "name": "Optionale Helligkeitsbedingung",
             "data": {
               "shading_brightness_threshold": "Helligkeitsgrenze",
-              "shading_sun_brightness_hysteresis": "Helligkeits-Hysterese"
+              "shading_sun_brightness_hysteresis": "Helligkeitshysterese"
             },
             "data_description": {
-              "shading_brightness_threshold": "Nur mit konfigurierter Sonnenschutz-Helligkeitsquelle.",
+              "shading_brightness_threshold": "Helligkeitsgrenze für den Sonnenschutz; benötigt eine konfigurierte Helligkeitsquelle.",
               "shading_sun_brightness_hysteresis": "Prozentuale Endhysterese."
             }
           },
@@ -1703,7 +1737,7 @@
               "keep_sun_protection": "Sonnenschutzposition beibehalten"
             },
             "data_description": {
-              "shading_waitingtime_end": "Endbedingung muss so lange bestehen bleiben.",
+              "shading_waitingtime_end": "Dauer, für die die Endbedingung bestehen muss.",
               "keep_sun_protection": "Nach Ende des Sonnenschutzes nicht automatisch öffnen."
             }
           },
@@ -1716,10 +1750,10 @@
               "use_cold_protection_forecast_sensor": "Kälteschutzvorhersage verwenden"
             },
             "data_description": {
-              "cold_protection_temperature": "Bestehende Kälteschutzoption.",
-              "temperature_threshold": "Bestehende Temperaturoption.",
-              "temperature_forecast_threshold": "Bestehende Kälteschutzvorhersage.",
-              "use_cold_protection_forecast_sensor": "Bestehende Kälteschutzvorhersage verwenden."
+              "cold_protection_temperature": "Temperaturgrenze für den Kälteschutz.",
+              "temperature_threshold": "Temperaturgrenze für die zugehörige Schutzbedingung.",
+              "temperature_forecast_threshold": "Temperaturgrenze für prognosebasierte Kälteschutzentscheidungen.",
+              "use_cold_protection_forecast_sensor": "Bezieht die konfigurierte Prognosequelle in Kälteschutzentscheidungen ein."
             }
           }
         }
@@ -1766,7 +1800,7 @@
     "shading_mode": {
       "options": {
         "off": "Aus",
-        "inside_outside": "Innen- & Außentemperatur / Helligkeit",
+        "inside_outside": "Innen- und Außentemperatur/Helligkeit",
         "direction": "Himmelsrichtung",
         "inside_outside_direction": "Innen-/Außentemperatur/Helligkeit + Himmelsrichtung",
         "outside_direction": "Außentemperatur/Helligkeit + Himmelsrichtung",
@@ -1783,7 +1817,7 @@
     },
     "automatic_recovery": {
       "title": "Cover Control hat die Konfiguration wiederhergestellt",
-      "description": "Die Laufzeit verwendet die letzte gültige Konfiguration. Recovery-Einstellungen prüfen."
+      "description": "Die Laufzeit verwendet die letzte gültige Konfiguration. Einstellungen zur Wiederherstellung prüfen."
     },
     "fixed_group_migration_conflict": {
       "title": "Mehrdeutige Gruppenmigration",
@@ -1795,7 +1829,7 @@
     },
     "shading_mode_migration": {
       "title": "Sonnenschutzkonfiguration vereinfacht",
-      "description": "Die frei kombinierte Sonnenschutzlogik wurde auf eine feste Sonnenschutzart reduziert. Prognose- und OR-Bedingungen werden nicht mehr unterstützt. Bitte Sonnenschutz prüfen: {details}"
+      "description": "Die frei kombinierte Sonnenschutzlogik wurde auf eine feste Sonnenschutzart reduziert. Prognose- und ODER-Bedingungen werden nicht mehr unterstützt. Bitte Sonnenschutz prüfen: {details}"
     },
     "cca_cleanup_migration": {
       "title": "Erweiterte Verhaltenseinstellungen entfernt",
@@ -1810,8 +1844,8 @@
       "description": "Die konfigurierbare Wiederherstellungsstrategie wurde entfernt. Cover Control verwendet jetzt eine feste Wiederherstellung nach echten Ausfällen."
     },
     "manual_override_reset_time_migration": {
-      "title": "Tägliche Manual-Override-Rücksetzzeit entfernt",
-      "description": "Die feste tägliche Reset-Uhrzeit für Manual Override wurde entfernt. Der Override bleibt jetzt bis zum manuellen Reset aktiv."
+      "title": "Tägliche Rücksetzzeit für die manuelle Übersteuerung entfernt",
+      "description": "Die feste tägliche Rücksetzzeit für die manuelle Übersteuerung wurde entfernt. Die Übersteuerung bleibt jetzt bis zum manuellen Zurücksetzen aktiv."
     },
     "tilt_shading_migration": {
       "title": "Lamellenbeschattung vereinfacht",
@@ -1836,7 +1870,7 @@
           "calendar": "Kalendersteuerung",
           "resident": "Bewohnersteuerung",
           "ventilation": "Lüftungssteuerung",
-          "shading": "Beschattungssteuerung",
+          "shading": "Sonnenschutzsteuerung",
           "heat_protection": "Hitzeschutz",
           "safety": "Sicherheitssteuerung",
           "fire_alarm": "Feueralarm",
@@ -1847,7 +1881,7 @@
           "fire_latched": "Feueralarm verriegelt",
           "manual_override": "Manuelle Übersteuerung",
           "window_lockout": "Fenstersperre",
-          "no_go_time": "Öffnungs-Sperrzeit",
+          "no_go_time": "Öffnungssperrzeit",
           "summer_period": "Sommerzeitraum",
           "recovery": "Wiederherstellung",
           "multiple": "Mehrere Steuerungen"
@@ -1865,13 +1899,13 @@
         "name": "Helligkeitsautomatik"
       },
       "auto_sun": {
-        "name": "Sonnenstands-Automatik"
+        "name": "Sonnenstandsautomatik"
       },
       "auto_ventilate": {
-        "name": "Kontaktsensoren"
+        "name": "Lüftungsautomatik"
       },
       "auto_shading": {
-        "name": "Beschattung"
+        "name": "Sonnenschutzautomatik"
       },
       "resident_status": {
         "name": "Bewohnerautomatik"
@@ -1882,7 +1916,7 @@
         "name": "Cover neu kalibrieren"
       },
       "clear_manual_override": {
-        "name": "Manuellen Override löschen"
+        "name": "Manuelle Übersteuerung löschen"
       },
       "reset_fire_latch": {
         "name": "Feueralarm-Verriegelung zurücksetzen"

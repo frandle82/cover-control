@@ -5,12 +5,16 @@ import pytest
 from homeassistant import config_entries
 from homeassistant.components.cover import CoverEntityFeature
 from homeassistant.data_entry_flow import FlowResultType
+from homeassistant.helpers import selector
 from pytest_homeassistant_custom_component.common import MockConfigEntry
 from custom_components.cover_control.config_flow import CoverControlFlow
 from custom_components.cover_control.const import (
     CONF_CONTROLLER_ENTRY_ID, CONF_COVERS, CONF_ENTRY_TYPE, CONF_GLOBAL, CONF_GROUP,
     CONF_GROUPS, CONF_NAME, CONF_ROOM, CONF_ROOM_ID, CONF_ROOM_SETTINGS,
     CONF_CLOSE_MODE, CONF_OPEN_MODE, CONF_SUN_ELEVATION_OPEN,
+    CONF_FINAL_CLOSE_ELEVATION, CONF_FINAL_CLOSE_ELEVATION_ENABLED,
+    CONF_FINAL_CLOSE_TIME, CONF_FINAL_CLOSE_TIME_ENABLED,
+    CONF_INTERMEDIATE_CLOSE_ENABLED,
     CONF_SHADING_DIRECTION, CONF_SHADING_INSIDE_TEMPERATURE_THRESHOLD,
     CONF_KEEP_SUN_PROTECTION,
     CONF_OPEN_TILT_POSITION,
@@ -106,7 +110,7 @@ async def test_room_positions_follow_cover_tilt_capability(hass, supports_tilt) 
 def test_supported_subentry_types_remains_empty() -> None:
     assert CoverControlFlow.async_get_supported_subentry_types(None) == {}
 
-def test_translation_structure_is_synchronized() -> None:
+def test_translation_structures_match() -> None:
     paths = [
         Path("custom_components/cover_control/strings.json"),
         Path("custom_components/cover_control/translations/en.json"),
@@ -126,7 +130,7 @@ def test_translation_structure_is_synchronized() -> None:
     assert "profile_action" not in documents[0]["selector"]
 
 
-def test_menu_descriptions_differ_from_menu_labels() -> None:
+def test_menu_option_descriptions_differ_from_menu_labels() -> None:
     for path in (
         Path("custom_components/cover_control/strings.json"),
         Path("custom_components/cover_control/translations/en.json"),
@@ -141,11 +145,86 @@ def test_menu_descriptions_differ_from_menu_labels() -> None:
             descriptions = value.get("menu_option_descriptions", {})
             for key, label in labels.items():
                 if key in descriptions:
-                    assert descriptions[key] != label, f"{path}: {key}"
+                    description = descriptions[key]
+                    assert description != label, f"{path}: {key}"
+                    assert len(description.split()) > len(label.split()), (
+                        f"{path}: {key} description adds no useful context"
+                    )
             for child in value.values():
                 check(child)
 
         check(document)
+
+
+def test_required_translation_keys_exist() -> None:
+    paths = (
+        Path("custom_components/cover_control/strings.json"),
+        Path("custom_components/cover_control/translations/en.json"),
+        Path("custom_components/cover_control/translations/de.json"),
+    )
+    required_final_close = {
+        "final_close_time",
+        "final_close_elevation",
+    }
+    required_switches = {
+        "auto_time",
+        "auto_brightness",
+        "auto_sun",
+        "auto_ventilate",
+        "auto_shading",
+        "resident_status",
+    }
+    for path in paths:
+        document = json.loads(path.read_text())
+        for namespace in ("config", "options"):
+            section = document[namespace]["step"]["group_final_close"][
+                "sections"
+            ]["non_workday_times"]
+            assert required_final_close <= section["data"].keys()
+            assert required_final_close <= section["data_description"].keys()
+        assert required_switches <= document["entity"]["switch"].keys()
+
+
+def test_no_internal_keys_are_exposed_as_ui_labels() -> None:
+    paths = (
+        Path("custom_components/cover_control/strings.json"),
+        Path("custom_components/cover_control/translations/en.json"),
+        Path("custom_components/cover_control/translations/de.json"),
+    )
+    internal_keys = {
+        "final_close_elevation",
+        "final_close_time_enabled",
+        "auto_sun",
+        "auto_brightness",
+        "resident_status",
+        "intermediate_close_enabled",
+    }
+
+    def visible_texts(value):
+        if isinstance(value, dict):
+            return [
+                text
+                for child in value.values()
+                for text in visible_texts(child)
+            ]
+        return [value] if isinstance(value, str) else []
+
+    for path in paths:
+        document = json.loads(path.read_text())
+        for text in visible_texts(document):
+            assert not any(key in text for key in internal_keys), f"{path}: {text}"
+
+    german = Path(
+        "custom_components/cover_control/translations/de.json"
+    ).read_text()
+    for anglicism in (
+        "Final Close",
+        "Manual Override",
+        "Runtime Toggle",
+        "Room-Entries",
+        "Workday",
+    ):
+        assert anglicism not in german
 
 
 def test_final_close_translations_are_complete_and_user_facing() -> None:
@@ -201,6 +280,71 @@ async def test_group_sun_only_shows_fields_for_selected_modes(hass) -> None:
         for field in schema.schema.schema
     }
     assert fields == {CONF_SUN_ELEVATION_OPEN, CONF_ASTRO_CLOSE_OFFSET}
+
+
+@pytest.mark.parametrize(
+    ("time_enabled", "elevation_enabled", "expected_fields"),
+    [
+        (True, False, {CONF_FINAL_CLOSE_TIME}),
+        (False, True, {CONF_FINAL_CLOSE_ELEVATION}),
+        (
+            True,
+            True,
+            {CONF_FINAL_CLOSE_TIME, CONF_FINAL_CLOSE_ELEVATION},
+        ),
+        (False, False, None),
+    ],
+)
+async def test_final_close_only_shows_values_for_enabled_triggers(
+    hass, time_enabled, elevation_enabled, expected_fields
+) -> None:
+    entry = _controller(hass)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_RECONFIGURE, "entry_id": entry.entry_id},
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "group_living"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "group_time"}
+    )
+    main_fields = {
+        field.schema
+        for section_field, schema in result["data_schema"].schema.items()
+        for field in schema.schema.schema
+    }
+    assert CONF_FINAL_CLOSE_TIME not in main_fields
+    assert CONF_FINAL_CLOSE_ELEVATION not in main_fields
+
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            "time_features": {
+                CONF_INTERMEDIATE_CLOSE_ENABLED: True,
+            },
+            "non_workday_times": {
+                CONF_FINAL_CLOSE_TIME_ENABLED: time_enabled,
+                CONF_FINAL_CLOSE_ELEVATION_ENABLED: elevation_enabled,
+            }
+        },
+    )
+    if expected_fields is None:
+        assert result["step_id"] == "group_sections"
+        return
+    assert result["step_id"] == "group_final_close"
+    detail_fields = {
+        field.schema: validator
+        for section_field, schema in result["data_schema"].schema.items()
+        for field, validator in schema.schema.schema.items()
+    }
+    assert set(detail_fields) == expected_fields
+    if CONF_FINAL_CLOSE_TIME in detail_fields:
+        assert isinstance(detail_fields[CONF_FINAL_CLOSE_TIME], selector.TimeSelector)
+    if CONF_FINAL_CLOSE_ELEVATION in detail_fields:
+        assert isinstance(
+            detail_fields[CONF_FINAL_CLOSE_ELEVATION], selector.NumberSelector
+        )
 
 
 @pytest.mark.parametrize(
