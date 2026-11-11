@@ -18,6 +18,7 @@ tags:
 - Nichtleere Room-owned Contact-Maps konfigurieren die Ventilation-Funktion und damit deren Runtime-Switch. Sie schalten Ventilation nicht automatisch ein; `enabled` bleibt Gruppenwert beziehungsweise Runtime-Toggle.
 - Config-Updates diffen die cover-lokalen Listener: entfernte Sensoren werden abgemeldet, neue Sensoren registriert.
 - Nur der HA-Zustand `on` ist ein aktiver Kontakt. `off`, `unknown` und `unavailable` lösen keine Komfortfahrt aus.
+- Eine Full/Open-Map ohne konfigurierten Tilt-Sensor bedeutet nur „Fenster nicht geschlossen“ und fährt auf die Lüftungsposition. Lockout gilt nur, wenn die getrennte Tilt-Information vorhanden ist und damit ein Full/Open-Sensor semantisch eindeutig ist.
 
 ## Fehlerursache
 
