@@ -22,6 +22,8 @@ tags:
 - Nach einem vollständigen Schließen zeigen Zeitplan und `Next Close` erst wieder einen Kandidaten des Folgetags; ein zweiter Auslöser desselben Tags bleibt unsichtbar und wirkungslos.
 - Die Werte für Uhrzeit und Sonnenhöhe erscheinen im Config Flow nur bei aktiviertem Auslöser. Sonnenhöhe verwendet einen Grad-Zahlen-Selector, keine Zeiteingabe.
 - Menüpunkte benennen eine Funktion; ihre Beschreibungen erklären den konfigurierbaren Inhalt und dürfen den Titel nicht nur wiederholen.
+- Home Assistant erwartet kurze Bezeichnungen unter `menu_options` und erklärende Texte unter `menu_option_descriptions`; vertauschte Inhalte machen das Menü unlesbar.
+- Sichtbare deutsche Texte verwenden einheitlich „Arbeitstag“, „Bewohnerstatus“ und „manuelle Übersteuerung“. Technische Config-Keys dürfen nicht als UI-Bezeichnungen erscheinen.
 
 ---
 Verwandte Notizen:
