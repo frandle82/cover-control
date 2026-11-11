@@ -51,7 +51,7 @@ Im Falle gleichzeitiger Anforderungen gewinnt immer die Funktion mit der höhere
 * **Verhalten:** Wenn der Türkontakt offen ist und Aussperrschutz konfiguriert ist, darf der Behang unter keinen Umständen unter die Lockout-Position fahren. Alle Schließbefehle werden blockiert oder auf die Lockout-Position limitiert.
 
 * **Zweck:** Ermöglicht Luftzirkulation bei gekipptem Fenster.
-* **Verhalten:** Ein vollständig offener Kontakt verwendet fest die Lockout-Position, ein gekippter Kontakt die Lüftungsposition. Beim Wechsel `open → tilted` wird die Lüftungsposition angefahren. Nach dem Schließen wertet die Runtime den gespeicherten Hintergrund erneut aus.
+* **Verhalten:** Bei getrennten Sensoren verwendet ein vollständig offener Kontakt die Lockout-Position und ein gekippter Kontakt die Lüftungsposition. Ohne konfigurierten Tilt-Sensor kann ein einzelner Kontakt nur „nicht geschlossen“ melden und verwendet deshalb die Lüftungsposition. Beim Wechsel `open → tilted` wird die Lüftungsposition angefahren. Nach dem Schließen wertet die Runtime den gespeicherten Hintergrund erneut aus.
 
 ### 4. Shading / Heat Protection
 * **Zweck:** Überhitzungsschutz bei direkter Sonneneinstrahlung.

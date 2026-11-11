@@ -38,6 +38,9 @@ Es muss strikt zwischen drei Zuständen und Mechanismen unterschieden werden:
   1. Die konfigurierte Dauer verstrichen ist.
   2. Der Benutzer den Clear-Button betätigt.
   Eine Dauer von `0` bedeutet, dass der Zustand bis zum expliziten Löschen aktiv bleibt.
+  Der Reset bereinigt zentral Laufzeitstatus, Ablauf-Timer und den persistierten
+  `manual`-Block einschließlich `active`, `until` und `ts`, bevor er eine
+  unmittelbare Reevaluation anfordert.
 * **Einheitliche Wirkung:** Manual Override ist ein einzelner Automatik-Pausenzustand ohne richtungs- oder funktionsbezogene Blockierflags. Safety bleibt dominant. Window/Lockout, Shading, Heat Protection, Resident und Zeit-/Astro-/Helligkeitsautomation werden erst nach Ende des Overrides wieder ausgewertet.
 
 ---

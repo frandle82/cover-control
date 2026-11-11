@@ -438,7 +438,9 @@ class EventsMixin:
     def set_manual_override(self, minutes: int) -> None:
         self._activate_manual_override(minutes=minutes, reason="manual_override")
 
-    def clear_manual_override(self) -> None:
+    def _clear_manual_override_state(self) -> bool:
+        """Remove all persisted and in-memory manual override state."""
+
         was_active = self._manual_active
         self._manual_until = None
         self._manual_active = False
@@ -448,7 +450,12 @@ class EventsMixin:
         manual = self._status.setdefault("manual", {})
         manual["active"] = False
         manual["until"] = None
+        manual["ts"] = None
         self.persist_status()
+        return was_active
+
+    def clear_manual_override(self) -> None:
+        was_active = self._clear_manual_override_state()
         if was_active:
             self._logbook_entry("Manual override cleared")
         self._refresh_next_events(dt_util.utcnow())
@@ -753,15 +760,7 @@ class EventsMixin:
 
     def _expire_manual_override(self, now: datetime) -> None:
         if self._manual_until and now >= self._manual_until:
-            self._manual_until = None
-            self._manual_active = False
-            self._clear_manual_expiry()
-            if self._reason in {"manual_override", "manual_shading"}:
-                self._reason = None
-            manual = self._status.setdefault("manual", {})
-            manual["active"] = False
-            manual["until"] = None
-            self.persist_status()
+            self._clear_manual_override_state()
             self._logbook_entry("Manual override ended")
 
     def _ensure_manual_expiry_timer(self, now: datetime) -> None:
@@ -795,15 +794,8 @@ class EventsMixin:
 
     @callback
     def _handle_manual_expiry(self, _) -> None:
-        self._manual_until = None
-        self._manual_active = False
         self._manual_expire_unsub = None
-        if self._reason in {"manual_override", "manual_shading"}:
-            self._reason = None
-        manual = self._status.setdefault("manual", {})
-        manual["active"] = False
-        manual["until"] = None
-        self.persist_status()
+        self._clear_manual_override_state()
         self._logbook_entry("Manual override ended")
         now = dt_util.utcnow()
         self._refresh_next_events(now)

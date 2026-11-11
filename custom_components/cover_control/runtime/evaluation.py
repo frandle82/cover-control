@@ -478,21 +478,27 @@ class EvaluationMixin:
             and self._active_safety != "frost"
             and regular_close_event is None
         ):
+            has_tilt_sensor = bool(self._tilt_sensors())
+            open_position = self._position_value(
+                CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION
+            )
+            target = self._position_value(
+                CONF_LOCKOUT_POSITION if has_tilt_sensor else CONF_VENTILATE_POSITION,
+                open_position if has_tilt_sensor else DEFAULT_VENTILATE_POSITION,
+            )
+            reason = "ventilation_full" if has_tilt_sensor else "ventilation"
             if (
                 not resident_blocks_ventilation
                 and not self._manual_blocks_action("ventilation")
             ):
                 self._remember_pre_ventilation_position()
-                open_position = self._position_value(
-                    CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION
-                )
                 await self._set_position(
-                    self._position_value(CONF_LOCKOUT_POSITION, open_position),
-                    "ventilation_full",
+                    target,
+                    reason,
                 )
             else:
-                self._reason = "ventilation_full"
-                self._set_ventilation_status(False, True)
+                self._reason = reason
+                self._set_ventilation_status(not has_tilt_sensor, has_tilt_sensor)
                 self.persist_status()
                 self._publish_state()
             return

@@ -2,11 +2,17 @@
 
 from __future__ import annotations
 
+from datetime import timedelta
 from types import SimpleNamespace
+from unittest.mock import Mock
 
+import pytest
+from homeassistant.components.cover import CoverEntityFeature
 from homeassistant.config_entries import ConfigEntryState
+from homeassistant.util import dt as dt_util
 from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service
 
+from custom_components.cover_control import button
 from custom_components.cover_control.config_subentries import model_from_entries
 from custom_components.cover_control.const import (
     CONF_AUTO_TIME,
@@ -17,16 +23,26 @@ from custom_components.cover_control.const import (
     CONF_CONTROLLER_ENTRY_ID,
     CONF_COVERS,
     CONF_ENTRY_TYPE,
+    CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON,
     CONF_GLOBAL,
     CONF_GROUP,
     CONF_GROUPS,
     CONF_LOCKOUT_POSITION,
+    CONF_MANUAL_OVERRIDE_MINUTES,
     CONF_NAME,
     CONF_OPEN_POSITION,
     CONF_POSITION_TOLERANCE,
     CONF_ROOM_ID,
     CONF_ROOM_SETTINGS,
     CONF_SOURCE_OVERRIDES,
+    CONF_TIME_DOWN_EARLY_NON_WORKDAY,
+    CONF_TIME_DOWN_EARLY_WORKDAY,
+    CONF_TIME_DOWN_LATE_NON_WORKDAY,
+    CONF_TIME_DOWN_LATE_WORKDAY,
+    CONF_TIME_UP_EARLY_NON_WORKDAY,
+    CONF_TIME_UP_EARLY_WORKDAY,
+    CONF_TIME_UP_LATE_NON_WORKDAY,
+    CONF_TIME_UP_LATE_WORKDAY,
     CONF_VENTILATE_POSITION,
     CONF_VENTILATION_DELAY_AFTER_CLOSE,
     CONF_WINDOW_SENSOR_FULL,
@@ -39,13 +55,30 @@ from custom_components.cover_control.const import (
 )
 
 
-async def _setup_runtime(hass, *, covers: dict[str, tuple[list[str], list[str]]]):
+async def _setup_runtime(
+    hass,
+    *,
+    covers: dict[str, tuple[list[str], list[str]]],
+    enable_clear_manual_override_button: bool = False,
+    group_settings: dict | None = None,
+    initial_position: int = 100,
+    supports_position: bool = False,
+):
     calls = async_mock_service(hass, "cover", "set_cover_position")
     open_calls = async_mock_service(hass, "cover", "open_cover")
     async_mock_service(hass, "cover", "close_cover")
     async_mock_service(hass, "cover", "set_cover_tilt_position")
     for cover in covers:
-        hass.states.async_set(cover, "open", {"current_position": 100})
+        hass.states.async_set(
+            cover,
+            "open" if initial_position else "closed",
+            {"current_position": initial_position}
+            | (
+                {"supported_features": CoverEntityFeature.SET_POSITION}
+                if supports_position
+                else {}
+            ),
+        )
     for full_sensors, tilt_sensors in covers.values():
         for sensor in (*full_sensors, *tilt_sensors):
             hass.states.async_set(sensor, "off")
@@ -65,6 +98,7 @@ async def _setup_runtime(hass, *, covers: dict[str, tuple[list[str], list[str]]]
                         CONF_CONTACT_TRIGGER_DELAY: 0,
                         CONF_CONTACT_STATUS_DELAY: 0,
                         CONF_VENTILATION_DELAY_AFTER_CLOSE: 0,
+                        **(group_settings or {}),
                     }
                     if group == GROUP_LIVING
                     else {}
@@ -89,6 +123,9 @@ async def _setup_runtime(hass, *, covers: dict[str, tuple[list[str], list[str]]]
                 CONF_VENTILATE_POSITION: 25,
                 CONF_LOCKOUT_POSITION: 80,
                 CONF_POSITION_TOLERANCE: 1,
+                CONF_ENABLE_CLEAR_MANUAL_OVERRIDE_BUTTON: (
+                    enable_clear_manual_override_button
+                ),
                 CONF_WINDOW_SENSOR_FULL: {
                     cover: full_sensors
                     for cover, (full_sensors, _tilt_sensors) in covers.items()
@@ -202,6 +239,249 @@ async def test_contact_switch_blocks_then_rechecks_current_state(hass) -> None:
     assert await hass.config_entries.async_unload(controller_entry.entry_id)
 
 
+async def test_contact_without_tilt_sensor_drives_to_ventilation_position(hass) -> None:
+    """A single open contact means ventilation, not a full-open lockout."""
+
+    controller_entry, room_entry, manager, calls, _open_calls = await _setup_runtime(
+        hass,
+        covers={"cover.wohnzimmer": (["binary_sensor.fenster_offen"], [])},
+        initial_position=0,
+        supports_position=True,
+    )
+
+    hass.states.async_set("binary_sensor.fenster_offen", "on")
+    await _flush_evaluations(hass, manager)
+
+    assert calls[-1].data == {"entity_id": "cover.wohnzimmer", "position": 25}
+    controller = manager.controllers["cover.wohnzimmer"]
+    assert not controller._manual_active
+
+    hass.states.async_set(
+        "cover.wohnzimmer",
+        "open",
+        {
+            "current_position": 25,
+            "supported_features": CoverEntityFeature.SET_POSITION,
+        },
+    )
+    await _flush_evaluations(hass, manager)
+    assert not controller._manual_active
+
+    assert await hass.config_entries.async_unload(room_entry.entry_id)
+    assert await hass.config_entries.async_unload(controller_entry.entry_id)
+
+
+async def test_clear_manual_override_button_resets_runtime_and_reevaluates(hass) -> None:
+    """The public clear button must release a permanent manual override."""
+
+    controller_entry, room_entry, manager, _calls, _open_calls = await _setup_runtime(
+        hass,
+        covers={"cover.wohnzimmer": ([], [])},
+        enable_clear_manual_override_button=True,
+    )
+    controller = manager.controllers["cover.wohnzimmer"]
+    controller._manual_active = True
+    controller._manual_until = None
+    controller._reason = "manual_override"
+    controller._status["manual"] = {"active": True, "until": None, "ts": 1}
+    controller._manual_expire_unsub = expiry_timer = Mock()
+    controller._evaluate_callback = evaluate = Mock()
+    entities = []
+
+    await button.async_setup_entry(hass, room_entry, entities.extend)
+    clear_button = next(
+        entity
+        for entity in entities
+        if entity.translation_key == "clear_manual_override"
+    )
+    await clear_button.async_press()
+
+    assert not controller._manual_active
+    assert controller._manual_until is None
+    assert controller._manual_expire_unsub is None
+    assert controller._reason is None
+    assert controller._status["manual"] == {"active": False, "until": None, "ts": None}
+    expiry_timer.assert_called_once_with()
+    evaluate.assert_called_once_with(controller, "manual_cleared")
+
+    assert await hass.config_entries.async_unload(room_entry.entry_id)
+    assert await hass.config_entries.async_unload(controller_entry.entry_id)
+
+
+def _time_settings(*, opening: bool) -> dict[str, str | bool]:
+    now = dt_util.as_local(dt_util.utcnow())
+
+    def _time_after(minutes: int) -> str:
+        return (now + timedelta(minutes=minutes)).time().replace(microsecond=0).isoformat()
+
+    up_early, up_late = (
+        (_time_after(-1), _time_after(1))
+        if opening
+        else (_time_after(2), _time_after(3))
+    )
+    down_early, down_late = (
+        (_time_after(2), _time_after(3))
+        if opening
+        else (_time_after(-1), _time_after(1))
+    )
+    return {
+        CONF_AUTO_TIME: True,
+        CONF_TIME_UP_EARLY_WORKDAY: up_early,
+        CONF_TIME_UP_LATE_WORKDAY: up_late,
+        CONF_TIME_UP_EARLY_NON_WORKDAY: up_early,
+        CONF_TIME_UP_LATE_NON_WORKDAY: up_late,
+        CONF_TIME_DOWN_EARLY_WORKDAY: down_early,
+        CONF_TIME_DOWN_LATE_WORKDAY: down_late,
+        CONF_TIME_DOWN_EARLY_NON_WORKDAY: down_early,
+        CONF_TIME_DOWN_LATE_NON_WORKDAY: down_late,
+    }
+
+
+@pytest.mark.parametrize(
+    ("opening", "initial_position", "expected_position"),
+    [(True, 0, 100), (False, 100, 0)],
+)
+async def test_contact_close_restores_current_background_target(
+    hass, opening: bool, initial_position: int, expected_position: int
+) -> None:
+    """Contact close releases ventilation to the current time target."""
+
+    controller_entry, room_entry, manager, calls, _open_calls = await _setup_runtime(
+        hass,
+        covers={"cover.wohnzimmer": (["binary_sensor.fenster_offen"], [])},
+        group_settings=_time_settings(opening=True),
+        initial_position=initial_position,
+        supports_position=True,
+    )
+    controller = manager.controllers["cover.wohnzimmer"]
+
+    hass.states.async_set("binary_sensor.fenster_offen", "on")
+    await _flush_evaluations(hass, manager)
+    assert calls[-1].data == {"entity_id": "cover.wohnzimmer", "position": 25}
+    assert not controller._manual_active
+
+    hass.states.async_set(
+        "cover.wohnzimmer",
+        "open",
+        {
+            "current_position": 25,
+            "supported_features": CoverEntityFeature.SET_POSITION,
+        },
+    )
+    await _flush_evaluations(hass, manager)
+    if not opening:
+        controller_data = {
+            **controller_entry.data,
+            CONF_GROUPS: {
+                **controller_entry.data[CONF_GROUPS],
+                GROUP_LIVING: {
+                    **controller_entry.data[CONF_GROUPS][GROUP_LIVING],
+                    **_time_settings(opening=False),
+                },
+            },
+        }
+        model = model_from_entries(
+            controller_entry.entry_id, controller_data, [room_entry]
+        )
+        manager.apply_config_model(model, {"living"})
+    calls.clear()
+    hass.states.async_set("binary_sensor.fenster_offen", "off")
+    await _flush_evaluations(hass, manager)
+
+    assert calls[-1].data == {
+        "entity_id": "cover.wohnzimmer",
+        "position": expected_position,
+    }
+    assert not controller._manual_active
+
+    assert await hass.config_entries.async_unload(room_entry.entry_id)
+    assert await hass.config_entries.async_unload(controller_entry.entry_id)
+
+
+@pytest.mark.parametrize(
+    ("opening", "manual_position", "expected_position"),
+    [(True, 50, 100), (False, 50, 0)],
+)
+async def test_clear_manual_override_button_immediately_resumes_automation(
+    hass, opening: bool, manual_position: int, expected_position: int
+) -> None:
+    """The public reset unblocks both automatic opening and closing."""
+
+    controller_entry, room_entry, manager, calls, _open_calls = await _setup_runtime(
+        hass,
+        covers={"cover.wohnzimmer": ([], [])},
+        enable_clear_manual_override_button=True,
+        group_settings={CONF_MANUAL_OVERRIDE_MINUTES: 0},
+        supports_position=True,
+    )
+    controller = manager.controllers["cover.wohnzimmer"]
+    await hass.services.async_call(
+        "cover",
+        "set_cover_position",
+        {"entity_id": "cover.wohnzimmer", "position": manual_position},
+        blocking=True,
+    )
+    await hass.async_block_till_done()
+    assert controller._manual_active
+    assert controller._manual_until is None
+
+    if opening:
+        hass.states.async_set(
+            "cover.wohnzimmer",
+            "closed",
+            {
+                "current_position": 0,
+                "supported_features": CoverEntityFeature.SET_POSITION,
+            },
+        )
+        await _flush_evaluations(hass, manager)
+
+    controller_data = {
+        **controller_entry.data,
+        CONF_GROUPS: {
+            **controller_entry.data[CONF_GROUPS],
+            GROUP_LIVING: {
+                **controller_entry.data[CONF_GROUPS][GROUP_LIVING],
+                **_time_settings(opening=opening),
+            },
+        },
+    }
+    model = model_from_entries(controller_entry.entry_id, controller_data, [room_entry])
+    manager.apply_config_model(model, {"living"})
+    await _flush_evaluations(hass, manager)
+    calls.clear()
+
+    entities = []
+    await button.async_setup_entry(hass, room_entry, entities.extend)
+    clear_button = next(
+        entity
+        for entity in entities
+        if entity.translation_key == "clear_manual_override"
+    )
+    await clear_button.async_press()
+    await _flush_evaluations(hass, manager)
+
+    assert not controller._manual_active
+    assert controller._manual_until is None
+    assert controller._status["manual"] == {
+        "active": False,
+        "until": None,
+        "ts": None,
+    }
+    assert manager._stored_state["covers"]["cover.wohnzimmer"]["manual"] == {
+        "active": False,
+        "until": None,
+        "ts": None,
+    }
+    assert calls[-1].data == {
+        "entity_id": "cover.wohnzimmer",
+        "position": expected_position,
+    }
+
+    assert await hass.config_entries.async_unload(room_entry.entry_id)
+    assert await hass.config_entries.async_unload(controller_entry.entry_id)
+
+
 async def test_contact_listener_updates_after_reconfigure(hass) -> None:
     controller_entry, room_entry, manager, calls, _open_calls = await _setup_runtime(
         hass,
@@ -233,7 +513,7 @@ async def test_contact_listener_updates_after_reconfigure(hass) -> None:
     assert not calls
     hass.states.async_set("binary_sensor.neu", "on")
     await _flush_evaluations(hass, manager)
-    assert calls[-1].data == {"entity_id": "cover.wohnzimmer", "position": 80}
+    assert calls[-1].data == {"entity_id": "cover.wohnzimmer", "position": 25}
 
     assert await hass.config_entries.async_unload(room_entry.entry_id)
     assert await hass.config_entries.async_unload(controller_entry.entry_id)
