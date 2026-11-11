@@ -377,10 +377,6 @@
               "auto_brightness_enabled": "Helligkeitsautomatik",
               "auto_down_enabled": "Automatisches Schließen",
               "intermediate_close_enabled": "Zwischenposition verwenden",
-              "final_close_time": "Uhrzeit für vollständiges Schließen",
-              "final_close_time_enabled": "Vollständig nach Uhrzeit schließen",
-              "final_close_elevation_enabled": "Vollständig nach Sonnenhöhe schließen",
-              "final_close_elevation": "Sonnenhöhe für vollständiges Schließen",
               "summer_start": "Beginn Sommerzeitraum (TT.MM.)",
               "summer_end": "Ende Sommerzeitraum (TT.MM.)",
               "christmas_start": "Beginn Weihnachtszeitraum (TT.MM.)",
@@ -397,10 +393,6 @@
               "auto_brightness_enabled": "Aktiviert die helligkeitsabhängige Steuerung für diese Gruppe.",
               "auto_down_enabled": "Aktiviert das automatische Schließen für diese Gruppe.",
               "intermediate_close_enabled": "Beim normalen Schließereignis die raumeigene Zwischenposition anfahren.",
-              "final_close_time": "Uhrzeit, zu der das Cover vollständig geschlossen wird.",
-              "final_close_time_enabled": "Die konfigurierte Uhrzeit zum vollständigen Schließen verwenden. Sind Uhrzeit und Sonnenhöhe aktiviert, wird bei der zuerst erfüllten Bedingung geschlossen.",
-              "final_close_elevation_enabled": "Die fallende Sonnenhöhe zum vollständigen Schließen verwenden. Sind Uhrzeit und Sonnenhöhe aktiviert, wird bei der zuerst erfüllten Bedingung geschlossen.",
-              "final_close_elevation": "Sonnenhöhe, bei der das Cover vollständig geschlossen wird. Der Grenzwert wird nur während der fallenden Sonnenphase ausgewertet.",
               "summer_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
               "summer_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
               "christmas_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
@@ -435,13 +427,28 @@
               "time_down_early_non_workday": "Früheste Schließung an Nichtarbeitstagen",
               "time_down_late_non_workday": "Späteste Schließung an Nichtarbeitstagen",
               "time_up_early_non_workday": "Früheste Öffnung an Nichtarbeitstagen",
-              "time_up_late_non_workday": "Späteste Öffnung an Nichtarbeitstagen"
+              "time_up_late_non_workday": "Späteste Öffnung an Nichtarbeitstagen",
+              "final_close_time_enabled": "Vollständig nach Uhrzeit schließen",
+              "final_close_time": "Uhrzeit für vollständiges Schließen"
             },
             "data_description": {
               "time_down_early_non_workday": "Früheste Uhrzeit für das Schließen an Nichtarbeitstagen.",
               "time_down_late_non_workday": "Späteste Uhrzeit für das Schließen an Nichtarbeitstagen.",
               "time_up_early_non_workday": "Früheste Uhrzeit für das Öffnen an Nichtarbeitstagen.",
-              "time_up_late_non_workday": "Späteste Uhrzeit für das Öffnen an Nichtarbeitstagen."
+              "time_up_late_non_workday": "Späteste Uhrzeit für das Öffnen an Nichtarbeitstagen.",
+              "final_close_time_enabled": "Die konfigurierte Uhrzeit zum vollständigen Schließen verwenden. Sind Uhrzeit und Sonnenhöhe aktiviert, wird bei der zuerst erfüllten Bedingung geschlossen.",
+              "final_close_time": "Uhrzeit, zu der das Cover vollständig geschlossen wird."
+            }
+          },
+          "sun_settings": {
+            "name": "Sonnenhöhe",
+            "data": {
+              "final_close_elevation_enabled": "Vollständig nach Sonnenhöhe schließen",
+              "final_close_elevation": "Sonnenhöhe für vollständiges Schließen"
+            },
+            "data_description": {
+              "final_close_elevation_enabled": "Die fallende Sonnenhöhe zum vollständigen Schließen verwenden. Sind Uhrzeit und Sonnenhöhe aktiviert, wird bei der zuerst erfüllten Bedingung geschlossen.",
+              "final_close_elevation": "Bei aktivierter Zwischenposition wird vollständig geschlossen, sobald die Sonne während der fallenden Sonnenphase diese Höhe erreicht oder unterschreitet."
             }
           },
           "calendar_behavior": {
@@ -464,12 +471,19 @@
           "non_workday_times": {
             "name": "Vollständiges Schließen",
             "data": {
-              "final_close_time": "Uhrzeit für vollständiges Schließen",
+              "final_close_time": "Uhrzeit für vollständiges Schließen"
+            },
+            "data_description": {
+              "final_close_time": "Uhrzeit, zu der das Cover vollständig geschlossen wird."
+            }
+          },
+          "sun_settings": {
+            "name": "Sonnenhöhe",
+            "data": {
               "final_close_elevation": "Sonnenhöhe für vollständiges Schließen"
             },
             "data_description": {
-              "final_close_time": "Uhrzeit, zu der das Cover vollständig geschlossen wird.",
-              "final_close_elevation": "Sonnenhöhe, bei der das Cover vollständig geschlossen wird. Der Grenzwert wird nur während der fallenden Sonnenphase ausgewertet."
+              "final_close_elevation": "Bei aktivierter Zwischenposition wird vollständig geschlossen, sobald die Sonne während der fallenden Sonnenphase diese Höhe erreicht oder unterschreitet."
             }
           }
         }
@@ -484,10 +498,6 @@
               "auto_brightness_enabled": "Helligkeitsautomatik",
               "auto_down_enabled": "Automatisches Schließen",
               "intermediate_close_enabled": "Zwischenposition verwenden",
-              "final_close_time": "Uhrzeit für vollständiges Schließen",
-              "final_close_time_enabled": "Vollständig nach Uhrzeit schließen",
-              "final_close_elevation_enabled": "Vollständig nach Sonnenhöhe schließen",
-              "final_close_elevation": "Sonnenhöhe für vollständiges Schließen",
               "summer_start": "Beginn Sommerzeitraum (TT.MM.)",
               "summer_end": "Ende Sommerzeitraum (TT.MM.)",
               "christmas_start": "Beginn Weihnachtszeitraum (TT.MM.)",
@@ -504,10 +514,6 @@
               "auto_brightness_enabled": "Aktiviert die helligkeitsabhängige Steuerung für diese Gruppe.",
               "auto_down_enabled": "Aktiviert das automatische Schließen für diese Gruppe.",
               "intermediate_close_enabled": "Beim normalen Schließereignis die raumeigene Zwischenposition anfahren.",
-              "final_close_time": "Uhrzeit, zu der das Cover vollständig geschlossen wird.",
-              "final_close_time_enabled": "Die konfigurierte Uhrzeit zum vollständigen Schließen verwenden. Sind Uhrzeit und Sonnenhöhe aktiviert, wird bei der zuerst erfüllten Bedingung geschlossen.",
-              "final_close_elevation_enabled": "Die fallende Sonnenhöhe zum vollständigen Schließen verwenden. Sind Uhrzeit und Sonnenhöhe aktiviert, wird bei der zuerst erfüllten Bedingung geschlossen.",
-              "final_close_elevation": "Sonnenhöhe, bei der das Cover vollständig geschlossen wird. Der Grenzwert wird nur während der fallenden Sonnenphase ausgewertet.",
               "summer_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
               "summer_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
               "christmas_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
@@ -1261,10 +1267,6 @@
               "auto_brightness_enabled": "Helligkeitsautomatik",
               "auto_down_enabled": "Automatisches Schließen",
               "intermediate_close_enabled": "Zwischenposition verwenden",
-              "final_close_time": "Uhrzeit für vollständiges Schließen",
-              "final_close_time_enabled": "Vollständig nach Uhrzeit schließen",
-              "final_close_elevation_enabled": "Vollständig nach Sonnenhöhe schließen",
-              "final_close_elevation": "Sonnenhöhe für vollständiges Schließen",
               "summer_start": "Beginn Sommerzeitraum (TT.MM.)",
               "summer_end": "Ende Sommerzeitraum (TT.MM.)",
               "christmas_start": "Beginn Weihnachtszeitraum (TT.MM.)",
@@ -1281,10 +1283,6 @@
               "auto_brightness_enabled": "Aktiviert die helligkeitsabhängige Steuerung für diese Gruppe.",
               "auto_down_enabled": "Aktiviert das automatische Schließen für diese Gruppe.",
               "intermediate_close_enabled": "Beim normalen Schließereignis die raumeigene Zwischenposition anfahren.",
-              "final_close_time": "Uhrzeit, zu der das Cover vollständig geschlossen wird.",
-              "final_close_time_enabled": "Die konfigurierte Uhrzeit zum vollständigen Schließen verwenden. Sind Uhrzeit und Sonnenhöhe aktiviert, wird bei der zuerst erfüllten Bedingung geschlossen.",
-              "final_close_elevation_enabled": "Die fallende Sonnenhöhe zum vollständigen Schließen verwenden. Sind Uhrzeit und Sonnenhöhe aktiviert, wird bei der zuerst erfüllten Bedingung geschlossen.",
-              "final_close_elevation": "Sonnenhöhe, bei der das Cover vollständig geschlossen wird. Der Grenzwert wird nur während der fallenden Sonnenphase ausgewertet.",
               "summer_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
               "summer_end": "Letzter eingeschlossener Tag des jährlich wiederkehrenden Sommerzeitraums.",
               "christmas_start": "Erster eingeschlossener Tag des jährlich wiederkehrenden Weihnachtszeitraums.",
@@ -1319,13 +1317,28 @@
               "time_down_early_non_workday": "Früheste Schließung an Nichtarbeitstagen",
               "time_down_late_non_workday": "Späteste Schließung an Nichtarbeitstagen",
               "time_up_early_non_workday": "Früheste Öffnung an Nichtarbeitstagen",
-              "time_up_late_non_workday": "Späteste Öffnung an Nichtarbeitstagen"
+              "time_up_late_non_workday": "Späteste Öffnung an Nichtarbeitstagen",
+              "final_close_time_enabled": "Vollständig nach Uhrzeit schließen",
+              "final_close_time": "Uhrzeit für vollständiges Schließen"
             },
             "data_description": {
               "time_down_early_non_workday": "Früheste Uhrzeit für das Schließen an Nichtarbeitstagen.",
               "time_down_late_non_workday": "Späteste Uhrzeit für das Schließen an Nichtarbeitstagen.",
               "time_up_early_non_workday": "Früheste Uhrzeit für das Öffnen an Nichtarbeitstagen.",
-              "time_up_late_non_workday": "Späteste Uhrzeit für das Öffnen an Nichtarbeitstagen."
+              "time_up_late_non_workday": "Späteste Uhrzeit für das Öffnen an Nichtarbeitstagen.",
+              "final_close_time_enabled": "Die konfigurierte Uhrzeit zum vollständigen Schließen verwenden. Sind Uhrzeit und Sonnenhöhe aktiviert, wird bei der zuerst erfüllten Bedingung geschlossen.",
+              "final_close_time": "Uhrzeit, zu der das Cover vollständig geschlossen wird."
+            }
+          },
+          "sun_settings": {
+            "name": "Sonnenhöhe",
+            "data": {
+              "final_close_elevation_enabled": "Vollständig nach Sonnenhöhe schließen",
+              "final_close_elevation": "Sonnenhöhe für vollständiges Schließen"
+            },
+            "data_description": {
+              "final_close_elevation_enabled": "Die fallende Sonnenhöhe zum vollständigen Schließen verwenden. Sind Uhrzeit und Sonnenhöhe aktiviert, wird bei der zuerst erfüllten Bedingung geschlossen.",
+              "final_close_elevation": "Bei aktivierter Zwischenposition wird vollständig geschlossen, sobald die Sonne während der fallenden Sonnenphase diese Höhe erreicht oder unterschreitet."
             }
           },
           "calendar_behavior": {
@@ -1348,12 +1361,19 @@
           "non_workday_times": {
             "name": "Vollständiges Schließen",
             "data": {
-              "final_close_time": "Uhrzeit für vollständiges Schließen",
+              "final_close_time": "Uhrzeit für vollständiges Schließen"
+            },
+            "data_description": {
+              "final_close_time": "Uhrzeit, zu der das Cover vollständig geschlossen wird."
+            }
+          },
+          "sun_settings": {
+            "name": "Sonnenhöhe",
+            "data": {
               "final_close_elevation": "Sonnenhöhe für vollständiges Schließen"
             },
             "data_description": {
-              "final_close_time": "Uhrzeit, zu der das Cover vollständig geschlossen wird.",
-              "final_close_elevation": "Sonnenhöhe, bei der das Cover vollständig geschlossen wird. Der Grenzwert wird nur während der fallenden Sonnenphase ausgewertet."
+              "final_close_elevation": "Bei aktivierter Zwischenposition wird vollständig geschlossen, sobald die Sonne während der fallenden Sonnenphase diese Höhe erreicht oder unterschreitet."
             }
           }
         }

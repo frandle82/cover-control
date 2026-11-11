@@ -1,6 +1,7 @@
 """Config-flow tests for the three fixed groups."""
 import json
 from pathlib import Path
+from unittest.mock import AsyncMock, patch
 import pytest
 from homeassistant import config_entries
 from homeassistant.components.cover import CoverEntityFeature
@@ -11,6 +12,7 @@ from custom_components.cover_control.config_flow import CoverControlFlow
 from custom_components.cover_control.const import (
     CONF_CONTROLLER_ENTRY_ID, CONF_COVERS, CONF_ENTRY_TYPE, CONF_GLOBAL, CONF_GROUP,
     CONF_GROUPS, CONF_NAME, CONF_ROOM, CONF_ROOM_ID, CONF_ROOM_SETTINGS,
+    CONF_WINDOW_SENSOR_FULL, CONF_WINDOW_SENSOR_TILT,
     CONF_CLOSE_MODE, CONF_OPEN_MODE, CONF_SUN_ELEVATION_OPEN,
     CONF_FINAL_CLOSE_ELEVATION, CONF_FINAL_CLOSE_ELEVATION_ENABLED,
     CONF_FINAL_CLOSE_TIME, CONF_FINAL_CLOSE_TIME_ENABLED,
@@ -177,11 +179,21 @@ def test_required_translation_keys_exist() -> None:
     for path in paths:
         document = json.loads(path.read_text())
         for namespace in ("config", "options"):
-            section = document[namespace]["step"]["group_final_close"][
+            sections = document[namespace]["step"]["group_final_close"][
                 "sections"
-            ]["non_workday_times"]
-            assert required_final_close <= section["data"].keys()
-            assert required_final_close <= section["data_description"].keys()
+            ]
+            fields = {
+                key
+                for section in sections.values()
+                for key in section["data"]
+            }
+            descriptions = {
+                key
+                for section in sections.values()
+                for key in section["data_description"]
+            }
+            assert required_final_close <= fields
+            assert required_final_close <= descriptions
         assert required_switches <= document["entity"]["switch"].keys()
 
 
@@ -241,12 +253,20 @@ def test_final_close_translations_are_complete_and_user_facing() -> None:
     ):
         document = json.loads(path.read_text())
         for namespace in ("config", "options"):
-            fields = document[namespace]["step"]["group_time"]["sections"][
-                "time_features"
-            ]
-            assert internal_keys <= fields["data"].keys()
-            assert internal_keys <= fields["data_description"].keys()
-            assert not internal_keys & set(fields["data"].values())
+            sections = document[namespace]["step"]["group_time"]["sections"]
+            data = {
+                key: value
+                for section in sections.values()
+                for key, value in section["data"].items()
+            }
+            descriptions = {
+                key
+                for section in sections.values()
+                for key in section["data_description"]
+            }
+            assert internal_keys <= data.keys()
+            assert internal_keys <= descriptions
+            assert not internal_keys & set(data.values())
 
 
 async def test_group_sun_only_shows_fields_for_selected_modes(hass) -> None:
@@ -325,18 +345,27 @@ async def test_final_close_only_shows_values_for_enabled_triggers(
             },
             "non_workday_times": {
                 CONF_FINAL_CLOSE_TIME_ENABLED: time_enabled,
-                CONF_FINAL_CLOSE_ELEVATION_ENABLED: elevation_enabled,
-            }
+                },
+                "sun_settings": {
+                    CONF_FINAL_CLOSE_ELEVATION_ENABLED: elevation_enabled,
+                },
         },
     )
     if expected_fields is None:
         assert result["step_id"] == "group_sections"
         return
     assert result["step_id"] == "group_final_close"
-    detail_fields = {
-        field.schema: validator
+    detail_sections = {
+        section_field.schema: {
+            field.schema: validator
+            for field, validator in schema.schema.schema.items()
+        }
         for section_field, schema in result["data_schema"].schema.items()
-        for field, validator in schema.schema.schema.items()
+    }
+    detail_fields = {
+        key: validator
+        for fields in detail_sections.values()
+        for key, validator in fields.items()
     }
     assert set(detail_fields) == expected_fields
     if CONF_FINAL_CLOSE_TIME in detail_fields:
@@ -345,6 +374,114 @@ async def test_final_close_only_shows_values_for_enabled_triggers(
         assert isinstance(
             detail_fields[CONF_FINAL_CLOSE_ELEVATION], selector.NumberSelector
         )
+        number_config = detail_fields[CONF_FINAL_CLOSE_ELEVATION].config
+        assert (number_config["min"], number_config["max"], number_config["step"]) == (
+            -90,
+            90,
+            0.1,
+        )
+        assert number_config["unit_of_measurement"] == "°"
+        assert CONF_FINAL_CLOSE_ELEVATION in detail_sections["sun_settings"]
+    if CONF_FINAL_CLOSE_TIME in detail_fields:
+        assert CONF_FINAL_CLOSE_TIME in detail_sections["non_workday_times"]
+
+
+async def test_final_close_elevation_is_shown_in_sun_settings(hass) -> None:
+    entry = _controller(hass)
+    entry.data[CONF_GROUPS][GROUP_LIVING].update(
+        {CONF_FINAL_CLOSE_ELEVATION_ENABLED: True}
+    )
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_RECONFIGURE, "entry_id": entry.entry_id},
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "group_living"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "group_time"}
+    )
+    sections = {
+        section.schema: {field.schema for field in schema.schema.schema}
+        for section, schema in result["data_schema"].schema.items()
+    }
+    assert CONF_FINAL_CLOSE_ELEVATION_ENABLED in sections["sun_settings"]
+    assert CONF_FINAL_CLOSE_ELEVATION_ENABLED not in sections["non_workday_times"]
+
+
+async def test_final_close_elevation_is_persisted_as_float(hass) -> None:
+    entry = _controller(hass)
+    result = await hass.config_entries.flow.async_init(
+        DOMAIN,
+        context={"source": config_entries.SOURCE_RECONFIGURE, "entry_id": entry.entry_id},
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "group_living"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"], {"next_step_id": "group_time"}
+    )
+    result = await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {
+            "time_features": {CONF_INTERMEDIATE_CLOSE_ENABLED: True},
+            "non_workday_times": {CONF_FINAL_CLOSE_TIME_ENABLED: False},
+            "sun_settings": {CONF_FINAL_CLOSE_ELEVATION_ENABLED: True},
+        },
+    )
+    await hass.config_entries.flow.async_configure(
+        result["flow_id"],
+        {"sun_settings": {CONF_FINAL_CLOSE_ELEVATION: -6.5}},
+    )
+
+    stored = entry.data[CONF_GROUPS][GROUP_LIVING][CONF_FINAL_CLOSE_ELEVATION]
+    assert stored == -6.5
+    assert isinstance(stored, float)
+
+
+async def test_contact_mapping_survives_room_save_and_reload(hass) -> None:
+    controller = _controller(hass)
+    room = MockConfigEntry(
+        domain=DOMAIN,
+        version=20,
+        data={
+            CONF_ENTRY_TYPE: ENTRY_TYPE_ROOM,
+            CONF_CONTROLLER_ENTRY_ID: controller.entry_id,
+            CONF_ROOM_ID: "living",
+            CONF_NAME: "Living",
+            CONF_GROUP: GROUP_LIVING,
+            CONF_ROOM_SETTINGS: {CONF_COVERS: ["cover.wohnzimmer"]},
+        },
+    )
+    room.add_to_hass(hass)
+    with patch.object(
+        hass.config_entries, "async_reload", AsyncMock(return_value=True)
+    ):
+        result = await hass.config_entries.flow.async_init(
+            DOMAIN,
+            context={
+                "source": config_entries.SOURCE_RECONFIGURE,
+                "entry_id": room.entry_id,
+            },
+        )
+        result = await hass.config_entries.flow.async_configure(
+            result["flow_id"], {"next_step_id": "contacts"}
+        )
+        await hass.config_entries.flow.async_configure(
+            result["flow_id"],
+            {
+                "cover_0_full": ["binary_sensor.fenster_offen"],
+                "cover_0_tilt": ["binary_sensor.fenster_gekippt"],
+            },
+        )
+
+    settings = room.data[CONF_ROOM_SETTINGS]
+    assert settings[CONF_WINDOW_SENSOR_FULL] == {
+        "cover.wohnzimmer": ["binary_sensor.fenster_offen"]
+    }
+    assert settings[CONF_WINDOW_SENSOR_TILT] == {
+        "cover.wohnzimmer": ["binary_sensor.fenster_gekippt"]
+    }
 
 
 @pytest.mark.parametrize(

@@ -281,7 +281,7 @@ async def async_setup_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
 async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     """Migrate controller-owned profiles and standalone rooms to fixed groups."""
 
-    if entry.version >= 19:
+    if entry.version >= 20:
         return True
     if _is_room_entry(entry):
         controller = _controller_entry(hass, entry.data.get(CONF_CONTROLLER_ENTRY_ID))
@@ -302,7 +302,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         data[CONF_ROOM_SETTINGS] = settings
         data, top_level_warnings = cleanup_runtime_options(data)
         runtime_warnings.update(top_level_warnings)
-        hass.config_entries.async_update_entry(entry, data=data, options={}, version=19)
+        hass.config_entries.async_update_entry(entry, data=data, options={}, version=20)
         if cca_changed:
             ir.async_create_issue(
                 hass,
@@ -336,7 +336,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
     controller_data[CONF_GROUPS] = deepcopy(migrated[CONF_GROUPS])
     controller_data[CONF_ENTRY_TYPE] = ENTRY_TYPE_CONTROLLER
     hass.config_entries.async_update_entry(
-        entry, data=controller_data, options={}, version=19
+        entry, data=controller_data, options={}, version=20
     )
     for room in rooms:
         room_id = str(room.data.get(CONF_ROOM_ID) or room.entry_id)
@@ -350,7 +350,7 @@ async def async_migrate_entry(hass: HomeAssistant, entry: ConfigEntry) -> bool:
         room_data.pop("profile_functions", None)
         room_data.pop("profiles", None)
         hass.config_entries.async_update_entry(
-            room, data=room_data, options={}, version=19
+            room, data=room_data, options={}, version=20
         )
     sun_warnings = [warning for warning in warnings if "dynamic sun" in warning]
     shading_warnings = [warning for warning in warnings if "shading rules" in warning]

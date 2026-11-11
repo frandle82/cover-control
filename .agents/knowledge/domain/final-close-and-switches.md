@@ -21,6 +21,8 @@ tags:
 - Ein vollständiges Schließen wird pro Kalendertag nur einmal ausgelöst. Sommer-, Weihnachts-, Fenster- und Sicherheitsregeln bleiben im normalen Auswertungspfad erhalten.
 - Nach einem vollständigen Schließen zeigen Zeitplan und `Next Close` erst wieder einen Kandidaten des Folgetags; ein zweiter Auslöser desselben Tags bleibt unsichtbar und wirkungslos.
 - Die Werte für Uhrzeit und Sonnenhöhe erscheinen im Config Flow nur bei aktiviertem Auslöser. Sonnenhöhe verwendet einen Grad-Zahlen-Selector, keine Zeiteingabe.
+- `final_close_elevation` ist über Persistenz, Modell, Resolver und Runtime immer ein `float` in Grad zwischen `-90.0` und `90.0`; der Wert gehört ausschließlich zur Sonnenhöhenkonfiguration, niemals zur Zeitkonfiguration.
+- Historische Zeit- oder Textwerte wie `"00:00:00"` werden beim Upgrade auf `DEFAULT_FINAL_CLOSE_ELEVATION` repariert; numerische Strings einschließlich Dezimalkomma werden als `float` normalisiert.
 - Menüpunkte benennen eine Funktion; ihre Beschreibungen erklären den konfigurierbaren Inhalt und dürfen den Titel nicht nur wiederholen.
 - Home Assistant erwartet kurze Bezeichnungen unter `menu_options` und erklärende Texte unter `menu_option_descriptions`; vertauschte Inhalte machen das Menü unlesbar.
 - Sichtbare deutsche Texte verwenden einheitlich „Arbeitstag“, „Bewohnerstatus“ und „manuelle Übersteuerung“. Technische Config-Keys dürfen nicht als UI-Bezeichnungen erscheinen.

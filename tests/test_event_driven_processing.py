@@ -35,6 +35,7 @@ from custom_components.cover_control.const import (
     CONF_TIME_DOWN_LATE_WORKDAY,
     CONF_TIME_UP_EARLY_WORKDAY,
     CONF_TIME_UP_LATE_WORKDAY,
+    CONF_VENTILATION_DELAY_AFTER_CLOSE,
     CONF_NAME,
     CONF_GROUP,
     CONF_GROUPS,
@@ -510,6 +511,23 @@ def test_legacy_final_close_keeps_time_behavior_and_disables_elevation() -> None
     assert resolved[CONF_FINAL_CLOSE_TIME] == "21:30:00"
 
 
+def test_final_close_elevation_runtime_rejects_legacy_time_value() -> None:
+    controller = object.__new__(CoverController)
+    controller.config = {
+        CONF_INTERMEDIATE_CLOSE_ENABLED: True,
+        CONF_FINAL_CLOSE_ELEVATION_ENABLED: True,
+        CONF_FINAL_CLOSE_ELEVATION: "00:00:00",
+    }
+    controller._last_action_dates = {}
+    controller._sun_is_falling = Mock(return_value=True)
+
+    assert not controller._elevation_final_close_due(
+        datetime(2026, 11, 8, 20, 0, tzinfo=timezone.utc),
+        -5.0,
+        frozenset({"sun_elevation_changed"}),
+    )
+
+
 def test_next_close_uses_earliest_final_close_candidate() -> None:
     controller = object.__new__(CoverController)
     controller.config = {
@@ -765,6 +783,38 @@ def test_window_delay_timer_keys_are_per_sensor() -> None:
         "contact:binary_sensor.left",
         "contact:binary_sensor.right",
     }
+
+
+def test_tilt_close_waits_for_all_contact_delays() -> None:
+    sensor = "binary_sensor.window"
+    controller = object.__new__(CoverController)
+    controller.config = {CONF_VENTILATION_DELAY_AFTER_CLOSE: 5}
+    controller._last_position = None
+    controller._expire_manual_override = Mock()
+    controller._ensure_manual_expiry_timer = Mock()
+    controller._is_position_state_event = Mock(return_value=False)
+    controller._contact_entities = Mock(return_value=[sensor])
+    controller._contact_trigger_delay = Mock(return_value=3)
+    controller._contact_status_delay = Mock(return_value=4)
+    controller._full_open_sensors = Mock(return_value=[])
+    controller._tilt_sensors = Mock(return_value=[sensor])
+    controller._schedule_delayed_evaluate = Mock()
+    controller.async_request_evaluate = Mock()
+
+    controller._handle_state_event(
+        SimpleNamespace(
+            data={
+                "entity_id": sensor,
+                "old_state": SimpleNamespace(state="on"),
+                "new_state": SimpleNamespace(state="off"),
+            }
+        )
+    )
+
+    controller._schedule_delayed_evaluate.assert_called_once_with(
+        "window_closed", 12, timer_key=f"contact:{sensor}"
+    )
+    controller.async_request_evaluate.assert_not_called()
 
 
 def test_event_payload_exposes_specific_trigger() -> None:

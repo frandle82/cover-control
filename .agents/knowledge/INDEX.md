@@ -1,7 +1,7 @@
 ---
 title: Map of Content (MOC) – Cover Control Knowledge Base
 type: index
-updated: 2026-11-09
+updated: 2026-11-11
 tags:
   - moc
   - index
@@ -36,6 +36,7 @@ Dokumentierte Lösungen für knifflige Bugs und HA-Spezifika:
 * 📄 [`troubleshooting/entity-registry-cleanup.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/troubleshooting/entity-registry-cleanup.md) – Lifecycle-Bereinigung verwaister Entitäten bei Raumänderungen.
 * 📄 [`troubleshooting/home-assistant-async-guidelines.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/troubleshooting/home-assistant-async-guidelines.md) – Vermeidung blockierender I/O im Event-Loop und sauberes Unload.
 * 📄 [`troubleshooting/stable-sun-events-and-active-controls.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/troubleshooting/stable-sun-events-and-active-controls.md) – Deterministische Astro-Ereignisse und getrennte Erfassung aktiver Entscheidungs-Controls.
+* 📄 [`troubleshooting/contact-runtime-path.md`](troubleshooting/contact-runtime-path.md) – Cover-lokale Contact-Maps, Ventilation-Feature-Erkennung und Listener-Rebinding.
 
 ---
 

@@ -6,13 +6,18 @@ from collections.abc import Mapping
 from copy import deepcopy
 from typing import Any
 
-from .config_resolver import GLOBAL_SOURCE_KEYS, ROOM_SOURCE_OVERRIDE_KEYS
+from .config_resolver import (
+    GLOBAL_SOURCE_KEYS,
+    ROOM_SOURCE_OVERRIDE_KEYS,
+    normalize_final_close_elevation,
+)
 from .const import (
     CONF_GLOBAL,
     CONF_GLOBAL_DEFAULTS,
     CONF_GLOBAL_SOURCES,
     CONF_GROUP,
     CONF_GROUPS,
+    CONF_FINAL_CLOSE_ELEVATION,
     CONF_NAME,
     CONF_ROOM_SETTINGS,
     CONF_ROOMS,
@@ -37,6 +42,12 @@ class ConfigGroupModel:
         for group in GROUPS:
             if not isinstance(groups.get(group), dict):
                 groups[group] = {}
+            if CONF_FINAL_CLOSE_ELEVATION in groups[group]:
+                groups[group][CONF_FINAL_CLOSE_ELEVATION] = (
+                    normalize_final_close_elevation(
+                        groups[group][CONF_FINAL_CLOSE_ELEVATION]
+                    )
+                )
         for group in tuple(groups):
             if group not in GROUPS:
                 groups.pop(group)
