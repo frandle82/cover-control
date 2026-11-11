@@ -337,6 +337,45 @@ def _time_settings(*, opening: bool) -> dict[str, str | bool]:
     }
 
 
+async def test_window_ventilation_overrides_scheduled_close(hass) -> None:
+    """An open window must win over the active scheduled-close background."""
+
+    controller_entry, room_entry, manager, calls, _open_calls = await _setup_runtime(
+        hass,
+        covers={"cover.wohnzimmer": (["binary_sensor.fenster_offen"], [])},
+        group_settings=_time_settings(opening=False),
+        initial_position=0,
+        supports_position=True,
+    )
+    controller = manager.controllers["cover.wohnzimmer"]
+
+    hass.states.async_set("binary_sensor.fenster_offen", "on")
+    await _flush_evaluations(hass, manager)
+
+    assert calls[-1].data == {"entity_id": "cover.wohnzimmer", "position": 25}
+    assert controller._reason == "ventilation"
+    assert not controller._manual_active
+
+    hass.states.async_set(
+        "cover.wohnzimmer",
+        "open",
+        {
+            "current_position": 25,
+            "supported_features": CoverEntityFeature.SET_POSITION,
+        },
+    )
+    await _flush_evaluations(hass, manager)
+    calls.clear()
+    hass.states.async_set("binary_sensor.fenster_offen", "off")
+    await _flush_evaluations(hass, manager)
+
+    assert calls[-1].data == {"entity_id": "cover.wohnzimmer", "position": 0}
+    assert not controller._manual_active
+
+    assert await hass.config_entries.async_unload(room_entry.entry_id)
+    assert await hass.config_entries.async_unload(controller_entry.entry_id)
+
+
 @pytest.mark.parametrize(
     ("opening", "initial_position", "expected_position"),
     [(True, 0, 100), (False, 100, 0)],
