@@ -110,7 +110,7 @@ async def test_room_positions_follow_cover_tilt_capability(hass, supports_tilt) 
 def test_supported_subentry_types_remains_empty() -> None:
     assert CoverControlFlow.async_get_supported_subentry_types(None) == {}
 
-def test_translation_structure_is_synchronized() -> None:
+def test_translation_structures_match() -> None:
     paths = [
         Path("custom_components/cover_control/strings.json"),
         Path("custom_components/cover_control/translations/en.json"),
@@ -130,7 +130,7 @@ def test_translation_structure_is_synchronized() -> None:
     assert "profile_action" not in documents[0]["selector"]
 
 
-def test_menu_descriptions_differ_from_menu_labels() -> None:
+def test_menu_option_descriptions_differ_from_menu_labels() -> None:
     for path in (
         Path("custom_components/cover_control/strings.json"),
         Path("custom_components/cover_control/translations/en.json"),
@@ -145,11 +145,86 @@ def test_menu_descriptions_differ_from_menu_labels() -> None:
             descriptions = value.get("menu_option_descriptions", {})
             for key, label in labels.items():
                 if key in descriptions:
-                    assert descriptions[key] != label, f"{path}: {key}"
+                    description = descriptions[key]
+                    assert description != label, f"{path}: {key}"
+                    assert len(description.split()) > len(label.split()), (
+                        f"{path}: {key} description adds no useful context"
+                    )
             for child in value.values():
                 check(child)
 
         check(document)
+
+
+def test_required_translation_keys_exist() -> None:
+    paths = (
+        Path("custom_components/cover_control/strings.json"),
+        Path("custom_components/cover_control/translations/en.json"),
+        Path("custom_components/cover_control/translations/de.json"),
+    )
+    required_final_close = {
+        "final_close_time",
+        "final_close_elevation",
+    }
+    required_switches = {
+        "auto_time",
+        "auto_brightness",
+        "auto_sun",
+        "auto_ventilate",
+        "auto_shading",
+        "resident_status",
+    }
+    for path in paths:
+        document = json.loads(path.read_text())
+        for namespace in ("config", "options"):
+            section = document[namespace]["step"]["group_final_close"][
+                "sections"
+            ]["non_workday_times"]
+            assert required_final_close <= section["data"].keys()
+            assert required_final_close <= section["data_description"].keys()
+        assert required_switches <= document["entity"]["switch"].keys()
+
+
+def test_no_internal_keys_are_exposed_as_ui_labels() -> None:
+    paths = (
+        Path("custom_components/cover_control/strings.json"),
+        Path("custom_components/cover_control/translations/en.json"),
+        Path("custom_components/cover_control/translations/de.json"),
+    )
+    internal_keys = {
+        "final_close_elevation",
+        "final_close_time_enabled",
+        "auto_sun",
+        "auto_brightness",
+        "resident_status",
+        "intermediate_close_enabled",
+    }
+
+    def visible_texts(value):
+        if isinstance(value, dict):
+            return [
+                text
+                for child in value.values()
+                for text in visible_texts(child)
+            ]
+        return [value] if isinstance(value, str) else []
+
+    for path in paths:
+        document = json.loads(path.read_text())
+        for text in visible_texts(document):
+            assert not any(key in text for key in internal_keys), f"{path}: {text}"
+
+    german = Path(
+        "custom_components/cover_control/translations/de.json"
+    ).read_text()
+    for anglicism in (
+        "Final Close",
+        "Manual Override",
+        "Runtime Toggle",
+        "Room-Entries",
+        "Workday",
+    ):
+        assert anglicism not in german
 
 
 def test_final_close_translations_are_complete_and_user_facing() -> None:
