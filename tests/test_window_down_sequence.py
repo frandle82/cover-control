@@ -81,8 +81,15 @@ def _controller(
     controller._delayed_evaluation_unsubs = {}
     controller._status = _normalize_cover_status(None)
     controller._pre_ventilation_position = None
+    controller._background_target = None
+    controller._background_reason = None
+    controller._background_updated_at = None
+    controller._effective_target = None
+    controller._effective_reason = None
+    controller._effective_updated_at = None
     controller._target = None
     controller._reason = None
+    controller._active_safety = None
     controller._manual_active = False
     controller._last_command_at = None
     controller._group_position_callback = None
@@ -247,18 +254,18 @@ async def test_second_drive_is_not_detected_as_manual_override() -> None:
 @pytest.mark.asyncio
 async def test_window_close_restores_original_close_target() -> None:
     controller = _controller(tilted=True)
+    controller._set_background_target(0, "scheduled_close", persist=False)
     await controller._set_position_local(0, "scheduled_close")
     await _finish_first_drive(controller)
     _set_window_state(controller, full_open=False, tilted=False)
     controller.hass.states.states[controller.cover] = _state("open", 25)
 
-    target, reason = controller._background_return_target(
-        controller._background_for("ventilation"),
-        fallback=controller._pre_ventilation_position,
-    )
-    await controller._set_position_local(target, reason)
+    await controller._apply_effective_target()
 
-    assert (target, reason) == (0, "ventilation_end_close")
+    assert (controller._effective_target, controller._effective_reason) == (
+        0,
+        "scheduled_close",
+    )
     assert [call.args[0] for call in controller._command_position.await_args_list] == [
         0,
         25,
@@ -269,16 +276,13 @@ async def test_window_close_restores_original_close_target() -> None:
 @pytest.mark.asyncio
 async def test_reality_auto_close_window_ventilate_restore() -> None:
     controller = _controller(full_open=True)
+    controller._set_background_target(0, "scheduled_close", persist=False)
 
     await controller._set_position_local(0, "scheduled_close")
     await _finish_first_drive(controller)
     _set_window_state(controller, full_open=False, tilted=False)
     controller.hass.states.states[controller.cover] = _state("open", 80)
-    target, reason = controller._background_return_target(
-        controller._background_for("ventilation"),
-        fallback=controller._pre_ventilation_position,
-    )
-    await controller._set_position_local(target, reason)
+    await controller._apply_effective_target()
 
     assert [call.args[0] for call in controller._command_position.await_args_list] == [
         0,
@@ -292,19 +296,19 @@ async def test_reality_window_priority_replaces_shading_then_restores() -> None:
     controller = _controller()
     controller.config[CONF_SHADING_POSITION] = 25
     controller.hass.states.states[controller.cover] = _state("open", 25)
+    controller._set_background_target(25, "shading", persist=False)
     controller._reason = "shading"
     controller._set_status_bucket("shading", True)
     controller._remember_pre_ventilation_position()
 
     await controller._set_position_local(80, "ventilation_full")
-    target, reason = controller._background_return_target(
-        controller._background_for("ventilation"),
-        fallback=controller._pre_ventilation_position,
-    )
     controller.hass.states.states[controller.cover] = _state("open", 80)
-    await controller._set_position_local(target, reason)
+    await controller._apply_effective_target()
 
-    assert (target, reason) == (25, "ventilation_end_shading")
+    assert (controller._effective_target, controller._effective_reason) == (
+        25,
+        "shading",
+    )
     assert [call.args[0] for call in controller._command_position.await_args_list] == [
         80,
         25,

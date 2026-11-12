@@ -121,6 +121,22 @@ async def _async_cover_entity_feature(hass):
 
 
 class ActuatorMixin:
+    @staticmethod
+    def _is_background_reason(reason: str) -> bool:
+        """Return whether a reason belongs to normal background automation."""
+
+        if (
+            reason in SAFETY_REASONS
+            or "ventilation" in reason
+            or reason.startswith("manual_")
+            or reason.startswith("recalibrate_")
+        ):
+            return False
+        return reason in {"resident_asleep", "resident_wake"} or any(
+            token in reason
+            for token in ("open", "close", "shading", "heat_protection")
+        )
+
     def _effective_shading_position(self) -> float | None:
         """Return the alternate shading target while its gating entity is active."""
 
@@ -253,6 +269,17 @@ class ActuatorMixin:
     async def _set_position(self, position: float | None, reason: str) -> None:
         if position is None:
             return
+        if self._is_background_reason(reason):
+            if (
+                self._group_position_callback is not None
+                and reason != "scheduled_intermediate_close"
+            ):
+                await self._group_position_callback(self, float(position), reason)
+            else:
+                self._set_background_target(float(position), reason)
+                await self._apply_effective_target()
+                self._refresh_next_events(dt_util.utcnow())
+            return
         frost_target = self._frost_target_if_active()
         if (
             reason not in SAFETY_REASONS
@@ -261,10 +288,7 @@ class ActuatorMixin:
         ):
             position = frost_target
             reason = "frost_alarm"
-        if (
-            self._group_position_callback is not None
-            and reason != "scheduled_intermediate_close"
-        ):
+        if self._group_position_callback is not None and reason in SAFETY_REASONS:
             await self._group_position_callback(self, float(position), reason)
             return
         await self._set_position_local(float(position), reason)
@@ -307,9 +331,7 @@ class ActuatorMixin:
                 tilt_tolerance = DEFAULT_TILT_TOLERANCE
                 if current_tilt is None or abs(current_tilt - tilt_position) > tilt_tolerance:
                     await self._command_tilt_position(float(tilt_position), reason=reason)
-            if self._reason is None:
-                self._reason = reason
-            self._target = target
+            self._set_effective_state(target, reason, persist=False)
             self._record_action_status(reason, target)
             if sequence_needed:
                 self._start_window_down_sequence(target, reason)
@@ -339,8 +361,7 @@ class ActuatorMixin:
         await self._command_position(target, reason=reason)
         if tilt_position is not None:
             await self._send_tilt_after_position(float(tilt_position), reason=reason)
-        self._target = target
-        self._reason = reason
+        self._set_effective_state(target, reason, persist=False)
         self._record_action_status(reason, target)
         if sequence_needed:
             self._start_window_down_sequence(target, reason)
@@ -384,7 +405,6 @@ class ActuatorMixin:
         window_state, final_target = window
         self._pre_ventilation_position = close_target
         section = self._status.setdefault("ventilation", {})
-        section["background"] = {"open": False, "close": True, "shading": False}
         section["restore_position"] = close_target
         self._window_down_sequence = {
             "phase": "closing",
@@ -430,7 +450,6 @@ class ActuatorMixin:
         window_state, final_target = latest
         self._pre_ventilation_position = initial_target
         section = self._status.setdefault("ventilation", {})
-        section["background"] = {"open": False, "close": True, "shading": False}
         section["restore_position"] = initial_target
         await self._set_position_local(
             final_target,
@@ -479,7 +498,7 @@ class ActuatorMixin:
     def _tilt_position_value(self, reason: str | None) -> float | None:
         if not reason:
             return None
-        if reason == "ventilation_full" or "open" in reason:
+        if reason in {"ventilation_full", "resident_wake"} or "open" in reason:
             return self._position_value(
                 CONF_OPEN_TILT_POSITION, DEFAULT_OPEN_TILT_POSITION
             )
@@ -797,8 +816,8 @@ class ActuatorMixin:
     async def _command_position(
         self, position: float, *, reason: str | None = None, trigger: str | None = None
     ) -> None:
-        self._target = float(position)
-        self._status["target"] = self._target
+        self._set_effective_state(float(position), reason, persist=False)
+        self._status["target"] = self._effective_target
         state = self._cover_state_or_warn(
             "set_cover_position",
             reason=reason,

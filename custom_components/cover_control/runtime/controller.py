@@ -83,7 +83,12 @@ class CoverController(
         self._local_listener_entities: set[str] = set()
         self._manual_until: datetime | None = None
         self._manual_active: bool = False
-        self._target: float | None = None
+        self._background_target: float | None = None
+        self._background_reason: str | None = None
+        self._background_updated_at: int | None = None
+        self._effective_target: float | None = None
+        self._effective_reason: str | None = None
+        self._effective_updated_at: int | None = None
         self._last_position: float | None = None
         self._pre_ventilation_position: float | None = None
         self._window_down_sequence: dict[str, object] | None = None
@@ -107,7 +112,6 @@ class CoverController(
         self._last_command_context_id: str | None = None
         self._manual_movement_pending = False
         self._logbook_dedupe: set[str] = set()
-        self._reason: str | None = None
         self._decision_controls: set[str] = set()
         self._active_safety: str | None = None
         self._safety_target: float | None = None
@@ -136,6 +140,26 @@ class CoverController(
             CONF_AUTO_VENTILATE: CONF_AUTO_VENTILATE_ENTITY,
             CONF_AUTO_SHADING: CONF_AUTO_SHADING_ENTITY,
         }
+
+    @property
+    def _target(self) -> float | None:
+        """Backward-compatible alias for the effective movement target."""
+
+        return self._effective_target
+
+    @_target.setter
+    def _target(self, value: float | None) -> None:
+        self._effective_target = value
+
+    @property
+    def _reason(self) -> str | None:
+        """Backward-compatible alias for the effective movement reason."""
+
+        return self._effective_reason
+
+    @_reason.setter
+    def _reason(self, value: str | None) -> None:
+        self._effective_reason = value
 
     def _state_for(self, entity_id: str | None):
         """Return a batch-snapshotted state when the manager supplied one."""

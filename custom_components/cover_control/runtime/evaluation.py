@@ -89,6 +89,117 @@ from .common import (
 
 
 class EvaluationMixin:
+    def _window_override_target(self, now: datetime) -> tuple[float, str] | None:
+        """Return the cover-local window target without changing background state."""
+
+        if (
+            self._is_awning()
+            or not self._auto_enabled(CONF_AUTO_VENTILATE)
+            or self._active_safety == "frost"
+        ):
+            return None
+        resident_sleeping = bool(
+            self.config.get(
+                CONF_RESIDENT_STATUS,
+                DEFAULT_AUTOMATION_FLAGS.get(CONF_RESIDENT_STATUS, False),
+            )
+            and self._is_resident_sleeping()
+        )
+        if resident_sleeping and not self.config.get(
+            CONF_RESIDENT_ALLOW_VENTILATION,
+            DEFAULT_AUTOMATION_FLAGS.get(CONF_RESIDENT_ALLOW_VENTILATION, False),
+        ):
+            return None
+        if self._contacts_active(self._full_open_sensors(), now):
+            has_tilt_sensor = bool(self._tilt_sensors())
+            open_position = self._position_value(
+                CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION
+            )
+            return (
+                self._position_value(
+                    CONF_LOCKOUT_POSITION
+                    if has_tilt_sensor
+                    else CONF_VENTILATE_POSITION,
+                    open_position if has_tilt_sensor else DEFAULT_VENTILATE_POSITION,
+                ),
+                "ventilation_full" if has_tilt_sensor else "ventilation",
+            )
+        if self._tilt_contact_active(now):
+            return (
+                self._position_value(
+                    CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION
+                ),
+                "ventilation",
+            )
+        return None
+
+    def _resolve_effective_target(
+        self, now: datetime | None = None
+    ) -> tuple[float | None, str | None, bool]:
+        """Resolve Safety > Manual > Window > Background for one cover."""
+
+        now = now or dt_util.utcnow()
+        safety_blocks, safety_target, safety_reason = self._safety_decision()
+        if safety_blocks:
+            return safety_target, safety_reason, safety_target is not None
+        if getattr(self, "_manual_active", False):
+            return (
+                self._current_position()
+                if self._current_position() is not None
+                else getattr(self, "_effective_target", None),
+                "manual_override",
+                False,
+            )
+        if not self._master_enabled():
+            return (
+                getattr(self, "_effective_target", None),
+                getattr(self, "_effective_reason", None),
+                False,
+            )
+        window = self._window_override_target(now)
+        if window is not None:
+            return window[0], window[1], True
+        background_target = getattr(self, "_background_target", None)
+        if background_target is not None:
+            frost_target = self._frost_target_if_active()
+            if frost_target is not None and background_target < frost_target:
+                return frost_target, "frost_alarm", True
+            return (
+                background_target,
+                getattr(self, "_background_reason", None) or "background_restore",
+                True,
+            )
+        if self._pre_ventilation_position is not None:
+            return self._pre_ventilation_position, "ventilation_end_restore", True
+        return (
+            getattr(self, "_effective_target", None),
+            getattr(self, "_effective_reason", None),
+            False,
+        )
+
+    async def _apply_effective_target(self, now: datetime | None = None) -> None:
+        """Apply only the target selected by the central priority resolver."""
+
+        target, reason, should_move = self._resolve_effective_target(now)
+        if reason in {"ventilation", "ventilation_full"}:
+            self._set_ventilation_status(
+                reason == "ventilation", reason == "ventilation_full"
+            )
+        elif self._ventilation_status_active():
+            self._set_ventilation_status(False, False)
+            self._pre_ventilation_position = None
+        if (
+            not should_move
+            or target is None
+            or reason is None
+            or getattr(self, "_suppress_effective_movement", False)
+            or not getattr(self, "_startup_complete", True)
+        ):
+            self._set_effective_state(target, reason)
+            self._publish_state()
+            return
+        await self._set_position_local(float(target), reason)
+
     def _elevation_final_close_due(
         self,
         now: datetime,
@@ -178,6 +289,7 @@ class EvaluationMixin:
         context = self._evaluation_context
         context_now = context.get("now") if context is not None else None
         now = context_now if isinstance(context_now, datetime) else dt_util.utcnow()
+        self._suppress_effective_movement = False
         self._current_evaluation_triggers = triggers or frozenset({trigger})
         self._decision_controls.clear()
         self._expire_manual_override(now)
@@ -217,21 +329,11 @@ class EvaluationMixin:
         if self._cover_unavailable_logged:
             _LOGGER.info("Cover Control resumed evaluation for %s", self.cover)
             self._cover_unavailable_logged = False
-        if await self._evaluate_safety():
-            self._refresh_next_events(now)
-            return
-        if self._manual_active:
-            self._cancel_window_down_sequence()
-            self._logbook_entry(
-                "No movement · manual override active",
-                dedupe_key="blocked:manual_override",
-            )
-            self._refresh_next_events(now)
-            self._publish_state()
-            return
-
         if not self._master_enabled():
             self._cancel_window_down_sequence()
+            if await self._evaluate_safety():
+                self._refresh_next_events(now)
+                return
             self._refresh_next_events(now)
             self._publish_state()
             return
@@ -239,6 +341,9 @@ class EvaluationMixin:
         unavailable_dependencies = self._unavailable_decision_entities()
         if unavailable_dependencies:
             self._cancel_window_down_sequence()
+            if await self._evaluate_safety():
+                self._refresh_next_events(now)
+                return
             if self._startup_complete:
                 self._runtime_outage_active = True
                 self._outage_dependencies.update(unavailable_dependencies)
@@ -272,9 +377,7 @@ class EvaluationMixin:
             self._startup_complete = True
             self._runtime_outage_active = False
             self._outage_dependencies.clear()
-            self._refresh_next_events(now)
-            self._publish_state()
-            return
+            self._suppress_effective_movement = True
         if recovered_from_runtime_outage:
             self._runtime_outage_active = False
             self._outage_dependencies.clear()
@@ -329,9 +432,6 @@ class EvaluationMixin:
         )
 
         resident_blocks_open = resident_sleeping and not resident_allow_open
-        resident_blocks_ventilation = (
-            resident_sleeping and not resident_allow_ventilation
-        )
         resident_blocks_shading = self._resident_blocks_shading(
             resident_sleeping, resident_allow_shading
         )
@@ -344,7 +444,12 @@ class EvaluationMixin:
         )
         tilt_contact_active = auto_ventilate and self._tilt_contact_active(now)
         ventilation_contact_active = full_contact_active or tilt_contact_active
-        if await self._evaluate_window_down_sequence(trigger):
+        safety_blocks = self._safety_decision()[0]
+        if self._window_down_sequence is not None and (
+            safety_blocks or self._manual_active
+        ):
+            self._cancel_window_down_sequence()
+        elif await self._evaluate_window_down_sequence(trigger):
             self._refresh_next_events(now)
             return
 
@@ -413,6 +518,11 @@ class EvaluationMixin:
         )
 
         current_position = self._current_position()
+        background_position = (
+            self._background_target
+            if self._background_target is not None
+            else current_position
+        )
         final_close_due = bool(
             {TRIGGER_SCHEDULED_FINAL_CLOSE, TRIGGER_SCHEDULED_FINAL_CLOSE_ELEVATION}
             & self._current_evaluation_triggers
@@ -422,16 +532,15 @@ class EvaluationMixin:
                 now, sun_elevation, self._current_evaluation_triggers
             )
         summer_close_suppressed, close_target, uses_intermediate = (
-            self._seasonal_close_target(now, current_position, final_close_due)
+            self._seasonal_close_target(now, background_position, final_close_due)
         )
         intermediate_target = close_target if uses_intermediate else None
         close_status_satisfied = self._status_active(
             "close"
-        ) and self._position_matches(close_target, current_position)
+        ) and self._position_matches(close_target, self._background_target)
         regular_close_event: tuple[datetime, str, float | None] | None = None
         if (
             not summer_close_suppressed
-            and not self._manual_blocks_action("close")
             and not close_status_satisfied
             and (
                 not uses_intermediate
@@ -469,70 +578,13 @@ class EvaluationMixin:
                 )
 
         if summer_close_suppressed:
-            self._reason = "summer_period"
             self._decision_controls.add("time")
 
-        if (
-            auto_ventilate
-            and full_contact_active
-            and self._active_safety != "frost"
-        ):
-            has_tilt_sensor = bool(self._tilt_sensors())
-            open_position = self._position_value(
-                CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION
-            )
-            target = self._position_value(
-                CONF_LOCKOUT_POSITION if has_tilt_sensor else CONF_VENTILATE_POSITION,
-                open_position if has_tilt_sensor else DEFAULT_VENTILATE_POSITION,
-            )
-            reason = "ventilation_full" if has_tilt_sensor else "ventilation"
-            if (
-                not resident_blocks_ventilation
-                and not self._manual_blocks_action("ventilation")
-            ):
-                self._remember_pre_ventilation_position()
-                await self._set_position(
-                    target,
-                    reason,
-                )
-            else:
-                self._reason = reason
-                self._set_ventilation_status(not has_tilt_sensor, has_tilt_sensor)
-                self.persist_status()
-                self._publish_state()
-            return
-
-        if (
-            auto_ventilate
-            and tilt_contact_active
-            and self._active_safety != "frost"
-            and not resident_blocks_ventilation
-        ):
-            if not self._manual_blocks_action("ventilation"):
-                self._remember_pre_ventilation_position()
-                target = self._position_value(
-                    CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION
-                )
-                if current_position is None or not self._position_matches(
-                    target, current_position
-                ):
-                    await self._set_position(target, "ventilation")
-                else:
-                    self._reason = "ventilation"
-                    self._set_ventilation_status(True, False)
-                    self.persist_status()
-                    self._publish_state()
-            return
-
         if resident_sleeping and resident_close_enabled:
-            if self._manual_blocks_action("close"):
-                self._refresh_next_events(now)
-                self._publish_state()
-                return
             close_target = self._position_value(
                 CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION
             )
-            if not self._position_matches(close_target, current_position):
+            if not self._position_matches(close_target, self._background_target):
                 await self._set_position(close_target, "resident_asleep")
                 return
             if not (
@@ -541,30 +593,19 @@ class EvaluationMixin:
                 or resident_allow_ventilation
             ):
                 self._refresh_next_events(now)
-                self._publish_state()
+                await self._apply_effective_target(now)
                 return
-
-        post_ventilation = (
-            auto_ventilate
-            and not ventilation_contact_active
-            and (
-                self._reason
-                in {"ventilation", "ventilation_full", "shading_end_ventilation"}
-                or self._ventilation_status_active()
-            )
-        )
 
         shading_holds_cover = self._auto_enabled(CONF_AUTO_SHADING) and (
             self._status_active("shading")
-            or self._reason in {"shading", "manual_shading"}
+            or self._background_reason in {"shading", "manual_shading"}
         )
 
         if (
             self._auto_enabled(CONF_AUTO_SHADING)
-            and not self._manual_blocks_action("shading")
             and not resident_blocks_shading
         ):
-            shading_active = self._status_active("shading") or self._reason in {
+            shading_active = self._status_active("shading") or self._background_reason in {
                 "shading",
                 "manual_shading",
             }
@@ -582,10 +623,12 @@ class EvaluationMixin:
             if (
                 shading_active
                 and not heat_active_now
-                and self._reason == "heat_protection"
+                and self._background_reason == "heat_protection"
             ):
                 self._set_heat_protection_status(False, True)
-                self._reason = "shading"
+                self._set_background_target(
+                    self._background_target, "shading", persist=False
+                )
                 self.persist_status()
             if shading_allowed:
                 if self._shading_pending_active("end"):
@@ -597,7 +640,9 @@ class EvaluationMixin:
                 heat_active = reason == "heat_protection"
                 changed = self._set_heat_protection_status(heat_active, heat_hold)
                 if shading_target is None:
-                    self._reason = "shading"
+                    self._set_background_target(
+                        self._background_target, "shading", persist=False
+                    )
                 if changed:
                     self.persist_status()
                 if shading_target is not None and not self._position_matches(
@@ -605,8 +650,10 @@ class EvaluationMixin:
                 ):
                     await self._set_position(shading_target, reason)
                     return
-                if self._reason != reason:
-                    self._reason = reason
+                if self._background_reason != reason:
+                    self._set_background_target(
+                        self._background_target, reason, persist=False
+                    )
                     self.persist_status()
                     self._publish_state()
                 shading_end_conditions_met = False
@@ -624,7 +671,7 @@ class EvaluationMixin:
                 if not self._shading_end_wait_complete(
                     now, shading_end_condition_valid, waiting_end
                 ):
-                    self._publish_state()
+                    await self._apply_effective_target(now)
                     return
                 if self._shading_pending_active("end"):
                     self._clear_shading_pending("end")
@@ -642,32 +689,25 @@ class EvaluationMixin:
                         or tilt_contact_active
                     )
                 ):
-                    if self._reason in {
+                    if self._background_reason in {
                         "shading",
                         "manual_shading",
                         "heat_protection",
                     }:
-                        self._reason = None
+                        self._background_reason = None
                     self._set_status_bucket("shading", False)
                     self._set_heat_protection_status(False, False)
                     self._clear_shading_pending(persist=False)
                     self.persist_status()
                     self._logbook_entry("Sun shading ended")
-                    self._publish_state()
+                    await self._apply_effective_target(now)
                     return
                 if (
                     auto_ventilate
                     and tilt_contact_active
                     and not full_contact_active
-                    and not self._manual_blocks_action("ventilation")
                 ):
-                    self._remember_pre_ventilation_position()
-                    await self._set_position(
-                        self._position_value(
-                            CONF_VENTILATE_POSITION, DEFAULT_VENTILATE_POSITION
-                        ),
-                        "shading_end_ventilation",
-                    )
+                    await self._apply_effective_target(now)
                     return
                 shading_end_target = self._shading_end_open_target()
                 if shading_end_target is not None:
@@ -676,69 +716,47 @@ class EvaluationMixin:
                         "shading_end_open",
                     )
                     return
-                if self._reason in {
+                if self._background_reason in {
                     "shading",
                     "manual_shading",
                     "heat_protection",
                 }:
-                    self._reason = None
+                    self._background_reason = None
                 self._set_status_bucket("shading", False)
                 self._set_heat_protection_status(False, False)
                 self._clear_shading_pending("end", persist=False)
                 self.persist_status()
                 self._logbook_entry("Sun shading ended")
-                self._publish_state()
+                await self._apply_effective_target(now)
                 return
             if shading_allowed and not shading_active:
                 heat_active, _temperature = self._heat_protection_state()
                 shading_target, reason = self._shading_target_reason()
                 self._set_heat_protection_status(heat_active, heat_active)
                 if (
-                    current_position is None
-                    or self._position_is_above(current_position, shading_target)
-                    or self._position_matches(shading_target, current_position)
+                    background_position is None
+                    or self._position_is_above(background_position, shading_target)
+                    or self._position_matches(shading_target, background_position)
                     or self._status_active("open")
                 ):
                     await self._set_position(shading_target, reason)
                 else:
-                    self._reason = reason
-                    self._set_status_bucket("shading", True)
-                    self.persist_status()
-                    self._publish_state()
+                    self._set_background_target(shading_target, reason)
+                    await self._apply_effective_target(now)
                 return
 
         close_events: list[tuple[datetime, str, float | None]] = []
         open_events: list[tuple[datetime, str, float | None]] = []
 
-        if post_ventilation:
-            restore_position = self._pre_ventilation_position
-            target, reason = self._background_return_target(
-                self._background_for("ventilation"),
-                fallback=restore_position,
-                allow_open=True,
-                allow_shading=not resident_blocks_shading,
-            )
-            close_events.append(
-                (
-                    now + timedelta(seconds=1),
-                    reason,
-                    target,
-                )
-            )
-            self._pre_ventilation_position = None
-            self._set_ventilation_status(False, False)
-            self.persist_status()
-
         open_target = self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)
         open_status_satisfied = self._status_active("open") and self._position_matches(
-            open_target, current_position
+            open_target, self._background_target
         )
 
         if regular_close_event is not None:
             close_events.append(regular_close_event)
         if (
             not resident_blocks_open
-            and not self._manual_blocks_action("open")
             and not shading_holds_cover
             and not open_status_satisfied
         ):
@@ -764,7 +782,9 @@ class EvaluationMixin:
                 no_go_remaining = self._opening_no_go_remaining(now)
                 if open_mode != MODE_TIME or no_go_remaining <= 0:
                     reason = (
-                        "scheduled_open"
+                        "resident_wake"
+                        if resident_woke and resident_open_enabled
+                        else "scheduled_open"
                         if open_mode == MODE_TIME
                         else "brightness_open"
                         if open_mode == MODE_BRIGHTNESS
@@ -800,15 +820,14 @@ class EvaluationMixin:
         if selected:
             _, reason, position = selected
             if "close" in reason:
-                if not self._manual_blocks_action("close"):
-                    await self._set_position(position, reason)
-                    return
-            elif not self._manual_blocks_action("open"):
+                await self._set_position(position, reason)
+                return
+            else:
                 await self._set_position(position, reason)
                 return
 
         self._refresh_next_events(now)
-        self._publish_state()
+        await self._apply_effective_target(now)
 
     def _recovery_should_catch_up(self, dependencies_recovered: bool) -> bool:
         """Decide recovery from runtime state, never from the trigger name."""

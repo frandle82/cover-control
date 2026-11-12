@@ -95,7 +95,9 @@ class SafetyMixin:
                     return alarm, target
         return None
 
-    async def _evaluate_safety(self) -> bool:
+    def _safety_decision(self) -> tuple[bool, float | None, str | None]:
+        """Resolve safety without mutating the background automation target."""
+
         fire_active = self._safety_alarm_active("fire")
         if fire_active is True and not self.fire_latched():
             self._set_fire_latched(True)
@@ -108,11 +110,8 @@ class SafetyMixin:
                 "fire_alarm" if fire_active is True else "fire_latched"
             )
             if fire_active is True and self._safety_target is not None:
-                await self._set_position(self._safety_target, "fire_alarm")
-            else:
-                self._reason = "fire_latched"
-                self._publish_state()
-            return True
+                return True, self._safety_target, "fire_alarm"
+            return True, None, "fire_latched"
 
         active = None
         for alarm, *_rest in SAFETY_ALARMS:
@@ -122,8 +121,7 @@ class SafetyMixin:
                 self._active_safety = "unavailable"
                 self._safety_target = None
                 self._decision_controls.add("safety")
-                self._publish_state()
-                return True
+                return True, None, "safety_unavailable"
             if state:
                 target = self._configured_safety_target(alarm)
                 if target is not None:
@@ -134,7 +132,7 @@ class SafetyMixin:
             self._safety_target = None
             if self._reason in SAFETY_REASONS:
                 self._reason = None
-            return False
+            return False, None, None
 
         alarm, target = active
         reason = f"{alarm}_alarm" if alarm in {"fire", "rain", "frost"} else alarm
@@ -147,12 +145,23 @@ class SafetyMixin:
                 CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION
             )
             if self._position_matches(close_target, self._current_position()):
-                await self._set_position(target, reason)
-                return True
+                return True, target, reason
             if self._reason in SAFETY_REASONS:
                 self._reason = None
+            return False, None, None
+        return True, target, reason
+
+    async def _evaluate_safety(self) -> bool:
+        blocked, target, reason = self._safety_decision()
+        if not blocked:
             return False
-        await self._set_position(target, reason)
+        if target is not None and reason is not None:
+            await self._set_position(target, reason)
+        else:
+            self._set_effective_state(
+                getattr(self, "_effective_target", None), reason
+            )
+            self._publish_state()
         return True
 
     def _frost_target_if_active(self) -> float | None:
