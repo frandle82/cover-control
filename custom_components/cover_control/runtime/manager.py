@@ -45,7 +45,6 @@ from .common import (
     STORAGE_VERSION,
     _unique_covers,
     TRIGGER_FIRE_LATCH_RESET,
-    WINDOW_DOWN_SEQUENCE_REASONS,
 )
 from .controller import CoverController
 from .safety import SAFETY_REASONS
@@ -289,6 +288,24 @@ class ControllerManager:
     ) -> None:
         """Apply non-ventilation room movements consistently to all covers."""
 
+        if CoverController._is_background_reason(reason):
+            group_key = (reason, float(position))
+            if self._batch_active:
+                if group_key in self._batch_group_actions:
+                    return
+                self._batch_group_actions.add(group_key)
+            for controller in self.controllers.values():
+                controller._set_background_target(position, reason)
+            await asyncio.gather(
+                *(
+                    controller._apply_effective_target()
+                    for controller in self.controllers.values()
+                )
+            )
+            for controller in self.controllers.values():
+                controller._refresh_next_events(dt_util.utcnow())
+            return
+
         if (
             "ventilation" in reason
             or reason.startswith("manual_")
@@ -311,7 +328,6 @@ class ControllerManager:
             and "end_open" not in reason
             else "open"
         )
-        now = dt_util.utcnow()
         async with self._group_command_lock:
             eligible = [
                 controller
@@ -319,22 +335,10 @@ class ControllerManager:
                 if reason in SAFETY_REASONS
                 or not controller._manual_blocks_action(action)
             ]
-            independent = [
-                controller
-                for controller in eligible
-                if controller is not source
-                and reason not in WINDOW_DOWN_SEQUENCE_REASONS
-                and controller._ventilation_requires_independent_control(now)
-            ]
-            for controller in independent:
-                controller._record_group_background(reason)
-            recipients = [
-                controller for controller in eligible if controller not in independent
-            ]
             await asyncio.gather(
                 *(
                     controller._set_position_local(position, reason)
-                    for controller in recipients
+                    for controller in eligible
                 )
             )
 
@@ -461,6 +465,10 @@ class ControllerManager:
             heat_snapshot = heat_snapshot_fn() if callable(heat_snapshot_fn) else {}
             if not isinstance(heat_snapshot, dict):
                 heat_snapshot = {}
+            target_state_fn = getattr(controller, "target_state_snapshot", None)
+            target_state = target_state_fn() if callable(target_state_fn) else {}
+            if not isinstance(target_state, dict):
+                target_state = {}
             covers[cover] = {
                 "reason": reason_value,
                 "current_position": current_position,
@@ -475,6 +483,7 @@ class ControllerManager:
                 **safety,
                 "window_down_sequence": sequence,
                 "heat_protection": heat_snapshot,
+                **target_state,
             }
             if sequence:
                 window_down_sequences[cover] = sequence

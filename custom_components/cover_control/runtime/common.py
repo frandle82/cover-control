@@ -231,13 +231,14 @@ def _default_cover_status() -> dict:
             "partial": False,
             "full": False,
             "restore_position": None,
-            "background": {"open": False, "close": False, "shading": False},
             "ts": 0,
         },
         "safety": {"fire_latched": False, "ts": 0},
         "manual": {"active": False, "until": None, "ts": 0},
         "reason": None,
         "target": None,
+        "background": {"target": None, "reason": None, "updated_at": None},
+        "effective": {"target": None, "reason": None, "updated_at": None},
         "last_action_dates": {},
     }
 
@@ -276,10 +277,6 @@ def _normalize_cover_status(raw: object) -> dict:
         status["ventilation"]["restore_position"] = _coerce_float(
             ventilation.get("restore_position")
         )
-        background = ventilation.get("background")
-        if isinstance(background, dict):
-            for key in ("open", "close", "shading"):
-                status["ventilation"]["background"][key] = bool(background.get(key))
         status["ventilation"]["ts"] = int(ventilation.get("ts") or 0)
 
     safety = raw.get("safety")
@@ -297,6 +294,21 @@ def _normalize_cover_status(raw: object) -> dict:
     reason = raw.get("reason")
     status["reason"] = reason if isinstance(reason, str) and reason else None
     status["target"] = _coerce_float(raw.get("target"))
+
+    for key in ("background", "effective"):
+        section = raw.get(key)
+        if not isinstance(section, dict):
+            continue
+        section_reason = section.get("reason")
+        status[key] = {
+            "target": _coerce_float(section.get("target")),
+            "reason": (
+                section_reason
+                if isinstance(section_reason, str) and section_reason
+                else None
+            ),
+            "updated_at": section.get("updated_at"),
+        }
 
     dates = raw.get("last_action_dates")
     if isinstance(dates, dict):

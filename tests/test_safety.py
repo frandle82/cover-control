@@ -76,6 +76,7 @@ def _controller(states: dict[str, str], persisted: object = None) -> CoverContro
     controller._reason = None
     controller._set_position = AsyncMock()
     controller._publish_state = Mock()
+    controller._refresh_next_events = Mock()
     controller.persist_status = Mock()
     controller._position_value = Mock(return_value=0)
     controller._position_matches = Mock(return_value=False)

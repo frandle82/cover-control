@@ -51,7 +51,7 @@ Im Falle gleichzeitiger Anforderungen gewinnt immer die Funktion mit der höhere
 * **Verhalten:** Wenn der Türkontakt offen ist und Aussperrschutz konfiguriert ist, darf der Behang unter keinen Umständen unter die Lockout-Position fahren. Alle Schließbefehle werden blockiert oder auf die Lockout-Position limitiert.
 
 * **Zweck:** Ermöglicht Luftzirkulation bei gekipptem Fenster.
-* **Verhalten:** Bei getrennten Sensoren verwendet ein vollständig offener Kontakt die Lockout-Position und ein gekippter Kontakt die Lüftungsposition. Ohne konfigurierten Tilt-Sensor kann ein einzelner Kontakt nur „nicht geschlossen“ melden und verwendet deshalb die Lüftungsposition. Beim Wechsel `open → tilted` wird die Lüftungsposition angefahren. Nach dem Schließen wertet die Runtime den gespeicherten Hintergrund erneut aus.
+* **Verhalten:** Bei getrennten Sensoren verwendet ein vollständig offener Kontakt die Lockout-Position und ein gekippter Kontakt die Lüftungsposition. Ohne konfigurierten Tilt-Sensor kann ein einzelner Kontakt nur „nicht geschlossen“ melden und verwendet deshalb die Lüftungsposition. Beim Wechsel `open → tilted` wird die Lüftungsposition angefahren. Nach dem Schließen wendet die Runtime den kontinuierlich aktualisierten kanonischen Background direkt an.
 * **Priorität:** Ein berechnetes `regular_close_event` ist nur eine Hintergrundentscheidung. Es darf eine aktive Fensterlüftung nicht unterdrücken; erst nach dem Schließen des Kontakts greift die aktuelle Schließlogik wieder. Safety und Manual Override bleiben vorrangig.
 
 ### 4. Shading / Heat Protection
@@ -70,3 +70,4 @@ Verwandte Notizen:
 * [`../architecture/adr-001-mixin-architecture.md`](../architecture/adr-001-mixin-architecture.md)
 * [`manual-override-vs-automation.md`](../domain/manual-override-vs-automation.md)
 * [`shading-and-solar-geometry.md`](../domain/shading-and-solar-geometry.md)
+* [`../architecture/adr-004-background-effective-targets.md`](../architecture/adr-004-background-effective-targets.md)

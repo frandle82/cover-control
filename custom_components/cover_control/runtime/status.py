@@ -7,12 +7,8 @@ from datetime import datetime
 from homeassistant.util import dt as dt_util
 
 from ..const import (
-    CONF_CLOSE_POSITION,
     CONF_MANUAL_CONTROL,
-    CONF_OPEN_POSITION,
-    DEFAULT_CLOSE_POSITION,
     DEFAULT_MANUAL_CONTROL,
-    DEFAULT_OPEN_POSITION,
 )
 from .common import (
     _coerce_float,
@@ -22,16 +18,40 @@ from .common import (
 
 class StatusMixin:
     def _hydrate_persistent_status(self) -> None:
-        target = _coerce_float(self._status.get("target"))
-        self._target = target
-        reason = self._status.get("reason")
-        self._reason = reason if isinstance(reason, str) and reason else None
-
+        legacy_target = _coerce_float(self._status.get("target"))
+        legacy_reason = self._status.get("reason")
+        legacy_reason = (
+            legacy_reason
+            if isinstance(legacy_reason, str) and legacy_reason
+            else None
+        )
+        background = self._status.get("background", {})
+        effective = self._status.get("effective", {})
         ventilation = self._status.get("ventilation", {})
+        restore_position = (
+            _coerce_float(ventilation.get("restore_position"))
+            if isinstance(ventilation, dict)
+            else None
+        )
+        self._background_target = _coerce_float(background.get("target"))
+        self._background_reason = background.get("reason")
+        self._background_updated_at = background.get("updated_at")
+        if self._background_target is None:
+            if legacy_reason and self._is_background_reason(legacy_reason):
+                self._background_target = legacy_target
+                self._background_reason = legacy_reason
+            elif restore_position is not None:
+                self._background_target = restore_position
+            else:
+                self._background_target = legacy_target
+        self._effective_target = _coerce_float(effective.get("target"))
+        self._effective_reason = effective.get("reason") or legacy_reason
+        self._effective_updated_at = effective.get("updated_at")
+        if self._effective_target is None:
+            self._effective_target = legacy_target
+
         if isinstance(ventilation, dict):
-            self._pre_ventilation_position = _coerce_float(
-                ventilation.get("restore_position")
-            )
+            self._pre_ventilation_position = restore_position
 
         manual = self._status.get("manual", {})
         if isinstance(manual, dict):
@@ -64,8 +84,18 @@ class StatusMixin:
             self._persist_callback(self.cover, self._status)
 
     def _sync_runtime_status(self) -> None:
-        self._status["reason"] = self._reason
-        self._status["target"] = self._target
+        self._status["reason"] = self._effective_reason
+        self._status["target"] = self._effective_target
+        self._status["background"] = {
+            "target": self._background_target,
+            "reason": self._background_reason,
+            "updated_at": self._background_updated_at,
+        }
+        self._status["effective"] = {
+            "target": self._effective_target,
+            "reason": self._effective_reason,
+            "updated_at": self._effective_updated_at,
+        }
         self._status["last_action_dates"] = {
             action: date_value.isoformat()
             for action, date_value in self._last_action_dates.items()
@@ -78,6 +108,43 @@ class StatusMixin:
 
         ventilation = self._status.setdefault("ventilation", {})
         ventilation["restore_position"] = self._pre_ventilation_position
+
+    def _set_background_target(
+        self, target: float | None, reason: str | None, *, persist: bool = True
+    ) -> None:
+        """Store the latest normal automation decision independently of overrides."""
+
+        if target is None:
+            return
+        target = float(target)
+        changed = (
+            getattr(self, "_background_target", None) != target
+            or getattr(self, "_background_reason", None) != reason
+        )
+        self._background_target = target
+        self._background_reason = reason
+        if changed or getattr(self, "_background_updated_at", None) is None:
+            self._background_updated_at = _ts_now()
+        if reason:
+            self._record_background_status(reason)
+        if persist:
+            self.persist_status()
+
+    def _set_effective_state(
+        self, target: float | None, reason: str | None, *, persist: bool = True
+    ) -> None:
+        """Store the target currently selected by the priority resolver."""
+
+        changed = (
+            getattr(self, "_effective_target", None) != target
+            or getattr(self, "_effective_reason", None) != reason
+        )
+        self._effective_target = target
+        self._effective_reason = reason
+        if changed or getattr(self, "_effective_updated_at", None) is None:
+            self._effective_updated_at = _ts_now()
+        if persist:
+            self.persist_status()
 
     def _set_status_bucket(
         self, bucket: str, active: bool, ts: int | None = None
@@ -153,69 +220,40 @@ class StatusMixin:
         section["partial"] = partial
         section["full"] = full
         section["restore_position"] = self._pre_ventilation_position
-        section.setdefault(
-            "background", {"open": False, "close": False, "shading": False}
-        )
         section["ts"] = ts if ts is not None else _ts_now()
 
-    def _status_background(self) -> dict[str, bool]:
-        return {
-            "open": self._status_active("open"),
-            "close": self._status_active("close"),
-            "shading": self._status_active("shading")
-            or self._reason in {"shading", "manual_shading"},
-        }
+    def _record_background_status(self, reason: str) -> None:
+        """Update legacy activity buckets from the canonical background decision."""
 
-    def _remember_status_background(self, section_key: str) -> None:
-        section = self._status.setdefault(section_key, {})
-        section["background"] = self._status_background()
-        section["restore_position"] = self._current_position()
-        section["ts"] = _ts_now()
-
-    def _background_for(self, section_key: str) -> dict[str, bool]:
-        section = self._status.get(section_key, {})
-        background = section.get("background") if isinstance(section, dict) else None
-        if not isinstance(background, dict):
-            return {"open": False, "close": False, "shading": False}
-        return {key: bool(background.get(key)) for key in ("open", "close", "shading")}
-
-    def _background_return_target(
-        self,
-        background: dict[str, bool],
-        *,
-        fallback: float | None,
-        allow_open: bool = True,
-        allow_shading: bool = True,
-    ) -> tuple[float | None, str]:
-        if background.get("shading") and allow_shading:
-            return (
-                self._effective_shading_position(),
-                "ventilation_end_shading",
-            )
-        if background.get("close"):
-            return (
-                self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
-                "ventilation_end_close",
-            )
-        if background.get("open") and allow_open:
-            return (
-                self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION),
-                "ventilation_end_open",
-            )
-        if fallback is not None:
-            return fallback, "ventilation_end_restore"
-        return (
-            self._position_value(CONF_CLOSE_POSITION, DEFAULT_CLOSE_POSITION),
-            "ventilation_end_close",
-        )
+        ts = _ts_now()
+        today = dt_util.as_local(dt_util.utcnow()).date()
+        if not hasattr(self, "_last_action_dates"):
+            self._last_action_dates = {}
+        if "close" in reason or reason == "resident_asleep":
+            self._last_action_dates["close"] = today
+            if reason == "scheduled_final_close":
+                self._last_action_dates["final_close"] = today
+            self._set_status_bucket("open", False, ts)
+            self._set_status_bucket("close", True, ts)
+            self._set_status_bucket("shading", False, ts)
+        elif (
+            "shading" in reason or reason == "heat_protection"
+        ) and not reason.startswith("shading_end"):
+            self._last_action_dates["shading"] = today
+            self._set_status_bucket("open", True, ts)
+            self._set_status_bucket("close", False, ts)
+            self._set_status_bucket("shading", True, ts)
+        elif "open" in reason or reason == "resident_wake":
+            self._last_action_dates["open"] = today
+            self._set_status_bucket("open", True, ts)
+            self._set_status_bucket("close", False, ts)
+            self._set_status_bucket("shading", False, ts)
 
     def _record_action_status(self, reason: str, position: float | None = None) -> None:
         ts = _ts_now()
         today = dt_util.as_local(dt_util.utcnow()).date()
         self._logbook_action(reason, position)
         if reason == "ventilation_full":
-            self._set_status_bucket("open", True, ts)
-            self._set_status_bucket("close", False, ts)
             self._set_ventilation_status(False, True, ts)
         elif "open" in reason:
             self._last_action_dates["open"] = today
@@ -234,8 +272,6 @@ class StatusMixin:
             self._clear_shading_pending(persist=False)
             self._set_ventilation_status(False, False, ts)
         elif reason in {"ventilation", "shading_end_ventilation"}:
-            self._set_status_bucket("open", False, ts)
-            self._set_status_bucket("close", False, ts)
             self._set_ventilation_status(True, False, ts)
         elif "shading" in reason or reason == "heat_protection":
             self._last_action_dates["shading"] = today
@@ -286,40 +322,6 @@ class StatusMixin:
             self._logbook_entry(f"Moved to {target_text} · ventilation started")
         elif reason.startswith("ventilation_end") or reason == "ventilation_stop":
             self._logbook_entry("Ventilation ended")
-    def _record_group_background(self, reason: str) -> None:
-        """Update the shared room target without interrupting local ventilation."""
-
-        ts = _ts_now()
-        today = dt_util.as_local(dt_util.utcnow()).date()
-        background = self._status.setdefault("ventilation", {}).setdefault(
-            "background", {"open": False, "close": False, "shading": False}
-        )
-
-        if "close" in reason or reason == "resident_asleep":
-            self._last_action_dates["close"] = today
-            self._set_status_bucket("open", False, ts)
-            self._set_status_bucket("close", True, ts)
-            self._set_status_bucket("shading", False, ts)
-            background.update({"open": False, "close": True, "shading": False})
-        elif (
-            "shading" in reason or reason == "heat_protection"
-        ) and "end_open" not in reason:
-            self._last_action_dates["shading"] = today
-            self._set_status_bucket("open", True, ts)
-            self._set_status_bucket("close", False, ts)
-            self._set_status_bucket("shading", True, ts)
-            background.update({"open": True, "close": False, "shading": True})
-        else:
-            self._last_action_dates["open"] = today
-            self._set_status_bucket("open", True, ts)
-            self._set_status_bucket("close", False, ts)
-            self._set_status_bucket("shading", False, ts)
-            background.update({"open": True, "close": False, "shading": False})
-
-        self._clear_shading_pending(persist=False)
-        self.persist_status()
-        self._publish_state()
-
     def _sync_position_reference_from_entity(self) -> None:
         """Seed missing runtime position data without replacing persisted intent."""
 
@@ -327,6 +329,7 @@ class StatusMixin:
         if current_position is None:
             return
         self._last_position = current_position
-        if self._target is None:
-            self._target = current_position
-            self._status["target"] = current_position
+        if getattr(self, "_effective_target", None) is None:
+            self._effective_target = current_position
+        if getattr(self, "_background_target", None) is None:
+            self._background_target = current_position

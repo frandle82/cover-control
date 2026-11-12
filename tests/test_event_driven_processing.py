@@ -949,6 +949,7 @@ async def test_group_action_is_deduplicated_within_batch() -> None:
         controller._manual_blocks_action.return_value = False
         controller._ventilation_requires_independent_control.return_value = False
         controller._set_position_local = AsyncMock()
+        controller._apply_effective_target = AsyncMock()
         controllers.append(controller)
     manager.controllers = {controller.cover: controller for controller in controllers}
 
@@ -956,7 +957,8 @@ async def test_group_action_is_deduplicated_within_batch() -> None:
     await manager._async_set_group_position(controllers[1], 30, "shading")
 
     for controller in controllers:
-        controller._set_position_local.assert_awaited_once_with(30, "shading")
+        controller._set_background_target.assert_called_once_with(30, "shading")
+        controller._apply_effective_target.assert_awaited_once_with()
 
 
 def test_entry_snapshot_reads_each_controller_once() -> None:

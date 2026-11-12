@@ -41,9 +41,10 @@ Es muss strikt zwischen drei Zuständen und Mechanismen unterschieden werden:
   Der Reset bereinigt zentral Laufzeitstatus, Ablauf-Timer und den persistierten
   `manual`-Block einschließlich `active`, `until` und `ts`, bevor er eine
   unmittelbare Reevaluation anfordert.
-* **Einheitliche Wirkung:** Manual Override ist ein einzelner Automatik-Pausenzustand ohne richtungs- oder funktionsbezogene Blockierflags. Safety bleibt dominant. Window/Lockout, Shading, Heat Protection, Resident und Zeit-/Astro-/Helligkeitsautomation werden erst nach Ende des Overrides wieder ausgewertet.
+* **Einheitliche Wirkung:** Manual Override ist ein einzelner Bewegungs-Pausenzustand ohne richtungs- oder funktionsbezogene Blockierflags. Safety bleibt dominant. Die normale Automation wird weiter ausgewertet und aktualisiert den kanonischen Background-State, löst aber bis zum Override-Ende keine Komfortfahrt aus. Danach entscheidet der aktuelle Resolverzustand unmittelbar neu.
 
 ---
 Verwandte Notizen:
 * [`priorities-and-lockout.md`](../domain/priorities-and-lockout.md)
 * [`../architecture/adr-003-state-hierarchy-configured-enabled-eligible.md`](../architecture/adr-003-state-hierarchy-configured-enabled-eligible.md)
+* [`../architecture/adr-004-background-effective-targets.md`](../architecture/adr-004-background-effective-targets.md)

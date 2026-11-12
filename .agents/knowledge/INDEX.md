@@ -1,7 +1,7 @@
 ---
 title: Map of Content (MOC) – Cover Control Knowledge Base
 type: index
-updated: 2026-11-11
+updated: 2026-11-12
 tags:
   - moc
   - index
@@ -21,6 +21,7 @@ Grundsatzentscheidungen zur Struktur, Datenhaltung und Integration:
 * 📄 [`architecture/adr-001-mixin-architecture.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/architecture/adr-001-mixin-architecture.md) – Aufteilung der Controller-Verantwortlichkeiten auf spezialisierte Mixins.
 * 📄 [`architecture/adr-002-config-entry-vs-subentry.md`](architecture/adr-002-config-entry-vs-subentry.md) – Zentraler Controller mit drei festen Gruppen plus eigenständige Room-ConfigEntries; Subentries bleiben deaktiviert.
 * 📄 [`architecture/adr-003-state-hierarchy-configured-enabled-eligible.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/architecture/adr-003-state-hierarchy-configured-enabled-eligible.md) – Das dreistufige Zustandsmodell für Gruppenfunktionen.
+* 📄 [`architecture/adr-004-background-effective-targets.md`](architecture/adr-004-background-effective-targets.md) – Kanonischer Background-State, zentraler Effective-Resolver und direkter Restore nach temporären Overrides.
 
 ### 2. Domänenwissen & Steuerungslogik
 Fachliche Regeln für Beschattung, Fahrbefehle und Prioritäten:

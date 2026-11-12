@@ -369,9 +369,8 @@ class EventsMixin:
         ):
             return False
         target = self._effective_shading_position()
-        self._target = target
-        self._status["target"] = target
-        self._reason = "shading"
+        self._set_background_target(target, "shading", persist=False)
+        self._set_effective_state(target, "shading", persist=False)
         self._set_status_bucket("shading", True)
         self._clear_shading_pending(persist=False)
         self.persist_status()
@@ -463,10 +462,11 @@ class EventsMixin:
         self.async_request_evaluate("manual_cleared")
 
     def _remember_pre_ventilation_position(self) -> None:
-        """Remember current position before switching into ventilation mode."""
+        """Keep a legacy fallback only when no canonical background exists."""
         if self._reason in {"ventilation", "ventilation_full"}:
             return
-        self._remember_status_background("ventilation")
+        if getattr(self, "_background_target", None) is not None:
+            return
         current = self._current_position()
         if current is not None:
             self._pre_ventilation_position = float(current)
@@ -474,6 +474,19 @@ class EventsMixin:
                 self._pre_ventilation_position
             )
             self.persist_status()
+
+    def target_state_snapshot(self) -> dict[str, float | str | int | None]:
+        """Expose the three distinct target-state layers for diagnostics."""
+
+        return {
+            "background_target": getattr(self, "_background_target", None),
+            "background_reason": getattr(self, "_background_reason", None),
+            "background_updated_at": getattr(self, "_background_updated_at", None),
+            "effective_target": getattr(self, "_effective_target", None),
+            "effective_reason": getattr(self, "_effective_reason", None),
+            "effective_updated_at": getattr(self, "_effective_updated_at", None),
+            "actual_position": self._current_position(),
+        }
 
     def publish_state(self) -> None:
         """Expose the current state via dispatcher for newly added entities."""

@@ -27,6 +27,10 @@ from custom_components.cover_control.const import (
     CONF_GLOBAL,
     CONF_GROUP,
     CONF_GROUPS,
+    CONF_FINAL_CLOSE_TIME_ENABLED,
+    CONF_FINAL_CLOSE_ELEVATION_ENABLED,
+    CONF_INTERMEDIATE_CLOSE_ENABLED,
+    CONF_INTERMEDIATE_CLOSE_POSITION,
     CONF_LOCKOUT_POSITION,
     CONF_MANUAL_OVERRIDE_MINUTES,
     CONF_NAME,
@@ -52,6 +56,10 @@ from custom_components.cover_control.const import (
     ENTRY_TYPE_ROOM,
     GROUPS,
     GROUP_LIVING,
+)
+from custom_components.cover_control.runtime.common import (
+    TRIGGER_SCHEDULED_CLOSE,
+    TRIGGER_SCHEDULED_FINAL_CLOSE,
 )
 
 
@@ -190,6 +198,9 @@ async def test_contact_state_changes_drive_only_the_mapped_cover(hass) -> None:
     assert [(call.data["entity_id"], call.data["position"]) for call in calls] == [
         ("cover.links", 80)
     ]
+    assert left._effective_target == 80
+    assert right._effective_target == 100
+    assert left._background_target == right._background_target == 100
 
     hass.states.async_set("cover.links", "open", {"current_position": 80})
     calls.clear()
@@ -423,6 +434,9 @@ async def test_contact_close_restores_current_background_target(
             controller_entry.entry_id, controller_data, [room_entry]
         )
         manager.apply_config_model(model, {"living"})
+        await _flush_evaluations(hass, manager)
+    assert controller._background_target == expected_position
+    assert controller._effective_target == 25
     calls.clear()
     hass.states.async_set("binary_sensor.fenster_offen", "off")
     await _flush_evaluations(hass, manager)
@@ -432,6 +446,134 @@ async def test_contact_close_restores_current_background_target(
         "position": expected_position,
     }
     assert not controller._manual_active
+
+    assert await hass.config_entries.async_unload(room_entry.entry_id)
+    assert await hass.config_entries.async_unload(controller_entry.entry_id)
+
+
+async def test_background_changes_from_intermediate_to_final_while_window_open(
+    hass,
+) -> None:
+    """An open window must not freeze the earlier automation target."""
+
+    controller_entry, room_entry, manager, calls, _open_calls = await _setup_runtime(
+        hass,
+        covers={"cover.wohnzimmer": (["binary_sensor.fenster_offen"], [])},
+        group_settings={
+            **_time_settings(opening=False),
+            CONF_INTERMEDIATE_CLOSE_ENABLED: True,
+            CONF_INTERMEDIATE_CLOSE_POSITION: 50,
+            CONF_FINAL_CLOSE_TIME_ENABLED: False,
+            CONF_FINAL_CLOSE_ELEVATION_ENABLED: True,
+        },
+        initial_position=100,
+        supports_position=True,
+    )
+
+    hass.states.async_set("binary_sensor.fenster_offen", "on")
+    await _flush_evaluations(hass, manager)
+    hass.states.async_set(
+        "cover.wohnzimmer",
+        "open",
+        {
+            "current_position": 25,
+            "supported_features": CoverEntityFeature.SET_POSITION,
+        },
+    )
+    await _flush_evaluations(hass, manager)
+    calls.clear()
+
+    manager.request_evaluate_all(TRIGGER_SCHEDULED_CLOSE)
+    await _flush_evaluations(hass, manager)
+    runtime = manager.controllers["cover.wohnzimmer"]
+    assert runtime._background_target == 50
+    assert runtime._background_reason == "scheduled_intermediate_close"
+    assert runtime._effective_target == 25
+    assert runtime._effective_reason == "ventilation"
+    manager.request_evaluate_all(TRIGGER_SCHEDULED_FINAL_CLOSE)
+    await _flush_evaluations(hass, manager)
+
+    assert not calls
+    assert runtime._background_target == 0
+    assert runtime._background_reason == "scheduled_final_close"
+    assert runtime._effective_target == 25
+    assert runtime._effective_reason == "ventilation"
+    hass.states.async_set("binary_sensor.fenster_offen", "off")
+    await _flush_evaluations(hass, manager)
+
+    assert calls[-1].data == {"entity_id": "cover.wohnzimmer", "position": 0}
+    assert all(call.data["position"] != 50 for call in calls)
+
+    assert await hass.config_entries.async_unload(room_entry.entry_id)
+    assert await hass.config_entries.async_unload(controller_entry.entry_id)
+
+
+async def test_final_close_then_window_restore_never_reuses_intermediate(
+    hass,
+) -> None:
+    """Real HA events restore Final Close, never the earlier middle position."""
+
+    controller_entry, room_entry, manager, calls, _open_calls = await _setup_runtime(
+        hass,
+        covers={"cover.wohnzimmer": (["binary_sensor.fenster_offen"], [])},
+        group_settings={
+            **_time_settings(opening=False),
+            CONF_INTERMEDIATE_CLOSE_ENABLED: True,
+            CONF_INTERMEDIATE_CLOSE_POSITION: 50,
+            CONF_FINAL_CLOSE_TIME_ENABLED: False,
+            CONF_FINAL_CLOSE_ELEVATION_ENABLED: True,
+        },
+        initial_position=100,
+        supports_position=True,
+    )
+    runtime = manager.controllers["cover.wohnzimmer"]
+
+    manager.request_evaluate_all(TRIGGER_SCHEDULED_CLOSE)
+    await _flush_evaluations(hass, manager)
+    assert calls[-1].data["position"] == 50
+    hass.states.async_set(
+        "cover.wohnzimmer",
+        "open",
+        {
+            "current_position": 50,
+            "supported_features": CoverEntityFeature.SET_POSITION,
+        },
+    )
+    await _flush_evaluations(hass, manager)
+
+    manager.request_evaluate_all(TRIGGER_SCHEDULED_FINAL_CLOSE)
+    await _flush_evaluations(hass, manager)
+    assert calls[-1].data["position"] == 0
+    hass.states.async_set(
+        "cover.wohnzimmer",
+        "closed",
+        {
+            "current_position": 0,
+            "supported_features": CoverEntityFeature.SET_POSITION,
+        },
+    )
+    await _flush_evaluations(hass, manager)
+
+    hass.states.async_set("binary_sensor.fenster_offen", "on")
+    await _flush_evaluations(hass, manager)
+    assert calls[-1].data["position"] == 25
+    hass.states.async_set(
+        "cover.wohnzimmer",
+        "open",
+        {
+            "current_position": 25,
+            "supported_features": CoverEntityFeature.SET_POSITION,
+        },
+    )
+    await _flush_evaluations(hass, manager)
+    calls.clear()
+
+    hass.states.async_set("binary_sensor.fenster_offen", "off")
+    await _flush_evaluations(hass, manager)
+
+    assert calls[-1].data == {"entity_id": "cover.wohnzimmer", "position": 0}
+    assert all(call.data["position"] != 50 for call in calls)
+    assert runtime._background_reason == "scheduled_final_close"
 
     assert await hass.config_entries.async_unload(room_entry.entry_id)
     assert await hass.config_entries.async_unload(controller_entry.entry_id)
@@ -488,6 +630,8 @@ async def test_clear_manual_override_button_immediately_resumes_automation(
     model = model_from_entries(controller_entry.entry_id, controller_data, [room_entry])
     manager.apply_config_model(model, {"living"})
     await _flush_evaluations(hass, manager)
+    assert controller._background_target == expected_position
+    assert controller._effective_reason == "manual_override"
     calls.clear()
 
     entities = []
