@@ -90,7 +90,6 @@ class CoverController(
         self._effective_reason: str | None = None
         self._effective_updated_at: int | None = None
         self._last_position: float | None = None
-        self._pre_ventilation_position: float | None = None
         self._window_down_sequence: dict[str, object] | None = None
         self._last_command_at: datetime | None = None
         self._ignore_service_call_until: datetime | None = None

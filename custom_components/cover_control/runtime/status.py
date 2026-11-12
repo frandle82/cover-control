@@ -11,6 +11,7 @@ from ..const import (
     DEFAULT_MANUAL_CONTROL,
 )
 from .common import (
+    BACKGROUND_REASON_KIND,
     _coerce_float,
     _ts_now,
 )
@@ -27,12 +28,7 @@ class StatusMixin:
         )
         background = self._status.get("background", {})
         effective = self._status.get("effective", {})
-        ventilation = self._status.get("ventilation", {})
-        restore_position = (
-            _coerce_float(ventilation.get("restore_position"))
-            if isinstance(ventilation, dict)
-            else None
-        )
+        restore_position = _coerce_float(self._status.get("legacy_restore_position"))
         self._background_target = _coerce_float(background.get("target"))
         self._background_reason = background.get("reason")
         self._background_updated_at = background.get("updated_at")
@@ -49,9 +45,6 @@ class StatusMixin:
         self._effective_updated_at = effective.get("updated_at")
         if self._effective_target is None:
             self._effective_target = legacy_target
-
-        if isinstance(ventilation, dict):
-            self._pre_ventilation_position = restore_position
 
         manual = self._status.get("manual", {})
         if isinstance(manual, dict):
@@ -84,8 +77,11 @@ class StatusMixin:
             self._persist_callback(self.cover, self._status)
 
     def _sync_runtime_status(self) -> None:
-        self._status["reason"] = self._effective_reason
-        self._status["target"] = self._effective_target
+        # ``target``/``reason`` and ventilation.restore_position are read only
+        # during legacy hydration.  Persist only the canonical state afterwards.
+        self._status.pop("reason", None)
+        self._status.pop("target", None)
+        self._status.pop("legacy_restore_position", None)
         self._status["background"] = {
             "target": self._background_target,
             "reason": self._background_reason,
@@ -107,7 +103,7 @@ class StatusMixin:
             manual["ts"] = _ts_now()
 
         ventilation = self._status.setdefault("ventilation", {})
-        ventilation["restore_position"] = self._pre_ventilation_position
+        ventilation.pop("restore_position", None)
 
     def _set_background_target(
         self, target: float | None, reason: str | None, *, persist: bool = True
@@ -129,6 +125,11 @@ class StatusMixin:
             self._record_background_status(reason)
         if persist:
             self.persist_status()
+
+    def _background_reason_kind(self) -> str | None:
+        """Return the declared category of the canonical background reason."""
+
+        return BACKGROUND_REASON_KIND.get(self._background_reason)
 
     def _set_effective_state(
         self, target: float | None, reason: str | None, *, persist: bool = True
@@ -219,7 +220,6 @@ class StatusMixin:
         section = self._status.setdefault("ventilation", {})
         section["partial"] = partial
         section["full"] = full
-        section["restore_position"] = self._pre_ventilation_position
         section["ts"] = ts if ts is not None else _ts_now()
 
     def _record_background_status(self, reason: str) -> None:
@@ -227,65 +227,42 @@ class StatusMixin:
 
         ts = _ts_now()
         today = dt_util.as_local(dt_util.utcnow()).date()
+        kind = BACKGROUND_REASON_KIND.get(reason)
+        if kind is None:
+            return
         if not hasattr(self, "_last_action_dates"):
             self._last_action_dates = {}
-        if "close" in reason or reason == "resident_asleep":
-            self._last_action_dates["close"] = today
+        self._last_action_dates[kind] = today
+        if kind == "close":
             if reason == "scheduled_final_close":
                 self._last_action_dates["final_close"] = today
             self._set_status_bucket("open", False, ts)
             self._set_status_bucket("close", True, ts)
             self._set_status_bucket("shading", False, ts)
-        elif (
-            "shading" in reason or reason == "heat_protection"
-        ) and not reason.startswith("shading_end"):
-            self._last_action_dates["shading"] = today
+        elif kind == "shading":
             self._set_status_bucket("open", True, ts)
             self._set_status_bucket("close", False, ts)
             self._set_status_bucket("shading", True, ts)
-        elif "open" in reason or reason == "resident_wake":
-            self._last_action_dates["open"] = today
+        else:
             self._set_status_bucket("open", True, ts)
             self._set_status_bucket("close", False, ts)
             self._set_status_bucket("shading", False, ts)
 
     def _record_action_status(self, reason: str, position: float | None = None) -> None:
         ts = _ts_now()
-        today = dt_util.as_local(dt_util.utcnow()).date()
         self._logbook_action(reason, position)
         if reason == "ventilation_full":
             self._set_ventilation_status(False, True, ts)
-        elif "open" in reason:
-            self._last_action_dates["open"] = today
-            self._set_status_bucket("open", True, ts)
-            self._set_status_bucket("close", False, ts)
-            self._set_status_bucket("shading", False, ts)
-            self._clear_shading_pending(persist=False)
-            self._set_ventilation_status(False, False, ts)
-        elif "close" in reason or reason == "resident_asleep":
-            self._last_action_dates["close"] = today
-            if reason == "scheduled_final_close":
-                self._last_action_dates["final_close"] = today
-            self._set_status_bucket("open", False, ts)
-            self._set_status_bucket("close", True, ts)
-            self._set_status_bucket("shading", False, ts)
-            self._clear_shading_pending(persist=False)
-            self._set_ventilation_status(False, False, ts)
         elif reason in {"ventilation", "shading_end_ventilation"}:
             self._set_ventilation_status(True, False, ts)
-        elif "shading" in reason or reason == "heat_protection":
-            self._last_action_dates["shading"] = today
-            self._set_status_bucket("open", True, ts)
-            self._set_status_bucket("close", False, ts)
-            self._set_status_bucket("shading", reason != "manual_shading_end", ts)
+        elif reason in BACKGROUND_REASON_KIND:
+            self._record_background_status(reason)
             self._clear_shading_pending(persist=False)
             self._set_ventilation_status(False, False, ts)
 
         if reason.startswith("shading_end_"):
             self._set_heat_protection_status(False, False)
 
-        self._status["target"] = position if position is not None else self._target
-        self._status["reason"] = self._reason
         self.persist_status()
 
     def _logbook_action(self, reason: str, position: float | None) -> None:

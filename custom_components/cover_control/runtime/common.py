@@ -61,6 +61,24 @@ WINDOW_DOWN_SEQUENCE_REASONS = frozenset(
     {"scheduled_close", "scheduled_final_close", "sun_close", "brightness_close"}
 )
 
+# Normal automation reasons are explicit.  Do not infer state from arbitrary
+# substrings: new reasons must deliberately opt in to a background category.
+BACKGROUND_REASON_KIND = {
+    "scheduled_open": "open",
+    "sun_open": "open",
+    "brightness_open": "open",
+    "resident_wake": "open",
+    "scheduled_close": "close",
+    "scheduled_intermediate_close": "close",
+    "scheduled_final_close": "close",
+    "sun_close": "close",
+    "brightness_close": "close",
+    "resident_asleep": "close",
+    "shading": "shading",
+    "manual_shading": "shading",
+    "heat_protection": "shading",
+}
+
 
 def scheduled_trigger(kind: str, mode: str) -> str:
     """Return a stable trigger identity for one scheduled mode event."""
@@ -227,16 +245,9 @@ def _default_cover_status() -> dict:
         "close": {"active": False, "ts": 0},
         "shading": {"active": False, "start_pending": 0, "end_pending": 0, "ts": 0},
         "heat_protection": {"active": False, "hold": False},
-        "ventilation": {
-            "partial": False,
-            "full": False,
-            "restore_position": None,
-            "ts": 0,
-        },
+        "ventilation": {"partial": False, "full": False, "ts": 0},
         "safety": {"fire_latched": False, "ts": 0},
         "manual": {"active": False, "until": None, "ts": 0},
-        "reason": None,
-        "target": None,
         "background": {"target": None, "reason": None, "updated_at": None},
         "effective": {"target": None, "reason": None, "updated_at": None},
         "last_action_dates": {},
@@ -274,9 +285,9 @@ def _normalize_cover_status(raw: object) -> dict:
     if isinstance(ventilation, dict):
         status["ventilation"]["partial"] = bool(ventilation.get("partial", False))
         status["ventilation"]["full"] = bool(ventilation.get("full", False))
-        status["ventilation"]["restore_position"] = _coerce_float(
-            ventilation.get("restore_position")
-        )
+        legacy_restore = _coerce_float(ventilation.get("restore_position"))
+        if legacy_restore is not None:
+            status["legacy_restore_position"] = legacy_restore
         status["ventilation"]["ts"] = int(ventilation.get("ts") or 0)
 
     safety = raw.get("safety")

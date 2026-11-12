@@ -181,8 +181,7 @@ class EventsMixin:
             )
             current = self._current_position()
             if previous_position is None and current is not None:
-                self._target = current
-                self._status["target"] = current
+                self._effective_target = current
                 self._last_position = current
                 self.persist_status()
                 self.async_request_evaluate(trigger)
@@ -313,8 +312,7 @@ class EventsMixin:
             position = 0.0
 
         if position is not None:
-            self._target = position
-            self._status["target"] = position
+            self._effective_target = position
         if service != "set_cover_tilt_position":
             self._manual_movement_pending = True
 
@@ -460,20 +458,6 @@ class EventsMixin:
         self._refresh_next_events(dt_util.utcnow())
         self._publish_state()
         self.async_request_evaluate("manual_cleared")
-
-    def _remember_pre_ventilation_position(self) -> None:
-        """Keep a legacy fallback only when no canonical background exists."""
-        if self._reason in {"ventilation", "ventilation_full"}:
-            return
-        if getattr(self, "_background_target", None) is not None:
-            return
-        current = self._current_position()
-        if current is not None:
-            self._pre_ventilation_position = float(current)
-            self._status.setdefault("ventilation", {})["restore_position"] = (
-                self._pre_ventilation_position
-            )
-            self.persist_status()
 
     def target_state_snapshot(self) -> dict[str, float | str | int | None]:
         """Expose the three distinct target-state layers for diagnostics."""
