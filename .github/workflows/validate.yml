@@ -20,23 +20,38 @@ jobs:
           category: integration
 
   tests:
-    name: Tests (Home Assistant 2026.11)
+    name: Tests (HA ${{ matrix.label }})
     runs-on: ubuntu-latest
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - id: minimum
+            label: minimum 2025.3
+            python: '3.13'
+            test_package: pytest-homeassistant-custom-component
+            test_package_version: 0.13.221
+          - id: current
+            label: current 2026.11
+            python: '3.14'
+            test_package: pytest-homeassistant
+            test_package_version: 2026.11.1
     steps:
       - uses: actions/checkout@v6
       - uses: actions/setup-python@v6
         with:
-          python-version: '3.14'
+          python-version: ${{ matrix.python }}
       - name: Install test dependencies
-        run: python -m pip install pytest-homeassistant==2026.11.1
+        run: python -m pip install ${{ matrix.test_package }}==${{ matrix.test_package_version }}
       - name: Show test versions
         run: |
           python --version
           python -c "from importlib.metadata import version; print(f'homeassistant={version(\"homeassistant\")}')"
-          python -c "from importlib.metadata import version; print(f'pytest-homeassistant={version(\"pytest-homeassistant\")}')"
+          python -c "from importlib.metadata import version; print(f'${{ matrix.test_package }}={version(\"${{ matrix.test_package }}\")}')"
       - name: Run tests
         run: python -m pytest -q
       - name: Compile Python files
+        if: matrix.id == 'current'
         run: python -m compileall -q custom_components tests scripts
 
   release-bundle:
