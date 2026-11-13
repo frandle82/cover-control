@@ -39,6 +39,7 @@ Dokumentierte Lösungen für knifflige Bugs und HA-Spezifika:
 * 📄 [`troubleshooting/stable-sun-events-and-active-controls.md`](file:///Users/andreasgrundke/Git/cover-control/.agents/knowledge/troubleshooting/stable-sun-events-and-active-controls.md) – Deterministische Astro-Ereignisse und getrennte Erfassung aktiver Entscheidungs-Controls.
 * 📄 [`troubleshooting/contact-runtime-path.md`](troubleshooting/contact-runtime-path.md) – Cover-lokale Contact-Maps, Ventilation-Feature-Erkennung und Listener-Rebinding.
 * 📄 [`troubleshooting/ha-2026-11-test-toolchain.md`](troubleshooting/ha-2026-11-test-toolchain.md) – Offizielle HA-2026.11-Testbasis und Ablösung der inkompatiblen Custom-Component-Testhilfe.
+* 📄 [`troubleshooting/integration-metadata.md`](troubleshooting/integration-metadata.md) – Begründete IoT-Class-, Kategorie- und HACS-Länderentscheidung.
 
 ---
 
