@@ -78,6 +78,7 @@ from ..const import (
     TILT_WAIT_TIMEOUT,
 )
 from .common import (
+    BACKGROUND_REASON_KIND,
     _LOGGER,
     IDLE_REASON,
     TRIGGER_BRIGHTNESS_CHANGED,
@@ -125,17 +126,7 @@ class ActuatorMixin:
     def _is_background_reason(reason: str) -> bool:
         """Return whether a reason belongs to normal background automation."""
 
-        if (
-            reason in SAFETY_REASONS
-            or "ventilation" in reason
-            or reason.startswith("manual_")
-            or reason.startswith("recalibrate_")
-        ):
-            return False
-        return reason in {"resident_asleep", "resident_wake"} or any(
-            token in reason
-            for token in ("open", "close", "shading", "heat_protection")
-        )
+        return reason in BACKGROUND_REASON_KIND
 
     def _effective_shading_position(self) -> float | None:
         """Return the alternate shading target while its gating entity is active."""
@@ -403,9 +394,6 @@ class ActuatorMixin:
         if window is None:
             return
         window_state, final_target = window
-        self._pre_ventilation_position = close_target
-        section = self._status.setdefault("ventilation", {})
-        section["restore_position"] = close_target
         self._window_down_sequence = {
             "phase": "closing",
             "initial_target": close_target,
@@ -413,7 +401,6 @@ class ActuatorMixin:
             "final_target": final_target,
             "reason": reason,
         }
-        self.persist_status()
         self._schedule_delayed_evaluate(
             TRIGGER_WINDOW_DOWN_SEQUENCE_TARGET_REACHED,
             self._duration_value(CONF_DRIVE_TIME, DEFAULT_DRIVE_TIME),
@@ -440,17 +427,13 @@ class ActuatorMixin:
             self._publish_state()
             return True
 
-        initial_target = _coerce_float(sequence.get("initial_target"))
         self._cancel_window_down_sequence()
-        if latest is None or initial_target is None:
+        if latest is None:
             self._reason = reason or self._reason
             self._publish_state()
             return True
 
         window_state, final_target = latest
-        self._pre_ventilation_position = initial_target
-        section = self._status.setdefault("ventilation", {})
-        section["restore_position"] = initial_target
         await self._set_position_local(
             final_target,
             "ventilation_full" if window_state == "open" else "ventilation",
@@ -817,7 +800,6 @@ class ActuatorMixin:
         self, position: float, *, reason: str | None = None, trigger: str | None = None
     ) -> None:
         self._set_effective_state(float(position), reason, persist=False)
-        self._status["target"] = self._effective_target
         state = self._cover_state_or_warn(
             "set_cover_position",
             reason=reason,

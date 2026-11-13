@@ -299,8 +299,6 @@ async def test_reality_window_priority_replaces_shading_then_restores() -> None:
     controller._set_background_target(25, "shading", persist=False)
     controller._reason = "shading"
     controller._set_status_bucket("shading", True)
-    controller._remember_pre_ventilation_position()
-
     await controller._set_position_local(80, "ventilation_full")
     controller.hass.states.states[controller.cover] = _state("open", 80)
     await controller._apply_effective_target()

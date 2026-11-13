@@ -169,8 +169,6 @@ class EvaluationMixin:
                 getattr(self, "_background_reason", None) or "background_restore",
                 True,
             )
-        if self._pre_ventilation_position is not None:
-            return self._pre_ventilation_position, "ventilation_end_restore", True
         return (
             getattr(self, "_effective_target", None),
             getattr(self, "_effective_reason", None),
@@ -187,7 +185,6 @@ class EvaluationMixin:
             )
         elif self._ventilation_status_active():
             self._set_ventilation_status(False, False)
-            self._pre_ventilation_position = None
         if (
             not should_move
             or target is None
@@ -535,9 +532,9 @@ class EvaluationMixin:
             self._seasonal_close_target(now, background_position, final_close_due)
         )
         intermediate_target = close_target if uses_intermediate else None
-        close_status_satisfied = self._status_active(
-            "close"
-        ) and self._position_matches(close_target, self._background_target)
+        close_status_satisfied = self._background_reason_kind() == "close" and self._position_matches(
+            close_target, self._background_target
+        )
         regular_close_event: tuple[datetime, str, float | None] | None = None
         if (
             not summer_close_suppressed
@@ -597,18 +594,14 @@ class EvaluationMixin:
                 return
 
         shading_holds_cover = self._auto_enabled(CONF_AUTO_SHADING) and (
-            self._status_active("shading")
-            or self._background_reason in {"shading", "manual_shading"}
+            self._background_reason_kind() == "shading"
         )
 
         if (
             self._auto_enabled(CONF_AUTO_SHADING)
             and not resident_blocks_shading
         ):
-            shading_active = self._status_active("shading") or self._background_reason in {
-                "shading",
-                "manual_shading",
-            }
+            shading_active = self._background_reason_kind() == "shading"
             shading_conditions_met, _unused = (
                 self._shading_start_conditions(sun_azimuth, sun_elevation, brightness)
             )
@@ -737,7 +730,7 @@ class EvaluationMixin:
                     background_position is None
                     or self._position_is_above(background_position, shading_target)
                     or self._position_matches(shading_target, background_position)
-                    or self._status_active("open")
+                    or self._background_reason_kind() == "open"
                 ):
                     await self._set_position(shading_target, reason)
                 else:
@@ -749,7 +742,7 @@ class EvaluationMixin:
         open_events: list[tuple[datetime, str, float | None]] = []
 
         open_target = self._position_value(CONF_OPEN_POSITION, DEFAULT_OPEN_POSITION)
-        open_status_satisfied = self._status_active("open") and self._position_matches(
+        open_status_satisfied = self._background_reason_kind() == "open" and self._position_matches(
             open_target, self._background_target
         )
 

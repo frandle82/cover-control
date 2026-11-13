@@ -32,11 +32,13 @@ Jeder Cover-Controller führt drei getrennte Ebenen:
 - `actual_position`: ausschließlich die aktuelle Home-Assistant-Coverposition.
 
 Temporäre Overrides verändern niemals den Background. Nach ihrem Ende wird der
-aktuelle Background direkt angewandt. `ventilation.restore_position` bleibt nur
-als rückwärtskompatibler Fallback, wenn kein gültiger Background existiert;
-historische Fensterpositionen werden nicht rekonstruiert. `_target` und `_reason`
-sind nur noch Kompatibilitätsalias für den Effective-State und damit weiterhin
-die korrekte Referenz der manuellen Bewegungserkennung.
+aktuelle Background direkt angewandt; eine Fensterfahrt besitzt keinen eigenen
+persistierten Restore-Zustand. `ventilation.restore_position` wird ausschließlich
+beim Laden alter Daten gelesen und danach aus dem gespeicherten Status entfernt.
+Top-Level-`target`/`reason` werden ebenso nur einmalig normalisiert; neu
+persistiert werden ausschließlich `background` und `effective`. `_target` und
+`_reason` bleiben vorerst schmale Runtime-Kompatibilitätsalias für die
+Manuell-Erkennung, bilden aber keinen separaten Zustand.
 
 Persistierte Altstände ohne `background` übernehmen einmalig das bisherige
 Top-Level-`target`/`reason`. Startup hydriert den Zustand, evaluiert aktuelle
@@ -50,6 +52,9 @@ Bedingungen neu und unterdrückt die ungeprüfte erste Fahrt.
   Effective-State anderer Covers nicht vermischen.
 - Effective-Fahrten bleiben durch Istposition und Toleranz dedupliziert.
 - Neue Restore-Sonderlogik oder parallele Background-Flags sind unzulässig.
+- Background-Reasons werden über eine zentrale explizite Klassifikation
+  (`BACKGROUND_REASON_KIND`) kategorisiert; keine Stringteiltreffer als
+  Steuerungsgrundlage.
 
 ---
 Verwandte Notizen:
