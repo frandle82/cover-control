@@ -1,7 +1,7 @@
 """Migration coverage from free profiles to fixed groups."""
 import pytest
 from homeassistant.helpers import issue_registry as ir
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 from custom_components.cover_control import async_migrate_entry
 from custom_components.cover_control.config_migration import cleanup_runtime_options, migrate_profile_model
 from custom_components.cover_control.config_resolver import resolve_config_model

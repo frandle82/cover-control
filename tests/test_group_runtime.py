@@ -2,7 +2,7 @@
 from types import SimpleNamespace
 from unittest.mock import Mock
 from homeassistant.config_entries import ConfigEntryState
-from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service
+from pytest_homeassistant.common import MockConfigEntry, async_mock_service
 from custom_components.cover_control.config_groups import ConfigGroupModel
 from custom_components.cover_control.const import (
     CONF_GROUP, CONF_GROUPS, CONF_ROOMS, CONF_ROOM_SETTINGS,

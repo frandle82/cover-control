@@ -10,7 +10,7 @@ import pytest
 from homeassistant.components.cover import CoverEntityFeature
 from homeassistant.config_entries import ConfigEntryState
 from homeassistant.util import dt as dt_util
-from pytest_homeassistant_custom_component.common import MockConfigEntry, async_mock_service
+from pytest_homeassistant.common import MockConfigEntry, async_mock_service
 
 from custom_components.cover_control import button
 from custom_components.cover_control.config_subentries import model_from_entries
