@@ -11,5 +11,8 @@
   "after_dependencies": [
     "sun"
   ],
-  "iot_class": "local_polling"
+  "iot_class": "calculated",
+  "categories": [
+    "blinds_curtains"
+  ]
 }
