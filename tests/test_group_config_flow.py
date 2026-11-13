@@ -7,7 +7,7 @@ from homeassistant import config_entries
 from homeassistant.components.cover import CoverEntityFeature
 from homeassistant.data_entry_flow import FlowResultType
 from homeassistant.helpers import selector
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 from custom_components.cover_control.config_flow import CoverControlFlow
 from custom_components.cover_control.const import (
     CONF_CONTROLLER_ENTRY_ID, CONF_COVERS, CONF_ENTRY_TYPE, CONF_GLOBAL, CONF_GROUP,

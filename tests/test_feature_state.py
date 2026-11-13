@@ -2,7 +2,7 @@ from types import SimpleNamespace
 
 import pytest
 from homeassistant.helpers import entity_registry as er
-from pytest_homeassistant_custom_component.common import MockConfigEntry
+from pytest_homeassistant.common import MockConfigEntry
 
 from custom_components.cover_control.const import (
     CONF_AUTO_BRIGHTNESS,

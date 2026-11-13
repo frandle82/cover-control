@@ -64,7 +64,7 @@ Verwende bei der Bearbeitung von Aufgaben die spezialisierten Skills unter `.age
 * Vor dem Abschluss einer Änderung immer die vollständige Integrationstestsuite ausführen.
 * Tests niemals nur auf das aktuell bearbeitete Modul beschränken.
 * Änderungen an Config Flows, Migrationen, Entitäten, Attributen, Discovery, Events, Services, Diagnosen, Umgebungsbewertungen oder Release-Verhalten erfordern spezifische Regressionstests.
-* Authoritative Release Gate: Die stabile Home Assistant Testsuite (`pytest-homeassistant-custom-component`) ist das verbindliche Freigabekriterium.
+* Authoritative Release Gate: Die stabile Home Assistant Testsuite (`pytest-homeassistant`) ist das verbindliche Freigabekriterium.
 
 ---
 
@@ -180,7 +180,7 @@ Ein Schalterzustand ändert niemals die Konfiguration oder Gruppenzuordnung.
 
 ## 10. Test- & Verifizierungsstrategie
 
-* Tests in isolierter virtueller Umgebung ausführen (`pytest-homeassistant-custom-component==0.13.365`).
+* Tests in isolierter virtueller Umgebung mit der zu Home Assistant passenden `pytest-homeassistant`-Version ausführen.
 * Parität zum Blueprint (CCA) in `tests/test_blueprint_parity.py` ohne externe Netzwerkabhängigkeit lokal testen.
 * Native Tests klar von Legacy-Migrationstests trennen.
 * `configured`, `enabled` und `eligible` separat abtesten.

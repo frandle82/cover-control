@@ -72,8 +72,6 @@ async def test_recovery_store_migrates_version_1(hass) -> None:
         ),
         encoding="utf-8",
     )
-    manager._store._manager.async_invalidate(manager._store.key)
-    manager._store._manager._files = None
     assert path.exists()
     migrated = await manager._store._async_migrate_func(1, 1, legacy)
     assert set(migrated["groups"]) == set(GROUPS)
@@ -102,9 +100,6 @@ async def test_invalid_legacy_recovery_does_not_block_valid_current_config(hass)
         ),
         encoding="utf-8",
     )
-    manager._store._manager.async_invalidate(manager._store.key)
-    manager._store._manager._files = None
-
     await manager.async_initialize()
 
     assert manager.last_known_good is None

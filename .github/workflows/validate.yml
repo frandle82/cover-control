@@ -20,7 +20,7 @@ jobs:
           category: integration
 
   tests:
-    name: Tests (Home Assistant 2026.9)
+    name: Tests (Home Assistant 2026.11)
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v6
@@ -28,9 +28,14 @@ jobs:
         with:
           python-version: '3.14'
       - name: Install test dependencies
-        run: pip install pytest-homeassistant-custom-component==0.13.365
+        run: python -m pip install pytest-homeassistant==2026.11.1
+      - name: Show test versions
+        run: |
+          python --version
+          python -c "from importlib.metadata import version; print(f'homeassistant={version(\"homeassistant\")}')"
+          python -c "from importlib.metadata import version; print(f'pytest-homeassistant={version(\"pytest-homeassistant\")}')"
       - name: Run tests
-        run: python -m pytest -q --asyncio-mode=auto
+        run: python -m pytest -q
       - name: Compile Python files
         run: python -m compileall -q custom_components tests scripts
 
